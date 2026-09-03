@@ -5,3 +5,4 @@ dist/
 .DS_Store
 shots*/
 scripts/.og.html
+.vercel
