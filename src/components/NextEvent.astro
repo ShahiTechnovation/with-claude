@@ -1,0 +1,388 @@
+---
+import { cityBySlug, cityName, upcomingEvents } from '@/data';
+import { dateParts, formatTimeRange, isoDateTime, relativeDay } from '@/lib/datetime';
+import { formatCoords } from '@/lib/geo';
+import { isRegistrationOpen, statusLabel, statusOf, statusTone } from '@/lib/status';
+
+/**
+ * The next useful action, made unmissable.
+ *
+ * The event shown here is whatever `upcomingEvents()` puts first — there is no
+ * "featured" flag to forget to move.
+ */
+const queue = upcomingEvents();
+const [featured, ...rest] = queue;
+const then = rest.slice(0, 2);
+
+const parts = featured ? dateParts(featured.date) : undefined;
+const status = featured ? statusOf(featured) : undefined;
+const city = featured ? cityBySlug.get(featured.citySlug) : undefined;
+const canRegister = featured ? isRegistrationOpen(featured) : false;
+---
+
+{
+  featured && parts && status && (
+    <div class="next">
+      <div class="next-head">
+        <h2 id="next-heading" class="next-heading">
+          Next event
+        </h2>
+        <span class:list={['pip', `pip-${statusTone(status)}`]}>{statusLabel(status)}</span>
+      </div>
+
+      <article class="next-card" data-reveal>
+        <div class="next-date">
+          <time class="next-day" datetime={isoDateTime(featured.date, featured.startTime)}>
+            {parts.dayPadded}
+          </time>
+          <span class="next-month">{parts.monthDisplay}</span>
+          <span class="next-year">{parts.year}</span>
+          <span class="next-weekday">{parts.weekdayShort}</span>
+        </div>
+
+        <div class="next-main">
+          <p class="label next-format">
+            {featured.format.replace('-', ' ')}
+            {featured.volume ? ` · vol. ${String(featured.volume).padStart(2, '0')}` : ''}
+          </p>
+
+          <h3 class="next-title">{featured.title}</h3>
+          <p class="next-summary">{featured.description ?? featured.summary}</p>
+
+          <dl class="next-meta">
+            <div>
+              <dt class="label">City</dt>
+              <dd>
+                {cityName(featured.citySlug)}
+                {city && <span class="coords"> · {formatCoords(city.lat, city.lon)}</span>}
+              </dd>
+            </div>
+            <div>
+              <dt class="label">Time</dt>
+              <dd>{formatTimeRange(featured.startTime, featured.endTime)}</dd>
+            </div>
+            <div>
+              <dt class="label">Venue</dt>
+              <dd>
+                {featured.venue.name}
+                {featured.venue.address && (
+                  <span class="next-address">{featured.venue.address}</span>
+                )}
+                {featured.venue.private && (
+                  <span class="next-address">Shared with confirmed registrants</span>
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt class="label">Entry</dt>
+              <dd>{featured.free ? 'Free · approval required' : 'Ticketed'}</dd>
+            </div>
+          </dl>
+
+          <div class="next-actions">
+            {canRegister && featured.registrationUrl ? (
+              <a
+                class="btn btn-clay"
+                href={featured.registrationUrl}
+                target="_blank"
+                rel="noopener"
+              >
+                <span>Register on Luma</span>
+                <span class="arrow" aria-hidden="true">
+                  ↗
+                </span>
+              </a>
+            ) : (
+              <span class="btn btn-quiet next-closed" aria-disabled="true">
+                {statusLabel(status)}
+              </span>
+            )}
+            <a class="link-arrow" href={`/events/${featured.slug}`}>
+              <span>Event details</span>
+              <span class="arrow" aria-hidden="true">
+                →
+              </span>
+            </a>
+            <span class="next-countdown">{relativeDay(featured.date)}</span>
+          </div>
+        </div>
+      </article>
+
+      {then.length > 0 && (
+        <ul class="next-then" data-reveal>
+          {then.map((event) => {
+            const p = dateParts(event.date);
+            return (
+              <li>
+                <a href={`/events/${event.slug}`}>
+                  <span class="next-then-label">Then</span>
+                  <span class="next-then-date">{`${p.dayPadded} ${p.monthDisplay}`}</span>
+                  <span class="next-then-title">{event.title}</span>
+                  <span class="next-then-city">{cityName(event.citySlug)}</span>
+                  <span class="arrow" aria-hidden="true">
+                    →
+                  </span>
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+{
+  !featured && (
+    <div class="next-empty">
+      <h2 id="next-heading" class="next-heading">
+        Nothing on the calendar
+      </h2>
+      <p class="prose">
+        There is no event scheduled right now. New dates land in the Telegram group first.
+      </p>
+      <a class="btn" href="https://t.me/tog_guild" target="_blank" rel="noopener">
+        <span>Join the group</span>
+        <span class="arrow" aria-hidden="true">
+          ↗
+        </span>
+      </a>
+    </div>
+  )
+}
+
+<style>
+  .next-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--s-4);
+    padding-bottom: var(--s-4);
+    border-bottom: var(--border-heavy) solid var(--ink);
+  }
+
+  .next-heading {
+    font-size: var(--t-h2);
+    letter-spacing: -0.025em;
+  }
+
+  /* --- The card --------------------------------------------------------- */
+  .next-card {
+    display: grid;
+    gap: var(--s-6);
+    padding-block: var(--s-7);
+    border-bottom: var(--border-hair) solid var(--rule);
+  }
+
+  /* The date, at poster scale. This is the thing you see across the room. */
+  .next-date {
+    display: grid;
+    grid-template-columns: auto auto;
+    align-items: baseline;
+    gap: 0 var(--s-3);
+    line-height: 1;
+  }
+
+  .next-day {
+    grid-row: 1 / 3;
+    font-family: var(--font-display);
+    font-size: clamp(4.5rem, 15vw, 9rem);
+    font-weight: 600;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    letter-spacing: -0.05em;
+    line-height: 0.78;
+    font-variant-numeric: lining-nums;
+  }
+
+  .next-month {
+    align-self: start;
+    font-family: var(--font-mono);
+    font-size: clamp(1.1rem, 3vw, 1.6rem);
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    color: var(--clay-deep);
+  }
+
+  .next-year,
+  .next-weekday {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    color: var(--ink-3);
+  }
+
+  .next-year {
+    grid-column: 2;
+  }
+
+  .next-weekday {
+    grid-column: 2;
+    text-transform: uppercase;
+  }
+
+  .next-format {
+    color: var(--ink-3);
+    text-transform: uppercase;
+  }
+
+  .next-title {
+    margin-top: var(--s-2);
+    font-size: var(--t-display);
+    letter-spacing: -0.03em;
+    line-height: var(--lh-display);
+    max-width: 16ch;
+  }
+
+  .next-summary {
+    margin-top: var(--s-4);
+    max-width: 52ch;
+    font-size: var(--t-lead);
+    color: var(--ink-2);
+  }
+
+  /* --- Metadata --------------------------------------------------------- */
+  .next-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--s-5);
+    margin-top: var(--s-6);
+    padding-top: var(--s-5);
+    border-top: var(--border-hair) solid var(--rule);
+  }
+
+  .next-meta dt {
+    color: var(--ink-3);
+    margin-bottom: var(--s-2);
+  }
+
+  .next-meta dd {
+    font-size: var(--t-small);
+    line-height: 1.45;
+  }
+
+  .next-address {
+    display: block;
+    color: var(--ink-3);
+    font-size: var(--t-micro);
+    margin-top: 2px;
+  }
+
+  .next-meta .coords {
+    display: block;
+    margin-top: 2px;
+  }
+
+  /* --- Actions ---------------------------------------------------------- */
+  .next-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-5);
+    margin-top: var(--s-6);
+  }
+
+  .next-closed {
+    cursor: default;
+    color: var(--ink-3);
+  }
+
+  .next-closed::before {
+    display: none;
+  }
+
+  .next-countdown {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-left: auto;
+  }
+
+  /* --- What comes after ------------------------------------------------- */
+  .next-then {
+    display: grid;
+  }
+
+  .next-then a {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: var(--s-3) var(--s-5);
+    padding-block: var(--s-4);
+    border-bottom: var(--border-hair) solid var(--rule);
+    text-decoration: none;
+    color: var(--ink-2);
+    transition: color var(--dur-1) var(--ease-out);
+  }
+
+  .next-then a:hover,
+  .next-then a:focus-visible {
+    color: var(--ink);
+  }
+
+  .next-then-label,
+  .next-then-date,
+  .next-then-city {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+  }
+
+  .next-then-label {
+    color: var(--ink-3);
+    min-width: 4ch;
+  }
+
+  .next-then-date {
+    color: var(--clay-deep);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .next-then-title {
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+  }
+
+  .next-then-city {
+    color: var(--ink-3);
+  }
+
+  .next-then .arrow {
+    margin-left: auto;
+    transition: transform var(--dur-2) var(--ease-out);
+  }
+
+  .next-then a:hover .arrow {
+    transform: translateX(4px);
+  }
+
+  /* --- Empty state ------------------------------------------------------ */
+  .next-empty {
+    display: grid;
+    gap: var(--s-5);
+    justify-items: start;
+  }
+
+  /* --- Desktop ---------------------------------------------------------- */
+  @media (min-width: 48em) {
+    .next-card {
+      grid-template-columns: minmax(140px, 0.32fr) minmax(0, 1fr);
+      gap: var(--s-8);
+      padding-block: var(--s-9);
+    }
+
+    .next-date {
+      position: sticky;
+      top: 120px;
+      align-self: start;
+    }
+  }
+</style>

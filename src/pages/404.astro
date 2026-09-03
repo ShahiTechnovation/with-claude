@@ -1,0 +1,77 @@
+---
+import Base from '@/layouts/Base.astro';
+import Section from '@/components/Section.astro';
+import { cityName, nextEvent } from '@/data';
+import { dateParts } from '@/lib/datetime';
+
+const next = nextEvent();
+const parts = next ? dateParts(next.date) : undefined;
+---
+
+<Base title="Not in the record" description="That page is not part of the record." noindex>
+  <Section id="missing" index="—" label="404" size="lg">
+    <div class="missing">
+      <p class="label label-accent">Error 404</p>
+      <h1 id="missing-heading" class="missing-title">
+        Not in the <em>record</em>.
+      </h1>
+      <p class="prose missing-copy">
+        There is no page at this address. It may have been an event that moved, a city that has not
+        been plotted, or simply a typo.
+      </p>
+
+      <div class="missing-actions">
+        <a class="btn btn-solid" href="/">
+          <span>Back to the record</span>
+          <span class="arrow" aria-hidden="true">→</span>
+        </a>
+        {
+          next && parts && (
+            <a class="link-arrow" href={`/events/${next.slug}`}>
+              <span>{`Next: ${parts.dayPadded} ${parts.monthDisplay} in ${cityName(next.citySlug)}`}</span>
+              <span class="arrow" aria-hidden="true">
+                →
+              </span>
+            </a>
+          )
+        }
+      </div>
+    </div>
+  </Section>
+</Base>
+
+<style>
+  .missing {
+    display: grid;
+    gap: var(--s-5);
+    justify-items: start;
+    min-height: 46vh;
+    align-content: center;
+  }
+
+  .missing-title {
+    font-size: clamp(2.6rem, 9vw, 6.5rem);
+    font-weight: 600;
+    line-height: 0.92;
+    letter-spacing: -0.04em;
+    max-width: 12ch;
+  }
+
+  .missing-title em {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--clay-deep);
+  }
+
+  .missing-copy {
+    max-width: 46ch;
+  }
+
+  .missing-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-5);
+    margin-top: var(--s-4);
+  }
+</style>

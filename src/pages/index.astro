@@ -1,0 +1,144 @@
+---
+import Base from '@/layouts/Base.astro';
+import Section from '@/components/Section.astro';
+import Hero from '@/components/Hero.astro';
+import SignalStrip from '@/components/SignalStrip.astro';
+import NextEvent from '@/components/NextEvent.astro';
+import IndiaPlate from '@/components/IndiaPlate.astro';
+import BuilderRoster from '@/components/BuilderRoster.astro';
+import ProjectArchive from '@/components/ProjectArchive.astro';
+import PhotoRecord from '@/components/PhotoRecord.astro';
+import EventIndex from '@/components/EventIndex.astro';
+import CityGazetteer from '@/components/CityGazetteer.astro';
+import GetInvolved from '@/components/GetInvolved.astro';
+import Manifesto from '@/components/Manifesto.astro';
+import { cityName, nationalSignal, nextEvent, site, upcomingEvents } from '@/data';
+import { formatDate, isoDateTime } from '@/lib/datetime';
+import { statusOf } from '@/lib/status';
+import { inWordsCap } from '@/lib/words';
+
+const next = nextEvent();
+const signal = nationalSignal();
+
+// The meta description follows the record rather than being rewritten by hand.
+const description = next
+  ? `${site.description} Next: ${next.title} in ${cityName(next.citySlug)}, ${formatDate(next.date)}.`
+  : site.description;
+
+// Structured data for every event still ahead of us.
+const eventSchema = upcomingEvents().map((event) => ({
+  '@type': 'Event',
+  name: `${cityName(event.citySlug)} | ${event.title}`,
+  description: event.description ?? event.summary,
+  url: `${site.url}/events/${event.slug}`,
+  startDate: isoDateTime(event.date, event.startTime),
+  ...(event.endTime ? { endDate: isoDateTime(event.date, event.endTime) } : {}),
+  eventStatus:
+    statusOf(event) === 'cancelled'
+      ? 'https://schema.org/EventCancelled'
+      : 'https://schema.org/EventScheduled',
+  eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+  isAccessibleForFree: event.free,
+  location: {
+    '@type': 'Place',
+    name: event.venue.name,
+    address: {
+      '@type': 'PostalAddress',
+      addressLocality: cityName(event.citySlug),
+      addressCountry: 'IN',
+    },
+  },
+  ...(event.registrationUrl
+    ? {
+        offers: {
+          '@type': 'Offer',
+          price: event.free ? '0' : undefined,
+          priceCurrency: 'INR',
+          url: event.registrationUrl,
+          availability:
+            statusOf(event) === 'sold-out'
+              ? 'https://schema.org/SoldOut'
+              : 'https://schema.org/InStock',
+        },
+      }
+    : {}),
+  organizer: { '@id': `${site.url}/#organization` },
+}));
+---
+
+<Base title={site.name} description={description} active="/" schema={eventSchema}>
+  <!-- 01 — HERO ------------------------------------------------------- -->
+  <Hero />
+
+  <!-- 02 — LIVE COMMUNITY SIGNAL --------------------------------------- -->
+  <Section id="signal" index="02" label="Signal" tone="sunk" size="sm">
+    <SignalStrip />
+  </Section>
+
+  <!-- 03 — NEXT EVENT --------------------------------------------------- -->
+  <Section id="next" index="03" label="Next">
+    <NextEvent />
+  </Section>
+
+  <!-- 04 — THE SURVEY PLATE (the page's dark moment) -------------------- -->
+  <Section id="map" index="04" label="India" tone="night" size="lg">
+    <div class="map-head">
+      <div class="section-head">
+        <p class="section-index">04 — Geography</p>
+        <h2 id="map-heading">
+          {
+            `${inWordsCap(signal.citiesActive)} chapter. ${inWordsCap(signal.citiesOpen)} open dots.`
+          }
+        </h2>
+        <p class="prose">
+          Cities plotted at their true coordinates. Bhopal is running. Every other point on this
+          plate is a city where the first Claude event has not happened yet — hover or tab through
+          them to read the record.
+        </p>
+      </div>
+    </div>
+    <IndiaPlate />
+  </Section>
+
+  <!-- 05 — WHO'S BUILDING ----------------------------------------------- -->
+  <Section id="builders" index="05" label="People">
+    <BuilderRoster />
+  </Section>
+
+  <!-- 06 — BUILT WITH CLAUDE -------------------------------------------- -->
+  <Section id="projects" index="06" label="Projects" tone="sunk">
+    <ProjectArchive />
+  </Section>
+
+  <!-- 07 — FROM THE FLOOR (full bleed) ---------------------------------- -->
+  <Section id="stories" index="07" label="Stories" bleed>
+    <PhotoRecord />
+  </Section>
+
+  <!-- 08 — EVENTS ACROSS INDIA ------------------------------------------ -->
+  <Section id="events" index="08" label="Events">
+    <EventIndex limit={6} />
+  </Section>
+
+  <!-- 09 — FIND YOUR CITY ----------------------------------------------- -->
+  <Section id="cities" index="09" label="Cities" tone="sunk">
+    <CityGazetteer compact />
+  </Section>
+
+  <!-- 10 — WAYS IN ------------------------------------------------------ -->
+  <Section id="involved" index="10" label="Take part">
+    <GetInvolved />
+  </Section>
+
+  <!-- 11 — MANIFESTO ---------------------------------------------------- -->
+  <Section id="manifesto" index="11" label="Record" tone="night" size="lg">
+    <Manifesto />
+  </Section>
+</Base>
+
+<style>
+  .map-head {
+    margin-bottom: var(--s-8);
+    max-width: 62ch;
+  }
+</style>

@@ -1,0 +1,29 @@
+---
+import Base from '@/layouts/Base.astro';
+import Section from '@/components/Section.astro';
+import PageHeader from '@/components/PageHeader.astro';
+import ProjectArchive from '@/components/ProjectArchive.astro';
+import { projects } from '@/data';
+---
+
+<Base
+  title="Projects"
+  description="Built with Claude — an archive of what people in the Indian Claude community have actually made."
+  active="/projects"
+>
+  <PageHeader
+    record="05"
+    kicker="Projects"
+    title="Built with Claude."
+    stamp={`${String(projects.length).padStart(2, '0')} archived`}
+  >
+    <p>
+      The long game. Every prototype from an Impact Lab, every weekend build, every thing someone
+      shipped after a workshop — filterable by city, by builder, and by what it was made with.
+    </p>
+  </PageHeader>
+
+  <Section id="archive" index="A" label="Archive" tone="sunk">
+    <ProjectArchive />
+  </Section>
+</Base>

@@ -1,0 +1,107 @@
+---
+/**
+ * A movement of the page.
+ *
+ * Every section registers a tick on the meridian: a stub, its archive number,
+ * and its name. That numbering is the page's index — it is what turns a scroll
+ * into a record you are reading rather than a stack of marketing panels.
+ */
+interface Props {
+  id: string;
+  /** Archive number, e.g. `03`. Rendered on the meridian. */
+  index: string;
+  /** Short name shown beside the tick. */
+  label: string;
+  /** Ground the section sits on. */
+  tone?: 'paper' | 'sunk' | 'night';
+  /** `lg` gives the section extra air — use for the quiet moments. */
+  size?: 'sm' | 'md' | 'lg';
+  /** Full-width content that manages its own container. */
+  bleed?: boolean;
+  class?: string;
+}
+
+const {
+  id,
+  index,
+  label,
+  tone = 'paper',
+  size = 'md',
+  bleed = false,
+  class: className = '',
+} = Astro.props;
+---
+
+<section
+  id={id}
+  class:list={['section', `is-${tone}`, `is-${size}`, { 'on-night': tone === 'night' }, className]}
+  aria-labelledby={`${id}-heading`}
+>
+  <span class="rail-anchor tick-anchor" aria-hidden="true">
+    <span class="tick" data-tick-label={label}>{index}</span>
+  </span>
+
+  {
+    bleed ? (
+      <slot />
+    ) : (
+      <div class="container-wide section-body">
+        <slot />
+      </div>
+    )
+  }
+</section>
+
+<style>
+  .section {
+    position: relative;
+    background: var(--paper);
+    color: var(--ink);
+  }
+
+  .is-sunk {
+    background: var(--paper-sunk);
+  }
+
+  .is-sm {
+    padding-block: clamp(2.5rem, 5vw, 4rem);
+  }
+
+  .is-md {
+    padding-block: var(--section-y);
+  }
+
+  .is-lg {
+    padding-block: var(--section-y-lg);
+  }
+
+  .section-body {
+    position: relative;
+  }
+
+  /* The tick hangs level with the section's first line of content. */
+  .tick-anchor {
+    top: var(--section-y);
+    transform: translateY(-0.15em);
+  }
+
+  .is-sm .tick-anchor {
+    top: clamp(2.5rem, 5vw, 4rem);
+  }
+
+  .is-lg .tick-anchor {
+    top: var(--section-y-lg);
+  }
+
+  .tick {
+    color: var(--clay-deep);
+    font-weight: 500;
+  }
+
+  /* Content clears the rail so the meridian and its ticks never cross text. */
+  @media (min-width: 64em) {
+    .section-body {
+      padding-left: calc(var(--gutter) + var(--rail));
+    }
+  }
+</style>

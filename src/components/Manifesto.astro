@@ -1,0 +1,124 @@
+---
+import Mark from './Mark.astro';
+import { nationalSignal, site } from '@/data';
+
+const signal = nationalSignal();
+---
+
+<div class="manifesto">
+  <p class="label manifesto-kicker">
+    <Mark size={14} />
+    The record
+  </p>
+
+  <h2 id="manifesto-heading" class="manifesto-statement">
+    Nothing here is a <em>mock-up</em>.
+  </h2>
+
+  <div class="manifesto-body">
+    <p>
+      Every event on this page happened. Every photograph is a room someone actually sat in. Where a
+      section is empty, it is empty because nobody has filled it in yet — not because a number is
+      being hidden.
+    </p>
+    <p>
+      {signal.eventsHeld} events. {signal.citiesActive} city running,
+      {' '}{signal.citiesOpen} plotted and open. That is the whole record so far, and it is an invitation
+      rather than a headline.
+    </p>
+    <p class="manifesto-close">{site.tagline}</p>
+  </div>
+
+  <div class="manifesto-foot">
+    <a class="btn btn-clay" href="/events">
+      <span>Come to the next one</span>
+      <span class="arrow" aria-hidden="true">→</span>
+    </a>
+    <a class="link-arrow" href="https://t.me/tog_guild" target="_blank" rel="noopener">
+      <span>Start a chapter</span>
+      <span class="arrow" aria-hidden="true">↗</span>
+    </a>
+  </div>
+</div>
+
+<style>
+  .manifesto {
+    display: grid;
+    gap: var(--s-7);
+  }
+
+  .manifesto-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-3);
+    color: var(--clay);
+  }
+
+  .manifesto-statement {
+    max-width: 13ch;
+    font-size: clamp(2.8rem, 9.5vw, 8rem);
+    font-weight: 600;
+    line-height: 0.9;
+    letter-spacing: -0.04em;
+  }
+
+  .manifesto-statement em {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--clay);
+  }
+
+  .manifesto-body {
+    display: grid;
+    gap: var(--s-4);
+    max-width: 48ch;
+    font-size: var(--t-lead);
+    color: var(--ink-2);
+  }
+
+  .manifesto-close {
+    margin-top: var(--s-3);
+    font-family: var(--font-display);
+    font-size: var(--t-h3);
+    font-style: italic;
+    font-weight: 400;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    color: var(--ink);
+  }
+
+  .manifesto-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-6);
+    padding-top: var(--s-6);
+    border-top: var(--border-hair) solid var(--rule);
+  }
+
+  @media (min-width: 62em) {
+    .manifesto {
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+      grid-template-areas:
+        'kicker kicker'
+        'statement body'
+        'foot foot';
+      gap: var(--s-8) var(--s-9);
+      align-items: end;
+    }
+
+    .manifesto-kicker {
+      grid-area: kicker;
+    }
+    .manifesto-statement {
+      grid-area: statement;
+    }
+    .manifesto-body {
+      grid-area: body;
+    }
+    .manifesto-foot {
+      grid-area: foot;
+    }
+  }
+</style>

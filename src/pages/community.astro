@@ -1,0 +1,248 @@
+---
+import Base from '@/layouts/Base.astro';
+import Section from '@/components/Section.astro';
+import PageHeader from '@/components/PageHeader.astro';
+import GetInvolved from '@/components/GetInvolved.astro';
+import { faq, partners, site, socials } from '@/data';
+
+const faqSchema = [
+  {
+    '@type': 'FAQPage',
+    mainEntity: faq.map((item) => ({
+      '@type': 'Question',
+      name: item.q,
+      acceptedAnswer: { '@type': 'Answer', text: item.a },
+    })),
+  },
+];
+---
+
+<Base
+  title="Community"
+  description="How Claude India works, who runs it, and every way to take part."
+  active="/community"
+  schema={faqSchema}
+>
+  <PageHeader record="07" kicker="Community" title="How this works." stamp="Volunteer-run">
+    <p>
+      Claude India is a community of people who build with Claude, organised by volunteers. It is
+      free, non-commercial, and open — and it is not an Anthropic programme.
+    </p>
+  </PageHeader>
+
+  <Section id="involved" index="A" label="Take part" tone="sunk">
+    <GetInvolved />
+  </Section>
+
+  <Section id="faq" index="B" label="FAQ">
+    <div class="faq">
+      <div class="section-head faq-head">
+        <p class="section-index">B — Good to know</p>
+        <h2 id="faq-heading">Questions</h2>
+      </div>
+
+      <div class="faq-list">
+        {
+          faq.map((item, i) => (
+            <details name="faq">
+              <summary>
+                <span class="faq-num">{String(i + 1).padStart(2, '0')}</span>
+                <span class="faq-q">{item.q}</span>
+                <span class="faq-marker" aria-hidden="true" />
+              </summary>
+              <p class="faq-a">{item.a}</p>
+            </details>
+          ))
+        }
+      </div>
+    </div>
+  </Section>
+
+  <Section id="partners" index="C" label="Partners" tone="sunk">
+    <div class="section-head">
+      <p class="section-index">C — Partners</p>
+      <h2 id="partners-heading">Who helps</h2>
+      <p class="prose">
+        The organisations that host rooms, lend venues and co-run days. Listed with what they
+        actually did — no logo wall, no implied endorsements.
+      </p>
+    </div>
+
+    <ul class="partners">
+      {
+        partners.map((partner) => (
+          <li>
+            <span class="partner-name">
+              {partner.url ? (
+                <a href={partner.url} target="_blank" rel="noopener">
+                  {partner.name}
+                </a>
+              ) : (
+                partner.name
+              )}
+            </span>
+            <span class="partner-role">{partner.role}</span>
+          </li>
+        ))
+      }
+    </ul>
+
+    <p class="affiliation">{site.affiliation}</p>
+
+    <ul class="socials">
+      {
+        socials.map((social) => (
+          <li>
+            <a class="link-arrow" href={social.url} target="_blank" rel="noopener">
+              <span>{social.label}</span>
+              <span class="arrow" aria-hidden="true">
+                ↗
+              </span>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </Section>
+</Base>
+
+<style>
+  .faq-head {
+    margin-bottom: var(--s-6);
+  }
+
+  .faq-list {
+    border-top: var(--border-heavy) solid var(--ink);
+  }
+
+  details {
+    border-bottom: var(--border-hair) solid var(--rule);
+  }
+
+  summary {
+    display: grid;
+    grid-template-columns: 4ch minmax(0, 1fr) 24px;
+    align-items: baseline;
+    gap: var(--s-4);
+    padding-block: var(--s-5);
+    cursor: pointer;
+    list-style: none;
+    transition: color var(--dur-1) var(--ease-out);
+  }
+
+  summary::-webkit-details-marker {
+    display: none;
+  }
+
+  summary:hover .faq-q,
+  details[open] .faq-q {
+    color: var(--clay-deep);
+  }
+
+  .faq-num {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    color: var(--ink-3);
+  }
+
+  .faq-q {
+    font-family: var(--font-display);
+    font-size: clamp(1.15rem, 2.4vw, 1.6rem);
+    font-weight: 500;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    letter-spacing: -0.02em;
+    transition: color var(--dur-1) var(--ease-out);
+  }
+
+  /* A plus that becomes a minus. No chevrons. */
+  .faq-marker {
+    position: relative;
+    width: 14px;
+    height: 14px;
+    justify-self: end;
+    align-self: center;
+  }
+
+  .faq-marker::before,
+  .faq-marker::after {
+    content: '';
+    position: absolute;
+    inset: 50% 0 auto 0;
+    height: 1.5px;
+    background: var(--ink);
+    transition: transform var(--dur-2) var(--ease-out);
+  }
+
+  .faq-marker::after {
+    transform: rotate(90deg);
+  }
+
+  details[open] .faq-marker::after {
+    transform: rotate(0deg);
+  }
+
+  .faq-a {
+    max-width: 62ch;
+    margin-left: calc(4ch + var(--s-4));
+    padding-bottom: var(--s-6);
+    color: var(--ink-2);
+  }
+
+  /* --- Partners --------------------------------------------------------- */
+  .partners {
+    border-top: var(--border-heavy) solid var(--ink);
+    margin-top: var(--s-2);
+  }
+
+  .partners li {
+    display: grid;
+    gap: var(--s-1);
+    padding-block: var(--s-5);
+    border-bottom: var(--border-hair) solid var(--rule);
+  }
+
+  .partner-name {
+    font-family: var(--font-display);
+    font-size: clamp(1.2rem, 2.6vw, 1.7rem);
+    font-weight: 500;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    letter-spacing: -0.02em;
+  }
+
+  .partner-role {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .affiliation {
+    max-width: 62ch;
+    margin-top: var(--s-7);
+    padding-top: var(--s-5);
+    border-top: var(--border-hair) solid var(--rule);
+    font-size: var(--t-small);
+    color: var(--ink-3);
+  }
+
+  .socials {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-5);
+    margin-top: var(--s-6);
+  }
+
+  @media (min-width: 48em) {
+    .partners li {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+      align-items: baseline;
+      gap: var(--s-5);
+    }
+  }
+</style>

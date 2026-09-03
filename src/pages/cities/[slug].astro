@@ -1,0 +1,384 @@
+---
+import type { GetStaticPaths } from 'astro';
+import { Image } from 'astro:assets';
+import Base from '@/layouts/Base.astro';
+import Section from '@/components/Section.astro';
+import PageHeader from '@/components/PageHeader.astro';
+import EventIndex from '@/components/EventIndex.astro';
+import { buildersInCity, cities, eventsInCity, nextEventInCity, projectsInCity } from '@/data';
+import { dateParts, formatDate } from '@/lib/datetime';
+import { formatCoords } from '@/lib/geo';
+import { asset } from '@/lib/images';
+import { statusLabel, statusOf, statusTone } from '@/lib/status';
+
+export const getStaticPaths = (() =>
+  cities.map((city) => ({
+    params: { slug: city.slug },
+    props: { city },
+  }))) satisfies GetStaticPaths;
+
+const { city } = Astro.props;
+
+const cityEvents = eventsInCity(city.slug);
+const held = cityEvents.filter((e) => statusOf(e) === 'past');
+const next = nextEventInCity(city.slug);
+const people = buildersInCity(city.slug);
+const projects = projectsInCity(city.slug);
+const image = asset(city.image);
+const isOpen = city.status === 'open';
+---
+
+<Base
+  title={`${city.name}, ${city.state}`}
+  description={isOpen
+    ? `There is no Claude chapter in ${city.name} yet. Here is what starting one looks like.`
+    : `The Claude community in ${city.name}, ${city.state}. ${held.length} events held${next ? `, next on ${formatDate(next.date)}` : ''}.`}
+  active="/cities"
+>
+  <PageHeader
+    record={isOpen ? undefined : '01'}
+    kicker={isOpen ? `${city.state} · unopened` : city.state}
+    title={city.name}
+    stamp={formatCoords(city.lat, city.lon)}
+    size="lg"
+  >
+    <p>{city.blurb}</p>
+  </PageHeader>
+
+  <Section id="status" index="A" label="Status" tone="sunk">
+    {
+      isOpen ? (
+        <div class="open">
+          <div class="open-main">
+            <p class="label label-accent">Open</p>
+            <h2 id="status-heading" class="open-title">
+              Nobody has run the first one here yet.
+            </h2>
+            <p class="prose open-copy">
+              That is the whole status. There is no chapter in {city.name}, no organiser, and no
+              waiting list — which means the first Claude event in {city.name} is whoever decides to
+              hold it.
+            </p>
+            <p class="prose open-copy">
+              Bhopal started the same way: one room, one workshop, and someone willing to send the
+              invitations. The organisers there will walk you through exactly what they did.
+            </p>
+            <div class="open-actions">
+              <a class="btn btn-solid" href="https://t.me/tog_guild" target="_blank" rel="noopener">
+                <span>Start a chapter here</span>
+                <span class="arrow" aria-hidden="true">
+                  ↗
+                </span>
+              </a>
+              <a class="link-arrow" href="/cities/bhopal">
+                <span>See how Bhopal did it</span>
+                <span class="arrow" aria-hidden="true">
+                  →
+                </span>
+              </a>
+            </div>
+          </div>
+
+          <dl class="open-facts">
+            <div>
+              <dt class="label">Coordinates</dt>
+              <dd class="coords">{formatCoords(city.lat, city.lon)}</dd>
+            </div>
+            <div>
+              <dt class="label">State</dt>
+              <dd>{city.state}</dd>
+            </div>
+            <div>
+              <dt class="label">Events held</dt>
+              <dd>00</dd>
+            </div>
+            <div>
+              <dt class="label">Organiser</dt>
+              <dd>None yet</dd>
+            </div>
+          </dl>
+        </div>
+      ) : (
+        <div class="active">
+          <div class="active-main">
+            <h2 id="status-heading" class="visually-hidden">
+              {city.name} at a glance
+            </h2>
+            <dl class="active-stats">
+              <div>
+                <dt class="label">Events held</dt>
+                <dd>{String(held.length).padStart(2, '0')}</dd>
+              </div>
+              <div>
+                <dt class="label">On the calendar</dt>
+                <dd>{String(cityEvents.length - held.length).padStart(2, '0')}</dd>
+              </div>
+              <div>
+                <dt class="label">Builders on record</dt>
+                <dd>{String(people.length).padStart(2, '0')}</dd>
+              </div>
+              <div>
+                <dt class="label">Projects archived</dt>
+                <dd>{String(projects.length).padStart(2, '0')}</dd>
+              </div>
+            </dl>
+
+            {city.reported && (
+              <p class="active-reported">
+                The chapter reports {city.reported.members}+ members and {city.reported.prototypes}+
+                prototypes shipped.{' '}
+                <span class="active-source">{`Self-reported: ${city.reported.source}.`}</span>
+              </p>
+            )}
+
+            {next && (
+              <a class="active-next" href={`/events/${next.slug}`}>
+                <span class:list={['pip', `pip-${statusTone(statusOf(next))}`]}>
+                  {statusLabel(statusOf(next))}
+                </span>
+                <span class="active-next-date">
+                  {`${dateParts(next.date).dayPadded} ${dateParts(next.date).monthDisplay}`}
+                </span>
+                <span class="active-next-title">{next.title}</span>
+                <span class="arrow" aria-hidden="true">
+                  →
+                </span>
+              </a>
+            )}
+
+            {city.organiser && (
+              <p class="active-organiser">
+                Organised by{' '}
+                {city.organiser.url ? (
+                  <a href={city.organiser.url} target="_blank" rel="noopener">
+                    {city.organiser.name}
+                  </a>
+                ) : (
+                  city.organiser.name
+                )}
+                .
+              </p>
+            )}
+
+            {city.links && (
+              <ul class="active-links">
+                {city.links.map((link) => (
+                  <li>
+                    <a class="link-arrow" href={link.url} target="_blank" rel="noopener">
+                      <span>{link.label}</span>
+                      <span class="arrow" aria-hidden="true">
+                        ↗
+                      </span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {image && (
+            <figure class="active-image">
+              <div class="plate">
+                <Image
+                  src={image}
+                  alt={`${city.name}, ${city.state}`}
+                  widths={[380, 620, 900]}
+                  sizes="(max-width: 55.99em) 90vw, 380px"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </div>
+              <figcaption class="plate-caption">
+                <span>{city.name}</span>
+                <span class="coords">{formatCoords(city.lat, city.lon)}</span>
+              </figcaption>
+            </figure>
+          )}
+        </div>
+      )
+    }
+  </Section>
+
+  {
+    cityEvents.length > 0 && (
+      <Section id="events" index="B" label="Events">
+        <EventIndex
+          citySlug={city.slug}
+          heading={`Events in ${city.name}`}
+          index="B — Record"
+          showLink={false}
+        />
+      </Section>
+    )
+  }
+</Base>
+
+<style>
+  /* --- Open city -------------------------------------------------------- */
+  .open {
+    display: grid;
+    gap: var(--s-8);
+  }
+
+  .open-title {
+    margin-top: var(--s-3);
+    font-size: var(--t-h2);
+    max-width: 18ch;
+    letter-spacing: -0.03em;
+  }
+
+  .open-copy {
+    margin-top: var(--s-5);
+    font-size: var(--t-body);
+  }
+
+  .open-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-5);
+    margin-top: var(--s-7);
+  }
+
+  .open-facts {
+    display: grid;
+    gap: var(--s-4);
+    align-content: start;
+    padding: var(--s-5);
+    border: var(--border-hair) dashed var(--rule-strong);
+  }
+
+  .open-facts div {
+    display: grid;
+    gap: var(--s-1);
+    padding-bottom: var(--s-4);
+    border-bottom: var(--border-hair) solid var(--rule);
+  }
+
+  .open-facts div:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  .open-facts dt {
+    color: var(--ink-3);
+  }
+
+  .open-facts dd {
+    font-size: var(--t-small);
+  }
+
+  /* --- Active chapter --------------------------------------------------- */
+  .active {
+    display: grid;
+    gap: var(--s-8);
+  }
+
+  .active-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: var(--s-5);
+    padding-bottom: var(--s-6);
+    border-bottom: var(--border-hair) solid var(--rule);
+  }
+
+  .active-stats dt {
+    color: var(--ink-3);
+  }
+
+  .active-stats dd {
+    margin-top: var(--s-2);
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 600;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    line-height: 0.9;
+    letter-spacing: -0.04em;
+    font-variant-numeric: lining-nums;
+  }
+
+  .active-reported {
+    margin-top: var(--s-5);
+    max-width: 56ch;
+    font-size: var(--t-small);
+    color: var(--ink-2);
+  }
+
+  .active-source {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    color: var(--ink-3);
+  }
+
+  .active-next {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: var(--s-3) var(--s-5);
+    margin-top: var(--s-6);
+    padding: var(--s-4) var(--s-5);
+    border: var(--border-hair) solid var(--rule-strong);
+    border-left: 2px solid var(--clay);
+    background: var(--paper-raised);
+    text-decoration: none;
+    color: var(--ink);
+    transition: border-color var(--dur-2) var(--ease-out);
+  }
+
+  .active-next:hover {
+    border-color: var(--clay);
+  }
+
+  .active-next-date {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    color: var(--ink-3);
+  }
+
+  .active-next-title {
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-weight: 500;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+  }
+
+  .active-next .arrow {
+    margin-left: auto;
+  }
+
+  .active-organiser {
+    margin-top: var(--s-6);
+    font-size: var(--t-small);
+    color: var(--ink-2);
+  }
+
+  .active-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-5);
+    margin-top: var(--s-5);
+  }
+
+  .active-image .plate {
+    aspect-ratio: 4 / 5;
+  }
+
+  @media (min-width: 56em) {
+    .open {
+      grid-template-columns: minmax(0, 1.5fr) minmax(240px, 0.7fr);
+      gap: var(--s-9);
+      align-items: start;
+    }
+
+    .active {
+      grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.8fr);
+      gap: var(--s-9);
+      align-items: start;
+    }
+  }
+</style>

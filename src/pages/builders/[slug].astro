@@ -1,0 +1,223 @@
+---
+import type { GetStaticPaths } from 'astro';
+import Base from '@/layouts/Base.astro';
+import Section from '@/components/Section.astro';
+import PageHeader from '@/components/PageHeader.astro';
+import { builders, cityName, eventBySlug, projectBySlug } from '@/data';
+import { formatDate } from '@/lib/datetime';
+
+export const getStaticPaths = (() =>
+  builders.map((builder) => ({
+    params: { slug: builder.slug },
+    props: { builder },
+  }))) satisfies GetStaticPaths;
+
+const { builder } = Astro.props;
+
+const events = (builder.eventSlugs ?? [])
+  .map((slug) => eventBySlug.get(slug))
+  .filter((e) => Boolean(e));
+const projects = (builder.projectSlugs ?? [])
+  .map((slug) => projectBySlug.get(slug))
+  .filter((p) => Boolean(p));
+
+// The record is deliberately thin. Say so rather than dressing it up.
+const missing = [
+  !builder.bio && 'a bio',
+  !builder.image && 'a portrait',
+  !builder.links?.length && 'links',
+].filter(Boolean) as string[];
+---
+
+<Base
+  title={builder.name}
+  description={builder.bio ?? `${builder.name} — ${builder.role} in ${cityName(builder.citySlug)}.`}
+  active="/builders"
+>
+  <PageHeader
+    record="04"
+    kicker={`${builder.role} · ${cityName(builder.citySlug)}`}
+    title={builder.name}
+    size="lg"
+  >
+    {builder.bio && <p>{builder.bio}</p>}
+  </PageHeader>
+
+  <Section id="record" index="A" label="Record" tone="sunk">
+    <div class="profile">
+      <div class="profile-main">
+        <h2 id="record-heading" class="label profile-head">On record</h2>
+
+        {
+          events.length > 0 && (
+            <ul class="profile-list">
+              {events.map((event) => (
+                <li>
+                  <a href={`/events/${event!.slug}`}>
+                    <span class="profile-list-title">{event!.title}</span>
+                    <span class="profile-list-meta">
+                      {`${formatDate(event!.date)} · ${cityName(event!.citySlug)}`}
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )
+        }
+
+        {
+          projects.length > 0 && (
+            <ul class="profile-list">
+              {projects.map((project) => (
+                <li>
+                  <a href={`/projects/${project!.slug}`}>
+                    <span class="profile-list-title">{project!.title}</span>
+                    <span class="profile-list-meta">{project!.summary}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )
+        }
+
+        {
+          missing.length > 0 && (
+            <p class="profile-gap">
+              This entry is missing {missing.join(', ')}. If this is you, send them over and the
+              record gets better.
+            </p>
+          )
+        }
+
+        <div class="profile-actions">
+          <a class="btn" href="https://t.me/tog_guild" target="_blank" rel="noopener">
+            <span>Update this entry</span>
+            <span class="arrow" aria-hidden="true">↗</span>
+          </a>
+          <a class="link-arrow" href="/builders">
+            <span>All builders</span>
+            <span class="arrow" aria-hidden="true">→</span>
+          </a>
+        </div>
+      </div>
+
+      <dl class="profile-facts">
+        <div>
+          <dt class="label">City</dt>
+          <dd><a href={`/cities/${builder.citySlug}`}>{cityName(builder.citySlug)}</a></dd>
+        </div>
+        <div>
+          <dt class="label">Role</dt>
+          <dd>{builder.role}</dd>
+        </div>
+        <div>
+          <dt class="label">Events</dt>
+          <dd>{String(events.length).padStart(2, '0')}</dd>
+        </div>
+        <div>
+          <dt class="label">Projects</dt>
+          <dd>{String(projects.length).padStart(2, '0')}</dd>
+        </div>
+      </dl>
+    </div>
+  </Section>
+</Base>
+
+<style>
+  .profile {
+    display: grid;
+    gap: var(--s-8);
+  }
+
+  .profile-head {
+    padding-bottom: var(--s-3);
+    border-bottom: var(--border-heavy) solid var(--ink);
+    color: var(--ink-3);
+  }
+
+  .profile-list a {
+    display: grid;
+    gap: var(--s-1);
+    padding-block: var(--s-4);
+    border-bottom: var(--border-hair) solid var(--rule);
+    text-decoration: none;
+    color: var(--ink);
+  }
+
+  .profile-list a:hover .profile-list-title {
+    color: var(--clay-deep);
+  }
+
+  .profile-list-title {
+    font-family: var(--font-display);
+    font-size: 1.3rem;
+    font-weight: 500;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    letter-spacing: -0.02em;
+  }
+
+  .profile-list-meta {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.06em;
+    color: var(--ink-3);
+  }
+
+  .profile-gap {
+    margin-top: var(--s-6);
+    padding: var(--s-4) var(--s-5);
+    border: var(--border-hair) dashed var(--rule-strong);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    line-height: 1.7;
+    color: var(--ink-3);
+    max-width: 52ch;
+  }
+
+  .profile-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-5);
+    margin-top: var(--s-7);
+  }
+
+  .profile-facts {
+    display: grid;
+    gap: var(--s-4);
+    align-content: start;
+    padding: var(--s-5);
+    border: var(--border-hair) solid var(--rule-strong);
+    background: var(--paper-raised);
+  }
+
+  .profile-facts div {
+    display: grid;
+    gap: var(--s-1);
+    padding-bottom: var(--s-4);
+    border-bottom: var(--border-hair) solid var(--rule);
+  }
+
+  .profile-facts div:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  .profile-facts dt {
+    color: var(--ink-3);
+  }
+
+  .profile-facts dd {
+    font-size: var(--t-small);
+  }
+
+  @media (min-width: 56em) {
+    .profile {
+      grid-template-columns: minmax(0, 1.6fr) minmax(220px, 0.6fr);
+      gap: var(--s-9);
+      align-items: start;
+    }
+  }
+</style>

@@ -1,0 +1,51 @@
+---
+/**
+ * THE STATION MARK — Claude India's identity glyph.
+ *
+ * A survey station marker crossed with a spark: a centre point with eight
+ * radiating ticks, cardinals long, diagonals short. It is the same mark that
+ * plots an active city on the map, terminates the meridian in the footer, and
+ * bullets a list. One glyph, doing the work a logo usually does.
+ *
+ * Deliberately our own drawing rather than Anthropic's wordmark — this is an
+ * independent community site and should not borrow corporate identity.
+ */
+interface Props {
+  size?: number;
+  /** `solid` fills the centre — used for an active node. */
+  variant?: 'outline' | 'solid';
+  class?: string;
+}
+
+const { size = 20, variant = 'solid', class: className = '' } = Astro.props;
+---
+
+<svg
+  class:list={['mark', className]}
+  width={size}
+  height={size}
+  viewBox="0 0 24 24"
+  fill="none"
+  aria-hidden="true"
+  focusable="false"
+>
+  <g stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+    <path d="M12 1.5v5.2M12 17.3v5.2M1.5 12h5.2M17.3 12h5.2"></path>
+    <path d="M4.9 4.9l2.6 2.6M16.5 16.5l2.6 2.6M19.1 4.9l-2.6 2.6M7.5 16.5l-2.6 2.6" opacity="0.55"
+    ></path>
+  </g>
+  {
+    variant === 'solid' ? (
+      <circle cx="12" cy="12" r="3.4" fill="currentColor" />
+    ) : (
+      <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6" />
+    )
+  }
+</svg>
+
+<style>
+  .mark {
+    flex: none;
+    display: block;
+  }
+</style>

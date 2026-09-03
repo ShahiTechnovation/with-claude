@@ -1,0 +1,31 @@
+---
+import Base from '@/layouts/Base.astro';
+import Section from '@/components/Section.astro';
+import PageHeader from '@/components/PageHeader.astro';
+import PhotoRecord from '@/components/PhotoRecord.astro';
+import { photoRecord, stories } from '@/data';
+
+const plates = photoRecord();
+---
+
+<Base
+  title="Stories"
+  description="From the floor — the photographic and written record of the Claude community in India."
+  active="/stories"
+>
+  <PageHeader
+    record="06"
+    kicker="Stories"
+    title="From the floor."
+    stamp={`${String(plates.length).padStart(2, '0')} plates · ${String(stories.length).padStart(2, '0')} dispatches`}
+  >
+    <p>
+      An editorial archive of the rooms, the builds and the people. Written dispatches are still to
+      come; the photographic record is here, with its original captions.
+    </p>
+  </PageHeader>
+
+  <Section id="plates" index="A" label="Plates" bleed>
+    <PhotoRecord />
+  </Section>
+</Base>

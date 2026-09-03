@@ -1,0 +1,44 @@
+---
+import Base from '@/layouts/Base.astro';
+import Section from '@/components/Section.astro';
+import PageHeader from '@/components/PageHeader.astro';
+import NextEvent from '@/components/NextEvent.astro';
+import EventIndex from '@/components/EventIndex.astro';
+import { cityName, events, nextEvent, pastEvents, upcomingEvents } from '@/data';
+import { formatDate } from '@/lib/datetime';
+
+const next = nextEvent();
+const upcoming = upcomingEvents();
+const past = pastEvents();
+
+const description = next
+  ? `Every Claude India event, past and upcoming. Next: ${next.title} in ${cityName(next.citySlug)}, ${formatDate(next.date)}.`
+  : 'Every Claude India event, past and upcoming.';
+---
+
+<Base title="Events" description={description} active="/events">
+  <PageHeader
+    record="02"
+    kicker="Events"
+    title="Every room, on the record."
+    stamp={`${events.length} events · ${upcoming.length} ahead · ${past.length} held`}
+  >
+    <p>
+      Free, open, and run by volunteers. Registration is by approval on Luma — the record below
+      keeps its own status, derived from the calendar rather than from a badge someone forgot to
+      change.
+    </p>
+  </PageHeader>
+
+  {
+    next && (
+      <Section id="next" index="A" label="Next" tone="sunk">
+        <NextEvent />
+      </Section>
+    )
+  }
+
+  <Section id="record" index="B" label="Record">
+    <EventIndex heading="The full record" index="B — Archive" showLink={false} />
+  </Section>
+</Base>

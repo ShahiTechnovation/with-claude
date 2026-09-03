@@ -1,0 +1,465 @@
+---
+import type { GetStaticPaths } from 'astro';
+import { Image } from 'astro:assets';
+import Base from '@/layouts/Base.astro';
+import Section from '@/components/Section.astro';
+import PageHeader from '@/components/PageHeader.astro';
+import { cityBySlug, cityName, events, eventsChronological, site, speakersOf } from '@/data';
+import { dateParts, formatDate, formatTimeRange, isoDateTime, relativeDay } from '@/lib/datetime';
+import { formatCoords } from '@/lib/geo';
+import { asset } from '@/lib/images';
+import { isRegistrationOpen, statusLabel, statusOf, statusTone } from '@/lib/status';
+
+export const getStaticPaths = (() =>
+  events.map((event) => ({
+    params: { slug: event.slug },
+    props: { event },
+  }))) satisfies GetStaticPaths;
+
+const { event } = Astro.props;
+
+const status = statusOf(event);
+const parts = dateParts(event.date);
+const city = cityBySlug.get(event.citySlug);
+const speakers = speakersOf(event);
+const canRegister = isRegistrationOpen(event);
+const cover = asset(event.coverImage);
+
+// An event with neither a cover nor photographs should not leave half the
+// page empty — the record simply runs full width.
+const hasAside = Boolean(cover || event.photos?.length);
+
+const position = eventsChronological.findIndex((e) => e.slug === event.slug);
+const previous = eventsChronological[position - 1];
+const upNext = eventsChronological[position + 1];
+
+const schema = [
+  {
+    '@type': 'Event',
+    name: `${cityName(event.citySlug)} | ${event.title}`,
+    description: event.description ?? event.summary,
+    url: `${site.url}/events/${event.slug}`,
+    startDate: isoDateTime(event.date, event.startTime),
+    ...(event.endTime ? { endDate: isoDateTime(event.date, event.endTime) } : {}),
+    eventStatus:
+      status === 'cancelled'
+        ? 'https://schema.org/EventCancelled'
+        : 'https://schema.org/EventScheduled',
+    eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+    isAccessibleForFree: event.free,
+    location: {
+      '@type': 'Place',
+      name: event.venue.name,
+      address: {
+        '@type': 'PostalAddress',
+        addressLocality: cityName(event.citySlug),
+        addressCountry: 'IN',
+      },
+    },
+    organizer: { '@id': `${site.url}/#organization` },
+  },
+];
+---
+
+<Base
+  title={`${event.title} · ${cityName(event.citySlug)}`}
+  description={event.description ?? event.summary}
+  active="/events"
+  schema={schema}
+>
+  <PageHeader
+    record={event.volume ? String(event.volume).padStart(2, '0') : undefined}
+    kicker={`${cityName(event.citySlug)} · ${event.format.replace('-', ' ')}`}
+    title={event.title}
+    stamp={city ? formatCoords(city.lat, city.lon) : undefined}
+  >
+    <p>{event.description ?? event.summary}</p>
+  </PageHeader>
+
+  <Section id="detail" index="A" label="Detail" tone="sunk">
+    <div class:list={['detail', { 'has-aside': hasAside }]}>
+      <div class="detail-main">
+        <div class="detail-status">
+          <span class:list={['pip', `pip-${statusTone(status)}`]}>{statusLabel(status)}</span>
+          <span class="detail-when">{relativeDay(event.date)}</span>
+        </div>
+
+        <p class="detail-date">
+          <time datetime={isoDateTime(event.date, event.startTime)}>{formatDate(event.date)}</time>
+        </p>
+        <p class="detail-time">{formatTimeRange(event.startTime, event.endTime)}</p>
+
+        <dl class="detail-meta">
+          <div>
+            <dt class="label">Venue</dt>
+            <dd>
+              {event.venue.name}
+              {event.venue.address && <span class="detail-sub">{event.venue.address}</span>}
+              {
+                event.venue.private && (
+                  <span class="detail-sub">Shared with confirmed registrants</span>
+                )
+              }
+            </dd>
+          </div>
+          <div>
+            <dt class="label">City</dt>
+            <dd><a href={`/cities/${event.citySlug}`}>{cityName(event.citySlug)}</a></dd>
+          </div>
+          <div>
+            <dt class="label">Entry</dt>
+            <dd>{event.free ? 'Free · approval required' : 'Ticketed'}</dd>
+          </div>
+          {
+            event.hosts && (
+              <div>
+                <dt class="label">Hosted by</dt>
+                <dd>{event.hosts.join(', ')}</dd>
+              </div>
+            )
+          }
+        </dl>
+
+        {
+          speakers.length > 0 && (
+            <div class="detail-block">
+              <h2 class="label detail-block-head">Led by</h2>
+              <ul class="detail-people">
+                {speakers.map((person) => (
+                  <li>
+                    <a href={`/builders/${person.slug}`}>{person.name}</a>
+                    <span class="detail-sub">{person.role}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )
+        }
+
+        {
+          event.outcomes && (
+            <div class="detail-block">
+              <h2 class="label detail-block-head">What happened</h2>
+              <ul class="detail-outcomes">
+                {event.outcomes.map((outcome) => (
+                  <li>{outcome}</li>
+                ))}
+              </ul>
+            </div>
+          )
+        }
+
+        <div class="detail-actions">
+          {
+            canRegister && event.registrationUrl ? (
+              <a class="btn btn-clay" href={event.registrationUrl} target="_blank" rel="noopener">
+                <span>Register on Luma</span>
+                <span class="arrow" aria-hidden="true">
+                  ↗
+                </span>
+              </a>
+            ) : event.registrationUrl ? (
+              <a class="btn btn-quiet" href={event.registrationUrl} target="_blank" rel="noopener">
+                <span>See the event page</span>
+                <span class="arrow" aria-hidden="true">
+                  ↗
+                </span>
+              </a>
+            ) : null
+          }
+          <a class="link-arrow" href="/events">
+            <span>All events</span>
+            <span class="arrow" aria-hidden="true">→</span>
+          </a>
+        </div>
+      </div>
+
+      {
+        hasAside && (
+          <aside class="detail-aside">
+            {cover && (
+              <figure>
+                <div class="plate">
+                  <Image
+                    src={cover}
+                    alt={`Event cover for ${event.title}`}
+                    widths={[320, 480, 640]}
+                    sizes="(max-width: 55.99em) 90vw, 340px"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </div>
+                <figcaption class="plate-caption">
+                  <span>{`Vol. ${String(event.volume ?? 0).padStart(2, '0')} cover`}</span>
+                  <span>{`${parts.monthShort} ${parts.year}`}</span>
+                </figcaption>
+              </figure>
+            )}
+
+            {event.photos && (
+              <div class="detail-shots">
+                <h2 class="label detail-block-head">From the floor</h2>
+                <ul>
+                  {event.photos.map((photo, i) => {
+                    const image = asset(photo.src);
+                    return image ? (
+                      <li>
+                        <figure>
+                          <div class="plate">
+                            <Image
+                              src={image}
+                              alt={photo.alt}
+                              widths={[240, 420, 640]}
+                              sizes="(max-width: 55.99em) 45vw, 160px"
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          </div>
+                          <figcaption class="plate-caption">
+                            <span>{`Pl. ${String(i + 1).padStart(2, '0')}`}</span>
+                          </figcaption>
+                        </figure>
+                      </li>
+                    ) : null;
+                  })}
+                </ul>
+              </div>
+            )}
+          </aside>
+        )
+      }
+    </div>
+  </Section>
+
+  <Section id="around" index="B" label="Around">
+    <nav class="around" aria-label="Nearby in the record">
+      {
+        previous ? (
+          <a class="around-link" href={`/events/${previous.slug}`}>
+            <span class="label">Before</span>
+            <span class="around-title">{previous.title}</span>
+            <span class="around-date">{formatDate(previous.date)}</span>
+          </a>
+        ) : (
+          <span />
+        )
+      }
+      {
+        upNext && (
+          <a class="around-link is-next" href={`/events/${upNext.slug}`}>
+            <span class="label">After</span>
+            <span class="around-title">{upNext.title}</span>
+            <span class="around-date">{formatDate(upNext.date)}</span>
+          </a>
+        )
+      }
+    </nav>
+  </Section>
+</Base>
+
+<style>
+  .detail {
+    display: grid;
+    gap: var(--s-8);
+  }
+
+  .detail-status {
+    display: flex;
+    align-items: baseline;
+    gap: var(--s-4);
+    padding-bottom: var(--s-4);
+    border-bottom: var(--border-heavy) solid var(--ink);
+  }
+
+  .detail-when {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .detail-date {
+    margin-top: var(--s-6);
+    font-family: var(--font-display);
+    font-size: clamp(1.8rem, 4vw, 2.8rem);
+    font-weight: 600;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+
+  .detail-time {
+    margin-top: var(--s-2);
+    font-family: var(--font-mono);
+    font-size: var(--t-small);
+    color: var(--clay-deep);
+  }
+
+  .detail-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: var(--s-5);
+    margin-top: var(--s-7);
+    padding-top: var(--s-5);
+    border-top: var(--border-hair) solid var(--rule);
+  }
+
+  .detail-meta dt {
+    margin-bottom: var(--s-2);
+    color: var(--ink-3);
+  }
+
+  .detail-meta dd {
+    font-size: var(--t-small);
+    line-height: 1.45;
+  }
+
+  .detail-sub {
+    display: block;
+    margin-top: 2px;
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    color: var(--ink-3);
+  }
+
+  .detail-block {
+    margin-top: var(--s-7);
+    padding-top: var(--s-5);
+    border-top: var(--border-hair) solid var(--rule);
+  }
+
+  .detail-block-head {
+    color: var(--ink-3);
+    margin-bottom: var(--s-4);
+  }
+
+  .detail-people {
+    display: grid;
+    gap: var(--s-3);
+  }
+
+  .detail-people a {
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+    font-weight: 500;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    text-decoration: none;
+  }
+
+  .detail-people a:hover {
+    color: var(--clay-deep);
+  }
+
+  .detail-outcomes {
+    display: grid;
+    gap: var(--s-3);
+    font-size: var(--t-small);
+    color: var(--ink-2);
+  }
+
+  .detail-outcomes li {
+    display: grid;
+    grid-template-columns: 14px minmax(0, 1fr);
+    gap: var(--s-3);
+  }
+
+  .detail-outcomes li::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    margin-top: 0.55em;
+    background: var(--clay);
+  }
+
+  .detail-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-5);
+    margin-top: var(--s-7);
+  }
+
+  /* --- Aside ------------------------------------------------------------ */
+  .detail-aside {
+    display: grid;
+    gap: var(--s-6);
+    align-content: start;
+  }
+
+  .detail-aside .plate {
+    aspect-ratio: 1;
+  }
+
+  .detail-shots ul {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--s-3);
+  }
+
+  .detail-shots .plate {
+    aspect-ratio: 1;
+  }
+
+  /* --- Around ----------------------------------------------------------- */
+  .around {
+    display: grid;
+    gap: var(--s-5);
+    border-top: var(--border-heavy) solid var(--ink);
+  }
+
+  .around-link {
+    display: grid;
+    gap: var(--s-2);
+    padding-block: var(--s-5);
+    text-decoration: none;
+    color: var(--ink);
+  }
+
+  .around-link.is-next {
+    text-align: right;
+  }
+
+  .around-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.2rem, 2.6vw, 1.7rem);
+    font-weight: 500;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    letter-spacing: -0.02em;
+    transition: color var(--dur-1) var(--ease-out);
+  }
+
+  .around-link:hover .around-title {
+    color: var(--clay-deep);
+  }
+
+  .around-date {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.06em;
+    color: var(--ink-3);
+  }
+
+  @media (min-width: 56em) {
+    .detail.has-aside {
+      grid-template-columns: minmax(0, 1.5fr) minmax(260px, 0.8fr);
+      gap: var(--s-9);
+      align-items: start;
+    }
+
+    .detail:not(.has-aside) .detail-main {
+      max-width: 72ch;
+    }
+
+    .around {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--s-8);
+    }
+  }
+</style>

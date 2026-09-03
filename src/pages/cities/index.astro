@@ -1,0 +1,38 @@
+---
+import Base from '@/layouts/Base.astro';
+import Section from '@/components/Section.astro';
+import PageHeader from '@/components/PageHeader.astro';
+import IndiaPlate from '@/components/IndiaPlate.astro';
+import CityGazetteer from '@/components/CityGazetteer.astro';
+import { activeCities, openCities } from '@/data';
+import { EXTENT } from '@/lib/geo';
+import { inWordsCap } from '@/lib/words';
+---
+
+<Base
+  title="Cities"
+  description={`Where the Claude community meets in India. ${activeCities.length} chapter running, ${openCities.length} cities plotted and open.`}
+  active="/cities"
+>
+  <PageHeader
+    record="03"
+    kicker="Cities"
+    title={`${inWordsCap(activeCities.length)} chapter. ${inWordsCap(openCities.length)} open dots.`}
+    stamp={`${EXTENT.minLon}°E — ${EXTENT.maxLon}°E · ${EXTENT.minLat}°N — ${EXTENT.maxLat}°N`}
+  >
+    <p>
+      Every city below is plotted at its true coordinates. Bhopal has been running events since
+      March. The rest are cities where the first Claude event has not happened yet — and starting
+      one is a conversation, not an application.
+    </p>
+  </PageHeader>
+
+  <Section id="plate" index="A" label="Plate" tone="night" size="lg">
+    <h2 id="plate-heading" class="visually-hidden">The survey plate</h2>
+    <IndiaPlate />
+  </Section>
+
+  <Section id="index" index="B" label="Index">
+    <CityGazetteer index="B — Gazetteer" heading="The gazetteer" />
+  </Section>
+</Base>

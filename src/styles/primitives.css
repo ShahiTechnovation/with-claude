@@ -1,0 +1,468 @@
+/* =========================================================================
+   PRIMITIVES — layout containers, the meridian, buttons, labels, signals
+   ========================================================================= */
+
+/* --- Containers --------------------------------------------------------- */
+.container {
+  width: 100%;
+  max-width: var(--measure);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+.container-wide {
+  width: 100%;
+  max-width: var(--measure-wide);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+/* Content sits to the right of the meridian's channel on wide viewports. */
+.rail-inset {
+  padding-left: calc(var(--gutter) + var(--rail));
+}
+
+.prose {
+  max-width: var(--measure-text);
+  color: var(--ink-2);
+  font-size: var(--t-lead);
+}
+
+.prose p + p {
+  margin-top: var(--s-4);
+}
+
+/* =========================================================================
+   THE MERIDIAN — the signature device
+   One clay thread runs the whole document. It is, at once: the map's meridian,
+   the timeline's spine, the archive's index, and the scroll indicator. It ticks
+   at every section and terminates in the footer.
+   ========================================================================= */
+
+/* Everything that has to sit on the meridian hangs off one of these: an
+   absolutely positioned band the same width as the content container, centred
+   the same way. Measuring from the viewport instead would drift away from the
+   content on wide screens, and `100vw` would drift again by the scrollbar. */
+.rail-anchor {
+  position: absolute;
+  left: 0;
+  right: 0;
+  max-width: var(--measure-wide);
+  margin-inline: auto;
+  pointer-events: none;
+  z-index: var(--z-meridian);
+}
+
+.meridian {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--gutter) + var(--rail) / 2);
+  width: 1px;
+  background: var(--rule);
+  pointer-events: none;
+}
+
+/* The travelled portion, in clay. `--meridian-progress` is 0→1. */
+.meridian::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 1px;
+  height: 100%;
+  background: linear-gradient(to bottom, var(--clay), var(--clay-deep));
+  transform-origin: top;
+  transform: scaleY(var(--meridian-progress, 0));
+  transition: transform 120ms linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .meridian::after {
+    transform: scaleY(1);
+    opacity: 0.5;
+  }
+}
+
+/* Below the rail breakpoint the meridian would crowd the text, so it goes. */
+@media (max-width: 63.99em) {
+  .rail-anchor {
+    display: none;
+  }
+}
+
+/* A section's tick on the meridian: a clay stub with its archive number
+   stacked beneath it. It lives entirely inside the rail, so it can never
+   collide with the content column. */
+.tick {
+  position: absolute;
+  left: calc(var(--gutter) + var(--rail) / 2);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-2);
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+  letter-spacing: 0.1em;
+  color: var(--ink-3);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.tick::before {
+  content: '';
+  width: 12px;
+  height: 1px;
+  background: var(--clay);
+  flex: none;
+}
+
+/* =========================================================================
+   LABELS & METADATA — the machine-readable layer
+   ========================================================================= */
+
+.label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-family: var(--font-mono);
+  font-size: var(--t-meta);
+  font-weight: 500;
+  letter-spacing: var(--track-meta);
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.label-strong {
+  color: var(--ink);
+}
+
+.label-accent {
+  color: var(--clay-deep);
+}
+
+/* Coordinate stamp — real lat/lon, used wherever a place is named. */
+.coords {
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A hairline with a label sitting on it — the section rule. */
+.rule-line {
+  border: 0;
+  border-top: var(--border-hair) solid var(--rule);
+  margin: 0;
+}
+
+/* =========================================================================
+   STATUS PIPS — one visual language for every event state
+   ========================================================================= */
+
+.pip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-family: var(--font-mono);
+  font-size: var(--t-meta);
+  font-weight: 500;
+  letter-spacing: var(--track-meta);
+  text-transform: uppercase;
+}
+
+.pip::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.pip-live {
+  color: var(--clay-deep);
+}
+
+.pip-live::before {
+  background: var(--clay);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--clay) 70%, transparent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pip-live::before {
+    animation: pulse 2.4s var(--ease-in-out) infinite;
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--clay) 60%, transparent);
+  }
+  55% {
+    box-shadow: 0 0 0 7px color-mix(in srgb, var(--clay) 0%, transparent);
+  }
+}
+
+.pip-next {
+  color: var(--clay-deep);
+}
+.pip-next::before {
+  background: var(--clay);
+}
+
+.pip-closed {
+  color: var(--ink-3);
+}
+.pip-closed::before {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px currentColor;
+}
+
+.pip-archive {
+  color: var(--ink-3);
+}
+.pip-archive::before {
+  background: var(--rule-strong);
+}
+
+/* =========================================================================
+   BUTTONS — rectangular, editorial. Nothing on this site is a pill.
+   ========================================================================= */
+
+.btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: 0.9rem 1.4rem;
+  font-family: var(--font-mono);
+  font-size: var(--t-meta);
+  font-weight: 500;
+  letter-spacing: var(--track-meta);
+  text-transform: uppercase;
+  text-decoration: none;
+  border: var(--border-rule) solid var(--ink);
+  border-radius: var(--radius-none);
+  color: var(--ink);
+  background: transparent;
+  overflow: hidden;
+  isolation: isolate;
+  transition: color var(--dur-2) var(--ease-out);
+}
+
+/* The fill wipes up from the baseline — a press, not a bounce. */
+.btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--ink);
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform var(--dur-2) var(--ease-out);
+}
+
+.btn:hover::before,
+.btn:focus-visible::before {
+  transform: scaleY(1);
+}
+
+.btn:hover,
+.btn:focus-visible {
+  color: var(--paper);
+}
+
+.btn .arrow {
+  transition: transform var(--dur-2) var(--ease-out);
+}
+
+.btn:hover .arrow,
+.btn:focus-visible .arrow {
+  transform: translateX(4px);
+}
+
+/* Filled: inverted from the start, wipes to the outline on hover. */
+.btn-solid {
+  color: var(--paper);
+  background: var(--ink);
+}
+
+.btn-solid::before {
+  background: var(--clay);
+  transform: scaleY(0);
+}
+
+.btn-solid:hover,
+.btn-solid:focus-visible {
+  color: var(--night);
+}
+
+.btn-clay {
+  border-color: var(--clay-deep);
+  color: var(--paper);
+  background: var(--clay-deep);
+}
+
+.btn-clay::before {
+  background: var(--ink);
+}
+
+.btn-clay:hover,
+.btn-clay:focus-visible {
+  color: var(--paper);
+}
+
+.btn-quiet {
+  border-color: var(--rule-strong);
+  color: var(--ink-2);
+}
+
+.btn-sm {
+  padding: 0.6rem 1rem;
+  font-size: var(--t-micro);
+}
+
+/* An inline text link that behaves like a button target. */
+.link-arrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-family: var(--font-mono);
+  font-size: var(--t-meta);
+  letter-spacing: var(--track-meta);
+  text-transform: uppercase;
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 1px solid var(--rule-strong);
+  padding-bottom: 3px;
+  transition:
+    border-color var(--dur-2) var(--ease-out),
+    color var(--dur-2) var(--ease-out);
+}
+
+.link-arrow:hover,
+.link-arrow:focus-visible {
+  color: var(--clay-deep);
+  border-color: var(--clay);
+}
+
+.link-arrow .arrow {
+  transition: transform var(--dur-2) var(--ease-out);
+}
+
+.link-arrow:hover .arrow {
+  transform: translateX(3px);
+}
+
+/* =========================================================================
+   PLATES — the photographic treatment
+   Photographs are archival plates: a hairline frame, a mono caption below,
+   and a plate number. Never a rounded card with a drop shadow.
+   ========================================================================= */
+
+.plate {
+  position: relative;
+  display: block;
+  background: var(--paper-sunk);
+  border: var(--border-hair) solid var(--rule);
+  overflow: hidden;
+}
+
+.plate img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* A hair of warmth so mixed-source photography reads as one set. */
+  filter: saturate(0.94) contrast(1.03);
+  transition: transform var(--dur-4) var(--ease-out);
+}
+
+.plate-zoom:hover img,
+.plate-zoom:focus-visible img {
+  transform: scale(1.035);
+}
+
+.plate-caption {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s-4);
+  margin-top: var(--s-3);
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+  line-height: 1.5;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+}
+
+/* =========================================================================
+   SECTION HEADS
+   ========================================================================= */
+
+.section-head {
+  display: grid;
+  gap: var(--s-4);
+  margin-bottom: var(--s-8);
+}
+
+.section-head h2 {
+  max-width: 20ch;
+}
+
+.section-head .prose {
+  max-width: 52ch;
+  font-size: var(--t-body);
+}
+
+/* An index number set large and quiet, behind the heading. */
+.section-index {
+  font-family: var(--font-mono);
+  font-size: var(--t-meta);
+  letter-spacing: var(--track-meta);
+  color: var(--clay-deep);
+}
+
+/* =========================================================================
+   TOUCH ERGONOMICS
+   On a coarse pointer every control needs a comfortable target. Isolated
+   controls get an *invisible* expanded hit area so the composition does not
+   change; controls in a list get real padding instead, because overlapping
+   invisible targets would make the wrong link fire.
+   ========================================================================= */
+
+@media (pointer: coarse) {
+  .link-arrow,
+  .index-more,
+  .signal-fn,
+  .partner-name a,
+  .pc-credits a {
+    position: relative;
+  }
+
+  .link-arrow::before,
+  .index-more::before,
+  .signal-fn::before,
+  .partner-name a::before {
+    content: '';
+    position: absolute;
+    inset: 50% 0 auto 0;
+    height: 44px;
+    transform: translateY(-50%);
+  }
+
+  /* Lists: real spacing, so adjacent targets never overlap. */
+  .footer-col ul {
+    gap: var(--s-2);
+  }
+
+  .footer-col a {
+    display: block;
+    padding-block: 9px;
+  }
+
+  .active-links,
+  .socials {
+    gap: var(--s-3) var(--s-6);
+  }
+}

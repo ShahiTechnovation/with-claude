@@ -1,0 +1,268 @@
+---
+import { cityName, eventsChronological } from '@/data';
+import { dateParts, isoDateTime } from '@/lib/datetime';
+import { statusLabel, statusOf, statusTone } from '@/lib/status';
+import type { CommunityEvent } from '@/data/types';
+
+interface Props {
+  /** Restrict to one city. Omit for the national record. */
+  citySlug?: string;
+  /** Cap the list. Omit to show the whole record. */
+  limit?: number;
+  /** Newest first. The homepage wants upcoming at the top instead. */
+  order?: 'chronological' | 'upcoming-first';
+  heading?: string;
+  index?: string;
+  showLink?: boolean;
+}
+
+const {
+  citySlug,
+  limit,
+  order = 'upcoming-first',
+  heading = 'Events across India',
+  index = '08 — Events',
+  showLink = true,
+} = Astro.props;
+
+const now = new Date();
+
+function sortEvents(list: CommunityEvent[]): CommunityEvent[] {
+  if (order === 'chronological') return [...list].reverse();
+  // Upcoming ascending, then past descending — the useful order.
+  const upcoming = list.filter((e) => statusOf(e, now) !== 'past');
+  const past = list.filter((e) => statusOf(e, now) === 'past').reverse();
+  return [...upcoming, ...past];
+}
+
+const scoped = citySlug
+  ? eventsChronological.filter((e) => e.citySlug === citySlug)
+  : eventsChronological;
+const all = sortEvents(scoped);
+const rows = limit ? all.slice(0, limit) : all;
+const remaining = all.length - rows.length;
+---
+
+<div class="index">
+  <div class="index-head">
+    <div class="section-head">
+      <p class="section-index">{index}</p>
+      <h2 id="events-heading">{heading}</h2>
+    </div>
+    {
+      showLink && (
+        <a class="link-arrow" href="/events">
+          <span>Full record</span>
+          <span class="arrow" aria-hidden="true">
+            →
+          </span>
+        </a>
+      )
+    }
+  </div>
+
+  <div class="index-table">
+    <div class="index-row index-row-head" aria-hidden="true">
+      <span>№</span>
+      <span>Date</span>
+      <span>Event</span>
+      <span>Format</span>
+      <span>City</span>
+      <span>Status</span>
+    </div>
+
+    <ul>
+      {
+        rows.map((event) => {
+          const parts = dateParts(event.date);
+          const status = statusOf(event, now);
+          return (
+            <li>
+              <a class="index-row" href={`/events/${event.slug}`}>
+                <span class="index-vol">
+                  {event.volume ? String(event.volume).padStart(2, '0') : '—'}
+                </span>
+                <time class="index-date" datetime={isoDateTime(event.date, event.startTime)}>
+                  <span class="index-date-day">{`${parts.dayPadded} ${parts.monthShort}`}</span>
+                  <span class="index-date-year">{parts.year}</span>
+                </time>
+                <span class="index-title">{event.title}</span>
+                <span class="index-format">{event.format.replace('-', ' ')}</span>
+                <span class="index-city">{cityName(event.citySlug)}</span>
+                <span class:list={['pip', `pip-${statusTone(status)}`, 'index-status']}>
+                  {statusLabel(status)}
+                </span>
+              </a>
+            </li>
+          );
+        })
+      }
+    </ul>
+  </div>
+
+  {
+    remaining > 0 && (
+      <a class="index-more" href="/events">
+        <span>{remaining} more in the record</span>
+        <span class="arrow" aria-hidden="true">
+          →
+        </span>
+      </a>
+    )
+  }
+</div>
+
+<style>
+  .index-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--s-4);
+  }
+
+  .index-head .section-head {
+    margin-bottom: var(--s-6);
+  }
+
+  .index-head .link-arrow {
+    margin-bottom: var(--s-7);
+  }
+
+  .index-table {
+    border-top: var(--border-heavy) solid var(--ink);
+  }
+
+  .index-row {
+    display: grid;
+    grid-template-columns:
+      3.5ch minmax(84px, 0.5fr) minmax(0, 2fr)
+      minmax(0, 0.8fr) minmax(0, 0.7fr) minmax(0, 0.9fr);
+    align-items: baseline;
+    gap: var(--s-4);
+    padding-block: var(--s-4);
+    border-bottom: var(--border-hair) solid var(--rule);
+    text-decoration: none;
+    color: var(--ink);
+    transition: background var(--dur-1) var(--ease-out);
+  }
+
+  a.index-row:hover,
+  a.index-row:focus-visible {
+    background: color-mix(in srgb, var(--clay) 7%, transparent);
+  }
+
+  .index-row-head {
+    padding-block: var(--s-3);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .index-vol,
+  .index-date,
+  .index-format,
+  .index-city {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .index-date {
+    display: flex;
+    gap: var(--s-2);
+    white-space: nowrap;
+  }
+
+  .index-date-day {
+    color: var(--ink-2);
+  }
+
+  .index-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.05rem, 2vw, 1.3rem);
+    font-weight: 500;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    letter-spacing: -0.015em;
+    transition: color var(--dur-1) var(--ease-out);
+  }
+
+  a.index-row:hover .index-title {
+    color: var(--clay-deep);
+  }
+
+  .index-status {
+    font-size: var(--t-micro);
+    letter-spacing: 0.08em;
+    justify-self: start;
+  }
+
+  .index-more {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-3);
+    margin-top: var(--s-5);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+    text-decoration: none;
+  }
+
+  .index-more:hover {
+    color: var(--clay-deep);
+  }
+
+  /* --- Mobile: rows become records -------------------------------------- */
+  @media (max-width: 61.99em) {
+    .index-row-head {
+      display: none;
+    }
+
+    .index-row {
+      grid-template-columns: 3.5ch minmax(0, 1fr) auto;
+      gap: var(--s-1) var(--s-4);
+      padding-block: var(--s-5);
+    }
+
+    .index-date {
+      grid-column: 2;
+      grid-row: 1;
+    }
+
+    .index-status {
+      grid-column: 3;
+      grid-row: 1;
+      justify-self: end;
+    }
+
+    .index-title {
+      grid-column: 2 / -1;
+      grid-row: 2;
+      margin-block: var(--s-1);
+    }
+
+    .index-format {
+      grid-column: 2;
+      grid-row: 3;
+    }
+
+    .index-city {
+      grid-column: 3;
+      grid-row: 3;
+      justify-self: end;
+    }
+
+    .index-vol {
+      grid-row: 1 / 4;
+    }
+  }
+</style>

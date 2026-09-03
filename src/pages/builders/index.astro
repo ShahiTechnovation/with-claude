@@ -1,0 +1,35 @@
+---
+import Base from '@/layouts/Base.astro';
+import Section from '@/components/Section.astro';
+import PageHeader from '@/components/PageHeader.astro';
+import BuilderRoster from '@/components/BuilderRoster.astro';
+import PhotoRecord from '@/components/PhotoRecord.astro';
+import { builders } from '@/data';
+---
+
+<Base
+  title="Builders"
+  description="The people building with Claude in India. An open roster — short, honest, and growing by submission."
+  active="/builders"
+>
+  <PageHeader
+    record="04"
+    kicker="People"
+    title="Who’s building?"
+    stamp={`${String(builders.length).padStart(2, '0')} on record`}
+  >
+    <p>
+      This roster is short, and it is short honestly. It carries the people whose involvement the
+      community has actually published — not a wall of profiles assembled to look busy. Every entry
+      is one someone chose to add.
+    </p>
+  </PageHeader>
+
+  <Section id="roster" index="A" label="Roster" tone="sunk">
+    <BuilderRoster />
+  </Section>
+
+  <Section id="rooms" index="B" label="Rooms" bleed>
+    <PhotoRecord />
+  </Section>
+</Base>

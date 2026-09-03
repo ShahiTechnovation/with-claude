@@ -1,0 +1,133 @@
+---
+import '@fontsource-variable/fraunces/wonk.css';
+import '@fontsource-variable/fraunces/wonk-italic.css';
+import '@fontsource-variable/inter/wght.css';
+import '@fontsource/ibm-plex-mono/400.css';
+import '@fontsource/ibm-plex-mono/500.css';
+
+import '@/styles/tokens.css';
+import '@/styles/base.css';
+import '@/styles/primitives.css';
+
+// Preload the two faces that paint the first screen. Importing the file gives
+// us the hashed build URL, so the preload can never point at a stale name.
+import frauncesUrl from '@fontsource-variable/fraunces/files/fraunces-latin-wonk-normal.woff2?url';
+import interUrl from '@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url';
+
+import Masthead from '@/components/Masthead.astro';
+import SiteFooter from '@/components/SiteFooter.astro';
+import { site } from '@/data';
+
+interface Props {
+  title: string;
+  description: string;
+  /** Route prefix for nav highlighting. */
+  active?: string;
+  /** Absolute or root-relative share image. */
+  image?: string;
+  /** Extra JSON-LD nodes to merge into the graph. */
+  schema?: Record<string, unknown>[];
+  /** Set on pages that should not be indexed. */
+  noindex?: boolean;
+}
+
+const {
+  title,
+  description,
+  active = '/',
+  image = '/og-card.jpg',
+  schema = [],
+  noindex = false,
+} = Astro.props;
+
+const canonical = new URL(Astro.url.pathname, Astro.site ?? site.url).href;
+const ogImage = new URL(image, Astro.site ?? site.url).href;
+const fullTitle = title === site.name ? title : `${title} · ${site.name}`;
+
+const organization = {
+  '@type': 'Organization',
+  '@id': `${site.url}/#organization`,
+  name: site.name,
+  url: site.url,
+  description: site.description,
+  // Legal precision: describe what this is without claiming a relationship.
+  disambiguatingDescription: site.affiliation,
+  areaServed: { '@type': 'Country', name: 'India' },
+};
+
+const graph = [organization, ...schema];
+---
+
+<!doctype html>
+<html lang="en-IN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    {noindex && <meta name="robots" content="noindex, follow" />}
+
+    <link rel="preload" as="font" type="font/woff2" href={frauncesUrl} crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href={interUrl} crossorigin />
+
+    <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="theme-color" content="#F2EEE6" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={site.name} />
+    <meta property="og:locale" content={site.locale} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={fullTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+
+    <script
+      is:inline
+      type="application/ld+json"
+      set:html={JSON.stringify({ '@context': 'https://schema.org', '@graph': graph })}
+    />
+
+    <!-- Marks the document as scripted before first paint, so the reveal
+         system only ever displaces content it can also restore. -->
+    <script is:inline>
+      document.documentElement.classList.add('js');
+    </script>
+  </head>
+
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <Masthead active={active} />
+
+    <div class="page">
+      <span class="rail-anchor meridian-anchor" aria-hidden="true">
+        <span class="meridian"></span>
+      </span>
+      <main id="main">
+        <slot />
+      </main>
+    </div>
+
+    <SiteFooter />
+
+    <script>
+      import '@/scripts/enhance';
+    </script>
+  </body>
+</html>
+
+<style>
+  .page {
+    position: relative;
+  }
+
+  .meridian-anchor {
+    top: 0;
+    bottom: 0;
+  }
+</style>

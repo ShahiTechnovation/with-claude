@@ -1,0 +1,232 @@
+---
+import Mark from './Mark.astro';
+import { site, socials } from '@/data';
+import { EXTENT } from '@/lib/geo';
+
+const year = new Date().getFullYear();
+
+const columns = [
+  {
+    heading: 'Discover',
+    links: [
+      { label: 'Events', href: '/events' },
+      { label: 'Cities', href: '/cities' },
+      { label: 'Builders', href: '/builders' },
+      { label: 'Projects', href: '/projects' },
+      { label: 'Stories', href: '/stories' },
+      { label: 'Community', href: '/community' },
+    ],
+  },
+  {
+    heading: 'Take part',
+    links: [
+      { label: 'Attend an event', href: '/events' },
+      { label: 'How it works', href: '/community' },
+      { label: 'Start a chapter', href: 'https://t.me/tog_guild' },
+      { label: 'Speak or mentor', href: 'https://tally.so/r/Y5lNo6' },
+      { label: 'Partner with us', href: 'https://tally.so/r/dWeBZy' },
+      { label: 'Volunteer', href: 'https://tally.so/r/D46gXj' },
+    ],
+  },
+  {
+    heading: 'Elsewhere',
+    links: socials.map((s) => ({ label: s.label, href: s.url })),
+  },
+];
+
+const extentLabel = `${EXTENT.minLon}°E — ${EXTENT.maxLon}°E · ${EXTENT.minLat}°N — ${EXTENT.maxLat}°N`;
+---
+
+<footer class="site-footer on-night">
+  <!-- Where the meridian ends: a station mark, then the record closes. -->
+  <div class="rail-anchor terminus-anchor" aria-hidden="true">
+    <div class="terminus">
+      <span class="terminus-line"></span>
+      <Mark size={26} />
+    </div>
+  </div>
+
+  <div class="container-wide footer-inner">
+    <div class="footer-brand">
+      <p class="footer-wordmark">
+        Claude <em>India</em>
+      </p>
+      <p class="footer-line">{site.tagline}</p>
+      <p class="coords footer-extent">{extentLabel}</p>
+    </div>
+
+    <div class="footer-columns">
+      {
+        columns.map((col) => (
+          <nav class="footer-col" aria-label={col.heading}>
+            <h2 class="label footer-heading">{col.heading}</h2>
+            <ul>
+              {col.links.map((link) => (
+                <li>
+                  <a
+                    href={link.href}
+                    rel={link.href.startsWith('http') ? 'noopener' : undefined}
+                    target={link.href.startsWith('http') ? '_blank' : undefined}
+                  >
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        ))
+      }
+    </div>
+  </div>
+
+  <div class="container-wide footer-base">
+    <p class="footer-affiliation">{site.affiliation}</p>
+    <div class="footer-meta">
+      <span>© {year} Claude India</span>
+      <span aria-hidden="true">·</span>
+      <span>Community-run, non-commercial</span>
+      <span aria-hidden="true">·</span>
+      <span class="footer-colophon">Set in Fraunces, Inter &amp; IBM Plex Mono</span>
+    </div>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    position: relative;
+    padding-top: var(--s-12);
+    padding-bottom: var(--s-7);
+    overflow: hidden;
+  }
+
+  /* --- Terminus: the meridian's full stop ------------------------------- */
+  .terminus-anchor {
+    top: 0;
+  }
+
+  .terminus {
+    position: absolute;
+    top: 0;
+    left: calc(var(--gutter) + var(--rail) / 2);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: var(--clay);
+    transform: translateX(-50%);
+  }
+
+  .terminus-line {
+    width: 1px;
+    height: var(--s-9);
+    background: linear-gradient(
+      to bottom,
+      var(--clay),
+      color-mix(in srgb, var(--clay) 20%, transparent)
+    );
+  }
+
+  /* --- Layout ----------------------------------------------------------- */
+  .footer-inner {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.4fr);
+    gap: var(--s-9) var(--s-8);
+    padding-bottom: var(--s-10);
+  }
+
+  .footer-wordmark {
+    font-family: var(--font-display);
+    font-size: clamp(2.6rem, 7vw, 5rem);
+    font-weight: 600;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    line-height: 0.92;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+  }
+
+  .footer-wordmark em {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--clay);
+  }
+
+  .footer-line {
+    margin-top: var(--s-4);
+    max-width: 24ch;
+    font-size: var(--t-lead);
+    color: var(--ink-2);
+  }
+
+  .footer-extent {
+    margin-top: var(--s-5);
+  }
+
+  .footer-columns {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--s-6);
+  }
+
+  .footer-heading {
+    margin-bottom: var(--s-4);
+    padding-bottom: var(--s-3);
+    border-bottom: var(--border-hair) solid var(--rule);
+    color: var(--ink-3);
+  }
+
+  .footer-col ul {
+    display: grid;
+    gap: var(--s-3);
+  }
+
+  .footer-col a {
+    font-size: var(--t-small);
+    color: var(--ink-2);
+    text-decoration: none;
+    transition: color var(--dur-1) var(--ease-out);
+  }
+
+  .footer-col a:hover,
+  .footer-col a:focus-visible {
+    color: var(--clay);
+  }
+
+  /* --- Base ------------------------------------------------------------- */
+  .footer-base {
+    display: grid;
+    gap: var(--s-4);
+    padding-top: var(--s-6);
+    border-top: var(--border-hair) solid var(--rule);
+  }
+
+  .footer-affiliation {
+    max-width: 62ch;
+    font-size: var(--t-small);
+    color: var(--ink-3);
+  }
+
+  .footer-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2) var(--s-3);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.06em;
+    color: var(--ink-3);
+  }
+
+  @media (max-width: 63.99em) {
+    .footer-inner {
+      grid-template-columns: 1fr;
+      gap: var(--s-8);
+    }
+  }
+
+  @media (max-width: 34.99em) {
+    .footer-columns {
+      grid-template-columns: 1fr;
+      gap: var(--s-7);
+    }
+  }
+</style>

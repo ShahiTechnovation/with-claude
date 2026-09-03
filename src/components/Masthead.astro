@@ -1,0 +1,422 @@
+---
+import Mark from './Mark.astro';
+import { cityName, nextEvent } from '@/data';
+import { dateParts } from '@/lib/datetime';
+import { statusOf, statusTone } from '@/lib/status';
+
+interface Props {
+  /** Route prefix of the current page, e.g. `/events`. */
+  active?: string;
+}
+
+const { active = '/' } = Astro.props;
+
+const nav = [
+  { href: '/events', label: 'Events' },
+  { href: '/cities', label: 'Cities' },
+  { href: '/builders', label: 'Builders' },
+  { href: '/projects', label: 'Projects' },
+  { href: '/stories', label: 'Stories' },
+];
+
+// The masthead's live chip reads the same source of truth as the hero.
+const next = nextEvent();
+const nextParts = next ? dateParts(next.date) : undefined;
+const nextTone = next ? statusTone(statusOf(next)) : undefined;
+---
+
+<header class="masthead" data-masthead>
+  <div class="masthead-inner container-wide">
+    <a href="/" class="wordmark" aria-label="Claude India — home">
+      <Mark size={22} />
+      <span class="wordmark-text">
+        <span class="wordmark-claude">Claude</span>
+        <span class="wordmark-india">India</span>
+      </span>
+    </a>
+
+    <nav class="nav-desktop" aria-label="Primary">
+      <ul>
+        {
+          nav.map((item) => (
+            <li>
+              <a
+                href={item.href}
+                class:list={['nav-link', { 'is-active': active.startsWith(item.href) }]}
+                aria-current={active.startsWith(item.href) ? 'page' : undefined}
+              >
+                {item.label}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+
+    {
+      next && nextParts && (
+        <a href={`/events/${next.slug}`} class="next-chip">
+          <span class:list={['pip', `pip-${nextTone}`]} aria-hidden="true" />
+          <span class="next-chip-text">
+            <span class="next-chip-label">Next</span>
+            <span class="next-chip-date">{`${nextParts.dayPadded} ${nextParts.monthDisplay}`}</span>
+            <span class="next-chip-city">{cityName(next.citySlug)}</span>
+          </span>
+          <span class="arrow" aria-hidden="true">
+            →
+          </span>
+        </a>
+      )
+    }
+
+    <button
+      class="nav-toggle"
+      type="button"
+      data-nav-toggle
+      aria-expanded="false"
+      aria-controls="nav-drawer"
+    >
+      <span class="visually-hidden">Menu</span>
+      <span class="nav-toggle-bars" aria-hidden="true"><i></i><i></i></span>
+    </button>
+  </div>
+
+  <div class="nav-drawer" id="nav-drawer" data-nav-drawer>
+    <nav aria-label="Primary, mobile">
+      <ul>
+        {
+          nav.map((item, i) => (
+            <li style={`--i:${i}`}>
+              <a href={item.href} aria-current={active.startsWith(item.href) ? 'page' : undefined}>
+                <span class="nav-drawer-index">{String(i + 1).padStart(2, '0')}</span>
+                {item.label}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+    {
+      next && (
+        <a
+          href={next.registrationUrl ?? `/events/${next.slug}`}
+          class="btn btn-solid nav-drawer-cta"
+        >
+          <span>Next: {next.title}</span>
+          <span class="arrow" aria-hidden="true">
+            →
+          </span>
+        </a>
+      )
+    }
+  </div>
+</header>
+
+<style>
+  .masthead {
+    position: sticky;
+    top: 0;
+    z-index: var(--z-nav);
+    background: color-mix(in srgb, var(--paper) 92%, transparent);
+    border-bottom: var(--border-hair) solid transparent;
+    transition:
+      border-color var(--dur-2) var(--ease-out),
+      background var(--dur-2) var(--ease-out);
+  }
+
+  .masthead.is-condensed {
+    background: var(--paper);
+    border-bottom-color: var(--rule);
+  }
+
+  .masthead-inner {
+    display: flex;
+    align-items: center;
+    gap: var(--s-5);
+    min-height: 68px;
+    padding-block: var(--s-3);
+    transition: min-height var(--dur-2) var(--ease-out);
+  }
+
+  .is-condensed .masthead-inner {
+    min-height: 58px;
+  }
+
+  /* --- Wordmark --------------------------------------------------------- */
+  .wordmark {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-3);
+    /* Padded to a 44px target; the masthead's min-height absorbs it. */
+    padding-block: 11px;
+    text-decoration: none;
+    color: var(--clay-deep);
+    margin-right: auto;
+  }
+
+  .wordmark-text {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.32em;
+    font-family: var(--font-display);
+    font-size: 1.28rem;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    color: var(--ink);
+  }
+
+  .wordmark-claude {
+    font-weight: 600;
+  }
+
+  /* "India" in italic — the country is the variable, the community is fixed. */
+  .wordmark-india {
+    font-weight: 400;
+    font-style: italic;
+    color: var(--clay-deep);
+  }
+
+  .wordmark:hover .mark,
+  .wordmark:focus-visible .mark {
+    transform: rotate(45deg);
+  }
+
+  .wordmark :global(.mark) {
+    transition: transform var(--dur-3) var(--ease-out);
+  }
+
+  /* --- Desktop nav ------------------------------------------------------ */
+  .nav-desktop ul {
+    display: flex;
+    align-items: center;
+    gap: var(--s-5);
+  }
+
+  .nav-link {
+    position: relative;
+    display: block;
+    padding-block: var(--s-2);
+    font-family: var(--font-mono);
+    font-size: var(--t-meta);
+    font-weight: 500;
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-2);
+    text-decoration: none;
+    transition: color var(--dur-1) var(--ease-out);
+  }
+
+  .nav-link::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background: var(--clay);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform var(--dur-2) var(--ease-out);
+  }
+
+  .nav-link:hover,
+  .nav-link:focus-visible,
+  .nav-link.is-active {
+    color: var(--ink);
+  }
+
+  .nav-link:hover::after,
+  .nav-link:focus-visible::after,
+  .nav-link.is-active::after {
+    transform: scaleX(1);
+  }
+
+  /* --- The live next-event chip ----------------------------------------- */
+  .next-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-3);
+    padding: 0.45rem 0.75rem 0.45rem 0.7rem;
+    border: var(--border-hair) solid var(--rule-strong);
+    text-decoration: none;
+    color: var(--ink);
+    transition:
+      border-color var(--dur-2) var(--ease-out),
+      background var(--dur-2) var(--ease-out);
+  }
+
+  .next-chip:hover,
+  .next-chip:focus-visible {
+    border-color: var(--clay);
+    background: var(--clay-tint);
+  }
+
+  .next-chip-text {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--s-2);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .next-chip-label {
+    color: var(--ink-3);
+  }
+
+  .next-chip-date {
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .next-chip-city {
+    color: var(--ink-3);
+  }
+
+  .next-chip .arrow {
+    font-size: 0.8rem;
+    transition: transform var(--dur-2) var(--ease-out);
+  }
+
+  .next-chip:hover .arrow {
+    transform: translateX(3px);
+  }
+
+  .next-chip :global(.pip) {
+    gap: 0;
+  }
+
+  /* --- Mobile ----------------------------------------------------------- */
+  .nav-toggle {
+    display: none;
+    padding: 13px var(--s-3);
+    margin-right: calc(var(--s-3) * -1);
+  }
+
+  .nav-toggle-bars {
+    display: block;
+    width: 22px;
+  }
+
+  .nav-toggle-bars i {
+    display: block;
+    height: 1.5px;
+    background: var(--ink);
+    transition: transform var(--dur-2) var(--ease-out);
+  }
+
+  .nav-toggle-bars i + i {
+    margin-top: 6px;
+  }
+
+  .nav-toggle[aria-expanded='true'] .nav-toggle-bars i:first-child {
+    transform: translateY(3.75px) rotate(45deg);
+  }
+
+  .nav-toggle[aria-expanded='true'] .nav-toggle-bars i:last-child {
+    transform: translateY(-3.75px) rotate(-45deg);
+  }
+
+  .nav-drawer {
+    display: none;
+  }
+
+  @media (max-width: 63.99em) {
+    .nav-desktop {
+      display: none;
+    }
+
+    .nav-toggle {
+      display: block;
+      order: 3;
+    }
+
+    .next-chip {
+      order: 2;
+      padding: 0.4rem 0.55rem;
+    }
+
+    .next-chip-city,
+    .next-chip-label {
+      display: none;
+    }
+
+    .next-chip .arrow {
+      display: none;
+    }
+
+    .nav-drawer {
+      display: block;
+      position: fixed;
+      inset: 68px 0 0;
+      background: var(--paper);
+      border-top: var(--border-hair) solid var(--rule);
+      padding: var(--s-6) var(--gutter) var(--s-9);
+      transform: translateY(-8px);
+      opacity: 0;
+      visibility: hidden;
+      transition:
+        opacity var(--dur-2) var(--ease-out),
+        transform var(--dur-2) var(--ease-out),
+        visibility var(--dur-2);
+      overflow-y: auto;
+    }
+
+    .nav-drawer[data-open] {
+      opacity: 1;
+      visibility: visible;
+      transform: none;
+    }
+
+    .nav-drawer ul {
+      display: grid;
+      gap: var(--s-1);
+    }
+
+    .nav-drawer a {
+      display: flex;
+      align-items: baseline;
+      gap: var(--s-4);
+      padding-block: var(--s-4);
+      border-bottom: var(--border-hair) solid var(--rule);
+      font-family: var(--font-display);
+      font-size: clamp(1.8rem, 8vw, 2.6rem);
+      font-variation-settings:
+        'SOFT' 0,
+        'WONK' 1;
+      letter-spacing: -0.02em;
+      text-decoration: none;
+      color: var(--ink);
+    }
+
+    .nav-drawer a[aria-current='page'] {
+      color: var(--clay-deep);
+    }
+
+    .nav-drawer-index {
+      font-family: var(--font-mono);
+      font-size: var(--t-micro);
+      letter-spacing: var(--track-meta);
+      color: var(--ink-3);
+    }
+
+    .nav-drawer-cta {
+      width: 100%;
+      justify-content: space-between;
+      margin-top: var(--s-7);
+    }
+  }
+
+  /* On short viewports the drawer must not trap content off-screen. */
+  @media (max-width: 63.99em) and (max-height: 30rem) {
+    .nav-drawer a {
+      font-size: 1.5rem;
+      padding-block: var(--s-3);
+    }
+  }
+</style>

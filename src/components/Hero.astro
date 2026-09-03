@@ -1,0 +1,410 @@
+---
+import { Image } from 'astro:assets';
+import IndiaPlate from './IndiaPlate.astro';
+import { cityName, nextEvent, site } from '@/data';
+import { dateParts, relativeDay } from '@/lib/datetime';
+import { EXTENT } from '@/lib/geo';
+import { requireAsset } from '@/lib/images';
+import { statusLabel, statusOf, statusTone } from '@/lib/status';
+
+const next = nextEvent();
+const parts = next ? dateParts(next.date) : undefined;
+const status = next ? statusOf(next) : undefined;
+const tone = status ? statusTone(status) : 'next';
+
+// One photograph, to keep the record human. From the most recent room we have.
+const proof = requireAsset('events/vol06-3.jpg');
+---
+
+<header class="hero">
+  <!-- The plate sits behind the type, cropped by the viewport, at a whisper. -->
+  <div class="hero-plate" aria-hidden="true">
+    <IndiaPlate variant="ghost" interactive={false} />
+  </div>
+
+  <div class="container-wide hero-inner">
+    <div class="hero-slug">
+      <span class="label">Field record № 01 — India</span>
+      <span class="coords hero-extent">
+        {EXTENT.minLon}°E — {EXTENT.maxLon}°E · {EXTENT.minLat}°N — {EXTENT.maxLat}°N
+      </span>
+    </div>
+    <hr class="rule-line" />
+
+    <div class="hero-body">
+      <h1 class="hero-title">
+        <span class="hero-line">India is</span>
+        <span class="hero-line hero-line-em">building<span class="hero-stop">.</span></span>
+      </h1>
+
+      <div class="hero-support">
+        <p class="hero-tagline">{site.tagline}</p>
+        <p class="hero-copy">
+          A record of the people across India who meet, learn and ship with Claude — the events, the
+          cities, the builders, and the things they actually made.
+        </p>
+        <div class="hero-actions">
+          <a href="#cities" class="btn btn-solid">
+            <span>Find your city</span>
+            <span class="arrow" aria-hidden="true">→</span>
+          </a>
+          <a href="/events" class="link-arrow">
+            <span>All events</span>
+            <span class="arrow" aria-hidden="true">→</span>
+          </a>
+        </div>
+      </div>
+
+      <figure class="hero-proof">
+        <div class="plate">
+          <Image
+            src={proof}
+            alt="Around sixty participants standing among the desks of the classroom venue at the Claude Code Workshop in Bhopal"
+            widths={[320, 560, 720]}
+            sizes="(max-width: 47.99em) 0px, 300px"
+            loading="eager"
+            fetchpriority="low"
+            decoding="async"
+          />
+        </div>
+        <figcaption class="plate-caption">
+          <span>Vol. 06 · Bhopal</span>
+          <span>Aug 2026</span>
+        </figcaption>
+      </figure>
+    </div>
+  </div>
+
+  {
+    next && parts && status && (
+      <div class="hero-signal">
+        <div class="container-wide hero-signal-inner">
+          <a class="hero-signal-link" href={`/events/${next.slug}`}>
+            <span class:list={['pip', `pip-${tone}`]}>{statusLabel(status)}</span>
+            <span class="hero-signal-date">
+              <span class="hero-signal-day">{parts.dayPadded}</span>
+              <span class="hero-signal-month">{parts.monthDisplay}</span>
+            </span>
+            <span class="hero-signal-title">{next.title}</span>
+            <span class="hero-signal-city">{cityName(next.citySlug)}</span>
+            <span class="hero-signal-when">{relativeDay(next.date)}</span>
+            <span class="arrow" aria-hidden="true">
+              →
+            </span>
+          </a>
+        </div>
+      </div>
+    )
+  }
+</header>
+
+<style>
+  .hero {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    /* Sized so the live signal strip lands inside the first screen at every
+       viewport — the most useful line on the page must never be below it. */
+    min-height: min(90svh, 880px);
+    padding-top: clamp(1.5rem, 4vw, 3rem);
+    overflow: hidden;
+  }
+
+  /* --- Ghost plate ------------------------------------------------------ */
+  .hero-plate {
+    display: none;
+    position: absolute;
+    top: 50%;
+    right: -6%;
+    width: min(720px, 60vw);
+    transform: translateY(-52%);
+    opacity: 1;
+    pointer-events: none;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .hero-plate {
+      animation: plate-settle 1.6s var(--ease-out) both;
+    }
+  }
+
+  @keyframes plate-settle {
+    from {
+      opacity: 0;
+      transform: translateY(-52%) scale(1.03);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(-52%) scale(1);
+    }
+  }
+
+  .hero-inner {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* --- Slug line -------------------------------------------------------- */
+  .hero-slug {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: var(--s-3);
+    padding-bottom: var(--s-3);
+  }
+
+  .hero-extent {
+    color: var(--ink-3);
+  }
+
+  /* --- Title ------------------------------------------------------------ */
+  .hero-body {
+    flex: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-content: center;
+    gap: var(--s-6);
+    padding-block: clamp(var(--s-5), 3.2vw, var(--s-8));
+  }
+
+  .hero-title {
+    font-size: var(--t-poster);
+    font-weight: 600;
+    line-height: var(--lh-poster);
+    letter-spacing: var(--track-poster);
+    text-wrap: nowrap;
+  }
+
+  .hero-line {
+    display: block;
+  }
+
+  /* The italic is the motion: the country is doing the thing, right now. */
+  .hero-line-em {
+    font-style: italic;
+    font-weight: 400;
+    margin-left: 0.06em;
+  }
+
+  .hero-stop {
+    color: var(--clay);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .hero-line {
+      animation: line-rise var(--dur-4) var(--ease-out) both;
+      clip-path: inset(-0.2em -0.1em -0.15em -0.05em);
+    }
+
+    .hero-line-em {
+      animation-delay: 110ms;
+    }
+  }
+
+  @keyframes line-rise {
+    from {
+      opacity: 0;
+      transform: translateY(0.22em);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* --- Support column --------------------------------------------------- */
+  .hero-support {
+    max-width: 46ch;
+  }
+
+  .hero-tagline {
+    font-family: var(--font-display);
+    font-size: var(--t-h3);
+    font-weight: 500;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    letter-spacing: -0.015em;
+  }
+
+  .hero-copy {
+    margin-top: var(--s-3);
+    max-width: 44ch;
+    color: var(--ink-2);
+  }
+
+  .hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-5);
+    margin-top: var(--s-6);
+  }
+
+  /* --- Proof plate ------------------------------------------------------ */
+  .hero-proof {
+    display: none;
+  }
+
+  /* --- Live signal strip ------------------------------------------------ */
+  .hero-signal {
+    position: relative;
+    z-index: 1;
+    border-top: var(--border-hair) solid var(--rule);
+    border-bottom: var(--border-hair) solid var(--rule);
+    background: color-mix(in srgb, var(--paper) 88%, transparent);
+  }
+
+  .hero-signal-link {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: var(--s-3) var(--s-5);
+    padding-block: var(--s-4);
+    text-decoration: none;
+    color: var(--ink);
+  }
+
+  .hero-signal-link:hover .hero-signal-title,
+  .hero-signal-link:focus-visible .hero-signal-title {
+    color: var(--clay-deep);
+  }
+
+  .hero-signal-link .arrow {
+    margin-left: auto;
+    transition: transform var(--dur-2) var(--ease-out);
+  }
+
+  .hero-signal-link:hover .arrow {
+    transform: translateX(5px);
+  }
+
+  .hero-signal-date {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--s-2);
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .hero-signal-day {
+    font-size: 1.15rem;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+
+  .hero-signal-month {
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    color: var(--ink-3);
+  }
+
+  .hero-signal-title {
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-weight: 500;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    letter-spacing: -0.015em;
+    transition: color var(--dur-1) var(--ease-out);
+  }
+
+  .hero-signal-city,
+  .hero-signal-when {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  /* =====================================================================
+     DESKTOP — the composition proper: type and cartography interlocked
+     ===================================================================== */
+  @media (min-width: 48em) {
+    .hero-plate {
+      display: block;
+      right: -8%;
+      width: min(520px, 66vw);
+    }
+  }
+
+  @media (min-width: 62em) {
+    .hero-body {
+      grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
+      grid-template-areas:
+        'title title'
+        'support proof';
+      column-gap: var(--s-8);
+      row-gap: clamp(var(--s-5), 3.2vw, var(--s-8));
+      align-content: center;
+    }
+
+    .hero-title {
+      grid-area: title;
+    }
+
+    .hero-support {
+      grid-area: support;
+      align-self: end;
+    }
+
+    .hero-proof {
+      grid-area: proof;
+      display: block;
+      align-self: end;
+      max-width: 270px;
+      justify-self: end;
+      /* Nudged past the grid so it reads as pinned to the page, not placed. */
+      transform: translateY(var(--s-2));
+    }
+
+    .hero-proof {
+      padding: 10px 10px 0;
+      background: var(--paper);
+      border: var(--border-hair) solid var(--rule-strong);
+      box-shadow: var(--shadow-lift);
+    }
+
+    .hero-proof .plate {
+      aspect-ratio: 4 / 3;
+      border: 0;
+    }
+
+    .hero-proof .plate-caption {
+      padding-bottom: 8px;
+      margin-top: var(--s-2);
+    }
+
+    .hero-plate {
+      display: block;
+      right: -4%;
+      width: min(660px, 52vw);
+    }
+  }
+
+  @media (min-width: 64em) {
+    .hero-inner {
+      padding-left: calc(var(--gutter) + var(--rail));
+    }
+  }
+
+  @media (min-width: 90em) {
+    .hero-plate {
+      right: 3%;
+      width: 640px;
+    }
+  }
+
+  /* On short landscape phones the hero must not swallow the screen. */
+  @media (max-width: 61.99em) and (max-height: 34rem) {
+    .hero {
+      min-height: auto;
+    }
+  }
+</style>

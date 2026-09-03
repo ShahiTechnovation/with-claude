@@ -1,0 +1,219 @@
+---
+import { cityName, projects } from '@/data';
+
+/**
+ * BUILT WITH CLAUDE.
+ *
+ * When the archive is empty, the section renders the *shape* of an entry
+ * instead of filler: a specimen card with its fields labelled, so anyone
+ * submitting knows exactly what is being asked for. When real projects land,
+ * the grid takes over and the specimen disappears.
+ */
+const featured = projects.slice(0, 6);
+const isOpen = featured.length === 0;
+
+const specimenFields = [
+  { label: 'Project', hint: 'What you called it' },
+  { label: 'Builder', hint: 'You, and anyone you built it with' },
+  { label: 'City', hint: 'Where it was made' },
+  { label: 'What it does', hint: 'One sentence' },
+  { label: 'How Claude was used', hint: 'The interesting part' },
+  { label: 'Link', hint: 'Live, repo, or a video' },
+];
+---
+
+<div class="archive">
+  <div class="section-head">
+    <p class="section-index">06 — Projects</p>
+    <h2 id="projects-heading">Built with Claude</h2>
+    <p class="prose">
+      {
+        isOpen
+          ? 'The archive opens with nothing in it. Prototypes have been shipped at every Impact Lab and workshop — none of them are written down anywhere. This is the form that fixes that.'
+          : 'Things people in this community have actually made.'
+      }
+    </p>
+  </div>
+
+  {
+    isOpen ? (
+      <div class="specimen" data-reveal>
+        <div class="specimen-card">
+          <p class="label specimen-tag">Specimen entry</p>
+          <dl class="specimen-fields">
+            {specimenFields.map((field, i) => (
+              <div class="specimen-field">
+                <dt>
+                  <span class="specimen-num">{String(i + 1).padStart(2, '0')}</span>
+                  {field.label}
+                </dt>
+                <dd>{field.hint}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+
+        <div class="specimen-aside">
+          <p class="specimen-copy">
+            Every entry becomes a permanent, searchable part of the record — filterable by city, by
+            builder, and by what it was built with.
+          </p>
+          <a class="btn btn-solid" href="https://t.me/tog_guild" target="_blank" rel="noopener">
+            <span>Submit a project</span>
+            <span class="arrow" aria-hidden="true">
+              ↗
+            </span>
+          </a>
+          <p class="specimen-note">
+            Nothing here is placeholder content. The archive stays empty until real projects arrive.
+          </p>
+        </div>
+      </div>
+    ) : (
+      <ul class="archive-grid">
+        {featured.map((project, i) => (
+          <li class="archive-item" data-reveal style={`--reveal-delay:${i * 60}ms`}>
+            <a href={`/projects/${project.slug}`}>
+              <p class="label archive-city">{cityName(project.citySlug)}</p>
+              <h3 class="archive-title">{project.title}</h3>
+              <p class="archive-summary">{project.summary}</p>
+              {project.tags && <p class="archive-tags">{project.tags.join(' · ')}</p>}
+            </a>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+</div>
+
+<style>
+  /* --- Specimen (empty archive) ----------------------------------------- */
+  .specimen {
+    display: grid;
+    gap: var(--s-7);
+    margin-top: var(--s-7);
+  }
+
+  .specimen-card {
+    padding: var(--s-6);
+    border: var(--border-hair) dashed var(--rule-strong);
+    background: color-mix(in srgb, var(--paper-raised) 60%, transparent);
+  }
+
+  .specimen-tag {
+    color: var(--clay-deep);
+    margin-bottom: var(--s-5);
+  }
+
+  .specimen-fields {
+    display: grid;
+    gap: var(--s-4);
+  }
+
+  .specimen-field {
+    display: grid;
+    gap: var(--s-1);
+    padding-bottom: var(--s-4);
+    border-bottom: var(--border-hair) solid var(--rule);
+  }
+
+  .specimen-field:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  .specimen-field dt {
+    display: flex;
+    align-items: baseline;
+    gap: var(--s-3);
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    font-weight: 500;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+  }
+
+  .specimen-num {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    color: var(--ink-3);
+  }
+
+  .specimen-field dd {
+    padding-left: calc(3ch + var(--s-3));
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.04em;
+    color: var(--ink-3);
+  }
+
+  .specimen-aside {
+    display: grid;
+    gap: var(--s-5);
+    align-content: start;
+    justify-items: start;
+  }
+
+  .specimen-copy {
+    font-size: var(--t-lead);
+    color: var(--ink-2);
+    max-width: 34ch;
+  }
+
+  .specimen-note {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    line-height: 1.7;
+    color: var(--ink-3);
+    max-width: 38ch;
+    padding-top: var(--s-4);
+    border-top: var(--border-hair) solid var(--rule);
+  }
+
+  /* --- Populated archive ------------------------------------------------ */
+  .archive-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+    gap: var(--s-6);
+    margin-top: var(--s-7);
+  }
+
+  .archive-item a {
+    display: grid;
+    gap: var(--s-2);
+    padding-top: var(--s-4);
+    border-top: var(--border-rule) solid var(--ink);
+    text-decoration: none;
+    color: var(--ink);
+  }
+
+  .archive-city {
+    color: var(--ink-3);
+  }
+
+  .archive-title {
+    font-size: var(--t-h3);
+  }
+
+  .archive-summary {
+    font-size: var(--t-small);
+    color: var(--ink-2);
+  }
+
+  .archive-tags {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.06em;
+    color: var(--ink-3);
+  }
+
+  @media (min-width: 56em) {
+    .specimen {
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+      gap: var(--s-9);
+      align-items: start;
+    }
+  }
+</style>
