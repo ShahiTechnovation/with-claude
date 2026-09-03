@@ -6,36 +6,62 @@ import { dateParts } from '@/lib/datetime';
 
 const next = nextEvent();
 const parts = next ? dateParts(next.date) : undefined;
+
+const routes = [
+  { href: '/events', label: 'Events', note: 'Past and upcoming' },
+  { href: '/cities', label: 'Cities', note: 'Plotted across India' },
+  { href: '/builders', label: 'Builders', note: 'Who is building' },
+  { href: '/projects', label: 'Projects', note: 'Made with Claude' },
+  { href: '/stories', label: 'Stories', note: 'From the community' },
+];
 ---
 
-<Base title="Not in the record" description="That page is not part of the record." noindex>
-  <Section id="missing" index="—" label="404" size="lg">
+<Base title="Not found" description="That page is not part of the record." noindex>
+  <Section id="missing" size="lg" labelledby="missing-heading">
     <div class="missing">
-      <p class="label label-accent">Error 404</p>
-      <h1 id="missing-heading" class="missing-title">
-        Not in the <em>record</em>.
-      </h1>
-      <p class="prose missing-copy">
-        There is no page at this address. It may have been an event that moved, a city that has not
-        been plotted, or simply a typo.
-      </p>
+      <div class="missing-main">
+        <p class="eyebrow">Error 404</p>
+        <h1 id="missing-heading" class="missing-title">
+          Not in the <em>record</em>.
+        </h1>
+        <p class="prose missing-copy">
+          There is no page at this address. It may have been an event that moved, a city that is not
+          plotted, or simply a typo.
+        </p>
 
-      <div class="missing-actions">
-        <a class="btn btn-solid" href="/">
-          <span>Back to the record</span>
-          <span class="arrow" aria-hidden="true">→</span>
-        </a>
-        {
-          next && parts && (
-            <a class="link-arrow" href={`/events/${next.slug}`}>
-              <span>{`Next: ${parts.dayPadded} ${parts.monthDisplay} in ${cityName(next.citySlug)}`}</span>
-              <span class="arrow" aria-hidden="true">
-                →
-              </span>
-            </a>
-          )
-        }
+        <div class="missing-actions">
+          <a class="btn btn-solid" href="/">
+            <span>Back to the start</span>
+            <span class="arrow" aria-hidden="true">→</span>
+          </a>
+          {
+            next && parts && (
+              <a class="link-arrow" href={`/events/${next.slug}`}>
+                <span>{`Next: ${parts.dayPadded} ${parts.monthDisplay} in ${cityName(next.citySlug)}`}</span>
+                <span class="arrow" aria-hidden="true">
+                  →
+                </span>
+              </a>
+            )
+          }
+        </div>
       </div>
+
+      <ul class="missing-routes">
+        {
+          routes.map((route) => (
+            <li>
+              <a href={route.href}>
+                <span class="route-label">{route.label}</span>
+                <span class="route-note">{route.note}</span>
+                <span class="arrow" aria-hidden="true">
+                  →
+                </span>
+              </a>
+            </li>
+          ))
+        }
+      </ul>
     </div>
   </Section>
 </Base>
@@ -43,17 +69,17 @@ const parts = next ? dateParts(next.date) : undefined;
 <style>
   .missing {
     display: grid;
-    gap: var(--s-5);
-    justify-items: start;
-    min-height: 46vh;
+    gap: var(--s-8);
     align-content: center;
+    min-height: 44vh;
   }
 
   .missing-title {
-    font-size: clamp(2.6rem, 9vw, 6.5rem);
+    margin-top: var(--s-4);
+    font-size: clamp(2.5rem, 8vw, 5.5rem);
     font-weight: 600;
     line-height: 0.92;
-    letter-spacing: -0.04em;
+    letter-spacing: -0.042em;
     max-width: 12ch;
   }
 
@@ -64,6 +90,7 @@ const parts = next ? dateParts(next.date) : undefined;
   }
 
   .missing-copy {
+    margin-top: var(--s-5);
     max-width: 46ch;
   }
 
@@ -72,6 +99,56 @@ const parts = next ? dateParts(next.date) : undefined;
     flex-wrap: wrap;
     align-items: center;
     gap: var(--s-5);
-    margin-top: var(--s-4);
+    margin-top: var(--s-6);
+  }
+
+  .missing-routes {
+    align-self: end;
+    border-top: var(--border-heavy) solid var(--ink);
+  }
+
+  .missing-routes a {
+    display: flex;
+    align-items: baseline;
+    gap: var(--s-4);
+    padding-block: var(--s-4);
+    border-bottom: var(--border-hair) solid var(--rule);
+    text-decoration: none;
+    color: var(--ink);
+  }
+
+  .route-label {
+    font-family: var(--font-display);
+    font-size: var(--t-h3);
+    font-weight: 500;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    letter-spacing: -0.02em;
+  }
+
+  .missing-routes a:hover .route-label {
+    color: var(--clay-deep);
+  }
+
+  .route-note {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .missing-routes .arrow {
+    margin-left: auto;
+    color: var(--ink-3);
+  }
+
+  @media (min-width: 62em) {
+    .missing {
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+      gap: var(--s-9);
+      align-items: center;
+    }
   }
 </style>

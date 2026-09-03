@@ -1,0 +1,923 @@
+---
+import { citySignalsRanked } from '@/data';
+import { CITY_STATE_LABEL, CITY_STATE_NOTE, CITY_STATE_ORDER } from '@/lib/city';
+import { PLATE, formatCoords, graticule, project, scaleBar } from '@/lib/geo';
+import { dateParts } from '@/lib/datetime';
+import type { AtlasCity } from '@/lib/atlas';
+import type { CityState } from '@/data/types';
+
+/**
+ * THE ATLAS — geographic discovery.
+ *
+ * A coordinate field, not a traced outline: every city sits at its true
+ * latitude and longitude on a graticule, with a scale bar and a north mark to
+ * say so. That is a deliberate choice on three counts —
+ *
+ *   1. It is honest. Every point is where the city actually is.
+ *   2. It sidesteps depicting national boundaries, which is a regulated matter
+ *      in India and not something a community site should get wrong.
+ *   3. It reads as cartography rather than as a Google Maps clone.
+ *
+ * What it communicates is community state, and the four states are separated
+ * by FORM before colour — a filled station, an open ring, a solid dot, a
+ * hairline — so the plate still reads in monochrome. A city is never drawn as
+ * an opportunity: there is no "claim this dot".
+ *
+ * `ghost` is the hero's quiet backdrop; `atlas` is the full instrument.
+ */
+interface Props {
+  variant?: 'atlas' | 'ghost';
+  class?: string;
+}
+
+const { variant = 'atlas', class: className = '' } = Astro.props;
+const interactive = variant === 'atlas';
+
+const signals = citySignalsRanked();
+const grid = graticule(5);
+const bar = scaleBar(500);
+
+/** Label side per city, hand-set to stop the north-west cluster colliding. */
+const LABEL_LEFT = new Set([
+  'chandigarh',
+  'jaipur',
+  'ahmedabad',
+  'indore',
+  'mumbai',
+  'bengaluru',
+  'kochi',
+]);
+
+const nodes = signals.map((signal) => {
+  const point = project(signal.city.lat, signal.city.lon);
+  const left = LABEL_LEFT.has(signal.city.slug);
+  return {
+    signal,
+    point,
+    left,
+    labelX: left ? point.x - 12 : point.x + 12,
+  };
+});
+
+// Quiet cities are drawn first so a live station never sits under a label.
+const quiet = nodes.filter((n) => n.signal.state === 'discovery');
+const lit = nodes.filter((n) => n.signal.state !== 'discovery');
+
+const atlasData: AtlasCity[] = signals.map((s) => ({
+  slug: s.city.slug,
+  name: s.city.name,
+  region: s.city.state,
+  state: s.state,
+  stateLabel: CITY_STATE_LABEL[s.state],
+  note: CITY_STATE_NOTE[s.state],
+  coords: formatCoords(s.city.lat, s.city.lon),
+  blurb: s.city.blurb,
+  events: s.eventCount,
+  held: s.heldCount,
+  builders: s.builderCount,
+  projects: s.projectCount,
+  ambassador: s.ambassadors[0]?.name ?? null,
+  next: s.next
+    ? {
+        title: s.next.title,
+        date: `${dateParts(s.next.date).dayPadded} ${dateParts(s.next.date).monthDisplay}`,
+        slug: s.next.slug,
+      }
+    : null,
+}));
+
+const atlasId = `atlas-${variant}`;
+
+// The readout's resting state is server-rendered, so the panel reads correctly
+// with scripts blocked. JS only ever replaces content that is already right.
+const resting = atlasData[0];
+
+// Legend counts come from the record. A state with nothing in it still shows,
+// at zero — the model is part of what the page is explaining.
+const legend = CITY_STATE_ORDER.map((state: CityState) => ({
+  state,
+  label: CITY_STATE_LABEL[state],
+  count: signals.filter((s) => s.state === state).length,
+}));
+---
+
+<div class:list={['atlas', `is-${variant}`, className]}>
+  <div class="atlas-plate">
+    <svg
+      class="atlas-svg"
+      viewBox={`0 0 ${PLATE.width} ${PLATE.height}`}
+      role={interactive ? 'group' : 'img'}
+      aria-label={interactive
+        ? 'Map of Indian cities plotted by coordinate, showing community state'
+        : 'A coordinate plot of Indian cities'}
+      data-atlas={interactive ? atlasId : undefined}
+    >
+      <rect
+        x="14"
+        y="14"
+        width={PLATE.width - 28}
+        height={PLATE.height - 28}
+        class="plate-frame"
+        fill="none"></rect>
+
+      <g class="plate-grid" aria-hidden="true">
+        {grid.meridians.map((m) => <line x1={m.x} y1="14" x2={m.x} y2={PLATE.height - 14} />)}
+        {grid.parallels.map((p) => <line x1="14" y1={p.y} x2={PLATE.width - 14} y2={p.y} />)}
+      </g>
+
+      <g class="plate-ticks" aria-hidden="true">
+        {
+          grid.meridians.map((m) => (
+            <text x={m.x} y={PLATE.height - 22} text-anchor="middle">
+              {m.lon}°E
+            </text>
+          ))
+        }
+        {
+          grid.parallels.map((p) => (
+            <text x="22" y={p.y - 6}>
+              {p.lat}°N
+            </text>
+          ))
+        }
+      </g>
+
+      <!-- Cartographic furniture: a real scale, and north, because north is up
+           by construction — the projection applies no rotation. -->
+      {
+        interactive && (
+          <g class="plate-furniture" aria-hidden="true">
+            <g transform={`translate(${PLATE.width - 40 - bar.width} ${PLATE.height - 52})`}>
+              <line x1="0" y1="0" x2={bar.width} y2="0" />
+              <line x1="0" y1="-5" x2="0" y2="5" />
+              <line x1={bar.width} y1="-5" x2={bar.width} y2="5" />
+              <text x={bar.width / 2} y="-11" text-anchor="middle">
+                {bar.km} km
+              </text>
+            </g>
+            <g transform="translate(48 62)">
+              <path d="M0 -18 L5 4 L0 -1 L-5 4 Z" class="plate-north" />
+              <text x="0" y="18" text-anchor="middle">
+                N
+              </text>
+            </g>
+          </g>
+        )
+      }
+
+      <g class="atlas-nodes">
+        {
+          quiet.map((n) => {
+            const Tag = interactive ? 'a' : 'g';
+            return (
+              <Tag
+                class="node node-discovery"
+                href={interactive ? `/cities/${n.signal.city.slug}` : undefined}
+                data-node={n.signal.city.slug}
+                aria-label={
+                  interactive
+                    ? `${n.signal.city.name}, ${n.signal.city.state} — ${CITY_STATE_NOTE.discovery}`
+                    : undefined
+                }
+              >
+                <circle class="node-hit" cx={n.point.x} cy={n.point.y} r="20" />
+                <circle class="node-dot" cx={n.point.x} cy={n.point.y} r="3.4" />
+                <text
+                  class="node-label"
+                  x={n.labelX}
+                  y={n.point.y + 4}
+                  text-anchor={n.left ? 'end' : 'start'}
+                >
+                  {n.signal.city.name}
+                </text>
+              </Tag>
+            );
+          })
+        }
+      </g>
+
+      <g class="atlas-nodes">
+        {
+          lit.map((n) => {
+            const Tag = interactive ? 'a' : 'g';
+            const led = n.signal.state === 'ambassador-led';
+            return (
+              <Tag
+                class:list={['node', `node-${n.signal.state}`]}
+                href={interactive ? `/cities/${n.signal.city.slug}` : undefined}
+                data-node={n.signal.city.slug}
+                aria-label={
+                  interactive
+                    ? `${n.signal.city.name}, ${n.signal.city.state} — ${CITY_STATE_LABEL[n.signal.state]}, ${n.signal.eventCount} events`
+                    : undefined
+                }
+              >
+                <circle class="node-hit" cx={n.point.x} cy={n.point.y} r="28" />
+                {led && (
+                  <>
+                    <circle class="node-signal" cx={n.point.x} cy={n.point.y} r="14" />
+                    <circle
+                      class="node-signal node-signal-2"
+                      cx={n.point.x}
+                      cy={n.point.y}
+                      r="14"
+                    />
+                    <circle class="node-halo" cx={n.point.x} cy={n.point.y} r="13" />
+                    {/* The station mark, drawn inline so it scales with the plate. */}
+                    <g class="node-mark" transform={`translate(${n.point.x} ${n.point.y})`}>
+                      <path d="M0 -11.5V-4.5M0 4.5v7M-11.5 0h7M4.5 0h7" />
+                      <path
+                        d="M-7.8 -7.8l3.4 3.4M4.4 4.4l3.4 3.4M7.8 -7.8l-3.4 3.4M-4.4 4.4l-3.4 3.4"
+                        opacity="0.5"
+                      />
+                      <circle r="3.4" class="node-mark-core" />
+                    </g>
+                  </>
+                )}
+                {!led && <circle class="node-dot" cx={n.point.x} cy={n.point.y} r="5.6" />}
+                <text
+                  class="node-label node-label-lit"
+                  x={led ? n.labelX + 6 : n.labelX}
+                  y={n.point.y + 5}
+                  text-anchor={n.left ? 'end' : 'start'}
+                >
+                  {n.signal.city.name}
+                </text>
+              </Tag>
+            );
+          })
+        }
+      </g>
+    </svg>
+
+    {
+      interactive && (
+        <p class="plate-note">
+          Positions are true latitude and longitude. No borders are drawn — this is a coordinate
+          plot, not a political map.
+        </p>
+      )
+    }
+  </div>
+
+  {
+    interactive && resting && (
+      <div class="atlas-side">
+        <div class="readout" data-readout={atlasId} aria-live="polite">
+          <p class="label readout-kicker">Selected</p>
+          <p class="readout-name" data-readout-name>
+            {resting.name}
+          </p>
+          <p class="readout-region" data-readout-region>
+            {resting.region}
+          </p>
+          <p class="coords" data-readout-coords>
+            {resting.coords}
+          </p>
+
+          <p
+            class:list={['chip', `chip-${resting.state}`, 'readout-chip']}
+            data-readout-chip
+            data-state={resting.state}
+          >
+            <span data-readout-state>{resting.stateLabel}</span>
+          </p>
+
+          <p class="readout-note" data-readout-note>
+            {resting.note}
+          </p>
+
+          <dl class="readout-stats" data-readout-stats>
+            <div>
+              <dt>Events</dt>
+              <dd data-readout-events>{String(resting.events).padStart(2, '0')}</dd>
+            </div>
+            <div>
+              <dt>Builders</dt>
+              <dd data-readout-builders>{String(resting.builders).padStart(2, '0')}</dd>
+            </div>
+            <div>
+              <dt>Projects</dt>
+              <dd data-readout-projects>{String(resting.projects).padStart(2, '0')}</dd>
+            </div>
+          </dl>
+
+          <p class="readout-next" data-readout-next>
+            {resting.next && `Next: ${resting.next.date} — ${resting.next.title}`}
+          </p>
+
+          <a class="link-arrow readout-go" data-readout-link href={`/cities/${resting.slug}`}>
+            <span data-readout-link-label>{`Open ${resting.name}`}</span>
+            <span class="arrow" aria-hidden="true">
+              →
+            </span>
+          </a>
+        </div>
+
+        {/* The list is the primary control on touch: real rows, real targets,
+            and it stays in sync with the plate. Nothing here is hover-only. */}
+        <div class="atlas-list-wrap">
+          <h3 class="label atlas-list-head">All cities plotted</h3>
+          <p class="atlas-list-hint">Tap a city to open it.</p>
+          <ul class="atlas-list">
+            {signals.map((s) => (
+              <li>
+                <a
+                  class="atlas-row"
+                  href={`/cities/${s.city.slug}`}
+                  data-node={s.city.slug}
+                  data-state={s.state}
+                >
+                  <span class="atlas-row-key" aria-hidden="true" />
+                  <span class="atlas-row-name">{s.city.name}</span>
+                  <span class="atlas-row-state">{CITY_STATE_LABEL[s.state]}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div class="atlas-legend-wrap">
+          <h3 class="label atlas-list-head">Key</h3>
+          <ul class="atlas-legend">
+            {legend.map((item) => (
+              <li>
+                <span class:list={['legend-key', `legend-key-${item.state}`]} aria-hidden="true" />
+                <span class="legend-label">{item.label}</span>
+                <span class="legend-count">{String(item.count).padStart(2, '0')}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <script
+          is:inline
+          type="application/json"
+          data-atlas-data={atlasId}
+          set:html={JSON.stringify(atlasData)}
+        />
+      </div>
+    )
+  }
+</div>
+
+{interactive && <script>import '@/scripts/atlas';</script>}
+
+<style>
+  .atlas {
+    position: relative;
+    display: grid;
+    gap: var(--s-7);
+  }
+
+  .atlas-svg {
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
+
+  /* --- Frame, graticule, furniture -------------------------------------- */
+  .plate-frame {
+    stroke: var(--rule-strong);
+    stroke-width: 1;
+  }
+
+  .plate-grid line {
+    stroke: var(--rule);
+    stroke-width: 1;
+  }
+
+  .plate-ticks text {
+    fill: var(--ink-3);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.05em;
+  }
+
+  .plate-furniture line {
+    stroke: var(--ink-3);
+    stroke-width: 1;
+  }
+
+  .plate-furniture text {
+    fill: var(--ink-3);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+  }
+
+  .plate-north {
+    fill: var(--ink-3);
+  }
+
+  .plate-note {
+    margin-top: var(--s-4);
+    max-width: 46ch;
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    line-height: 1.7;
+    color: var(--ink-3);
+  }
+
+  /* --- Nodes ------------------------------------------------------------
+     Form carries the meaning; colour only reinforces it. */
+  .node {
+    cursor: pointer;
+    outline: none;
+  }
+
+  .node-hit {
+    fill: transparent;
+  }
+
+  .node-label {
+    fill: var(--ink-3);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    letter-spacing: 0.04em;
+    transition: fill var(--dur-2) var(--ease-out);
+  }
+
+  .node-label-lit {
+    fill: var(--ink);
+    font-size: 17px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+
+  /* Discovery — a hairline circle. Plotted, and nothing more is claimed. */
+  .node-discovery .node-dot {
+    fill: none;
+    stroke: var(--state-discovery);
+    stroke-width: 1.2;
+    transition:
+      fill var(--dur-2) var(--ease-out),
+      stroke var(--dur-2) var(--ease-out);
+  }
+
+  /* Event activity — an open ring. */
+  .node-event-activity .node-dot {
+    fill: none;
+    stroke: var(--state-activity);
+    stroke-width: 2.2;
+  }
+
+  /* Community interest — a small solid dot. */
+  .node-community-interest .node-dot {
+    fill: var(--state-interest);
+    stroke: none;
+  }
+
+  /* Ambassador-led — the station mark. */
+  .node-mark {
+    stroke: var(--state-led);
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    fill: none;
+  }
+
+  .node-mark-core {
+    fill: var(--state-led);
+    stroke: none;
+  }
+
+  .node-halo {
+    fill: color-mix(in srgb, var(--clay) 14%, transparent);
+    stroke: none;
+  }
+
+  /* The signal: two rings leaving the station. It is a transmission, not a
+     connection — the plate never draws a line to a city where nothing is
+     happening, because that line would read as a promise. */
+  .node-signal {
+    fill: none;
+    stroke: var(--clay);
+    stroke-width: 1;
+    opacity: 0;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .node-signal {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: signal 4.2s var(--ease-out) infinite;
+    }
+
+    .node-signal-2 {
+      animation-delay: 1.4s;
+    }
+  }
+
+  @keyframes signal {
+    0% {
+      transform: scale(0.5);
+      opacity: 0;
+    }
+    12% {
+      opacity: 0.55;
+    }
+    70%,
+    100% {
+      transform: scale(2.6);
+      opacity: 0;
+    }
+  }
+
+  /* Hover, focus and programmatic selection all read the same. */
+  .node:hover .node-dot,
+  .node.is-selected .node-dot {
+    fill: var(--clay);
+    stroke: var(--clay);
+  }
+
+  .node:hover .node-label,
+  .node.is-selected .node-label {
+    fill: var(--ink);
+  }
+
+  .node.is-selected .node-label {
+    font-weight: 500;
+  }
+
+  .node:focus-visible .node-dot,
+  .node:focus-visible .node-mark-core {
+    stroke: var(--ink);
+    stroke-width: 2.5;
+  }
+
+  .node:focus-visible .node-label {
+    fill: var(--ink);
+    font-weight: 500;
+  }
+
+  /* --- Readout ---------------------------------------------------------- */
+  .atlas-side {
+    display: grid;
+    gap: var(--s-6);
+    align-content: start;
+  }
+
+  .readout {
+    display: grid;
+    gap: var(--s-2);
+    align-content: start;
+    padding: var(--s-5);
+    border: var(--border-hair) solid var(--rule);
+    border-left: 2px solid var(--clay);
+    background: var(--paper-raised);
+  }
+
+  .readout-kicker {
+    color: var(--ink-3);
+  }
+
+  .readout-name {
+    font-family: var(--font-display);
+    font-size: clamp(1.7rem, 2.6vw, 2.2rem);
+    font-weight: 600;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    line-height: 1;
+    letter-spacing: -0.025em;
+  }
+
+  .readout-region {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .readout-chip {
+    justify-self: start;
+    margin-top: var(--s-3);
+  }
+
+  .readout-note {
+    margin-top: var(--s-2);
+    font-size: var(--t-small);
+    color: var(--ink-2);
+  }
+
+  .readout-stats {
+    display: flex;
+    gap: var(--s-5);
+    margin-top: var(--s-4);
+    padding-top: var(--s-4);
+    border-top: var(--border-hair) solid var(--rule);
+  }
+
+  .readout-stats dt {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .readout-stats dd {
+    margin-top: var(--s-1);
+    font-family: var(--font-display);
+    font-size: 1.4rem;
+    font-weight: 600;
+    line-height: 1;
+    font-variant-numeric: lining-nums tabular-nums;
+  }
+
+  .readout-next:empty {
+    display: none;
+  }
+
+  .readout-next {
+    margin-top: var(--s-4);
+    padding-top: var(--s-3);
+    border-top: var(--border-hair) solid var(--rule);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.06em;
+    color: var(--clay-deep);
+  }
+
+  .readout-go {
+    justify-self: start;
+    margin-top: var(--s-4);
+  }
+
+  /* --- The list: the touch-first control --------------------------------- */
+  .atlas-list-head {
+    padding-bottom: var(--s-3);
+    margin-bottom: var(--s-2);
+    border-bottom: var(--border-hair) solid var(--rule-strong);
+    color: var(--ink-3);
+  }
+
+  /* Fourteen rows fit beside the plate on a desktop, so the list is whole.
+     It only becomes a scroller where the column is short. */
+  .atlas-list {
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--rule-strong) transparent;
+  }
+
+  @media (max-height: 56rem) and (min-width: 62em) {
+    .atlas-list {
+      max-height: 20rem;
+      overflow-y: auto;
+    }
+  }
+
+  .atlas-row {
+    display: grid;
+    grid-template-columns: 14px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--s-3);
+    padding-block: 0.65rem;
+    border-bottom: var(--border-hair) solid var(--rule);
+    text-decoration: none;
+    color: var(--ink-2);
+    transition:
+      background var(--dur-1) var(--ease-out),
+      color var(--dur-1) var(--ease-out);
+  }
+
+  .atlas-row:hover,
+  .atlas-row:focus-visible,
+  .atlas-row.is-selected {
+    background: color-mix(in srgb, var(--clay) 9%, transparent);
+    color: var(--ink);
+  }
+
+  .atlas-row-key {
+    width: 10px;
+    height: 10px;
+    justify-self: center;
+    border-radius: 50%;
+  }
+
+  .atlas-row[data-state='ambassador-led'] .atlas-row-key {
+    background: var(--state-led);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--clay) 22%, transparent);
+  }
+
+  .atlas-row[data-state='event-activity'] .atlas-row-key {
+    box-shadow: inset 0 0 0 2px var(--state-activity);
+  }
+
+  .atlas-row[data-state='community-interest'] .atlas-row-key {
+    background: var(--state-interest);
+  }
+
+  .atlas-row[data-state='discovery'] .atlas-row-key {
+    box-shadow: inset 0 0 0 1px var(--state-discovery);
+  }
+
+  .atlas-row-name {
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: 500;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    color: var(--ink);
+  }
+
+  .atlas-row-state {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  /* --- Legend ------------------------------------------------------------ */
+  .atlas-legend {
+    display: grid;
+    gap: var(--s-3);
+    font-size: var(--t-small);
+    color: var(--ink-2);
+  }
+
+  .atlas-legend li {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--s-3);
+  }
+
+  .legend-key {
+    position: relative;
+    width: 20px;
+    height: 14px;
+  }
+
+  .legend-key::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    translate: -50% -50%;
+    border-radius: 50%;
+  }
+
+  .legend-key-ambassador-led::before {
+    width: 12px;
+    height: 12px;
+    background: var(--state-led);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--clay) 18%, transparent);
+  }
+
+  .legend-key-event-activity::before {
+    width: 11px;
+    height: 11px;
+    box-shadow: inset 0 0 0 2px var(--state-activity);
+  }
+
+  .legend-key-community-interest::before {
+    width: 8px;
+    height: 8px;
+    background: var(--state-interest);
+  }
+
+  .legend-key-discovery::before {
+    width: 8px;
+    height: 8px;
+    box-shadow: inset 0 0 0 1px var(--state-discovery);
+  }
+
+  .legend-label {
+    font-size: var(--t-small);
+  }
+
+  .legend-count {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* --- Ghost variant: the hero's quiet backdrop -------------------------- */
+  .is-ghost {
+    pointer-events: none;
+  }
+
+  .is-ghost .plate-frame,
+  .is-ghost .plate-ticks {
+    display: none;
+  }
+
+  .is-ghost .plate-grid line {
+    stroke: color-mix(in srgb, var(--ink) 10%, transparent);
+  }
+
+  .is-ghost .node-label {
+    display: none;
+  }
+
+  .is-ghost .node-discovery .node-dot {
+    stroke: color-mix(in srgb, var(--ink) 30%, transparent);
+    stroke-width: 1.4;
+  }
+
+  .is-ghost .node-halo {
+    fill: color-mix(in srgb, var(--clay) 12%, transparent);
+  }
+
+  .is-ghost .node-mark {
+    stroke: color-mix(in srgb, var(--clay) 58%, transparent);
+  }
+
+  .is-ghost .node-mark-core {
+    fill: color-mix(in srgb, var(--clay) 58%, transparent);
+  }
+
+  .atlas-list-hint {
+    display: none;
+    margin-bottom: var(--s-2);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.05em;
+    color: var(--ink-3);
+  }
+
+  /* --- Small screens -----------------------------------------------------
+     At phone width a 14px label inside a 720-unit viewBox renders around 6px,
+     so the plate stops pretending to be an instrument: bigger marks, and
+     labels only where something is happening. */
+  @media (max-width: 47.99em) {
+    .is-atlas .node-discovery .node-dot {
+      r: 5;
+      stroke-width: 1.6;
+    }
+
+    .is-atlas .node-discovery .node-label {
+      display: none;
+    }
+
+    .is-atlas .node-label-lit {
+      font-size: 26px;
+    }
+
+    .is-atlas .node-mark {
+      stroke-width: 2.4;
+    }
+
+    .atlas-row {
+      padding-block: 0.9rem;
+    }
+
+    .atlas-list-hint {
+      display: block;
+    }
+
+    /* A 12px label inside a 720-unit viewBox renders near 5px here. */
+    .is-atlas .plate-ticks {
+      display: none;
+    }
+
+    .is-atlas .plate-furniture text {
+      font-size: 22px;
+    }
+
+    .is-atlas .plate-furniture line {
+      stroke-width: 1.8;
+    }
+  }
+
+  /* Touch, at phone width, is the one case the plate genuinely cannot serve.
+     Mumbai and Pune are 27 plate units apart; at 390px that is 14 real pixels,
+     so any target big enough for a fingertip swallows its neighbour and the
+     wrong city opens. Rather than ship a control that misfires, the plate
+     becomes a drawing here and the list below is the control — every city, as
+     a full-width row, with everything the plate would have told you.
+
+     Keyboard focus is unaffected, so tabbing still drives the readout. */
+  @media (pointer: coarse) and (max-width: 47.99em) {
+    .is-atlas .atlas-svg {
+      pointer-events: none;
+    }
+
+    .is-atlas .node {
+      cursor: default;
+    }
+  }
+
+  /* --- Desktop split ----------------------------------------------------- */
+  @media (min-width: 62em) {
+    .atlas.is-atlas {
+      grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.85fr);
+      gap: var(--s-8);
+      align-items: start;
+    }
+
+    .atlas-side {
+      position: sticky;
+      top: 88px;
+      max-height: calc(100svh - 110px);
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--rule-strong) transparent;
+    }
+  }
+</style>

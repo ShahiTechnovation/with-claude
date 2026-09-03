@@ -1,31 +1,124 @@
 ---
 import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
-import PageHeader from '@/components/PageHeader.astro';
-import PhotoRecord from '@/components/PhotoRecord.astro';
-import { photoRecord, stories } from '@/data';
+import PageIntro from '@/components/PageIntro.astro';
+import StoryStrip from '@/components/StoryStrip.astro';
+import { communityChannel, photoRecord, publicStories } from '@/data';
 
 const plates = photoRecord();
+const rooms = new Set(plates.map((p) => p.event.slug)).size;
 ---
 
 <Base
   title="Stories"
-  description="From the floor — the photographic and written record of the Claude community in India."
+  description="From the community — the photographic and written record of people building with Claude in India."
   active="/stories"
 >
-  <PageHeader
-    record="06"
-    kicker="Stories"
-    title="From the floor."
-    stamp={`${String(plates.length).padStart(2, '0')} plates · ${String(stories.length).padStart(2, '0')} dispatches`}
+  <PageIntro
+    eyebrow="Stories"
+    title="From the community."
+    stamp={`${String(plates.length).padStart(2, '0')} plates`}
+    facts={[
+      { label: 'Photographs', value: String(plates.length).padStart(2, '0') },
+      { label: 'Rooms', value: String(rooms).padStart(2, '0') },
+      { label: 'Written', value: String(publicStories.length).padStart(2, '0') },
+    ]}
   >
     <p>
-      An editorial archive of the rooms, the builds and the people. Written dispatches are still to
-      come; the photographic record is here, with its original captions.
+      The record of the rooms, the builds and the people. Recaps, profiles, photo essays and lessons
+      — written by the people who were there.
     </p>
-  </PageHeader>
+  </PageIntro>
 
-  <Section id="plates" index="A" label="Plates" bleed>
-    <PhotoRecord />
+  <Section id="plates" size="lg" bleed labelledby="stories-heading">
+    <StoryStrip heading="The photographic record" eyebrow="Plates" />
   </Section>
+
+  {
+    publicStories.length === 0 && (
+      <Section id="write" tone="sunk" labelledby="write-heading">
+        <div class="write">
+          <div class="write-main">
+            <p class="eyebrow">Writing</p>
+            <h2 id="write-heading" class="write-title">
+              No written pieces yet.
+            </h2>
+            <p class="prose">
+              Nobody has written one, so there are none — putting words in the mouths of people who
+              were in those rooms is not something this archive is willing to do.
+            </p>
+            <p class="prose">
+              If you were at an event, a recap is the most useful thing you can give the record. So
+              is a photograph nobody has, or a note on what you took away from it.
+            </p>
+            <a
+              class="btn btn-solid write-cta"
+              href={communityChannel.url}
+              target="_blank"
+              rel="noopener"
+            >
+              <span>Write one</span>
+              <span class="arrow" aria-hidden="true">
+                ↗
+              </span>
+            </a>
+          </div>
+
+          <ul class="write-kinds">
+            <li>Event recaps</li>
+            <li>Builder profiles</li>
+            <li>Project stories</li>
+            <li>City stories</li>
+            <li>Photo essays</li>
+            <li>What you learned</li>
+          </ul>
+        </div>
+      </Section>
+    )
+  }
 </Base>
+
+<style>
+  .write {
+    display: grid;
+    gap: var(--s-8);
+  }
+
+  .write-title {
+    margin-top: var(--s-3);
+    margin-bottom: var(--s-4);
+    font-size: var(--t-h2);
+  }
+
+  .write .prose + .prose {
+    margin-top: var(--s-4);
+  }
+
+  .write-cta {
+    margin-top: var(--s-6);
+  }
+
+  .write-kinds {
+    display: grid;
+    align-content: start;
+    border-top: var(--border-hair) solid var(--rule-strong);
+  }
+
+  .write-kinds li {
+    padding-block: var(--s-3);
+    border-bottom: var(--border-hair) solid var(--rule);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  @media (min-width: 56em) {
+    .write {
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.55fr);
+      gap: var(--s-9);
+      align-items: start;
+    }
+  }
+</style>

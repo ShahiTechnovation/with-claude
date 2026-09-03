@@ -1,16 +1,17 @@
 import type { Story } from './types';
 
 /**
- * FROM THE FLOOR — the editorial archive.
+ * FROM THE COMMUNITY — the editorial archive.
  *
- * Deliberately empty. No written recaps exist for any event yet, and inventing
- * them would mean putting words in the mouths of real attendees.
+ * Deliberately empty of written pieces. No recaps exist for any event yet,
+ * and inventing them would mean putting words in real attendees' mouths.
  *
- * Until a story is written, the homepage runs the *photographic* record
- * instead — see `photoRecord()` in `src/data/index.ts`, which is built from
- * verified event photography and its original captions.
+ * This does not leave the section empty. Until a story is written, FROM THE
+ * COMMUNITY runs the *photographic* record instead — see `photoRecord()` in
+ * `src/data/index.ts`, built from verified event photography and its original
+ * captions. A strong photo archive is a real archive.
  *
- * TODO: commission a recap for the Impact Lab (vol. 07) and the September
- * Conversation → Impact Lab weekend.
+ * TODO: commission a recap for the Impact Lab (vol. 07) and for the
+ * September Conversation to Impact Lab weekend.
  */
 export const stories: Story[] = [];

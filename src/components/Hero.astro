@@ -1,74 +1,101 @@
 ---
 import { Image } from 'astro:assets';
-import IndiaPlate from './IndiaPlate.astro';
-import { cityName, nextEvent, site } from '@/data';
+import CityAtlas from './CityAtlas.astro';
+import { cityName, eventsChronological, nextEvent, site } from '@/data';
 import { dateParts, relativeDay } from '@/lib/datetime';
-import { EXTENT } from '@/lib/geo';
 import { requireAsset } from '@/lib/images';
-import { statusLabel, statusOf, statusTone } from '@/lib/status';
+import { lifecycleLabel, lifecycleOf, lifecycleTone } from '@/lib/status';
 
+/**
+ * The first screen.
+ *
+ * A magazine cover: the masthead names the publication, the cover line makes
+ * the claim, and a strip along the bottom carries the one thing a first-time
+ * visitor can act on today. WHO, WHAT, WHERE and WHY without a paragraph.
+ *
+ * "India is building." is the manifesto and it is the h1. WITH CLAUDE sits
+ * above it inside the same heading, so the relationship reads in one line to a
+ * screen reader as well as to an eye.
+ */
 const next = nextEvent();
 const parts = next ? dateParts(next.date) : undefined;
-const status = next ? statusOf(next) : undefined;
-const tone = status ? statusTone(status) : 'next';
+const lifecycle = next ? lifecycleOf(next) : undefined;
+const tone = lifecycle ? lifecycleTone(lifecycle) : 'next';
+
+// Derived from the record rather than typed: the first room, and where.
+const first = eventsChronological[0];
+const firstParts = first ? dateParts(first.date) : undefined;
 
 // One photograph, to keep the record human. From the most recent room we have.
 const proof = requireAsset('events/vol06-3.jpg');
 ---
 
 <header class="hero">
-  <!-- The plate sits behind the type, cropped by the viewport, at a whisper. -->
-  <div class="hero-plate" aria-hidden="true">
-    <IndiaPlate variant="ghost" interactive={false} />
+  <div class="hero-atlas" aria-hidden="true">
+    <CityAtlas variant="ghost" />
   </div>
 
   <div class="container-wide hero-inner">
     <div class="hero-slug">
-      <span class="label">Field record № 01 — India</span>
-      <span class="coords hero-extent">
-        {EXTENT.minLon}°E — {EXTENT.maxLon}°E · {EXTENT.minLat}°N — {EXTENT.maxLat}°N
-      </span>
+      <p class="hero-brand-line">
+        <span class="hero-brand-with">With</span>
+        <span class="hero-brand-claude">Claude</span>
+      </p>
+      {
+        first && firstParts && (
+          <p class="coords hero-since">
+            {`Since ${firstParts.monthShort} ${firstParts.year} · ${cityName(first.citySlug)}`}
+          </p>
+        )
+      }
     </div>
     <hr class="rule-line" />
 
     <div class="hero-body">
       <h1 class="hero-title">
+        <span class="visually-hidden">{`${site.wordmark}. `}</span>
         <span class="hero-line">India is</span>
         <span class="hero-line hero-line-em">building<span class="hero-stop">.</span></span>
       </h1>
 
       <div class="hero-support">
-        <p class="hero-tagline">{site.tagline}</p>
+        <p class="hero-descriptor">{site.descriptor}</p>
         <p class="hero-copy">
-          A record of the people across India who meet, learn and ship with Claude — the events, the
-          cities, the builders, and the things they actually made.
+          A living record of what is happening around Claude in India — the rooms, the cities, the
+          people building, and the things they actually made.
         </p>
         <div class="hero-actions">
-          <a href="#cities" class="btn btn-solid">
-            <span>Find your city</span>
-            <span class="arrow" aria-hidden="true">→</span>
-          </a>
-          <a href="/events" class="link-arrow">
-            <span>All events</span>
+          <div class="hero-buttons">
+            <a href="/cities" class="btn btn-solid">
+              <span>Explore the community</span>
+              <span class="arrow" aria-hidden="true">→</span>
+            </a>
+            <a href="/events" class="btn">
+              <span>See what’s happening</span>
+              <span class="arrow" aria-hidden="true">→</span>
+            </a>
+          </div>
+          <a href="/join#build" class="link-arrow">
+            <span>Add your build</span>
             <span class="arrow" aria-hidden="true">→</span>
           </a>
         </div>
       </div>
 
       <figure class="hero-proof">
-        <div class="plate">
+        <div class="plate plate-mounted">
           <Image
             src={proof}
             alt="Around sixty participants standing among the desks of the classroom venue at the Claude Code Workshop in Bhopal"
             widths={[320, 560, 720]}
-            sizes="(max-width: 47.99em) 0px, 300px"
+            sizes="(max-width: 61.99em) 0px, 300px"
             loading="eager"
             fetchpriority="low"
             decoding="async"
           />
         </div>
         <figcaption class="plate-caption">
-          <span>Vol. 06 · Bhopal</span>
+          <span>Bhopal · vol. 06</span>
           <span>Aug 2026</span>
         </figcaption>
       </figure>
@@ -76,11 +103,11 @@ const proof = requireAsset('events/vol06-3.jpg');
   </div>
 
   {
-    next && parts && status && (
+    next && parts && lifecycle && (
       <div class="hero-signal">
         <div class="container-wide hero-signal-inner">
           <a class="hero-signal-link" href={`/events/${next.slug}`}>
-            <span class:list={['pip', `pip-${tone}`]}>{statusLabel(status)}</span>
+            <span class:list={['pip', `pip-${tone}`]}>{lifecycleLabel(lifecycle)}</span>
             <span class="hero-signal-date">
               <span class="hero-signal-day">{parts.dayPadded}</span>
               <span class="hero-signal-month">{parts.monthDisplay}</span>
@@ -104,35 +131,38 @@ const proof = requireAsset('events/vol06-3.jpg');
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    /* Sized so the live signal strip lands inside the first screen at every
-       viewport — the most useful line on the page must never be below it. */
-    min-height: min(90svh, 880px);
-    padding-top: clamp(1.5rem, 4vw, 3rem);
+    /* Sized so the live strip lands inside the first screen at every viewport
+       — the most useful line on the page must never sit below it. */
+    min-height: min(92svh, 900px);
+    padding-top: clamp(1.25rem, 3.5vw, 2.5rem);
     overflow: hidden;
   }
 
-  /* --- Ghost plate ------------------------------------------------------ */
-  .hero-plate {
+  /* --- Ghost atlas ------------------------------------------------------ */
+  .hero-atlas {
     display: none;
     position: absolute;
     top: 50%;
     right: -6%;
-    width: min(720px, 60vw);
+    width: min(660px, 58vw);
     transform: translateY(-52%);
-    opacity: 1;
     pointer-events: none;
+    /* The graticule has to dissolve rather than stop, or its left edge reads
+       as a stray ruled line running down the middle of the page. */
+    -webkit-mask-image: radial-gradient(120% 95% at 72% 50%, #000 42%, transparent 88%);
+    mask-image: radial-gradient(120% 95% at 72% 50%, #000 42%, transparent 88%);
   }
 
   @media (prefers-reduced-motion: no-preference) {
-    .hero-plate {
-      animation: plate-settle 1.6s var(--ease-out) both;
+    .hero-atlas {
+      animation: atlas-settle 1.7s var(--ease-out) both;
     }
   }
 
-  @keyframes plate-settle {
+  @keyframes atlas-settle {
     from {
       opacity: 0;
-      transform: translateY(-52%) scale(1.03);
+      transform: translateY(-52%) scale(1.04);
     }
     to {
       opacity: 1;
@@ -148,27 +178,56 @@ const proof = requireAsset('events/vol06-3.jpg');
     flex-direction: column;
   }
 
-  /* --- Slug line -------------------------------------------------------- */
+  /* --- The masthead line ------------------------------------------------ */
   .hero-slug {
     display: flex;
     flex-wrap: wrap;
+    align-items: baseline;
     justify-content: space-between;
     gap: var(--s-3);
     padding-bottom: var(--s-3);
   }
 
-  .hero-extent {
-    color: var(--ink-3);
+  .hero-brand-line {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.3em;
+    font-family: var(--font-display);
+    font-size: clamp(1.05rem, 1.8vw, 1.5rem);
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    text-transform: uppercase;
+    letter-spacing: 0.01em;
+    line-height: 1;
   }
 
-  /* --- Title ------------------------------------------------------------ */
+  .hero-brand-with {
+    font-weight: 400;
+    font-style: italic;
+    color: var(--clay-deep);
+  }
+
+  .hero-brand-claude {
+    font-weight: 700;
+  }
+
+  /* On a phone the sticky wordmark sits directly above this line, so the
+     cover masthead reads as a duplicate rather than as a cover. */
+  @media (max-width: 47.99em) {
+    .hero-brand-line {
+      display: none;
+    }
+  }
+
+  /* --- The cover line --------------------------------------------------- */
   .hero-body {
     flex: 1;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     align-content: center;
     gap: var(--s-6);
-    padding-block: clamp(var(--s-5), 3.2vw, var(--s-8));
+    padding-block: clamp(var(--s-5), 3vw, var(--s-8));
   }
 
   .hero-title {
@@ -201,14 +260,14 @@ const proof = requireAsset('events/vol06-3.jpg');
     }
 
     .hero-line-em {
-      animation-delay: 110ms;
+      animation-delay: 120ms;
     }
   }
 
   @keyframes line-rise {
     from {
       opacity: 0;
-      transform: translateY(0.22em);
+      transform: translateY(0.24em);
     }
     to {
       opacity: 1;
@@ -218,10 +277,10 @@ const proof = requireAsset('events/vol06-3.jpg');
 
   /* --- Support column --------------------------------------------------- */
   .hero-support {
-    max-width: 46ch;
+    max-width: 52ch;
   }
 
-  .hero-tagline {
+  .hero-descriptor {
     font-family: var(--font-display);
     font-size: var(--t-h3);
     font-weight: 500;
@@ -229,20 +288,31 @@ const proof = requireAsset('events/vol06-3.jpg');
       'SOFT' 0,
       'WONK' 1;
     letter-spacing: -0.015em;
+    line-height: 1.22;
+    max-width: 26ch;
   }
 
   .hero-copy {
     margin-top: var(--s-3);
-    max-width: 44ch;
+    max-width: 45ch;
+    font-size: var(--t-small);
     color: var(--ink-2);
   }
 
+  /* The two buttons are one decision, so they share a line. The tertiary link
+     sits below them and sizes to its own text rather than to the column. */
   .hero-actions {
+    display: grid;
+    justify-items: start;
+    gap: var(--s-5);
+    margin-top: var(--s-6);
+  }
+
+  .hero-buttons {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: var(--s-5);
-    margin-top: var(--s-6);
+    gap: var(--s-4);
   }
 
   /* --- Proof plate ------------------------------------------------------ */
@@ -292,7 +362,7 @@ const proof = requireAsset('events/vol06-3.jpg');
   }
 
   .hero-signal-day {
-    font-size: 1.15rem;
+    font-size: 1.1rem;
     font-weight: 500;
     letter-spacing: -0.01em;
   }
@@ -305,7 +375,7 @@ const proof = requireAsset('events/vol06-3.jpg');
 
   .hero-signal-title {
     font-family: var(--font-display);
-    font-size: 1.15rem;
+    font-size: 1.1rem;
     font-weight: 500;
     font-variation-settings:
       'SOFT' 0,
@@ -324,25 +394,25 @@ const proof = requireAsset('events/vol06-3.jpg');
   }
 
   /* =====================================================================
-     DESKTOP — the composition proper: type and cartography interlocked
+     DESKTOP — type and cartography interlocked
      ===================================================================== */
   @media (min-width: 48em) {
-    .hero-plate {
+    .hero-atlas {
       display: block;
-      right: -8%;
-      width: min(520px, 66vw);
+      right: -10%;
+      width: min(500px, 62vw);
+      opacity: 0.9;
     }
   }
 
   @media (min-width: 62em) {
     .hero-body {
-      grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
+      grid-template-columns: minmax(0, 1fr) minmax(230px, 290px);
       grid-template-areas:
         'title title'
         'support proof';
       column-gap: var(--s-8);
-      row-gap: clamp(var(--s-5), 3.2vw, var(--s-8));
-      align-content: center;
+      row-gap: clamp(var(--s-5), 3vw, var(--s-8));
     }
 
     .hero-title {
@@ -358,46 +428,30 @@ const proof = requireAsset('events/vol06-3.jpg');
       grid-area: proof;
       display: block;
       align-self: end;
-      max-width: 270px;
       justify-self: end;
+      max-width: 260px;
       /* Nudged past the grid so it reads as pinned to the page, not placed. */
       transform: translateY(var(--s-2));
     }
 
-    .hero-proof {
-      padding: 10px 10px 0;
-      background: var(--paper);
-      border: var(--border-hair) solid var(--rule-strong);
-      box-shadow: var(--shadow-lift);
-    }
-
     .hero-proof .plate {
       aspect-ratio: 4 / 3;
-      border: 0;
     }
 
     .hero-proof .plate-caption {
-      padding-bottom: 8px;
       margin-top: var(--s-2);
     }
 
-    .hero-plate {
-      display: block;
+    .hero-atlas {
       right: -4%;
-      width: min(660px, 52vw);
-    }
-  }
-
-  @media (min-width: 64em) {
-    .hero-inner {
-      padding-left: calc(var(--gutter) + var(--rail));
+      width: min(640px, 50vw);
     }
   }
 
   @media (min-width: 90em) {
-    .hero-plate {
-      right: 3%;
-      width: 640px;
+    .hero-atlas {
+      right: 2%;
+      width: 620px;
     }
   }
 

@@ -1,5 +1,5 @@
 /**
- * The survey plate.
+ * The plate.
  *
  * The map on this site is not a traced outline of India — it is a coordinate
  * field. Cities are plotted from their real latitude and longitude onto a
@@ -46,7 +46,7 @@ const inner = {
   width: PLATE.width - PLATE.pad * 2,
   height: PLATE.height - PLATE.pad * 2,
 };
-const SCALE = Math.min(inner.width / spanLon, inner.height / spanLat);
+export const SCALE = Math.min(inner.width / spanLon, inner.height / spanLat);
 const OFFSET_X = PLATE.pad + (inner.width - spanLon * SCALE) / 2;
 const OFFSET_Y = PLATE.pad + (inner.height - spanLat * SCALE) / 2;
 
@@ -116,3 +116,29 @@ export function distanceKm(
     Math.cos(toRad(from.lat)) * Math.cos(toRad(to.lat)) * Math.sin(dLon / 2) ** 2;
   return Math.round(2 * R * Math.asin(Math.sqrt(a)));
 }
+
+/**
+ * A scale bar for the plate, in real kilometres.
+ *
+ * One degree of latitude is 110.574 km everywhere, so the vertical scale is
+ * exact — which is why the bar is measured against latitude rather than the
+ * cosine-corrected longitude axis.
+ */
+const KM_PER_DEG_LAT = 110.574;
+
+export function scaleBar(targetKm = 500): { km: number; width: number } {
+  const unitsPerKm = SCALE / KM_PER_DEG_LAT;
+  // Snap to a round number a reader can actually use.
+  const steps = [100, 200, 250, 500, 1000];
+  const km = steps.reduce((best, step) =>
+    Math.abs(step - targetKm) < Math.abs(best - targetKm) ? step : best,
+  );
+  return { km, width: km * unitsPerKm };
+}
+
+/**
+ * The compass rose sits at true north because the projection has no rotation:
+ * meridians are vertical by construction. Exported as a constant so the map
+ * cannot drift from the claim its furniture makes.
+ */
+export const NORTH_IS_UP = true;

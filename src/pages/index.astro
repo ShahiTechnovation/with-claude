@@ -2,19 +2,19 @@
 import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
 import Hero from '@/components/Hero.astro';
-import SignalStrip from '@/components/SignalStrip.astro';
+import CommunitySignal from '@/components/CommunitySignal.astro';
 import NextEvent from '@/components/NextEvent.astro';
-import IndiaPlate from '@/components/IndiaPlate.astro';
-import BuilderRoster from '@/components/BuilderRoster.astro';
+import CityAtlas from '@/components/CityAtlas.astro';
+import BuilderIndex from '@/components/BuilderIndex.astro';
 import ProjectArchive from '@/components/ProjectArchive.astro';
-import PhotoRecord from '@/components/PhotoRecord.astro';
-import EventIndex from '@/components/EventIndex.astro';
-import CityGazetteer from '@/components/CityGazetteer.astro';
-import GetInvolved from '@/components/GetInvolved.astro';
+import StoryStrip from '@/components/StoryStrip.astro';
+import EventArchive from '@/components/EventArchive.astro';
+import CityIndex from '@/components/CityIndex.astro';
+import Participation from '@/components/Participation.astro';
 import Manifesto from '@/components/Manifesto.astro';
 import { cityName, nationalSignal, nextEvent, site, upcomingEvents } from '@/data';
 import { formatDate, isoDateTime } from '@/lib/datetime';
-import { statusOf } from '@/lib/status';
+import { lifecycleOf } from '@/lib/status';
 import { inWordsCap } from '@/lib/words';
 
 const next = nextEvent();
@@ -22,19 +22,25 @@ const signal = nationalSignal();
 
 // The meta description follows the record rather than being rewritten by hand.
 const description = next
-  ? `${site.description} Next: ${next.title} in ${cityName(next.citySlug)}, ${formatDate(next.date)}.`
-  : site.description;
+  ? `${site.positioning} Next: ${next.title} in ${cityName(next.citySlug)}, ${formatDate(next.date)}.`
+  : site.positioning;
 
-// Structured data for every event still ahead of us.
+/**
+ * Structured data for every event still ahead of us.
+ *
+ * Only real, scheduled events are published here. Nothing on this site emits
+ * structured data for an event, a chapter or an organisation that does not
+ * exist in the record.
+ */
 const eventSchema = upcomingEvents().map((event) => ({
   '@type': 'Event',
-  name: `${cityName(event.citySlug)} | ${event.title}`,
+  name: `${event.title} · ${cityName(event.citySlug)}`,
   description: event.description ?? event.summary,
   url: `${site.url}/events/${event.slug}`,
   startDate: isoDateTime(event.date, event.startTime),
   ...(event.endTime ? { endDate: isoDateTime(event.date, event.endTime) } : {}),
   eventStatus:
-    statusOf(event) === 'cancelled'
+    lifecycleOf(event) === 'cancelled'
       ? 'https://schema.org/EventCancelled'
       : 'https://schema.org/EventScheduled',
   eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
@@ -56,7 +62,7 @@ const eventSchema = upcomingEvents().map((event) => ({
           priceCurrency: 'INR',
           url: event.registrationUrl,
           availability:
-            statusOf(event) === 'sold-out'
+            lifecycleOf(event) === 'sold-out'
               ? 'https://schema.org/SoldOut'
               : 'https://schema.org/InStock',
         },
@@ -66,79 +72,77 @@ const eventSchema = upcomingEvents().map((event) => ({
 }));
 ---
 
-<Base title={site.name} description={description} active="/" schema={eventSchema}>
-  <!-- 01 — HERO ------------------------------------------------------- -->
+<Base title={site.wordmark} description={description} active="/" schema={eventSchema}>
+  <!-- 01 — THE COVER ---------------------------------------------------- -->
   <Hero />
 
-  <!-- 02 — LIVE COMMUNITY SIGNAL --------------------------------------- -->
-  <Section id="signal" index="02" label="Signal" tone="sunk" size="sm">
-    <SignalStrip />
+  <!-- 02 — THE SIGNAL ---------------------------------------------------- -->
+  <Section id="signal" tone="sunk" size="sm" labelledby="signal-heading">
+    <CommunitySignal />
   </Section>
 
-  <!-- 03 — NEXT EVENT --------------------------------------------------- -->
-  <Section id="next" index="03" label="Next">
+  <!-- 03 — NEXT EVENT ---------------------------------------------------- -->
+  <Section id="next" labelledby="next-heading">
     <NextEvent />
   </Section>
 
-  <!-- 04 — THE SURVEY PLATE (the page's dark moment) -------------------- -->
-  <Section id="map" index="04" label="India" tone="night" size="lg">
-    <div class="map-head">
+  <!-- 04 — DISCOVER INDIA. The page's first dark movement. ---------------- -->
+  <Section id="atlas" tone="night" size="lg" labelledby="atlas-heading">
+    <div class="atlas-head">
       <div class="section-head">
-        <p class="section-index">04 — Geography</p>
-        <h2 id="map-heading">
-          {
-            `${inWordsCap(signal.citiesActive)} chapter. ${inWordsCap(signal.citiesOpen)} open dots.`
-          }
+        <p class="eyebrow">Discover</p>
+        <h2 id="atlas-heading">
+          {`${inWordsCap(signal.citiesPlotted)} cities, plotted.`}
         </h2>
         <p class="prose">
-          Cities plotted at their true coordinates. Bhopal is running. Every other point on this
-          plate is a city where the first Claude event has not happened yet — hover or tab through
-          them to read the record.
+          Every point sits at its true latitude and longitude. What the plate shows is community
+          state — where a verified Ambassador is hosting, where events have happened, where people
+          have registered interest, and where the map is simply a map.
         </p>
       </div>
     </div>
-    <IndiaPlate />
+    <CityAtlas />
   </Section>
 
-  <!-- 05 — WHO'S BUILDING ----------------------------------------------- -->
-  <Section id="builders" index="05" label="People">
-    <BuilderRoster />
+  <!-- 05 — WHO'S BUILDING ------------------------------------------------- -->
+  <Section id="builders" labelledby="builders-heading">
+    <BuilderIndex limit={6} />
   </Section>
 
-  <!-- 06 — BUILT WITH CLAUDE -------------------------------------------- -->
-  <Section id="projects" index="06" label="Projects" tone="sunk">
+  <!-- 06 — MADE WITH CLAUDE. The deepest ground on the page. -------------- -->
+  <Section id="projects" tone="deep" size="lg" labelledby="projects-heading">
     <ProjectArchive />
   </Section>
 
-  <!-- 07 — FROM THE FLOOR (full bleed) ---------------------------------- -->
-  <Section id="stories" index="07" label="Stories" bleed>
-    <PhotoRecord />
+  <!-- 07 — FROM THE COMMUNITY (full bleed) -------------------------------- -->
+  <Section id="stories" size="lg" bleed labelledby="stories-heading">
+    <StoryStrip />
   </Section>
 
-  <!-- 08 — EVENTS ACROSS INDIA ------------------------------------------ -->
-  <Section id="events" index="08" label="Events">
-    <EventIndex limit={6} />
+  <!-- 08 — EVENTS ACROSS INDIA -------------------------------------------- -->
+  <Section id="events" tone="sunk" labelledby="events-heading">
+    <EventArchive limit={6} />
   </Section>
 
-  <!-- 09 — FIND YOUR CITY ----------------------------------------------- -->
-  <Section id="cities" index="09" label="Cities" tone="sunk">
-    <CityGazetteer compact />
+  <!-- 09 — FIND YOUR CITY -------------------------------------------------- -->
+  <Section id="cities" labelledby="cities-heading">
+    <CityIndex compact />
   </Section>
 
-  <!-- 10 — WAYS IN ------------------------------------------------------ -->
-  <Section id="involved" index="10" label="Take part">
-    <GetInvolved />
+  <!-- 10 — WAYS IN --------------------------------------------------------- -->
+  <Section id="join" tone="raised" labelledby="join-heading">
+    <Participation />
   </Section>
 
-  <!-- 11 — MANIFESTO ---------------------------------------------------- -->
-  <Section id="manifesto" index="11" label="Record" tone="night" size="lg">
+  <!-- 11 — THE CLOSE -------------------------------------------------------- -->
+  <Section id="record" tone="night" size="lg" labelledby="manifesto-heading">
     <Manifesto />
   </Section>
 </Base>
 
 <style>
-  .map-head {
+  .atlas-head {
     margin-bottom: var(--s-8);
-    max-width: 62ch;
+    max-width: 64ch;
   }
 </style>

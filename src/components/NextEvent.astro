@@ -1,36 +1,48 @@
 ---
-import { cityBySlug, cityName, upcomingEvents } from '@/data';
+import { cityBySlug, cityName, communityChannel, hostAmbassador, upcomingEvents } from '@/data';
 import { dateParts, formatTimeRange, isoDateTime, relativeDay } from '@/lib/datetime';
 import { formatCoords } from '@/lib/geo';
-import { isRegistrationOpen, statusLabel, statusOf, statusTone } from '@/lib/status';
+import {
+  formatName,
+  isRegistrationOpen,
+  lifecycleLabel,
+  lifecycleOf,
+  lifecycleTone,
+} from '@/lib/status';
 
 /**
  * The next useful action, made unmissable.
  *
  * The event shown here is whatever `upcomingEvents()` puts first — there is no
- * "featured" flag to forget to move.
+ * "featured" flag to forget to move, and the status under it is computed from
+ * the clock every time the site builds.
+ *
+ * The host line is doing governance work, not decoration: an event carries the
+ * verified chip because its host resolves to a published Ambassador record.
  */
 const queue = upcomingEvents();
 const [featured, ...rest] = queue;
 const then = rest.slice(0, 2);
 
 const parts = featured ? dateParts(featured.date) : undefined;
-const status = featured ? statusOf(featured) : undefined;
+const lifecycle = featured ? lifecycleOf(featured) : undefined;
 const city = featured ? cityBySlug.get(featured.citySlug) : undefined;
 const canRegister = featured ? isRegistrationOpen(featured) : false;
+const ambassador = featured ? hostAmbassador(featured) : undefined;
+const organisations = featured?.host.organisations ?? [];
 ---
 
 {
-  featured && parts && status && (
+  featured && parts && lifecycle && (
     <div class="next">
       <div class="next-head">
-        <h2 id="next-heading" class="next-heading">
-          Next event
-        </h2>
-        <span class:list={['pip', `pip-${statusTone(status)}`]}>{statusLabel(status)}</span>
+        <p class="eyebrow">Next event</p>
+        <span class:list={['pip', `pip-${lifecycleTone(lifecycle)}`]}>
+          {lifecycleLabel(lifecycle)}
+        </span>
       </div>
 
-      <article class="next-card" data-reveal>
+      <article class="next-card">
         <div class="next-date">
           <time class="next-day" datetime={isoDateTime(featured.date, featured.startTime)}>
             {parts.dayPadded}
@@ -42,19 +54,30 @@ const canRegister = featured ? isRegistrationOpen(featured) : false;
 
         <div class="next-main">
           <p class="label next-format">
-            {featured.format.replace('-', ' ')}
+            {formatName(featured.format)}
             {featured.volume ? ` · vol. ${String(featured.volume).padStart(2, '0')}` : ''}
           </p>
 
-          <h3 class="next-title">{featured.title}</h3>
+          <h2 id="next-heading" class="next-title">
+            {featured.title}
+          </h2>
           <p class="next-summary">{featured.description ?? featured.summary}</p>
+
+          {ambassador && (
+            <p class="next-host">
+              <span class="chip chip-verified">Ambassador-led</span>
+              <span class="next-host-name">
+                Hosted by {ambassador.name}, {ambassador.title}
+              </span>
+            </p>
+          )}
 
           <dl class="next-meta">
             <div>
               <dt class="label">City</dt>
               <dd>
-                {cityName(featured.citySlug)}
-                {city && <span class="coords"> · {formatCoords(city.lat, city.lon)}</span>}
+                <a href={`/cities/${featured.citySlug}`}>{cityName(featured.citySlug)}</a>
+                {city && <span class="coords next-coords">{formatCoords(city.lat, city.lon)}</span>}
               </dd>
             </div>
             <div>
@@ -77,6 +100,12 @@ const canRegister = featured ? isRegistrationOpen(featured) : false;
               <dt class="label">Entry</dt>
               <dd>{featured.free ? 'Free · approval required' : 'Ticketed'}</dd>
             </div>
+            {organisations.length > 0 && (
+              <div>
+                <dt class="label">With</dt>
+                <dd>{organisations.join(', ')}</dd>
+              </div>
+            )}
           </dl>
 
           <div class="next-actions">
@@ -87,14 +116,14 @@ const canRegister = featured ? isRegistrationOpen(featured) : false;
                 target="_blank"
                 rel="noopener"
               >
-                <span>Register on Luma</span>
+                <span>Register</span>
                 <span class="arrow" aria-hidden="true">
                   ↗
                 </span>
               </a>
             ) : (
-              <span class="btn btn-quiet next-closed" aria-disabled="true">
-                {statusLabel(status)}
+              <span class="btn btn-quiet" aria-disabled="true">
+                {lifecycleLabel(lifecycle)}
               </span>
             )}
             <a class="link-arrow" href={`/events/${featured.slug}`}>
@@ -109,7 +138,7 @@ const canRegister = featured ? isRegistrationOpen(featured) : false;
       </article>
 
       {then.length > 0 && (
-        <ul class="next-then" data-reveal>
+        <ul class="next-then">
           {then.map((event) => {
             const p = dateParts(event.date);
             return (
@@ -135,18 +164,28 @@ const canRegister = featured ? isRegistrationOpen(featured) : false;
 {
   !featured && (
     <div class="next-empty">
-      <h2 id="next-heading" class="next-heading">
-        Nothing on the calendar
+      <p class="eyebrow">Next event</p>
+      <h2 id="next-heading" class="next-empty-title">
+        Nothing on the calendar.
       </h2>
       <p class="prose">
-        There is no event scheduled right now. New dates land in the Telegram group first.
+        No event is scheduled right now. New dates land in the community channel first, and appear
+        here the moment they are confirmed.
       </p>
-      <a class="btn" href="https://t.me/tog_guild" target="_blank" rel="noopener">
-        <span>Join the group</span>
-        <span class="arrow" aria-hidden="true">
-          ↗
-        </span>
-      </a>
+      <div class="next-empty-actions">
+        <a class="btn" href={communityChannel.url} target="_blank" rel="noopener">
+          <span>Join the channel</span>
+          <span class="arrow" aria-hidden="true">
+            ↗
+          </span>
+        </a>
+        <a class="link-arrow" href="/events">
+          <span>The full record</span>
+          <span class="arrow" aria-hidden="true">
+            →
+          </span>
+        </a>
+      </div>
     </div>
   )
 }
@@ -160,11 +199,6 @@ const canRegister = featured ? isRegistrationOpen(featured) : false;
     gap: var(--s-4);
     padding-bottom: var(--s-4);
     border-bottom: var(--border-heavy) solid var(--ink);
-  }
-
-  .next-heading {
-    font-size: var(--t-h2);
-    letter-spacing: -0.025em;
   }
 
   /* --- The card --------------------------------------------------------- */
@@ -187,12 +221,12 @@ const canRegister = featured ? isRegistrationOpen(featured) : false;
   .next-day {
     grid-row: 1 / 3;
     font-family: var(--font-display);
-    font-size: clamp(4.5rem, 15vw, 9rem);
+    font-size: clamp(4rem, 13vw, 8rem);
     font-weight: 600;
     font-variation-settings:
       'SOFT' 0,
       'WONK' 1;
-    letter-spacing: -0.05em;
+    letter-spacing: -0.055em;
     line-height: 0.78;
     font-variant-numeric: lining-nums;
   }
@@ -200,7 +234,7 @@ const canRegister = featured ? isRegistrationOpen(featured) : false;
   .next-month {
     align-self: start;
     font-family: var(--font-mono);
-    font-size: clamp(1.1rem, 3vw, 1.6rem);
+    font-size: clamp(1rem, 2.6vw, 1.45rem);
     font-weight: 500;
     letter-spacing: 0.1em;
     color: var(--clay-deep);
@@ -208,18 +242,11 @@ const canRegister = featured ? isRegistrationOpen(featured) : false;
 
   .next-year,
   .next-weekday {
+    grid-column: 2;
     font-family: var(--font-mono);
     font-size: var(--t-micro);
     letter-spacing: var(--track-meta);
     color: var(--ink-3);
-  }
-
-  .next-year {
-    grid-column: 2;
-  }
-
-  .next-weekday {
-    grid-column: 2;
     text-transform: uppercase;
   }
 
@@ -231,22 +258,39 @@ const canRegister = featured ? isRegistrationOpen(featured) : false;
   .next-title {
     margin-top: var(--s-2);
     font-size: var(--t-display);
-    letter-spacing: -0.03em;
+    letter-spacing: -0.032em;
     line-height: var(--lh-display);
     max-width: 16ch;
   }
 
   .next-summary {
     margin-top: var(--s-4);
-    max-width: 52ch;
+    max-width: 54ch;
     font-size: var(--t-lead);
+    color: var(--ink-2);
+  }
+
+  /* --- Host ------------------------------------------------------------- */
+  .next-host {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--s-3);
+    margin-top: var(--s-5);
+  }
+
+  .next-host-name {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
     color: var(--ink-2);
   }
 
   /* --- Metadata --------------------------------------------------------- */
   .next-meta {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: var(--s-5);
     margin-top: var(--s-6);
     padding-top: var(--s-5);
@@ -263,15 +307,11 @@ const canRegister = featured ? isRegistrationOpen(featured) : false;
     line-height: 1.45;
   }
 
-  .next-address {
+  .next-address,
+  .next-coords {
     display: block;
     color: var(--ink-3);
     font-size: var(--t-micro);
-    margin-top: 2px;
-  }
-
-  .next-meta .coords {
-    display: block;
     margin-top: 2px;
   }
 
@@ -284,15 +324,6 @@ const canRegister = featured ? isRegistrationOpen(featured) : false;
     margin-top: var(--s-6);
   }
 
-  .next-closed {
-    cursor: default;
-    color: var(--ink-3);
-  }
-
-  .next-closed::before {
-    display: none;
-  }
-
   .next-countdown {
     font-family: var(--font-mono);
     font-size: var(--t-micro);
@@ -303,10 +334,6 @@ const canRegister = featured ? isRegistrationOpen(featured) : false;
   }
 
   /* --- What comes after ------------------------------------------------- */
-  .next-then {
-    display: grid;
-  }
-
   .next-then a {
     display: flex;
     align-items: baseline;
@@ -345,7 +372,7 @@ const canRegister = featured ? isRegistrationOpen(featured) : false;
 
   .next-then-title {
     font-family: var(--font-display);
-    font-size: 1.05rem;
+    font-size: 1.02rem;
     font-variation-settings:
       'SOFT' 0,
       'WONK' 1;
@@ -367,21 +394,33 @@ const canRegister = featured ? isRegistrationOpen(featured) : false;
   /* --- Empty state ------------------------------------------------------ */
   .next-empty {
     display: grid;
-    gap: var(--s-5);
+    gap: var(--s-4);
     justify-items: start;
+  }
+
+  .next-empty-title {
+    font-size: var(--t-h2);
+  }
+
+  .next-empty-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-5);
+    margin-top: var(--s-3);
   }
 
   /* --- Desktop ---------------------------------------------------------- */
   @media (min-width: 48em) {
     .next-card {
-      grid-template-columns: minmax(140px, 0.32fr) minmax(0, 1fr);
+      grid-template-columns: minmax(130px, 0.3fr) minmax(0, 1fr);
       gap: var(--s-8);
-      padding-block: var(--s-9);
+      padding-block: var(--s-8);
     }
 
     .next-date {
       position: sticky;
-      top: 120px;
+      top: 110px;
       align-self: start;
     }
   }

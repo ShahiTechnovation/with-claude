@@ -1,0 +1,390 @@
+---
+import { Image } from 'astro:assets';
+import { ambassadorForBuilder, cityName, eventsOf, projectsOf, publicBuilders } from '@/data';
+import { asset } from '@/lib/images';
+
+/**
+ * BUILDERS — the open index.
+ *
+ * Names first, at scale. Not a grid of profile cards: a directory of people
+ * reads better as an index than as a wall, and it also degrades honestly —
+ * two entries look like a short index rather than an empty grid.
+ *
+ * The one hierarchy that matters is verification. An Ambassador carries the
+ * only filled chip on the site; everyone else carries outlines. That is the
+ * difference between an appointment and a self-submission, and it must be
+ * visible at a glance.
+ */
+interface Props {
+  limit?: number;
+  citySlug?: string;
+  showHead?: boolean;
+  heading?: string;
+  eyebrow?: string;
+}
+
+const {
+  limit,
+  citySlug,
+  showHead = true,
+  heading = 'Who’s building',
+  eyebrow = 'Builders',
+} = Astro.props;
+
+const scoped = citySlug ? publicBuilders.filter((b) => b.citySlug === citySlug) : publicBuilders;
+
+// Ambassadors lead the index; everyone else follows in the order they joined.
+const entries = scoped
+  .map((builder) => {
+    const ambassador = ambassadorForBuilder(builder);
+    return {
+      builder,
+      ambassador,
+      city: cityName(builder.citySlug),
+      portrait: asset(builder.image),
+      eventCount: eventsOf(builder).length,
+      projectCount: projectsOf(builder).length,
+    };
+  })
+  .sort((a, b) => Number(Boolean(b.ambassador)) - Number(Boolean(a.ambassador)));
+
+const rows = limit ? entries.slice(0, limit) : entries;
+const remaining = entries.length - rows.length;
+---
+
+<div class="index">
+  {
+    showHead && (
+      <div class="index-head">
+        <div class="section-head">
+          <p class="eyebrow">{eyebrow}</p>
+          <h2 id="builders-heading">{heading}</h2>
+          <p class="prose">
+            An open index of people building with Claude in India. Anyone can add themselves — being
+            listed is not a role, an appointment, or an endorsement, and it is deliberately not the
+            same thing as being an Ambassador.
+          </p>
+        </div>
+        <p class="index-count">
+          <span>{String(entries.length).padStart(2, '0')}</span> on the index
+        </p>
+      </div>
+    )
+  }
+
+  <ul class="roster">
+    {
+      rows.map((entry, i) => (
+        <li data-reveal="fade" style={`--reveal-delay:${i * 45}ms`}>
+          <a class="row" href={`/builders/${entry.builder.slug}`}>
+            <span class="row-portrait" aria-hidden="true">
+              {entry.portrait ? (
+                <Image
+                  src={entry.portrait}
+                  alt=""
+                  widths={[96, 192]}
+                  sizes="64px"
+                  loading="lazy"
+                  decoding="async"
+                />
+              ) : (
+                <span class="row-initials">
+                  {entry.builder.name
+                    .split(' ')
+                    .map((part) => part[0])
+                    .slice(0, 2)
+                    .join('')}
+                </span>
+              )}
+            </span>
+
+            <span class="row-body">
+              <span class="row-name">{entry.builder.name}</span>
+              <span class="row-role">{entry.builder.role}</span>
+            </span>
+
+            <span class="row-tags">
+              {entry.ambassador ? (
+                <span class="chip chip-verified">Ambassador</span>
+              ) : (
+                entry.builder.roles
+                  .filter((role) => role !== 'ambassador')
+                  .slice(0, 2)
+                  .map((role) => <span class="chip chip-role">{role}</span>)
+              )}
+            </span>
+
+            <span class="row-city">{entry.city}</span>
+
+            <span class="row-meta">
+              <span>{`${String(entry.eventCount).padStart(2, '0')} events`}</span>
+              <span>{`${String(entry.projectCount).padStart(2, '0')} projects`}</span>
+            </span>
+
+            <span class="arrow" aria-hidden="true">
+              →
+            </span>
+          </a>
+        </li>
+      ))
+    }
+
+    <li>
+      <a class="row row-open" href="/join#contribute">
+        <span class="row-portrait row-portrait-open" aria-hidden="true">
+          <span class="row-initials">+</span>
+        </span>
+        <span class="row-body">
+          <span class="row-name">Your name</span>
+          <span class="row-role">Whatever you are building</span>
+        </span>
+        <span class="row-tags"></span>
+        <span class="row-city">Your city</span>
+        <span class="row-meta row-meta-open">Add yourself</span>
+        <span class="arrow" aria-hidden="true">→</span>
+      </a>
+    </li>
+  </ul>
+
+  {
+    remaining > 0 && (
+      <a class="index-more" href="/builders">
+        <span>{`${remaining} more on the index`}</span>
+        <span class="arrow" aria-hidden="true">
+          →
+        </span>
+      </a>
+    )
+  }
+</div>
+
+<style>
+  .index-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--s-4);
+  }
+
+  .index-head .section-head {
+    margin-bottom: var(--s-6);
+    max-width: 62ch;
+  }
+
+  .index-count {
+    margin-bottom: var(--s-7);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .index-count span {
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    font-weight: 600;
+    color: var(--ink);
+    letter-spacing: -0.03em;
+    margin-right: var(--s-2);
+    font-variant-numeric: lining-nums tabular-nums;
+  }
+
+  /* --- Rows -------------------------------------------------------------- */
+  .roster {
+    border-top: var(--border-heavy) solid var(--ink);
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1.6fr) auto minmax(0, 0.6fr) auto 1.5ch;
+    align-items: center;
+    gap: var(--s-5);
+    padding-block: var(--s-4);
+    border-bottom: var(--border-hair) solid var(--rule);
+    text-decoration: none;
+    color: var(--ink);
+    transition: background var(--dur-2) var(--ease-out);
+  }
+
+  .row:hover,
+  .row:focus-visible {
+    background: color-mix(in srgb, var(--clay) 7%, transparent);
+  }
+
+  .row-portrait {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 56px;
+    height: 56px;
+    overflow: hidden;
+    background: var(--paper-sunk);
+    border: var(--border-hair) solid var(--rule);
+    transition:
+      transform var(--dur-2) var(--ease-out),
+      border-color var(--dur-2) var(--ease-out);
+  }
+
+  .row:hover .row-portrait {
+    transform: scale(1.06);
+    border-color: var(--clay);
+  }
+
+  .row-portrait :global(img) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .row-initials {
+    font-family: var(--font-mono);
+    font-size: var(--t-meta);
+    letter-spacing: 0.06em;
+    color: var(--ink-3);
+    text-transform: uppercase;
+  }
+
+  .row-body {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .row-name {
+    font-family: var(--font-display);
+    font-size: clamp(1.25rem, 3vw, 2rem);
+    font-weight: 500;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    letter-spacing: -0.025em;
+    line-height: 1.05;
+    transition: color var(--dur-1) var(--ease-out);
+  }
+
+  .row:hover .row-name {
+    color: var(--clay-deep);
+  }
+
+  .row-role,
+  .row-city,
+  .row-meta {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .row-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+  }
+
+  .row-meta {
+    display: grid;
+    gap: 2px;
+    justify-items: end;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .row .arrow {
+    color: var(--ink-3);
+    transition: transform var(--dur-2) var(--ease-out);
+  }
+
+  .row:hover .arrow {
+    transform: translateX(4px);
+    color: var(--clay-deep);
+  }
+
+  /* --- The open row: the most important line in the section -------------- */
+  .row-open {
+    border-bottom: 0;
+    border-top: var(--border-hair) dashed var(--rule-strong);
+  }
+
+  .row-open .row-name {
+    color: var(--clay-deep);
+    font-style: italic;
+    font-weight: 400;
+  }
+
+  .row-open .row-portrait {
+    border-style: dashed;
+    background: transparent;
+  }
+
+  .row-open:hover,
+  .row-open:focus-visible {
+    background: var(--clay-tint);
+  }
+
+  .row-meta-open {
+    color: var(--clay-deep);
+    display: block;
+  }
+
+  .index-more {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-3);
+    margin-top: var(--s-5);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+    text-decoration: none;
+  }
+
+  .index-more:hover {
+    color: var(--clay-deep);
+  }
+
+  /* --- Mobile: the row folds ---------------------------------------------- */
+  @media (max-width: 61.99em) {
+    .row {
+      grid-template-columns: 48px minmax(0, 1fr) auto;
+      gap: var(--s-2) var(--s-4);
+      padding-block: var(--s-4);
+    }
+
+    .row-portrait {
+      width: 48px;
+      height: 48px;
+      grid-row: 1 / 3;
+    }
+
+    .row-body {
+      grid-column: 2 / 4;
+    }
+
+    .row-tags {
+      grid-column: 2;
+      grid-row: 2;
+    }
+
+    .row-city {
+      grid-column: 3;
+      grid-row: 2;
+      justify-self: end;
+    }
+
+    .row-meta,
+    .row .arrow {
+      display: none;
+    }
+
+    .row-meta-open {
+      display: block;
+      grid-column: 3;
+      grid-row: 2;
+      justify-self: end;
+    }
+  }
+</style>

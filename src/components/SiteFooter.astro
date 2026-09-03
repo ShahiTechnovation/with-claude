@@ -1,10 +1,16 @@
 ---
 import Mark from './Mark.astro';
-import { site, socials } from '@/data';
-import { EXTENT } from '@/lib/geo';
+import { official, site, socials } from '@/data';
 
 const year = new Date().getFullYear();
 
+/**
+ * The closing moment.
+ *
+ * Three columns, and the third one is the point: the paths that belong to
+ * Anthropic are grouped, labelled as theirs, and kept apart from the ones this
+ * community runs. A visitor should never have to guess which is which.
+ */
 const columns = [
   {
     heading: 'Discover',
@@ -14,27 +20,30 @@ const columns = [
       { label: 'Builders', href: '/builders' },
       { label: 'Projects', href: '/projects' },
       { label: 'Stories', href: '/stories' },
-      { label: 'Community', href: '/community' },
+      { label: 'How this works', href: '/community' },
     ],
   },
   {
-    heading: 'Take part',
+    heading: 'Contribute',
     links: [
-      { label: 'Attend an event', href: '/events' },
-      { label: 'How it works', href: '/community' },
-      { label: 'Start a chapter', href: 'https://t.me/tog_guild' },
+      { label: 'Add yourself', href: '/join#contribute' },
+      { label: 'Submit a build', href: '/join#build' },
+      { label: 'Register your city', href: '/join#city' },
       { label: 'Speak or mentor', href: 'https://tally.so/r/Y5lNo6' },
-      { label: 'Partner with us', href: 'https://tally.so/r/dWeBZy' },
       { label: 'Volunteer', href: 'https://tally.so/r/D46gXj' },
+      { label: 'Partner', href: 'https://tally.so/r/dWeBZy' },
     ],
   },
   {
-    heading: 'Elsewhere',
-    links: socials.map((s) => ({ label: s.label, href: s.url })),
+    heading: 'Anthropic',
+    note: 'Run by Anthropic, not by us.',
+    links: [
+      { label: 'Become an Ambassador', href: official.ambassadorProgramUrl },
+      { label: 'Anthropic', href: official.anthropic },
+      { label: 'Claude', href: official.claude },
+    ],
   },
 ];
-
-const extentLabel = `${EXTENT.minLon}°E — ${EXTENT.maxLon}°E · ${EXTENT.minLat}°N — ${EXTENT.maxLat}°N`;
 ---
 
 <footer class="site-footer on-night">
@@ -42,17 +51,18 @@ const extentLabel = `${EXTENT.minLon}°E — ${EXTENT.maxLon}°E · ${EXTENT.min
   <div class="rail-anchor terminus-anchor" aria-hidden="true">
     <div class="terminus">
       <span class="terminus-line"></span>
-      <Mark size={26} />
+      <Mark size={24} />
     </div>
   </div>
 
   <div class="container-wide footer-inner">
     <div class="footer-brand">
       <p class="footer-wordmark">
-        Claude <em>India</em>
+        <span class="footer-with">With</span>
+        <span class="footer-claude">Claude</span>
       </p>
-      <p class="footer-line">{site.tagline}</p>
-      <p class="coords footer-extent">{extentLabel}</p>
+      <p class="footer-line">{site.manifesto}</p>
+      <p class="footer-descriptor">{site.descriptor}</p>
     </div>
 
     <div class="footer-columns">
@@ -73,20 +83,38 @@ const extentLabel = `${EXTENT.minLon}°E — ${EXTENT.maxLon}°E · ${EXTENT.min
                 </li>
               ))}
             </ul>
+            {col.note && <p class="footer-col-note">{col.note}</p>}
           </nav>
         ))
       }
     </div>
   </div>
 
+  <div class="container-wide footer-social">
+    <h2 class="label footer-heading">Elsewhere</h2>
+    <ul class="socials">
+      {
+        socials.map((link) => (
+          <li>
+            <a href={link.url} target="_blank" rel="noopener">
+              {link.label}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+
   <div class="container-wide footer-base">
     <p class="footer-affiliation">{site.affiliation}</p>
     <div class="footer-meta">
-      <span>© {year} Claude India</span>
+      <span>© {year} {site.wordmark}</span>
+      <span aria-hidden="true">·</span>
+      <span>{site.domain}</span>
       <span aria-hidden="true">·</span>
       <span>Community-run, non-commercial</span>
       <span aria-hidden="true">·</span>
-      <span class="footer-colophon">Set in Fraunces, Inter &amp; IBM Plex Mono</span>
+      <span>Set in Fraunces, Inter &amp; IBM Plex Mono</span>
     </div>
   </div>
 </footer>
@@ -99,7 +127,7 @@ const extentLabel = `${EXTENT.minLon}°E — ${EXTENT.maxLon}°E · ${EXTENT.min
     overflow: hidden;
   }
 
-  /* --- Terminus: the meridian's full stop ------------------------------- */
+  /* --- Terminus: the meridian's full stop -------------------------------- */
   .terminus-anchor {
     top: 0;
   }
@@ -107,7 +135,7 @@ const extentLabel = `${EXTENT.minLon}°E — ${EXTENT.maxLon}°E · ${EXTENT.min
   .terminus {
     position: absolute;
     top: 0;
-    left: calc(var(--gutter) + var(--rail) / 2);
+    left: calc(var(--gutter) - 20px);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -125,41 +153,55 @@ const extentLabel = `${EXTENT.minLon}°E — ${EXTENT.maxLon}°E · ${EXTENT.min
     );
   }
 
-  /* --- Layout ----------------------------------------------------------- */
+  /* --- Layout ------------------------------------------------------------ */
   .footer-inner {
     display: grid;
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.4fr);
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.45fr);
     gap: var(--s-9) var(--s-8);
-    padding-bottom: var(--s-10);
+    padding-bottom: var(--s-9);
   }
 
   .footer-wordmark {
+    display: flex;
+    flex-direction: column;
     font-family: var(--font-display);
-    font-size: clamp(2.6rem, 7vw, 5rem);
-    font-weight: 600;
+    font-size: clamp(2.6rem, 7.5vw, 5.4rem);
     font-variation-settings:
       'SOFT' 0,
       'WONK' 1;
-    line-height: 0.92;
-    letter-spacing: -0.03em;
+    line-height: 0.9;
+    letter-spacing: -0.035em;
+    text-transform: uppercase;
     color: var(--ink);
   }
 
-  .footer-wordmark em {
-    font-style: italic;
+  .footer-with {
     font-weight: 400;
+    font-style: italic;
     color: var(--clay);
   }
 
-  .footer-line {
-    margin-top: var(--s-4);
-    max-width: 24ch;
-    font-size: var(--t-lead);
-    color: var(--ink-2);
+  .footer-claude {
+    font-weight: 700;
   }
 
-  .footer-extent {
+  .footer-line {
     margin-top: var(--s-5);
+    font-family: var(--font-display);
+    font-size: var(--t-h3);
+    font-weight: 500;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+
+  .footer-descriptor {
+    margin-top: var(--s-3);
+    max-width: 34ch;
+    font-size: var(--t-small);
+    color: var(--ink-2);
   }
 
   .footer-columns {
@@ -192,7 +234,45 @@ const extentLabel = `${EXTENT.minLon}°E — ${EXTENT.maxLon}°E · ${EXTENT.min
     color: var(--clay);
   }
 
-  /* --- Base ------------------------------------------------------------- */
+  .footer-col-note {
+    margin-top: var(--s-4);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    line-height: 1.6;
+    color: var(--ink-3);
+  }
+
+  /* --- Social ------------------------------------------------------------- */
+  .footer-social {
+    padding-bottom: var(--s-8);
+  }
+
+  .footer-social .footer-heading {
+    max-width: 12rem;
+  }
+
+  .socials {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-3) var(--s-6);
+  }
+
+  .socials a {
+    font-family: var(--font-mono);
+    font-size: var(--t-meta);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-2);
+    text-decoration: none;
+    transition: color var(--dur-1) var(--ease-out);
+  }
+
+  .socials a:hover,
+  .socials a:focus-visible {
+    color: var(--clay);
+  }
+
+  /* --- Base --------------------------------------------------------------- */
   .footer-base {
     display: grid;
     gap: var(--s-4);
@@ -201,7 +281,7 @@ const extentLabel = `${EXTENT.minLon}°E — ${EXTENT.maxLon}°E · ${EXTENT.min
   }
 
   .footer-affiliation {
-    max-width: 62ch;
+    max-width: 68ch;
     font-size: var(--t-small);
     color: var(--ink-3);
   }

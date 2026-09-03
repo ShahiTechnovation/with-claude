@@ -1,33 +1,69 @@
 import { istInstant } from '@/lib/datetime';
-import { statusOf } from '@/lib/status';
+import { cityState, cityStateRank } from '@/lib/city';
+import { lifecycleOf } from '@/lib/status';
+import { ambassadors } from './ambassadors';
 import { builders } from './builders';
 import { cities } from './cities';
 import { events } from './events';
 import { projects } from './projects';
 import { stories } from './stories';
-import type { Builder, City, CommunityEvent, EventPhoto, Project, Story } from './types';
+import type {
+  Ambassador,
+  Builder,
+  City,
+  CityState,
+  CommunityEvent,
+  EventPhoto,
+  ModerationStatus,
+  Project,
+  RecordBase,
+  SignalItem,
+  Story,
+} from './types';
 
-export { builders, cities, events, projects, stories };
+export { ambassadors, builders, cities, events, projects, stories };
 export * from './site';
 export type * from './types';
+
+/**
+ * A record is public once a human has moved it past review. Everything the
+ * site renders goes through this — a `pending` submission is invisible, which
+ * is the entire point of having the state.
+ */
+export function isPublic(record: { status: ModerationStatus }): boolean {
+  return record.status === 'published' || record.status === 'featured';
+}
+
+const publicOnly = <T extends RecordBase>(list: T[]): T[] => list.filter(isPublic);
+
+export const publicAmbassadors = publicOnly(ambassadors);
+export const publicBuilders = publicOnly(builders);
+export const publicProjects = publicOnly(projects);
+export const publicStories = publicOnly(stories);
+export const publicEvents = publicOnly(events);
+export const publicCities = publicOnly(cities);
+
+// =========================================================================
+// EVENTS
+// =========================================================================
 
 const byDateAsc = (a: CommunityEvent, b: CommunityEvent) =>
   istInstant(a.date, a.startTime).getTime() - istInstant(b.date, b.startTime).getTime();
 
 /** Ascending by start time. */
-export const eventsChronological = [...events].sort(byDateAsc);
+export const eventsChronological = [...publicEvents].sort(byDateAsc);
 
 /** Everything that has not finished, soonest first. */
 export function upcomingEvents(now: Date = new Date()): CommunityEvent[] {
   return eventsChronological.filter((e) => {
-    const s = statusOf(e, now);
-    return s !== 'past' && s !== 'cancelled';
+    const lifecycle = lifecycleOf(e, now);
+    return lifecycle !== 'past' && lifecycle !== 'cancelled';
   });
 }
 
 /** Everything that has finished, most recent first. */
 export function pastEvents(now: Date = new Date()): CommunityEvent[] {
-  return [...eventsChronological].reverse().filter((e) => statusOf(e, now) === 'past');
+  return [...eventsChronological].reverse().filter((e) => lifecycleOf(e, now) === 'past');
 }
 
 /**
@@ -38,18 +74,21 @@ export function nextEvent(now: Date = new Date()): CommunityEvent | undefined {
   return upcomingEvents(now)[0];
 }
 
-/** Anything running right now, for the live signal. */
+/** Anything running right now. */
 export function liveEvents(now: Date = new Date()): CommunityEvent[] {
-  return eventsChronological.filter((e) => statusOf(e, now) === 'live');
+  return eventsChronological.filter((e) => lifecycleOf(e, now) === 'live');
 }
 
-// --- Lookups -------------------------------------------------------------
+// =========================================================================
+// LOOKUPS
+// =========================================================================
 
 export const cityBySlug = new Map(cities.map((c) => [c.slug, c]));
-export const eventBySlug = new Map(events.map((e) => [e.slug, e]));
-export const builderBySlug = new Map(builders.map((b) => [b.slug, b]));
-export const projectBySlug = new Map(projects.map((p) => [p.slug, p]));
-export const storyBySlug = new Map(stories.map((s) => [s.slug, s]));
+export const eventBySlug = new Map(publicEvents.map((e) => [e.slug, e]));
+export const builderBySlug = new Map(publicBuilders.map((b) => [b.slug, b]));
+export const projectBySlug = new Map(publicProjects.map((p) => [p.slug, p]));
+export const storyBySlug = new Map(publicStories.map((s) => [s.slug, s]));
+export const ambassadorBySlug = new Map(publicAmbassadors.map((a) => [a.slug, a]));
 
 export function getCity(slug: string): City | undefined {
   return cityBySlug.get(slug);
@@ -60,16 +99,56 @@ export function cityName(slug: string): string {
   return cityBySlug.get(slug)?.name ?? slug;
 }
 
+// =========================================================================
+// THE COMMUNITY GRAPH
+// City ↔ Ambassador ↔ Builder ↔ Project ↔ Event ↔ Story
+// =========================================================================
+
+export function ambassadorsInCity(slug: string): Ambassador[] {
+  return publicAmbassadors.filter((a) => a.citySlug === slug);
+}
+
+/** The verified Ambassador hosting an event, if there is one. */
+export function hostAmbassador(event: CommunityEvent): Ambassador | undefined {
+  return event.host.ambassadorSlug ? ambassadorBySlug.get(event.host.ambassadorSlug) : undefined;
+}
+
+/**
+ * An event is a verified Claude Community event when its host resolves to a
+ * published Ambassador record. There is no flag for this and there must not be.
+ */
+export function isAmbassadorLed(event: CommunityEvent): boolean {
+  return Boolean(hostAmbassador(event));
+}
+
+export function eventsHostedBy(ambassadorSlug: string): CommunityEvent[] {
+  return eventsChronological.filter((e) => e.host.ambassadorSlug === ambassadorSlug);
+}
+
+/** The builder-directory entry for an ambassador, when they have one. */
+export function builderForAmbassador(ambassador: Ambassador): Builder | undefined {
+  return ambassador.builderSlug ? builderBySlug.get(ambassador.builderSlug) : undefined;
+}
+
+/** The Ambassador record claiming a builder, if any. Drives the role chip. */
+export function ambassadorForBuilder(builder: Builder): Ambassador | undefined {
+  return publicAmbassadors.find((a) => a.builderSlug === builder.slug || a.slug === builder.slug);
+}
+
 export function eventsInCity(slug: string): CommunityEvent[] {
   return eventsChronological.filter((e) => e.citySlug === slug);
 }
 
 export function buildersInCity(slug: string): Builder[] {
-  return builders.filter((b) => b.citySlug === slug);
+  return publicBuilders.filter((b) => b.citySlug === slug);
 }
 
 export function projectsInCity(slug: string): Project[] {
-  return projects.filter((p) => p.citySlug === slug);
+  return publicProjects.filter((p) => p.citySlug === slug);
+}
+
+export function storiesInCity(slug: string): Story[] {
+  return publicStories.filter((s) => s.citySlug === slug);
 }
 
 export function speakersOf(event: CommunityEvent): Builder[] {
@@ -78,91 +157,243 @@ export function speakersOf(event: CommunityEvent): Builder[] {
     .filter((b): b is Builder => Boolean(b));
 }
 
-export function storiesChronological(): Story[] {
-  return [...stories].sort((a, b) => (a.date < b.date ? 1 : -1));
+/** Projects that came out of a given room. The event → project half of the loop. */
+export function projectsFromEvent(slug: string): Project[] {
+  return publicProjects.filter((p) => p.builtAtEventSlug === slug);
 }
 
-// --- Cities --------------------------------------------------------------
+/** The people behind a project. The project → person half of the loop. */
+export function buildersOf(project: Project): Builder[] {
+  return project.builderSlugs
+    .map((s) => builderBySlug.get(s))
+    .filter((b): b is Builder => Boolean(b));
+}
 
-export const activeCities = cities.filter((c) => c.status === 'active');
-export const formingCities = cities.filter((c) => c.status === 'forming');
-export const openCities = cities.filter((c) => c.status === 'open');
+/** Everything one builder has made. */
+export function projectsOf(builder: Builder): Project[] {
+  const declared = (builder.projectSlugs ?? [])
+    .map((s) => projectBySlug.get(s))
+    .filter((p): p is Project => Boolean(p));
+  const credited = publicProjects.filter((p) => p.builderSlugs.includes(builder.slug));
+  return [...new Set([...declared, ...credited])];
+}
 
-/**
- * The next event in a given city, if any. Drives the map's hover card.
- */
+/** Every room one builder has been on the record in. */
+export function eventsOf(builder: Builder): CommunityEvent[] {
+  const declared = (builder.eventSlugs ?? [])
+    .map((s) => eventBySlug.get(s))
+    .filter((e): e is CommunityEvent => Boolean(e));
+  const credited = eventsChronological.filter((e) => e.speakerSlugs?.includes(builder.slug));
+  return [...new Set([...declared, ...credited])].sort(byDateAsc);
+}
+
+export function storiesChronological(): Story[] {
+  return [...publicStories].sort((a, b) => (a.date < b.date ? 1 : -1));
+}
+
+export function storiesForEvent(slug: string): Story[] {
+  return publicStories.filter((s) => s.eventSlug === slug);
+}
+
+// =========================================================================
+// CITY STATE — derived, never authored
+// =========================================================================
+
+export interface CitySignal {
+  city: City;
+  state: CityState;
+  ambassadors: Ambassador[];
+  eventCount: number;
+  heldCount: number;
+  builderCount: number;
+  projectCount: number;
+  storyCount: number;
+  interestCount: number;
+  next?: CommunityEvent;
+}
+
+/** The next event in a given city, if any. */
 export function nextEventInCity(slug: string, now: Date = new Date()): CommunityEvent | undefined {
   return upcomingEvents(now).find((e) => e.citySlug === slug);
 }
 
-export interface CitySignal {
-  city: City;
-  eventCount: number;
-  builderCount: number;
-  projectCount: number;
-  next?: CommunityEvent;
-}
+export function citySignal(city: City, now: Date = new Date()): CitySignal {
+  const cityAmbassadors = ambassadorsInCity(city.slug);
+  const cityEvents = eventsInCity(city.slug);
+  const interestCount = city.interest?.count ?? 0;
 
-/** Everything the map and the city cards need, computed once. */
-export function citySignals(now: Date = new Date()): CitySignal[] {
-  return cities.map((city) => ({
+  return {
     city,
-    eventCount: eventsInCity(city.slug).length,
+    state: cityState({
+      hasAmbassador: cityAmbassadors.length > 0,
+      eventCount: cityEvents.length,
+      interestCount,
+    }),
+    ambassadors: cityAmbassadors,
+    eventCount: cityEvents.length,
+    heldCount: cityEvents.filter((e) => lifecycleOf(e, now) === 'past').length,
     builderCount: buildersInCity(city.slug).length,
     projectCount: projectsInCity(city.slug).length,
+    storyCount: storiesInCity(city.slug).length,
+    interestCount,
     next: nextEventInCity(city.slug, now),
-  }));
+  };
 }
 
-// --- National signal -----------------------------------------------------
+/** Everything the map and the city index need, computed once. */
+export function citySignals(now: Date = new Date()): CitySignal[] {
+  return publicCities.map((city) => citySignal(city, now));
+}
+
+/** Most active first, then alphabetical within a state. */
+export function citySignalsRanked(now: Date = new Date()): CitySignal[] {
+  return citySignals(now).sort(
+    (a, b) =>
+      cityStateRank(a.state) - cityStateRank(b.state) || a.city.name.localeCompare(b.city.name),
+  );
+}
+
+export function citiesInState(state: CityState, now: Date = new Date()): CitySignal[] {
+  return citySignals(now).filter((s) => s.state === state);
+}
+
+// =========================================================================
+// NATIONAL SIGNAL
+// =========================================================================
 
 export interface NationalSignal {
-  /** Events actually held (excludes anything still ahead of us). */
+  /** Events actually held. */
   eventsHeld: number;
   /** Events on the calendar. */
   eventsScheduled: number;
-  citiesActive: number;
-  /** Cities plotted on the map with no chapter yet — the invitation. */
-  citiesOpen: number;
+  citiesPlotted: number;
+  /** Cities with a verified Ambassador. */
+  citiesAmbassadorLed: number;
+  /** Cities with events but no assigned Ambassador. */
+  citiesWithActivity: number;
+  /** Cities where people have registered interest. */
+  citiesWithInterest: number;
   builders: number;
   projects: number;
-  /** Chapter-reported member figures, summed. Undefined if none are reported. */
+  stories: number;
+  ambassadors: number;
+  /** Community-reported figures, summed. Undefined when none are reported. */
   reportedMembers?: number;
   /** Where the reported figures came from, so the UI can attribute them. */
   reportedSources: string[];
 }
 
 /**
- * The numbers behind the LIVE ACROSS INDIA strip. Counts are derived from the
- * record; the only figures that are not are the chapter-reported ones, which
- * carry their source so the UI can label them honestly.
+ * The numbers behind the signal strip.
+ *
+ * Every figure is counted from the record. The only ones that are not are the
+ * community-reported figures, which are kept separate and carry their source
+ * so the UI can label them honestly rather than folding them into a headline.
  */
 export function nationalSignal(now: Date = new Date()): NationalSignal {
-  const reported = cities.filter((c) => c.reported);
+  const signals = citySignals(now);
+  const reported = publicCities.filter((c) => c.reported);
   const members = reported.reduce((sum, c) => sum + (c.reported?.members ?? 0), 0);
 
   return {
     eventsHeld: pastEvents(now).length,
     eventsScheduled: upcomingEvents(now).length,
-    citiesActive: activeCities.length,
-    citiesOpen: openCities.length,
-    builders: builders.length,
-    projects: projects.length,
+    citiesPlotted: signals.length,
+    citiesAmbassadorLed: signals.filter((s) => s.state === 'ambassador-led').length,
+    citiesWithActivity: signals.filter((s) => s.state === 'event-activity').length,
+    citiesWithInterest: signals.filter((s) => s.state === 'community-interest').length,
+    builders: publicBuilders.length,
+    projects: publicProjects.length,
+    stories: publicStories.length,
+    ambassadors: publicAmbassadors.length,
     reportedMembers: members > 0 ? members : undefined,
     reportedSources: reported.map((c) => c.reported!.source),
   };
 }
 
-// --- The photographic record --------------------------------------------
+// =========================================================================
+// THE COMMUNITY FEED
+// =========================================================================
+
+/**
+ * A merged stream of things that actually happened: what is on the calendar,
+ * soonest first, then what has been held, most recent first.
+ *
+ * Every item is generated from a record with a real date. There is no authored
+ * feed file, so there is nothing here to invent — if the community is quiet,
+ * the feed is short, and that is the honest reading.
+ */
+export function communitySignal(limit = 6, now: Date = new Date()): SignalItem[] {
+  const scheduled: SignalItem[] = upcomingEvents(now).map((event) => ({
+    kind: 'event-scheduled',
+    date: event.date,
+    subject: event.title,
+    action: 'on the calendar',
+    citySlug: event.citySlug,
+    href: `/events/${event.slug}`,
+  }));
+
+  const held: SignalItem[] = pastEvents(now).map((event) => ({
+    kind: 'event-held',
+    date: event.date,
+    subject: event.title,
+    action: 'held',
+    citySlug: event.citySlug,
+    href: `/events/${event.slug}`,
+  }));
+
+  // Only records that carry a real date can appear. An unknown `createdAt` is
+  // left undefined in the data rather than guessed, so these lists stay honest.
+  const joined: SignalItem[] = publicBuilders
+    .filter((b) => b.createdAt)
+    .map((b) => ({
+      kind: 'builder-published',
+      date: b.createdAt!,
+      subject: b.name,
+      action: 'joined the index',
+      citySlug: b.citySlug,
+      href: `/builders/${b.slug}`,
+    }));
+
+  const shipped: SignalItem[] = publicProjects
+    .filter((p) => p.createdAt)
+    .map((p) => ({
+      kind: 'project-published',
+      date: p.createdAt!,
+      subject: p.title,
+      action: 'added to the archive',
+      citySlug: p.citySlug,
+      href: `/projects/${p.slug}`,
+    }));
+
+  const written: SignalItem[] = publicStories.map((s) => ({
+    kind: 'story-published',
+    date: s.date,
+    subject: s.title,
+    action: 'published',
+    citySlug: s.citySlug,
+    href: `/stories/${s.slug}`,
+  }));
+
+  const recent = [...held, ...joined, ...shipped, ...written].sort((a, b) =>
+    a.date < b.date ? 1 : -1,
+  );
+
+  return [...scheduled, ...recent].slice(0, limit);
+}
+
+// =========================================================================
+// THE PHOTOGRAPHIC RECORD
+// =========================================================================
 
 export interface PhotoRecordItem extends EventPhoto {
   event: CommunityEvent;
-  /** `07 / 03` — plate number within the archive, for the caption stamp. */
+  /** `06/02` — plate number within the archive, for the caption stamp. */
   plate: string;
 }
 
 /**
- * FROM THE FLOOR runs on real photography until written stories exist.
+ * FROM THE COMMUNITY runs on real photography until written stories exist.
  * Newest event first, so the most recent room is the one you meet.
  */
 export function photoRecord(): PhotoRecordItem[] {

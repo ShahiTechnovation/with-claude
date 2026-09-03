@@ -4,18 +4,34 @@ import type { CommunityEvent } from './types';
  * The event record.
  *
  * Every entry below is a real event run by the Claude community in Bhopal,
- * carried over from claude-community-bhopal.netlify.app with its Luma link
- * intact. Status is NOT authored here — see `statusOf()` in `src/lib/status.ts`.
- * `statusOverride` exists only for door states the clock cannot know.
+ * carried over from claude-community-bhopal.netlify.app with its registration
+ * link intact.
+ *
+ * Two things are never authored here:
+ *
+ *  · STATUS. `lifecycleOf()` in `src/lib/status.ts` computes it from the
+ *    clock. `statusOverride` exists only for door states the clock cannot know.
+ *  · VERIFICATION. An event is an Ambassador-led Claude Community event
+ *    because `host.ambassadorSlug` resolves to a published `Ambassador`, not
+ *    because someone set a flag. Bhopal's Ambassador is Aniket Sahu, so the
+ *    city's Claude Community events carry his slug; the organisations that
+ *    host the room are listed alongside, not instead.
  */
+const bhopalHost = {
+  ambassadorSlug: 'aniket-sahu',
+  organisations: ['The Origin Guild'],
+};
+
 export const events: CommunityEvent[] = [
   {
     id: 'evt-bhopal-01',
     slug: 'claude-code-for-builders',
+    status: 'published',
     title: 'Claude Code for Builders',
     format: 'meetup',
     volume: 1,
     citySlug: 'bhopal',
+    host: bhopalHost,
     date: '2026-03-01',
     startTime: '16:00',
     venue: { name: 'Bhopal', private: true },
@@ -23,15 +39,16 @@ export const events: CommunityEvent[] = [
     registrationUrl: 'https://luma.com/hphplrbx',
     free: true,
     coverImage: 'covers/cover-vol01.jpg',
-    hosts: ['The Origin Guild'],
   },
   {
     id: 'evt-bhopal-02',
     slug: 'claude-meetup',
+    status: 'published',
     title: 'Claude Meetup',
     format: 'meetup',
     volume: 2,
     citySlug: 'bhopal',
+    host: bhopalHost,
     date: '2026-07-12',
     startTime: '16:00',
     venue: { name: 'Bhopal', private: true },
@@ -39,7 +56,6 @@ export const events: CommunityEvent[] = [
     registrationUrl: 'https://luma.com/claude-18gk',
     free: true,
     coverImage: 'covers/cover-vol02.jpg',
-    hosts: ['The Origin Guild'],
     photos: [
       {
         src: 'events/vol02-1.jpg',
@@ -58,10 +74,12 @@ export const events: CommunityEvent[] = [
   {
     id: 'evt-bhopal-03',
     slug: 'claude-community-conversation',
+    status: 'published',
     title: 'Claude Community Conversation',
     format: 'conversation',
     volume: 3,
     citySlug: 'bhopal',
+    host: bhopalHost,
     date: '2026-07-26',
     startTime: '18:00',
     venue: { name: 'Bhopal', private: true },
@@ -69,16 +87,17 @@ export const events: CommunityEvent[] = [
     registrationUrl: 'https://luma.com/claude-w1nu',
     free: true,
     coverImage: 'covers/cover-vol03.jpg',
-    hosts: ['The Origin Guild'],
     outcomes: ['168 people signed up'],
   },
   {
     id: 'evt-bhopal-04',
     slug: 'getting-started-with-claude',
+    status: 'published',
     title: 'Getting Started with Claude & Claude Code',
     format: 'workshop',
     volume: 4,
     citySlug: 'bhopal',
+    host: bhopalHost,
     date: '2026-08-02',
     startTime: '16:00',
     venue: { name: 'BIBA, Bhopal' },
@@ -86,15 +105,16 @@ export const events: CommunityEvent[] = [
     registrationUrl: 'https://luma.com/claude-9g93',
     free: true,
     coverImage: 'covers/cover-vol04.jpg',
-    hosts: ['The Origin Guild'],
   },
   {
     id: 'evt-bhopal-05',
     slug: 'claude-code-workshop',
+    status: 'published',
     title: 'Claude Code Workshop',
     format: 'workshop',
     volume: 5,
     citySlug: 'bhopal',
+    host: bhopalHost,
     date: '2026-08-05',
     startTime: '16:00',
     venue: { name: 'Bhopal', private: true },
@@ -103,15 +123,16 @@ export const events: CommunityEvent[] = [
     free: true,
     coverImage: 'covers/cover-vol05.jpg',
     speakerSlugs: ['aniket-sahu', 'vishal-kumar'],
-    hosts: ['The Origin Guild'],
   },
   {
     id: 'evt-bhopal-06',
     slug: 'claude-code-workshop-part-two',
+    status: 'published',
     title: 'Claude Code Workshop, part two',
     format: 'workshop',
     volume: 6,
     citySlug: 'bhopal',
+    host: bhopalHost,
     date: '2026-08-09',
     startTime: '16:00',
     venue: { name: 'Bhopal', private: true },
@@ -119,7 +140,6 @@ export const events: CommunityEvent[] = [
     registrationUrl: 'https://luma.com/claude-jy40',
     free: true,
     coverImage: 'covers/cover-vol06.jpg',
-    hosts: ['The Origin Guild'],
     photos: [
       {
         src: 'events/vol06-1.jpg',
@@ -138,10 +158,12 @@ export const events: CommunityEvent[] = [
   {
     id: 'evt-bhopal-07',
     slug: 'claude-code-impact-lab',
+    status: 'published',
     title: 'Claude Code Impact Lab',
     format: 'impact-lab',
     volume: 7,
     citySlug: 'bhopal',
+    host: { ambassadorSlug: 'aniket-sahu', organisations: ['The Origin Guild', 'Builder Base'] },
     date: '2026-08-23',
     startTime: '10:00',
     endTime: '19:00',
@@ -151,7 +173,6 @@ export const events: CommunityEvent[] = [
     statusOverride: 'sold-out',
     free: true,
     coverImage: 'covers/cover-vol07.jpg',
-    hosts: ['The Origin Guild', 'Builder Base'],
     outcomes: [
       'Sold out',
       '$100 in Claude API credits for every attendee',
@@ -161,10 +182,12 @@ export const events: CommunityEvent[] = [
   {
     id: 'evt-bhopal-08',
     slug: 'claude-for-college-builders',
+    status: 'published',
     title: 'Claude for College Builders',
     format: 'campus',
     volume: 8,
     citySlug: 'bhopal',
+    host: bhopalHost,
     date: '2026-08-27',
     startTime: '16:00',
     venue: { name: 'Bhopal', private: true },
@@ -172,16 +195,20 @@ export const events: CommunityEvent[] = [
     registrationUrl: 'https://luma.com/claude-j2dr',
     free: true,
     coverImage: 'covers/cover-vol08.jpg',
-    hosts: ['The Origin Guild'],
     outcomes: ['$50 in Claude credits and swag for participants'],
   },
   {
     id: 'evt-bhopal-09',
     slug: 'claude-code-workshop-september',
+    status: 'published',
     title: 'Claude Code Workshop',
     format: 'workshop',
     volume: 9,
     citySlug: 'bhopal',
+    host: {
+      ambassadorSlug: 'aniket-sahu',
+      organisations: ['The Origin Guild', 'AIC-RNTU Foundation'],
+    },
     date: '2026-09-02',
     startTime: '16:00',
     endTime: '18:00',
@@ -194,15 +221,20 @@ export const events: CommunityEvent[] = [
       'A free hands-on workshop: a tour of Claude.ai, Claude Code, the Anthropic API and MCP, then a guided build of a small project with Claude Code.',
     registrationUrl: 'https://luma.com/claude-hj87',
     free: true,
-    hosts: ['The Origin Guild'],
+    agenda: [
+      { title: 'The Claude ecosystem', detail: 'Claude.ai, Claude Code, the API and MCP' },
+      { title: 'Guided build', detail: 'A small project, built live with Claude Code' },
+    ],
   },
   {
     id: 'evt-bhopal-10',
     slug: 'claude-conversation-september',
+    status: 'featured',
     title: 'Claude Conversation',
     format: 'conversation',
     volume: 10,
     citySlug: 'bhopal',
+    host: bhopalHost,
     date: '2026-09-12',
     startTime: '18:00',
     endTime: '20:30',
@@ -212,15 +244,16 @@ export const events: CommunityEvent[] = [
       'A small, focused evening for founders and builders around one question. The room picks a real problem worth solving — and the Impact Lab spends the next day building the answer.',
     registrationUrl: 'https://luma.com/claude-6khk',
     free: true,
-    hosts: ['The Origin Guild'],
   },
   {
     id: 'evt-bhopal-11',
     slug: 'claude-impact-lab-september',
+    status: 'published',
     title: 'Claude Impact Lab',
     format: 'impact-lab',
     volume: 11,
     citySlug: 'bhopal',
+    host: bhopalHost,
     date: '2026-09-13',
     startTime: '10:00',
     endTime: '19:00',
@@ -230,6 +263,5 @@ export const events: CommunityEvent[] = [
       'Teams take the problem that came out of the Claude Conversation, prototype a solution with Claude, test it, and demo by evening.',
     registrationUrl: 'https://luma.com/claude-r61u',
     free: true,
-    hosts: ['The Origin Guild'],
   },
 ];

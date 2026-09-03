@@ -6,7 +6,7 @@
  */
 import { chromium } from 'playwright';
 
-const BASE = 'http://localhost:4321';
+const BASE = process.env.BASE ?? 'http://localhost:4321';
 const PAGES = [
   '/',
   '/events',
@@ -20,6 +20,7 @@ const PAGES = [
   '/projects',
   '/stories',
   '/community',
+  '/join',
   '/404',
 ];
 
@@ -57,7 +58,11 @@ for (const path of PAGES) {
 
     // Links and buttons need a name
     document.querySelectorAll('a').forEach((a) => {
-      const name = (a.textContent || '').trim() || a.getAttribute('aria-label') || '';
+      const imgAlt = [...a.querySelectorAll('img')]
+        .map((img) => img.getAttribute('alt') || '')
+        .join(' ')
+        .trim();
+      const name = (a.textContent || '').trim() || a.getAttribute('aria-label') || imgAlt;
       if (!name) out.issues.push(`link without accessible name: ${a.getAttribute('href')}`);
       if (!a.getAttribute('href')) out.issues.push('anchor without href');
     });

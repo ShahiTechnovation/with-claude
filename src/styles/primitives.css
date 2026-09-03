@@ -1,5 +1,6 @@
 /* =========================================================================
-   PRIMITIVES — layout containers, the meridian, buttons, labels, signals
+   PRIMITIVES — containers, the meridian, labels, status, buttons, plates,
+   form controls
    ========================================================================= */
 
 /* --- Containers --------------------------------------------------------- */
@@ -17,11 +18,6 @@
   padding-inline: var(--gutter);
 }
 
-/* Content sits to the right of the meridian's channel on wide viewports. */
-.rail-inset {
-  padding-left: calc(var(--gutter) + var(--rail));
-}
-
 .prose {
   max-width: var(--measure-text);
   color: var(--ink-2);
@@ -32,17 +28,21 @@
   margin-top: var(--s-4);
 }
 
-/* =========================================================================
-   THE MERIDIAN — the signature device
-   One clay thread runs the whole document. It is, at once: the map's meridian,
-   the timeline's spine, the archive's index, and the scroll indicator. It ticks
-   at every section and terminates in the footer.
-   ========================================================================= */
+.stack {
+  display: grid;
+  gap: var(--s-4);
+}
 
-/* Everything that has to sit on the meridian hangs off one of these: an
-   absolutely positioned band the same width as the content container, centred
-   the same way. Measuring from the viewport instead would drift away from the
-   content on wide screens, and `100vw` would drift again by the scrollbar. */
+/* =========================================================================
+   THE MERIDIAN
+   One clay thread runs the whole document, filling as you travel down it. It
+   is a scroll position indicator and the only ornament that persists between
+   sections.
+
+   It deliberately no longer carries numbered section ticks. Numbering every
+   movement turned each one into an entry in the same scientific report, which
+   is exactly the sameness the page needed to lose.
+   ========================================================================= */
 .rail-anchor {
   position: absolute;
   left: 0;
@@ -57,7 +57,7 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  left: calc(var(--gutter) + var(--rail) / 2);
+  left: calc(var(--gutter) - 20px);
   width: 1px;
   background: var(--rule);
   pointer-events: none;
@@ -79,41 +79,15 @@
 @media (prefers-reduced-motion: reduce) {
   .meridian::after {
     transform: scaleY(1);
-    opacity: 0.5;
+    opacity: 0.45;
   }
 }
 
-/* Below the rail breakpoint the meridian would crowd the text, so it goes. */
-@media (max-width: 63.99em) {
+/* Below this the meridian would crowd the text, so it goes. */
+@media (max-width: 74.99em) {
   .rail-anchor {
     display: none;
   }
-}
-
-/* A section's tick on the meridian: a clay stub with its archive number
-   stacked beneath it. It lives entirely inside the rail, so it can never
-   collide with the content column. */
-.tick {
-  position: absolute;
-  left: calc(var(--gutter) + var(--rail) / 2);
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--s-2);
-  font-family: var(--font-mono);
-  font-size: var(--t-micro);
-  letter-spacing: 0.1em;
-  color: var(--ink-3);
-  pointer-events: none;
-  white-space: nowrap;
-}
-
-.tick::before {
-  content: '';
-  width: 12px;
-  height: 1px;
-  background: var(--clay);
-  flex: none;
 }
 
 /* =========================================================================
@@ -149,15 +123,22 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* A hairline with a label sitting on it — the section rule. */
 .rule-line {
   border: 0;
   border-top: var(--border-hair) solid var(--rule);
   margin: 0;
 }
 
+/* The WITH device. Used sparingly — it is an identity mark, not a motif. */
+.with {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 400;
+  color: var(--clay-deep);
+}
+
 /* =========================================================================
-   STATUS PIPS — one visual language for every event state
+   STATUS PIPS — one visual language for every event lifecycle
    ========================================================================= */
 
 .pip {
@@ -228,6 +209,88 @@
 }
 
 /* =========================================================================
+   STATE CHIPS — the governance layer, made visible
+
+   A city's state and a person's role are the two things this site must never
+   overstate, so both get one shared, deliberately quiet vocabulary. The
+   Ambassador chip is the only one that fills; everything else is an outline.
+   That difference is the whole point.
+   ========================================================================= */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: 0.28em 0.62em;
+  border: var(--border-hair) solid var(--rule-strong);
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.chip::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* Verified Ambassador. The only filled chip on the site. */
+.chip-verified {
+  border-color: transparent;
+  background: var(--clay-deep);
+  color: var(--paper);
+}
+
+.chip-verified::before {
+  background: var(--paper);
+}
+
+.chip-ambassador-led {
+  border-color: var(--clay);
+  color: var(--clay-deep);
+}
+.chip-ambassador-led::before {
+  background: var(--clay);
+}
+
+.chip-event-activity {
+  color: var(--ink-2);
+}
+.chip-event-activity::before {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--state-activity);
+}
+
+.chip-community-interest::before {
+  background: var(--state-interest);
+}
+
+.chip-discovery {
+  border-style: dashed;
+}
+.chip-discovery::before {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+
+/* Roles in the builder index. Same vocabulary, so the hierarchy is obvious. */
+.chip-role {
+  border-color: var(--rule);
+  padding: 0.22em 0.5em;
+}
+
+.chip-role::before {
+  display: none;
+}
+
+/* =========================================================================
    BUTTONS — rectangular, editorial. Nothing on this site is a pill.
    ========================================================================= */
 
@@ -236,7 +299,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--s-3);
-  padding: 0.9rem 1.4rem;
+  padding: 0.85rem 1.35rem;
   font-family: var(--font-mono);
   font-size: var(--t-meta);
   font-weight: 500;
@@ -249,7 +312,9 @@
   background: transparent;
   overflow: hidden;
   isolation: isolate;
-  transition: color var(--dur-2) var(--ease-out);
+  transition:
+    color var(--dur-2) var(--ease-out),
+    transform var(--dur-1) var(--ease-out);
 }
 
 /* The fill wipes up from the baseline — a press, not a bounce. */
@@ -274,6 +339,11 @@
   color: var(--paper);
 }
 
+/* A small physical response on press. */
+.btn:active {
+  transform: translateY(1px);
+}
+
 .btn .arrow {
   transition: transform var(--dur-2) var(--ease-out);
 }
@@ -283,7 +353,6 @@
   transform: translateX(4px);
 }
 
-/* Filled: inverted from the start, wipes to the outline on hover. */
 .btn-solid {
   color: var(--paper);
   background: var(--ink);
@@ -320,8 +389,18 @@
 }
 
 .btn-sm {
-  padding: 0.6rem 1rem;
+  padding: 0.55rem 0.9rem;
   font-size: var(--t-micro);
+}
+
+.btn[aria-disabled='true'] {
+  cursor: default;
+  color: var(--ink-3);
+  border-color: var(--rule-strong);
+}
+
+.btn[aria-disabled='true']::before {
+  display: none;
 }
 
 /* An inline text link that behaves like a button target. */
@@ -358,15 +437,15 @@
 
 /* =========================================================================
    PLATES — the photographic treatment
-   Photographs are archival plates: a hairline frame, a mono caption below,
-   and a plate number. Never a rounded card with a drop shadow.
+
+   Photographs are objects, not thumbnails in cards. Four treatments so a
+   page can vary its rhythm instead of tiling one shape.
    ========================================================================= */
 
 .plate {
   position: relative;
   display: block;
   background: var(--paper-sunk);
-  border: var(--border-hair) solid var(--rule);
   overflow: hidden;
 }
 
@@ -377,6 +456,19 @@
   /* A hair of warmth so mixed-source photography reads as one set. */
   filter: saturate(0.94) contrast(1.03);
   transition: transform var(--dur-4) var(--ease-out);
+}
+
+/* Hairline frame — the archival treatment. */
+.plate-framed {
+  border: var(--border-hair) solid var(--rule);
+}
+
+/* Mounted on board, with a margin — the print treatment. */
+.plate-mounted {
+  padding: 10px;
+  background: var(--paper-raised);
+  border: var(--border-hair) solid var(--rule-strong);
+  box-shadow: var(--shadow-lift);
 }
 
 .plate-zoom:hover img,
@@ -398,6 +490,8 @@
 
 /* =========================================================================
    SECTION HEADS
+   The eyebrow is free text set by each section rather than a serial number,
+   so the page stops reading as a numbered report.
    ========================================================================= */
 
 .section-head {
@@ -411,16 +505,86 @@
 }
 
 .section-head .prose {
-  max-width: 52ch;
+  max-width: 54ch;
   font-size: var(--t-body);
 }
 
-/* An index number set large and quiet, behind the heading. */
-.section-index {
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-3);
   font-family: var(--font-mono);
   font-size: var(--t-meta);
+  font-weight: 500;
   letter-spacing: var(--track-meta);
+  text-transform: uppercase;
   color: var(--clay-deep);
+}
+
+.eyebrow::before {
+  content: '';
+  width: 16px;
+  height: 1px;
+  flex: none;
+  background: var(--clay);
+}
+
+/* =========================================================================
+   FORM CONTROLS — used by the submission panels
+   ========================================================================= */
+
+.field {
+  display: grid;
+  gap: var(--s-2);
+}
+
+.field > label {
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+  font-weight: 500;
+  letter-spacing: var(--track-meta);
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.field .hint {
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+  color: var(--ink-3);
+  text-transform: none;
+  letter-spacing: 0.03em;
+}
+
+.field input,
+.field textarea,
+.field select {
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  background: var(--paper-raised);
+  border: var(--border-hair) solid var(--rule-strong);
+  border-radius: var(--radius-none);
+  color: var(--ink);
+  font-size: var(--t-small);
+  transition: border-color var(--dur-1) var(--ease-out);
+}
+
+.field textarea {
+  min-height: 5.5rem;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.field input:focus,
+.field textarea:focus,
+.field select:focus {
+  outline: none;
+  border-color: var(--clay);
+  box-shadow: inset 0 0 0 1px var(--clay);
+}
+
+.field input::placeholder,
+.field textarea::placeholder {
+  color: color-mix(in srgb, var(--ink-3) 72%, transparent);
 }
 
 /* =========================================================================
@@ -435,8 +599,7 @@
   .link-arrow,
   .index-more,
   .signal-fn,
-  .partner-name a,
-  .pc-credits a {
+  .partner-name a {
     position: relative;
   }
 
@@ -461,7 +624,6 @@
     padding-block: 9px;
   }
 
-  .active-links,
   .socials {
     gap: var(--s-3) var(--s-6);
   }

@@ -1,218 +1,389 @@
 ---
-import { cityName, projects } from '@/data';
+import { Image } from 'astro:assets';
+import { buildersOf, cityName, publicProjects } from '@/data';
+import { asset } from '@/lib/images';
+import { formatName } from '@/lib/status';
 
 /**
- * BUILT WITH CLAUDE.
+ * MADE WITH CLAUDE — the project archive.
  *
- * When the archive is empty, the section renders the *shape* of an entry
- * instead of filler: a specimen card with its fields labelled, so anyone
- * submitting knows exactly what is being asked for. When real projects land,
- * the grid takes over and the specimen disappears.
+ * The most valuable long-term asset on this site, and therefore the one it is
+ * most important not to fake. It is empty because no project in this community
+ * is documented anywhere citable yet.
+ *
+ * The empty state is designed rather than apologised for. It states the fact,
+ * says what an entry holds so a submitter knows what is being asked, and gives
+ * one clear action. It does not editorialise about its own emptiness.
  */
-const featured = projects.slice(0, 6);
-const isOpen = featured.length === 0;
+interface Props {
+  limit?: number;
+  citySlug?: string;
+  builderSlug?: string;
+  showHead?: boolean;
+  heading?: string;
+  eyebrow?: string;
+  /** Show the filter bar. Only meaningful on the full archive page. */
+  filters?: boolean;
+}
 
-const specimenFields = [
-  { label: 'Project', hint: 'What you called it' },
-  { label: 'Builder', hint: 'You, and anyone you built it with' },
-  { label: 'City', hint: 'Where it was made' },
-  { label: 'What it does', hint: 'One sentence' },
-  { label: 'How Claude was used', hint: 'The interesting part' },
-  { label: 'Link', hint: 'Live, repo, or a video' },
+const {
+  limit,
+  citySlug,
+  builderSlug,
+  showHead = true,
+  heading = 'Made with Claude',
+  eyebrow = 'Projects',
+  filters = false,
+} = Astro.props;
+
+let scoped = publicProjects;
+if (citySlug) scoped = scoped.filter((p) => p.citySlug === citySlug);
+if (builderSlug) scoped = scoped.filter((p) => p.builderSlugs.includes(builderSlug));
+
+const rows = limit ? scoped.slice(0, limit) : scoped;
+const isEmpty = rows.length === 0;
+
+const entries = rows.map((project) => ({
+  project,
+  city: cityName(project.citySlug),
+  makers: buildersOf(project),
+  image: asset(project.image),
+}));
+
+// Filter facets are built from what is actually in the archive, so a category
+// with nothing in it never appears as an empty promise.
+const categories = [...new Set(rows.map((p) => p.category))].sort();
+const cities = [...new Set(rows.map((p) => p.citySlug))].sort();
+
+const entryFields = [
+  'What you called it',
+  'Who built it, and where',
+  'What it does, in one sentence',
+  'How Claude was actually used',
+  'A link — live, repo, or a video',
 ];
 ---
 
 <div class="archive">
-  <div class="section-head">
-    <p class="section-index">06 — Projects</p>
-    <h2 id="projects-heading">Built with Claude</h2>
-    <p class="prose">
-      {
-        isOpen
-          ? 'The archive opens with nothing in it. Prototypes have been shipped at every Impact Lab and workshop — none of them are written down anywhere. This is the form that fixes that.'
-          : 'Things people in this community have actually made.'
-      }
-    </p>
-  </div>
+  {
+    showHead && (
+      <div class="section-head">
+        <p class="eyebrow">{eyebrow}</p>
+        <h2 id="projects-heading">{heading}</h2>
+        <p class="prose">Things people across India are actually making.</p>
+      </div>
+    )
+  }
 
   {
-    isOpen ? (
-      <div class="specimen" data-reveal>
-        <div class="specimen-card">
-          <p class="label specimen-tag">Specimen entry</p>
-          <dl class="specimen-fields">
-            {specimenFields.map((field, i) => (
-              <div class="specimen-field">
-                <dt>
-                  <span class="specimen-num">{String(i + 1).padStart(2, '0')}</span>
-                  {field.label}
-                </dt>
-                <dd>{field.hint}</dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-
-        <div class="specimen-aside">
-          <p class="specimen-copy">
-            Every entry becomes a permanent, searchable part of the record — filterable by city, by
-            builder, and by what it was built with.
-          </p>
-          <a class="btn btn-solid" href="https://t.me/tog_guild" target="_blank" rel="noopener">
-            <span>Submit a project</span>
+    isEmpty ? (
+      <div class="empty">
+        <div class="empty-main">
+          <p class="empty-status">No projects published yet.</p>
+          <p class="empty-ask">Have something worth showing?</p>
+          <a class="btn btn-clay empty-cta" href="/join#build">
+            <span>Submit your build</span>
             <span class="arrow" aria-hidden="true">
-              ↗
+              →
             </span>
           </a>
-          <p class="specimen-note">
-            Nothing here is placeholder content. The archive stays empty until real projects arrive.
+        </div>
+
+        <div class="empty-aside">
+          <h3 class="label empty-aside-head">What an entry holds</h3>
+          <ul class="empty-fields">
+            {entryFields.map((field, i) => (
+              <li>
+                <span class="empty-field-num">{String(i + 1).padStart(2, '0')}</span>
+                {field}
+              </li>
+            ))}
+          </ul>
+          <p class="empty-note">
+            Every entry is reviewed before it is published, then becomes a permanent part of the
+            record — filterable by city, by category, and by the person who made it.
           </p>
         </div>
       </div>
     ) : (
-      <ul class="archive-grid">
-        {featured.map((project, i) => (
-          <li class="archive-item" data-reveal style={`--reveal-delay:${i * 60}ms`}>
-            <a href={`/projects/${project.slug}`}>
-              <p class="label archive-city">{cityName(project.citySlug)}</p>
-              <h3 class="archive-title">{project.title}</h3>
-              <p class="archive-summary">{project.summary}</p>
-              {project.tags && <p class="archive-tags">{project.tags.join(' · ')}</p>}
-            </a>
-          </li>
-        ))}
-      </ul>
+      <>
+        {filters && (categories.length > 1 || cities.length > 1) && (
+          <div class="filters" data-filter-root>
+            {categories.length > 1 && (
+              <div class="filter-group" role="group" aria-label="Filter by category">
+                <span class="label filter-label">Category</span>
+                <button class="filter is-on" type="button" data-filter="category" data-value="all">
+                  All
+                </button>
+                {categories.map((category) => (
+                  <button class="filter" type="button" data-filter="category" data-value={category}>
+                    {formatName(category)}
+                  </button>
+                ))}
+              </div>
+            )}
+            {cities.length > 1 && (
+              <div class="filter-group" role="group" aria-label="Filter by city">
+                <span class="label filter-label">City</span>
+                <button class="filter is-on" type="button" data-filter="city" data-value="all">
+                  All
+                </button>
+                {cities.map((slug) => (
+                  <button class="filter" type="button" data-filter="city" data-value={slug}>
+                    {cityName(slug)}
+                  </button>
+                ))}
+              </div>
+            )}
+            <p class="filter-count" data-filter-count aria-live="polite" />
+          </div>
+        )}
+
+        <ul class="grid">
+          {entries.map((entry, i) => (
+            <li
+              class="card"
+              data-reveal
+              style={`--reveal-delay:${i * 55}ms`}
+              data-filter-item
+              data-category={entry.project.category}
+              data-city={entry.project.citySlug}
+            >
+              <a href={`/projects/${entry.project.slug}`}>
+                {entry.image && (
+                  <span class="plate plate-zoom card-image">
+                    <Image
+                      src={entry.image}
+                      alt=""
+                      widths={[400, 720]}
+                      sizes="(max-width: 47.99em) 90vw, 360px"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </span>
+                )}
+                <span class="card-top">
+                  <span class="label card-category">{formatName(entry.project.category)}</span>
+                  <span class="label card-city">{entry.city}</span>
+                </span>
+                <span class="card-title">{entry.project.title}</span>
+                <span class="card-summary">{entry.project.summary}</span>
+                {entry.makers.length > 0 && (
+                  <span class="card-makers">{entry.makers.map((m) => m.name).join(' · ')}</span>
+                )}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </>
     )
   }
 </div>
 
+{filters && !isEmpty && <script>import '@/scripts/filters';</script>}
+
 <style>
-  /* --- Specimen (empty archive) ----------------------------------------- */
-  .specimen {
+  /* --- Empty state ------------------------------------------------------- */
+  .empty {
     display: grid;
-    gap: var(--s-7);
-    margin-top: var(--s-7);
+    gap: var(--s-8);
+    padding-top: var(--s-4);
   }
 
-  .specimen-card {
-    padding: var(--s-6);
-    border: var(--border-hair) dashed var(--rule-strong);
-    background: color-mix(in srgb, var(--paper-raised) 60%, transparent);
-  }
-
-  .specimen-tag {
-    color: var(--clay-deep);
-    margin-bottom: var(--s-5);
-  }
-
-  .specimen-fields {
-    display: grid;
-    gap: var(--s-4);
-  }
-
-  .specimen-field {
-    display: grid;
-    gap: var(--s-1);
-    padding-bottom: var(--s-4);
-    border-bottom: var(--border-hair) solid var(--rule);
-  }
-
-  .specimen-field:last-child {
-    padding-bottom: 0;
-    border-bottom: 0;
-  }
-
-  .specimen-field dt {
-    display: flex;
-    align-items: baseline;
-    gap: var(--s-3);
+  .empty-status {
     font-family: var(--font-display);
-    font-size: 1.1rem;
-    font-weight: 500;
+    font-size: clamp(1.9rem, 5vw, 3.4rem);
+    font-weight: 600;
     font-variation-settings:
       'SOFT' 0,
       'WONK' 1;
+    line-height: 1.02;
+    letter-spacing: -0.035em;
+    max-width: 14ch;
   }
 
-  .specimen-num {
+  .empty-ask {
+    margin-top: var(--s-5);
+    font-family: var(--font-display);
+    font-size: var(--t-h3);
+    font-style: italic;
+    font-weight: 400;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    color: var(--clay-deep);
+  }
+
+  .empty-cta {
+    margin-top: var(--s-5);
+  }
+
+  .empty-aside-head {
+    padding-bottom: var(--s-3);
+    border-bottom: var(--border-hair) solid var(--rule-strong);
+    color: var(--ink-3);
+  }
+
+  .empty-fields {
+    display: grid;
+    margin-top: var(--s-2);
+  }
+
+  .empty-fields li {
+    display: flex;
+    align-items: baseline;
+    gap: var(--s-4);
+    padding-block: var(--s-3);
+    border-bottom: var(--border-hair) solid var(--rule);
+    font-size: var(--t-small);
+    color: var(--ink-2);
+  }
+
+  .empty-field-num {
     font-family: var(--font-mono);
     font-size: var(--t-micro);
     letter-spacing: var(--track-meta);
     color: var(--ink-3);
   }
 
-  .specimen-field dd {
-    padding-left: calc(3ch + var(--s-3));
+  .empty-note {
+    margin-top: var(--s-5);
+    max-width: 44ch;
     font-family: var(--font-mono);
     font-size: var(--t-micro);
-    letter-spacing: 0.04em;
+    line-height: 1.75;
     color: var(--ink-3);
   }
 
-  .specimen-aside {
-    display: grid;
-    gap: var(--s-5);
-    align-content: start;
-    justify-items: start;
+  /* --- Filters ----------------------------------------------------------- */
+  .filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-4) var(--s-6);
+    padding-bottom: var(--s-5);
+    margin-bottom: var(--s-6);
+    border-bottom: var(--border-hair) solid var(--rule-strong);
   }
 
-  .specimen-copy {
-    font-size: var(--t-lead);
+  .filter-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-2);
+  }
+
+  .filter-label {
+    color: var(--ink-3);
+    margin-right: var(--s-2);
+  }
+
+  .filter {
+    padding: 0.42rem 0.7rem;
+    border: var(--border-hair) solid var(--rule-strong);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
     color: var(--ink-2);
-    max-width: 34ch;
+    transition:
+      background var(--dur-1) var(--ease-out),
+      border-color var(--dur-1) var(--ease-out),
+      color var(--dur-1) var(--ease-out);
   }
 
-  .specimen-note {
+  .filter:hover {
+    border-color: var(--ink);
+    color: var(--ink);
+  }
+
+  .filter.is-on {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--paper);
+  }
+
+  .filter-count {
+    margin-left: auto;
     font-family: var(--font-mono);
     font-size: var(--t-micro);
-    line-height: 1.7;
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
     color: var(--ink-3);
-    max-width: 38ch;
-    padding-top: var(--s-4);
-    border-top: var(--border-hair) solid var(--rule);
   }
 
-  /* --- Populated archive ------------------------------------------------ */
-  .archive-grid {
+  /* --- Populated archive -------------------------------------------------- */
+  .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
-    gap: var(--s-6);
-    margin-top: var(--s-7);
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr));
+    gap: var(--s-7) var(--s-6);
   }
 
-  .archive-item a {
+  .card a {
     display: grid;
     gap: var(--s-2);
-    padding-top: var(--s-4);
-    border-top: var(--border-rule) solid var(--ink);
     text-decoration: none;
     color: var(--ink);
   }
 
-  .archive-city {
+  .card-image {
+    aspect-ratio: 4 / 3;
+    margin-bottom: var(--s-3);
+  }
+
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--s-3);
+    padding-bottom: var(--s-2);
+    border-bottom: var(--border-rule) solid var(--ink);
+  }
+
+  .card-category {
+    color: var(--clay-deep);
+  }
+
+  .card-city {
     color: var(--ink-3);
   }
 
-  .archive-title {
+  .card-title {
+    margin-top: var(--s-2);
+    font-family: var(--font-display);
     font-size: var(--t-h3);
+    font-weight: 600;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    letter-spacing: -0.02em;
+    transition: color var(--dur-1) var(--ease-out);
   }
 
-  .archive-summary {
+  .card a:hover .card-title {
+    color: var(--clay-deep);
+  }
+
+  .card-summary {
     font-size: var(--t-small);
     color: var(--ink-2);
   }
 
-  .archive-tags {
+  .card-makers {
+    margin-top: var(--s-1);
     font-family: var(--font-mono);
     font-size: var(--t-micro);
     letter-spacing: 0.06em;
     color: var(--ink-3);
   }
 
+  .card[hidden] {
+    display: none;
+  }
+
   @media (min-width: 56em) {
-    .specimen {
-      grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
-      gap: var(--s-9);
+    .empty {
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+      gap: var(--s-10);
       align-items: start;
     }
   }

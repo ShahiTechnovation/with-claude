@@ -15,13 +15,7 @@
 html {
   -webkit-text-size-adjust: 100%;
   scroll-behavior: smooth;
-  scroll-padding-top: 6rem;
-}
-
-@media (min-width: 48em) {
-  html {
-    zoom: 0.8;
-  }
+  scroll-padding-top: 5.5rem;
 }
 
 body {
@@ -156,35 +150,66 @@ p {
   transform: translateY(0);
 }
 
+/* Scripted / unscripted branches. `html.js` is set inline before first paint,
+   so neither branch ever flashes. Used where a control genuinely cannot work
+   without JS — a dead button is worse than an honest fallback. */
+html:not(.js) .js-only {
+  display: none !important;
+}
+
+html.js .no-js-only {
+  display: none !important;
+}
+
 /* --- Paper grain --------------------------------------------------------
-   A whisper of tooth so the ground reads as stock, not as #F2EEE6. */
+   A whisper of tooth so the ground reads as stock, not as a hex value. */
 body::after {
   content: '';
   position: fixed;
   inset: 0;
   z-index: var(--z-grain);
   pointer-events: none;
-  opacity: 0.032;
+  opacity: 0.03;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* --- Motion -------------------------------------------------------------
-   The reveal system. Elements start settled and are only displaced once JS
-   confirms motion is wanted — so with JS off, or motion reduced, the page is
-   simply finished. Nothing is ever hidden behind an animation. */
+/* =========================================================================
+   THE REVEAL SYSTEM
+   Elements start settled and are only displaced once JS confirms motion is
+   wanted — so with JS off, or motion reduced, the page is simply finished.
+   Nothing is ever hidden behind an animation.
+
+   Three variants, because one reveal applied to everything is what makes a
+   page feel automated:
+     [data-reveal]           rise
+     [data-reveal="fade"]    opacity only, for dense tables
+     [data-reveal="mask"]    a wipe, for photography
+   ========================================================================= */
 @media (prefers-reduced-motion: no-preference) {
   html.js [data-reveal] {
     opacity: 0;
-    transform: translateY(18px);
+    transform: translateY(16px);
     transition:
       opacity var(--dur-3) var(--ease-out),
-      transform var(--dur-3) var(--ease-out);
+      transform var(--dur-3) var(--ease-out),
+      clip-path var(--dur-4) var(--ease-out);
     transition-delay: var(--reveal-delay, 0ms);
+  }
+
+  html.js [data-reveal='fade'] {
+    transform: none;
+  }
+
+  html.js [data-reveal='mask'] {
+    opacity: 1;
+    transform: none;
+    clip-path: inset(0 0 100% 0);
   }
 
   html.js [data-reveal].is-revealed {
     opacity: 1;
     transform: none;
+    clip-path: inset(0 0 0 0);
   }
 }
 

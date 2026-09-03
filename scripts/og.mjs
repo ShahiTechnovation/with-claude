@@ -23,25 +23,28 @@ const html = `<!doctype html><meta charset="utf-8"><style>
 @font-face{font-family:'F';src:url('${FRAUNCES_I}') format('woff2-variations');font-weight:100 900;font-style:italic}
 @font-face{font-family:'M';src:url('${MONO}') format('woff2');font-weight:400}
 *{margin:0;box-sizing:border-box}
-body{width:1200px;height:630px;background:#F2EEE6;color:#17150F;font-family:'F',serif;
+body{width:1200px;height:630px;background:#F3EFE7;color:#16140E;font-family:'F',serif;
   display:flex;flex-direction:column;justify-content:space-between;padding:62px 68px;position:relative;overflow:hidden}
 .grid{position:absolute;inset:0;
   background-image:linear-gradient(to right,rgba(23,21,15,.07) 1px,transparent 1px),
                    linear-gradient(to bottom,rgba(23,21,15,.07) 1px,transparent 1px);
   background-size:96px 96px}
 .slug{position:relative;display:flex;justify-content:space-between;align-items:center;
-  font-family:'M',monospace;font-size:17px;letter-spacing:.18em;text-transform:uppercase;color:#6B655C;
-  padding-bottom:20px;border-bottom:1px solid #D6CFC2}
-.brand{display:flex;align-items:center;gap:14px;color:#17150F}
+  font-family:'M',monospace;font-size:17px;letter-spacing:.18em;text-transform:uppercase;color:#69635A;
+  padding-bottom:20px;border-bottom:1px solid #D8D1C4}
+.brand{display:flex;align-items:baseline;gap:10px;color:#16140E;font-family:'F',serif;font-size:26px;letter-spacing:-.01em;text-transform:uppercase;font-variation-settings:'WONK' 1}
+.brand .with{font-style:italic;font-weight:400;color:#9E4526}
+.brand .claude{font-weight:700}
+.brand .mark{align-self:center}
 .mark{color:#D97757}
 h1{position:relative;font-size:148px;line-height:.84;letter-spacing:-.04em;font-weight:600;
   font-variation-settings:'WONK' 1}
 h1 em{font-style:italic;font-weight:400}
 h1 .stop{color:#D97757}
 .foot{position:relative;display:flex;justify-content:space-between;align-items:flex-end;
-  padding-top:22px;border-top:1px solid #D6CFC2}
+  padding-top:22px;border-top:1px solid #D8D1C4}
 .tag{font-size:30px;font-weight:500;font-variation-settings:'WONK' 1;letter-spacing:-.015em}
-.dom{font-family:'M',monospace;font-size:17px;letter-spacing:.16em;text-transform:uppercase;color:#A0472A}
+.dom{font-family:'M',monospace;font-size:17px;letter-spacing:.16em;text-transform:uppercase;color:#9E4526}
 </style>
 <div class="grid"></div>
 <div class="slug">
@@ -52,14 +55,14 @@ h1 .stop{color:#D97757}
         <path d="M4.9 4.9l2.6 2.6M16.5 16.5l2.6 2.6M19.1 4.9l-2.6 2.6M7.5 16.5l-2.6 2.6" opacity=".55"/>
       </g><circle cx="12" cy="12" r="3.4" fill="currentColor"/>
     </svg>
-    Claude India
+    <span class="with">With</span><span class="claude">Claude</span>
   </span>
   <span>68°E — 95.5°E · 7°N — 34.5°N</span>
 </div>
 <h1>India is<br><em>building<span class="stop">.</span></em></h1>
 <div class="foot">
-  <span class="tag">Where India builds with Claude.</span>
-  <span class="dom">claudeindia.in</span>
+  <span class="tag">India’s community for people building with Claude.</span>
+  <span class="dom">withclaude.in</span>
 </div>`;
 
 await mkdir(resolve(root, 'public'), { recursive: true });

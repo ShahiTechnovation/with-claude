@@ -113,6 +113,8 @@ function initNavToggle(): void {
 }
 
 function boot(): void {
+  // Claims the document, cancelling the layout's un-hide safety net.
+  document.documentElement.classList.add('enhanced');
   initReveals();
   initMeridian();
   initMasthead();

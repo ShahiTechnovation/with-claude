@@ -1,35 +1,57 @@
 ---
 import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
-import PageHeader from '@/components/PageHeader.astro';
-import BuilderRoster from '@/components/BuilderRoster.astro';
-import PhotoRecord from '@/components/PhotoRecord.astro';
-import { builders } from '@/data';
+import PageIntro from '@/components/PageIntro.astro';
+import BuilderIndex from '@/components/BuilderIndex.astro';
+import SubmitPanel from '@/components/SubmitPanel.astro';
+import StoryStrip from '@/components/StoryStrip.astro';
+import { publicAmbassadors, publicBuilders, site } from '@/data';
 ---
 
 <Base
   title="Builders"
-  description="The people building with Claude in India. An open roster — short, honest, and growing by submission."
+  description="The people building with Claude in India. An open index — anyone building can add themselves."
   active="/builders"
 >
-  <PageHeader
-    record="04"
-    kicker="People"
-    title="Who’s building?"
-    stamp={`${String(builders.length).padStart(2, '0')} on record`}
+  <PageIntro
+    eyebrow="Builders"
+    title="Who’s building."
+    stamp={`${String(publicBuilders.length).padStart(2, '0')} on the index`}
+    facts={[
+      { label: 'On the index', value: String(publicBuilders.length).padStart(2, '0') },
+      { label: 'Ambassadors', value: String(publicAmbassadors.length).padStart(2, '0') },
+      {
+        label: 'Cities',
+        value: String(new Set(publicBuilders.map((b) => b.citySlug)).size).padStart(2, '0'),
+      },
+    ]}
   >
     <p>
-      This roster is short, and it is short honestly. It carries the people whose involvement the
-      community has actually published — not a wall of profiles assembled to look busy. Every entry
-      is one someone chose to add.
+      An open index of people building with Claude in India. Anyone can add themselves, entries are
+      reviewed before they appear, and being listed is not a role or an appointment.
     </p>
-  </PageHeader>
+    <p class="intro-note">{site.ambassadorNote}</p>
+  </PageIntro>
 
-  <Section id="roster" index="A" label="Roster" tone="sunk">
-    <BuilderRoster />
+  <Section id="roster" tone="sunk" labelledby="builders-heading">
+    <BuilderIndex heading="The index" eyebrow="Index" />
   </Section>
 
-  <Section id="rooms" index="B" label="Rooms" bleed>
-    <PhotoRecord />
+  <Section id="add" labelledby="contribute-heading">
+    <SubmitPanel formId="contribute" />
+  </Section>
+
+  <Section id="rooms" size="lg" bleed labelledby="stories-heading">
+    <StoryStrip heading="The rooms they were in" eyebrow="Photographs" />
   </Section>
 </Base>
+
+<style>
+  .intro-note {
+    margin-top: var(--s-4);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    line-height: 1.75;
+    color: var(--ink-3);
+  }
+</style>

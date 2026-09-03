@@ -1,7 +1,15 @@
 ---
 import Mark from './Mark.astro';
-import { nationalSignal, site } from '@/data';
+import { nationalSignal } from '@/data';
+import { plural } from '@/lib/words';
 
+/**
+ * The closing statement.
+ *
+ * It makes one promise and then demonstrates it with numbers pulled from the
+ * record — including the zeros. A site that will show you its zeros is the
+ * only kind worth believing about its other figures.
+ */
 const signal = nationalSignal();
 ---
 
@@ -12,31 +20,31 @@ const signal = nationalSignal();
   </p>
 
   <h2 id="manifesto-heading" class="manifesto-statement">
-    Nothing here is a <em>mock-up</em>.
+    Everything here <em>happened</em>.
   </h2>
 
   <div class="manifesto-body">
     <p>
-      Every event on this page happened. Every photograph is a room someone actually sat in. Where a
-      section is empty, it is empty because nobody has filled it in yet — not because a number is
-      being hidden.
+      Every event on this site is one people came to. Every photograph is a room someone sat in.
+      Every name is someone who agreed to be here.
     </p>
     <p>
-      {signal.eventsHeld} events. {signal.citiesActive} city running,
-      {' '}{signal.citiesOpen} plotted and open. That is the whole record so far, and it is an invitation
-      rather than a headline.
+      Where a section is empty, it is empty because nobody has filled it in yet — not because a
+      number is being hidden. There are
+      {` ${plural(signal.projects, 'project')} `} in the archive and
+      {` ${plural(signal.builders, 'builder')} `} on the index. Both of those are invitations.
     </p>
-    <p class="manifesto-close">{site.tagline}</p>
+    <p class="manifesto-close">Come and make them out of date.</p>
   </div>
 
   <div class="manifesto-foot">
     <a class="btn btn-clay" href="/events">
-      <span>Come to the next one</span>
+      <span>Find an event</span>
       <span class="arrow" aria-hidden="true">→</span>
     </a>
-    <a class="link-arrow" href="https://t.me/tog_guild" target="_blank" rel="noopener">
-      <span>Start a chapter</span>
-      <span class="arrow" aria-hidden="true">↗</span>
+    <a class="link-arrow" href="/join#build">
+      <span>Add your build</span>
+      <span class="arrow" aria-hidden="true">→</span>
     </a>
   </div>
 </div>
@@ -56,10 +64,10 @@ const signal = nationalSignal();
 
   .manifesto-statement {
     max-width: 13ch;
-    font-size: clamp(2.8rem, 9.5vw, 8rem);
+    font-size: clamp(2.6rem, 8.5vw, 7rem);
     font-weight: 600;
-    line-height: 0.9;
-    letter-spacing: -0.04em;
+    line-height: 0.92;
+    letter-spacing: -0.042em;
   }
 
   .manifesto-statement em {

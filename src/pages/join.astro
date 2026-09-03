@@ -1,0 +1,56 @@
+---
+import Base from '@/layouts/Base.astro';
+import Section from '@/components/Section.astro';
+import PageIntro from '@/components/PageIntro.astro';
+import JoinFlow from '@/components/JoinFlow.astro';
+import Participation from '@/components/Participation.astro';
+import SubmitPanel from '@/components/SubmitPanel.astro';
+import { site } from '@/data';
+---
+
+<Base
+  title="Join"
+  description="Find your way into the Claude community in India — an event to attend, people to build with, or somewhere to show what you made."
+  active="/join"
+>
+  <PageIntro eyebrow="Join" title="Come and build with us." size="lg">
+    <p>
+      There is no membership and nothing to sign up for. There is a room to turn up to, an index to
+      be in, and an archive that wants what you made.
+    </p>
+  </PageIntro>
+
+  <Section id="flow" tone="sunk" labelledby="flow-heading">
+    <JoinFlow />
+  </Section>
+
+  <Section id="ways" labelledby="join-heading">
+    <Participation />
+  </Section>
+
+  <Section id="contribute-panel" tone="sunk" labelledby="contribute-heading">
+    <SubmitPanel formId="contribute" />
+  </Section>
+
+  <Section id="build-panel" labelledby="build-heading">
+    <SubmitPanel formId="build" />
+  </Section>
+
+  <Section id="city-panel" tone="sunk" labelledby="city-heading">
+    <SubmitPanel formId="city" />
+  </Section>
+
+  <Section id="note" size="sm">
+    <p class="note">{site.affiliation}</p>
+  </Section>
+</Base>
+
+<style>
+  .note {
+    max-width: 70ch;
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    line-height: 1.8;
+    color: var(--ink-3);
+  }
+</style>

@@ -1,0 +1,280 @@
+---
+import { formById, submissionChannel } from '@/data/forms';
+import { site } from '@/data';
+
+/**
+ * A submission panel.
+ *
+ * There is no backend on this site. Rather than pretend otherwise with a form
+ * that silently goes nowhere, the panel composes what you typed into a clean,
+ * complete block of text and hands it to you to send through the channel the
+ * community actually reads. You press send, so nothing leaves the browser
+ * without you doing it.
+ *
+ * Without scripts the fields still render as the definitive list of what is
+ * being asked for, and the channel link is a real link. Nothing here is a dead
+ * control.
+ */
+interface Props {
+  formId: string;
+  /** Render the heading block. Off when a page supplies its own. */
+  showHead?: boolean;
+}
+
+const { formId, showHead = true } = Astro.props;
+const form = formById.get(formId);
+
+if (!form) {
+  throw new Error(
+    `Unknown submission form "${formId}". Known: ${[...formById.keys()].join(', ')}.`,
+  );
+}
+---
+
+<section class="submit" id={form.anchor} aria-labelledby={`${form.anchor}-heading`}>
+  {
+    showHead && (
+      <header class="submit-head">
+        <p class="eyebrow">{form.eyebrow}</p>
+        <h2 id={`${form.anchor}-heading`} class="submit-title">
+          {form.title}
+        </h2>
+        <p class="submit-intro">{form.intro}</p>
+      </header>
+    )
+  }
+
+  <form
+    class="submit-form"
+    data-submit-form
+    data-subject={`${site.wordmark} — ${form.subject}`}
+    data-endpoint={form.endpoint}
+  >
+    <div class="submit-fields">
+      {
+        form.fields.map((field) => (
+          <p class:list={['field', { 'is-wide': field.type === 'textarea' }]}>
+            <label for={`${form.id}-${field.name}`}>
+              {field.label}
+              {field.required && (
+                <span class="req" aria-hidden="true">
+                  *
+                </span>
+              )}
+              {field.hint && <span class="hint">{field.hint}</span>}
+            </label>
+            {field.type === 'textarea' ? (
+              <textarea
+                id={`${form.id}-${field.name}`}
+                name={field.name}
+                data-label={field.label}
+                required={field.required}
+                placeholder={field.placeholder}
+              />
+            ) : field.type === 'select' ? (
+              <select
+                id={`${form.id}-${field.name}`}
+                name={field.name}
+                data-label={field.label}
+                required={field.required}
+              >
+                <option value="">Choose…</option>
+                {(field.options ?? []).map((option) => (
+                  <option value={option}>{option}</option>
+                ))}
+              </select>
+            ) : (
+              <input
+                id={`${form.id}-${field.name}`}
+                name={field.name}
+                type={field.type}
+                data-label={field.label}
+                required={field.required}
+                placeholder={field.placeholder}
+              />
+            )}
+          </p>
+        ))
+      }
+    </div>
+
+    <div class="submit-actions">
+      <button class="btn btn-clay js-only" type="button" data-submit-compose>
+        <span>{form.submitLabel}</span>
+        <span class="arrow" aria-hidden="true">→</span>
+      </button>
+      <p class="submit-required">
+        <span aria-hidden="true">*</span> Required
+      </p>
+    </div>
+
+    <div class="submit-out js-only" data-submit-out hidden>
+      <p class="label submit-out-head">Ready to send</p>
+      <pre class="submit-text" data-submit-text></pre>
+      <div class="submit-out-actions">
+        <button class="btn btn-sm" type="button" data-submit-copy>
+          <span data-submit-copy-label>Copy</span>
+        </button>
+        <a class="btn btn-sm btn-solid" href={submissionChannel.url} target="_blank" rel="noopener">
+          <span>Open {submissionChannel.label}</span>
+          <span class="arrow" aria-hidden="true">↗</span>
+        </a>
+      </div>
+      <p class="submit-out-note">
+        Paste it in the group and an organiser will pick it up. Nothing has been sent yet.
+      </p>
+    </div>
+
+    <p class="submit-fallback no-js-only">
+      Send the details above to the organisers on{' '}
+      <a href={submissionChannel.url} target="_blank" rel="noopener">{submissionChannel.label}</a>{
+        ' '
+      }
+      and they will take it from there.
+    </p>
+  </form>
+
+  <p class="submit-afterword">{form.afterword}</p>
+</section>
+
+{(<script>import '@/scripts/submit';</script>)}
+
+<style>
+  .submit {
+    scroll-margin-top: 6rem;
+  }
+
+  .submit-head {
+    max-width: 56ch;
+    margin-bottom: var(--s-7);
+  }
+
+  .submit-title {
+    margin-top: var(--s-3);
+    font-size: var(--t-h2);
+  }
+
+  .submit-intro {
+    margin-top: var(--s-4);
+    font-size: var(--t-lead);
+    color: var(--ink-2);
+  }
+
+  .submit-form {
+    padding-top: var(--s-6);
+    border-top: var(--border-heavy) solid var(--ink);
+  }
+
+  /* Forms read better narrow than wide. Two columns is the most a set of
+     short fields should ever spread across, however much room there is. */
+  .submit-fields {
+    display: grid;
+    gap: var(--s-5);
+    max-width: 46rem;
+  }
+
+  @media (min-width: 42em) {
+    .submit-fields {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  .field.is-wide {
+    grid-column: 1 / -1;
+  }
+
+  .field label {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--s-2);
+  }
+
+  .req {
+    color: var(--clay-deep);
+  }
+
+  .submit-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-5);
+    margin-top: var(--s-6);
+  }
+
+  .submit-required {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .submit-required span {
+    color: var(--clay-deep);
+  }
+
+  /* --- The composed block ------------------------------------------------- */
+  .submit-out {
+    max-width: 46rem;
+    margin-top: var(--s-6);
+    padding: var(--s-5);
+    border: var(--border-hair) solid var(--rule-strong);
+    border-left: 2px solid var(--clay);
+    background: var(--paper-raised);
+  }
+
+  .submit-out[hidden] {
+    display: none;
+  }
+
+  .submit-out-head {
+    color: var(--clay-deep);
+  }
+
+  .submit-text {
+    margin-top: var(--s-4);
+    padding: var(--s-4);
+    max-height: 18rem;
+    overflow: auto;
+    background: var(--paper-sunk);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--ink-2);
+  }
+
+  .submit-out-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-4);
+    margin-top: var(--s-4);
+  }
+
+  .submit-out-note {
+    margin-top: var(--s-4);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    color: var(--ink-3);
+  }
+
+  .submit-fallback {
+    margin-top: var(--s-6);
+    max-width: 56ch;
+    font-size: var(--t-small);
+    color: var(--ink-2);
+  }
+
+  .submit-afterword {
+    margin-top: var(--s-6);
+    padding-top: var(--s-5);
+    border-top: var(--border-hair) solid var(--rule);
+    max-width: 68ch;
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    line-height: 1.75;
+    color: var(--ink-3);
+  }
+</style>

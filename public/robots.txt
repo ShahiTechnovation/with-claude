@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://claudeindia.in/sitemap-index.xml
+Sitemap: https://withclaude.in/sitemap-index.xml

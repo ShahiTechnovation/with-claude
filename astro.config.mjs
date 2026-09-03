@@ -3,7 +3,7 @@ import { defineConfig } from 'astro/config';
 import sitemap from '@astrojs/sitemap';
 
 export default defineConfig({
-  site: 'https://claudeindia.in',
+  site: 'https://withclaude.in',
   integrations: [sitemap()],
   build: { inlineStylesheets: 'auto' },
   image: { service: { entrypoint: 'astro/assets/services/sharp' } },

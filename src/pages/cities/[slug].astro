@@ -3,380 +3,507 @@ import type { GetStaticPaths } from 'astro';
 import { Image } from 'astro:assets';
 import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
-import PageHeader from '@/components/PageHeader.astro';
-import EventIndex from '@/components/EventIndex.astro';
-import { buildersInCity, cities, eventsInCity, nextEventInCity, projectsInCity } from '@/data';
+import PageIntro from '@/components/PageIntro.astro';
+import EventArchive from '@/components/EventArchive.astro';
+import BuilderIndex from '@/components/BuilderIndex.astro';
+import ProjectArchive from '@/components/ProjectArchive.astro';
+import SubmitPanel from '@/components/SubmitPanel.astro';
+import { citySignal, nextEvent, official, publicCities, site } from '@/data';
+import { CITY_STATE_LABEL, CITY_STATE_NOTE, isLive } from '@/lib/city';
 import { dateParts, formatDate } from '@/lib/datetime';
-import { formatCoords } from '@/lib/geo';
+import { distanceKm, formatCoords } from '@/lib/geo';
 import { asset } from '@/lib/images';
-import { statusLabel, statusOf, statusTone } from '@/lib/status';
+import { lifecycleLabel, lifecycleOf, lifecycleTone } from '@/lib/status';
 
 export const getStaticPaths = (() =>
-  cities.map((city) => ({
+  publicCities.map((city) => ({
     params: { slug: city.slug },
     props: { city },
   }))) satisfies GetStaticPaths;
 
 const { city } = Astro.props;
 
-const cityEvents = eventsInCity(city.slug);
-const held = cityEvents.filter((e) => statusOf(e) === 'past');
-const next = nextEventInCity(city.slug);
-const people = buildersInCity(city.slug);
-const projects = projectsInCity(city.slug);
+const signal = citySignal(city);
+const live = isLive(signal.state);
+const ambassador = signal.ambassadors[0];
 const image = asset(city.image);
-const isOpen = city.status === 'open';
+const nationalNext = nextEvent();
+
+// The nearest city with activity — a real, useful fact for a quiet city.
+const elsewhere = publicCities
+  .map((other) => ({ other, s: citySignal(other) }))
+  .filter(({ other, s }) => other.slug !== city.slug && isLive(s.state))
+  .map(({ other, s }) => ({ other, s, km: distanceKm(city, other) }))
+  .sort((a, b) => a.km - b.km)[0];
+
+const description = live
+  ? `The Claude community in ${city.name}, ${city.state}. ${signal.heldCount} events held${signal.next ? `, next on ${formatDate(signal.next.date)}` : ''}.`
+  : `There is no verified Claude community activity in ${city.name} yet. Here is what is true, and what you can do about it.`;
 ---
 
-<Base
-  title={`${city.name}, ${city.state}`}
-  description={isOpen
-    ? `There is no Claude chapter in ${city.name} yet. Here is what starting one looks like.`
-    : `The Claude community in ${city.name}, ${city.state}. ${held.length} events held${next ? `, next on ${formatDate(next.date)}` : ''}.`}
-  active="/cities"
->
-  <PageHeader
-    record={isOpen ? undefined : '01'}
-    kicker={isOpen ? `${city.state} · unopened` : city.state}
+<Base title={`${city.name}, ${city.state}`} description={description} active="/cities">
+  <PageIntro
+    eyebrow={`${city.state} · ${CITY_STATE_LABEL[signal.state]}`}
     title={city.name}
     stamp={formatCoords(city.lat, city.lon)}
     size="lg"
   >
     <p>{city.blurb}</p>
-  </PageHeader>
+  </PageIntro>
 
-  <Section id="status" index="A" label="Status" tone="sunk">
-    {
-      isOpen ? (
-        <div class="open">
-          <div class="open-main">
-            <p class="label label-accent">Open</p>
-            <h2 id="status-heading" class="open-title">
-              Nobody has run the first one here yet.
-            </h2>
-            <p class="prose open-copy">
-              That is the whole status. There is no chapter in {city.name}, no organiser, and no
-              waiting list — which means the first Claude event in {city.name} is whoever decides to
-              hold it.
-            </p>
-            <p class="prose open-copy">
-              Bhopal started the same way: one room, one workshop, and someone willing to send the
-              invitations. The organisers there will walk you through exactly what they did.
-            </p>
-            <div class="open-actions">
-              <a class="btn btn-solid" href="https://t.me/tog_guild" target="_blank" rel="noopener">
-                <span>Start a chapter here</span>
-                <span class="arrow" aria-hidden="true">
-                  ↗
-                </span>
-              </a>
-              <a class="link-arrow" href="/cities/bhopal">
-                <span>See how Bhopal did it</span>
-                <span class="arrow" aria-hidden="true">
-                  →
-                </span>
-              </a>
-            </div>
-          </div>
+  <Section id="status" tone="sunk" labelledby="status-heading">
+    <div class="status">
+      <div class="status-main">
+        <span class:list={['chip', `chip-${signal.state}`]}>{CITY_STATE_LABEL[signal.state]}</span>
+        <h2 id="status-heading" class="status-title">{CITY_STATE_NOTE[signal.state]}</h2>
 
-          <dl class="open-facts">
-            <div>
-              <dt class="label">Coordinates</dt>
-              <dd class="coords">{formatCoords(city.lat, city.lon)}</dd>
-            </div>
-            <div>
-              <dt class="label">State</dt>
-              <dd>{city.state}</dd>
-            </div>
-            <div>
-              <dt class="label">Events held</dt>
-              <dd>00</dd>
-            </div>
-            <div>
-              <dt class="label">Organiser</dt>
-              <dd>None yet</dd>
-            </div>
-          </dl>
-        </div>
-      ) : (
-        <div class="active">
-          <div class="active-main">
-            <h2 id="status-heading" class="visually-hidden">
-              {city.name} at a glance
-            </h2>
-            <dl class="active-stats">
-              <div>
-                <dt class="label">Events held</dt>
-                <dd>{String(held.length).padStart(2, '0')}</dd>
-              </div>
-              <div>
-                <dt class="label">On the calendar</dt>
-                <dd>{String(cityEvents.length - held.length).padStart(2, '0')}</dd>
-              </div>
-              <div>
-                <dt class="label">Builders on record</dt>
-                <dd>{String(people.length).padStart(2, '0')}</dd>
-              </div>
-              <div>
-                <dt class="label">Projects archived</dt>
-                <dd>{String(projects.length).padStart(2, '0')}</dd>
-              </div>
-            </dl>
-
-            {city.reported && (
-              <p class="active-reported">
-                The chapter reports {city.reported.members}+ members and {city.reported.prototypes}+
-                prototypes shipped.{' '}
-                <span class="active-source">{`Self-reported: ${city.reported.source}.`}</span>
+        {
+          ambassador && (
+            <div class="status-amb">
+              <span class="chip chip-verified">Verified</span>
+              <p class="status-amb-line">
+                <a href={`/builders/${ambassador.builderSlug ?? ambassador.slug}`}>
+                  {ambassador.name}
+                </a>{' '}
+                is a {ambassador.title} here.
               </p>
-            )}
+              <p class="status-note">{ambassador.verifiedVia}.</p>
+            </div>
+          )
+        }
 
-            {next && (
-              <a class="active-next" href={`/events/${next.slug}`}>
-                <span class:list={['pip', `pip-${statusTone(statusOf(next))}`]}>
-                  {statusLabel(statusOf(next))}
-                </span>
-                <span class="active-next-date">
-                  {`${dateParts(next.date).dayPadded} ${dateParts(next.date).monthDisplay}`}
-                </span>
-                <span class="active-next-title">{next.title}</span>
-                <span class="arrow" aria-hidden="true">
-                  →
-                </span>
-              </a>
-            )}
+        {
+          city.organiser && (
+            <p class="status-organiser">
+              Community activity is organised locally by{' '}
+              {city.organiser.url ? (
+                <a href={city.organiser.url} target="_blank" rel="noopener">
+                  {city.organiser.name}
+                </a>
+              ) : (
+                city.organiser.name
+              )}
+              .
+            </p>
+          )
+        }
 
-            {city.organiser && (
-              <p class="active-organiser">
-                Organised by{' '}
-                {city.organiser.url ? (
-                  <a href={city.organiser.url} target="_blank" rel="noopener">
-                    {city.organiser.name}
+        {
+          city.reported && (
+            <p class="status-reported">
+              The organisers report {city.reported.members}+ people in the community
+              {city.reported.prototypes
+                ? ` and ${city.reported.prototypes}+ prototypes shipped`
+                : ''}
+              .
+              <span class="status-note">{`Self-reported and not independently verified — ${city.reported.source}.`}</span>
+            </p>
+          )
+        }
+
+        {
+          !live && (
+            <div class="quiet">
+              <p class="quiet-copy">
+                No events, no Ambassador, and no waiting list. That is the whole status, and this
+                page will not pretend otherwise.
+              </p>
+              <p class="quiet-copy">
+                If you are building with Claude in {city.name}, registering your city is the useful
+                thing to do. It is a signal about where people are — not an application, and it does
+                not create a chapter.
+              </p>
+              <div class="quiet-actions">
+                <a class="btn btn-solid" href="#register">
+                  <span>Register {city.name}</span>
+                  <span class="arrow" aria-hidden="true">
+                    →
+                  </span>
+                </a>
+                {nationalNext && (
+                  <a class="link-arrow" href={`/events/${nationalNext.slug}`}>
+                    <span>{`Next anywhere: ${dateParts(nationalNext.date).dayPadded} ${dateParts(nationalNext.date).monthDisplay}`}</span>
+                    <span class="arrow" aria-hidden="true">
+                      →
+                    </span>
                   </a>
-                ) : (
-                  city.organiser.name
                 )}
-                .
+              </div>
+              <p class="quiet-note">
+                {site.ambassadorNote}{' '}
+                <a href={official.ambassadorProgramUrl} target="_blank" rel="noopener">
+                  Their programme
+                </a>{' '}
+                is the route if you want to host Claude Community events here.
               </p>
-            )}
+            </div>
+          )
+        }
 
-            {city.links && (
-              <ul class="active-links">
-                {city.links.map((link) => (
-                  <li>
-                    <a class="link-arrow" href={link.url} target="_blank" rel="noopener">
-                      <span>{link.label}</span>
-                      <span class="arrow" aria-hidden="true">
-                        ↗
-                      </span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            )}
+        {
+          signal.next && (
+            <a class="status-next" href={`/events/${signal.next.slug}`}>
+              <span class:list={['pip', `pip-${lifecycleTone(lifecycleOf(signal.next))}`]}>
+                {lifecycleLabel(lifecycleOf(signal.next))}
+              </span>
+              <span class="status-next-date">
+                {`${dateParts(signal.next.date).dayPadded} ${dateParts(signal.next.date).monthDisplay}`}
+              </span>
+              <span class="status-next-title">{signal.next.title}</span>
+              <span class="arrow" aria-hidden="true">
+                →
+              </span>
+            </a>
+          )
+        }
+      </div>
+
+      <div class="status-side">
+        <dl class="facts">
+          <div>
+            <dt>Coordinates</dt>
+            <dd class="coords">{formatCoords(city.lat, city.lon)}</dd>
           </div>
+          <div>
+            <dt>State</dt>
+            <dd>{city.state}</dd>
+          </div>
+          <div>
+            <dt>Events held</dt>
+            <dd>{String(signal.heldCount).padStart(2, '0')}</dd>
+          </div>
+          <div>
+            <dt>On the calendar</dt>
+            <dd>{String(signal.eventCount - signal.heldCount).padStart(2, '0')}</dd>
+          </div>
+          <div>
+            <dt>Builders indexed</dt>
+            <dd>{String(signal.builderCount).padStart(2, '0')}</dd>
+          </div>
+          <div>
+            <dt>Projects archived</dt>
+            <dd>{String(signal.projectCount).padStart(2, '0')}</dd>
+          </div>
+        </dl>
 
-          {image && (
-            <figure class="active-image">
-              <div class="plate">
+        {
+          image && (
+            <figure class="status-image">
+              <div class="plate plate-framed">
                 <Image
                   src={image}
                   alt={`${city.name}, ${city.state}`}
-                  widths={[380, 620, 900]}
-                  sizes="(max-width: 55.99em) 90vw, 380px"
+                  widths={[420, 800]}
+                  sizes="(max-width: 61.99em) 90vw, 340px"
                   loading="lazy"
                   decoding="async"
                 />
               </div>
               <figcaption class="plate-caption">
                 <span>{city.name}</span>
-                <span class="coords">{formatCoords(city.lat, city.lon)}</span>
+                <span>{formatCoords(city.lat, city.lon, 1)}</span>
               </figcaption>
             </figure>
-          )}
-        </div>
-      )
-    }
+          )
+        }
+
+        {
+          !live && elsewhere && (
+            <div class="nearest">
+              <h3 class="label nearest-head">Nearest activity</h3>
+              <a class="nearest-link" href={`/cities/${elsewhere.other.slug}`}>
+                <span class="nearest-name">{elsewhere.other.name}</span>
+                <span class="nearest-km">{`${elsewhere.km} km away`}</span>
+                <span class="nearest-state">{CITY_STATE_LABEL[elsewhere.s.state]}</span>
+              </a>
+            </div>
+          )
+        }
+
+        {
+          city.links && city.links.length > 0 && (
+            <div class="city-links">
+              <h3 class="label nearest-head">Local channels</h3>
+              <ul>
+                {city.links.map((link) => (
+                  <li>
+                    <a href={link.url} target="_blank" rel="noopener">
+                      {link.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )
+        }
+      </div>
+    </div>
   </Section>
 
   {
-    cityEvents.length > 0 && (
-      <Section id="events" index="B" label="Events">
-        <EventIndex
+    signal.eventCount > 0 && (
+      <Section id="events" labelledby="events-heading">
+        <EventArchive
           citySlug={city.slug}
           heading={`Events in ${city.name}`}
-          index="B — Record"
-          showLink={false}
+          eyebrow="Events"
+          order="chronological"
         />
       </Section>
     )
   }
+
+  {
+    signal.builderCount > 0 && (
+      <Section id="builders" tone="sunk" labelledby="builders-heading">
+        <BuilderIndex
+          citySlug={city.slug}
+          heading={`Building in ${city.name}`}
+          eyebrow="Builders"
+        />
+      </Section>
+    )
+  }
+
+  {
+    live && (
+      <Section id="projects" tone="deep" size="lg" labelledby="projects-heading">
+        <ProjectArchive citySlug={city.slug} heading={`Made in ${city.name}`} eyebrow="Projects" />
+      </Section>
+    )
+  }
+
+  <Section id="register" tone={live ? 'sunk' : 'paper'} labelledby="city-heading">
+    <SubmitPanel formId="city" />
+  </Section>
 </Base>
 
 <style>
-  /* --- Open city -------------------------------------------------------- */
-  .open {
+  .status {
     display: grid;
     gap: var(--s-8);
   }
 
-  .open-title {
-    margin-top: var(--s-3);
+  .status-title {
+    margin-top: var(--s-4);
     font-size: var(--t-h2);
     max-width: 18ch;
-    letter-spacing: -0.03em;
   }
 
-  .open-copy {
-    margin-top: var(--s-5);
-    font-size: var(--t-body);
-  }
-
-  .open-actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--s-5);
-    margin-top: var(--s-7);
-  }
-
-  .open-facts {
+  /* --- Ambassador ---------------------------------------------------------- */
+  .status-amb {
     display: grid;
-    gap: var(--s-4);
-    align-content: start;
+    gap: var(--s-3);
+    justify-items: start;
+    margin-top: var(--s-6);
     padding: var(--s-5);
-    border: var(--border-hair) dashed var(--rule-strong);
+    border: var(--border-hair) solid var(--rule-strong);
+    border-left: 2px solid var(--clay);
+    background: var(--paper-raised);
   }
 
-  .open-facts div {
-    display: grid;
-    gap: var(--s-1);
-    padding-bottom: var(--s-4);
-    border-bottom: var(--border-hair) solid var(--rule);
-  }
-
-  .open-facts div:last-child {
-    padding-bottom: 0;
-    border-bottom: 0;
-  }
-
-  .open-facts dt {
-    color: var(--ink-3);
-  }
-
-  .open-facts dd {
+  .status-amb-line {
     font-size: var(--t-small);
   }
 
-  /* --- Active chapter --------------------------------------------------- */
-  .active {
-    display: grid;
-    gap: var(--s-8);
+  .status-organiser {
+    margin-top: var(--s-5);
+    font-size: var(--t-small);
+    color: var(--ink-2);
   }
 
-  .active-stats {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-    gap: var(--s-5);
-    padding-bottom: var(--s-6);
-    border-bottom: var(--border-hair) solid var(--rule);
-  }
-
-  .active-stats dt {
-    color: var(--ink-3);
-  }
-
-  .active-stats dd {
-    margin-top: var(--s-2);
-    font-family: var(--font-display);
-    font-size: clamp(2rem, 4vw, 3rem);
-    font-weight: 600;
-    font-variation-settings:
-      'SOFT' 0,
-      'WONK' 1;
-    line-height: 0.9;
-    letter-spacing: -0.04em;
-    font-variant-numeric: lining-nums;
-  }
-
-  .active-reported {
+  .status-reported {
     margin-top: var(--s-5);
     max-width: 56ch;
     font-size: var(--t-small);
     color: var(--ink-2);
   }
 
-  .active-source {
+  .status-note {
+    display: block;
+    margin-top: var(--s-2);
     font-family: var(--font-mono);
     font-size: var(--t-micro);
+    line-height: 1.7;
     color: var(--ink-3);
   }
 
-  .active-next {
+  /* --- Quiet cities --------------------------------------------------------- */
+  .quiet {
+    margin-top: var(--s-6);
+  }
+
+  .quiet-copy {
+    max-width: 56ch;
+    color: var(--ink-2);
+  }
+
+  .quiet-copy + .quiet-copy {
+    margin-top: var(--s-4);
+  }
+
+  .quiet-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-5);
+    margin-top: var(--s-6);
+  }
+
+  .quiet-note {
+    margin-top: var(--s-6);
+    padding-top: var(--s-5);
+    border-top: var(--border-hair) solid var(--rule);
+    max-width: 60ch;
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    line-height: 1.8;
+    color: var(--ink-3);
+  }
+
+  /* --- Next ----------------------------------------------------------------- */
+  .status-next {
     display: flex;
     align-items: baseline;
     flex-wrap: wrap;
     gap: var(--s-3) var(--s-5);
-    margin-top: var(--s-6);
+    margin-top: var(--s-7);
     padding: var(--s-4) var(--s-5);
-    border: var(--border-hair) solid var(--rule-strong);
-    border-left: 2px solid var(--clay);
-    background: var(--paper-raised);
+    border: var(--border-hair) solid var(--clay);
+    background: var(--clay-tint);
     text-decoration: none;
     color: var(--ink);
-    transition: border-color var(--dur-2) var(--ease-out);
   }
 
-  .active-next:hover {
-    border-color: var(--clay);
-  }
-
-  .active-next-date {
+  .status-next-date {
     font-family: var(--font-mono);
     font-size: var(--t-micro);
     letter-spacing: var(--track-meta);
-    color: var(--ink-3);
+    color: var(--clay-deep);
+    font-variant-numeric: tabular-nums;
   }
 
-  .active-next-title {
+  .status-next-title {
     font-family: var(--font-display);
-    font-size: 1.15rem;
+    font-size: 1.1rem;
     font-weight: 500;
     font-variation-settings:
       'SOFT' 0,
       'WONK' 1;
   }
 
-  .active-next .arrow {
+  .status-next .arrow {
     margin-left: auto;
   }
 
-  .active-organiser {
-    margin-top: var(--s-6);
-    font-size: var(--t-small);
+  /* --- Side ------------------------------------------------------------------ */
+  .status-side {
+    display: grid;
+    gap: var(--s-6);
+    align-content: start;
+  }
+
+  .facts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--s-5);
+    padding-top: var(--s-4);
+    border-top: var(--border-heavy) solid var(--ink);
+  }
+
+  .facts dt {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .facts dd {
+    margin-top: var(--s-2);
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 600;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    font-variant-numeric: lining-nums tabular-nums;
+  }
+
+  .facts .coords {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    font-weight: 400;
+    letter-spacing: 0.05em;
     color: var(--ink-2);
   }
 
-  .active-links {
+  .status-image .plate {
+    aspect-ratio: 4 / 3;
+  }
+
+  .nearest-head {
+    padding-bottom: var(--s-3);
+    border-bottom: var(--border-hair) solid var(--rule-strong);
+    color: var(--ink-3);
+  }
+
+  .nearest-link {
+    display: grid;
+    gap: var(--s-1);
+    padding-block: var(--s-4);
+    text-decoration: none;
+    color: var(--ink);
+  }
+
+  .nearest-name {
+    font-family: var(--font-display);
+    font-size: var(--t-h3);
+    font-weight: 600;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    letter-spacing: -0.02em;
+  }
+
+  .nearest-link:hover .nearest-name {
+    color: var(--clay-deep);
+  }
+
+  .nearest-km,
+  .nearest-state {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .city-links ul {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--s-5);
-    margin-top: var(--s-5);
+    gap: var(--s-3) var(--s-5);
+    padding-top: var(--s-4);
   }
 
-  .active-image .plate {
-    aspect-ratio: 4 / 5;
+  .city-links a {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-2);
+    text-decoration: none;
   }
 
-  @media (min-width: 56em) {
-    .open {
-      grid-template-columns: minmax(0, 1.5fr) minmax(240px, 0.7fr);
-      gap: var(--s-9);
-      align-items: start;
-    }
+  .city-links a:hover {
+    color: var(--clay-deep);
+  }
 
-    .active {
-      grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.8fr);
+  @media (min-width: 62em) {
+    .status {
+      grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
       gap: var(--s-9);
       align-items: start;
     }

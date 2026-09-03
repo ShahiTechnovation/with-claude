@@ -1,0 +1,194 @@
+---
+import type { GetStaticPaths } from 'astro';
+import { Image } from 'astro:assets';
+import Base from '@/layouts/Base.astro';
+import Section from '@/components/Section.astro';
+import PageIntro from '@/components/PageIntro.astro';
+import { builderBySlug, cityName, eventBySlug, publicStories, site } from '@/data';
+import { formatDate, isoDateTime } from '@/lib/datetime';
+import { asset } from '@/lib/images';
+import { formatName } from '@/lib/status';
+
+/**
+ * A story page.
+ *
+ * No stories exist yet, so this route generates nothing. It is here so the
+ * first person to write a recap has a finished place to publish it, wired into
+ * the same graph as everything else — the event it covers, the city it was in,
+ * and the people it is about.
+ */
+export const getStaticPaths = (() =>
+  publicStories.map((story) => ({
+    params: { slug: story.slug },
+    props: { story },
+  }))) satisfies GetStaticPaths;
+
+const { story } = Astro.props;
+
+const event = story.eventSlug ? eventBySlug.get(story.eventSlug) : undefined;
+const people = (story.builderSlugs ?? [])
+  .map((slug) => builderBySlug.get(slug))
+  .filter((b) => Boolean(b));
+const image = asset(story.image);
+
+const schema = [
+  {
+    '@type': 'Article',
+    headline: story.title,
+    description: story.standfirst,
+    datePublished: isoDateTime(story.date),
+    url: `${site.url}/stories/${story.slug}`,
+    ...(story.author ? { author: { '@type': 'Person', name: story.author } } : {}),
+    publisher: { '@id': `${site.url}/#organization` },
+  },
+];
+---
+
+<Base title={story.title} description={story.standfirst} active="/stories" schema={schema}>
+  <PageIntro
+    eyebrow={`${formatName(story.kind)}${story.citySlug ? ` · ${cityName(story.citySlug)}` : ''}`}
+    title={story.title}
+    size="lg"
+    stamp={formatDate(story.date)}
+  >
+    <p>{story.standfirst}</p>
+  </PageIntro>
+
+  <Section id="story" labelledby="story-heading">
+    <h2 id="story-heading" class="visually-hidden">{story.title}</h2>
+
+    <article class="story">
+      {
+        image && (
+          <div class="plate plate-framed story-image">
+            <Image
+              src={image}
+              alt=""
+              widths={[700, 1300]}
+              sizes="(max-width: 61.99em) 92vw, 760px"
+              loading="eager"
+              decoding="async"
+            />
+          </div>
+        )
+      }
+
+      <div class="story-meta">
+        {story.author && <span>{story.author}</span>}
+        <span>{formatDate(story.date)}</span>
+        {story.readingMinutes && <span>{`${story.readingMinutes} min read`}</span>}
+      </div>
+
+      {
+        story.body && story.body.length > 0 ? (
+          <div class="story-body">
+            {story.body.map((paragraph) => (
+              <p>{paragraph}</p>
+            ))}
+          </div>
+        ) : null
+      }
+
+      {
+        (event || people.length > 0) && (
+          <footer class="story-links">
+            {event && (
+              <a class="story-link" href={`/events/${event.slug}`}>
+                <span class="label">The event</span>
+                <span class="story-link-title">{event.title}</span>
+                <span class="story-link-meta">
+                  {`${formatDate(event.date)} · ${cityName(event.citySlug)}`}
+                </span>
+              </a>
+            )}
+            {people.map((person) => (
+              <a class="story-link" href={`/builders/${person!.slug}`}>
+                <span class="label">Builder</span>
+                <span class="story-link-title">{person!.name}</span>
+                <span class="story-link-meta">{cityName(person!.citySlug)}</span>
+              </a>
+            ))}
+          </footer>
+        )
+      }
+    </article>
+  </Section>
+
+  <Section id="back" size="sm">
+    <a class="link-arrow" href="/stories">
+      <span>All stories</span>
+      <span class="arrow" aria-hidden="true">→</span>
+    </a>
+  </Section>
+</Base>
+
+<style>
+  .story {
+    max-width: 68ch;
+  }
+
+  .story-image {
+    aspect-ratio: 16 / 9;
+    margin-bottom: var(--s-6);
+  }
+
+  .story-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2) var(--s-5);
+    padding-bottom: var(--s-5);
+    border-bottom: var(--border-hair) solid var(--rule);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .story-body {
+    margin-top: var(--s-6);
+    font-size: var(--t-lead);
+    color: var(--ink-2);
+  }
+
+  .story-body p + p {
+    margin-top: var(--s-5);
+  }
+
+  .story-links {
+    display: grid;
+    gap: var(--s-4);
+    margin-top: var(--s-9);
+    padding-top: var(--s-5);
+    border-top: var(--border-heavy) solid var(--ink);
+  }
+
+  .story-link {
+    display: grid;
+    gap: var(--s-1);
+    padding-block: var(--s-3);
+    text-decoration: none;
+    color: var(--ink);
+  }
+
+  .story-link-title {
+    font-family: var(--font-display);
+    font-size: var(--t-h3);
+    font-weight: 600;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    letter-spacing: -0.02em;
+  }
+
+  .story-link:hover .story-link-title {
+    color: var(--clay-deep);
+  }
+
+  .story-link-meta {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.06em;
+    color: var(--ink-3);
+  }
+</style>

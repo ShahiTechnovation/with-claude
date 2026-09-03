@@ -1,38 +1,53 @@
 ---
 import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
-import PageHeader from '@/components/PageHeader.astro';
-import IndiaPlate from '@/components/IndiaPlate.astro';
-import CityGazetteer from '@/components/CityGazetteer.astro';
-import { activeCities, openCities } from '@/data';
+import PageIntro from '@/components/PageIntro.astro';
+import CityAtlas from '@/components/CityAtlas.astro';
+import CityIndex from '@/components/CityIndex.astro';
+import SubmitPanel from '@/components/SubmitPanel.astro';
+import { citySignals, publicCities } from '@/data';
+import { isLive } from '@/lib/city';
 import { EXTENT } from '@/lib/geo';
 import { inWordsCap } from '@/lib/words';
+
+const signals = citySignals();
+const live = signals.filter((s) => isLive(s.state));
+const led = signals.filter((s) => s.state === 'ambassador-led');
 ---
 
 <Base
   title="Cities"
-  description={`Where the Claude community meets in India. ${activeCities.length} chapter running, ${openCities.length} cities plotted and open.`}
+  description={`Where the Claude community meets in India. ${publicCities.length} cities plotted, ${live.length} with verified activity.`}
   active="/cities"
 >
-  <PageHeader
-    record="03"
-    kicker="Cities"
-    title={`${inWordsCap(activeCities.length)} chapter. ${inWordsCap(openCities.length)} open dots.`}
+  <PageIntro
+    eyebrow="Cities"
+    title="Find your city."
     stamp={`${EXTENT.minLon}°E — ${EXTENT.maxLon}°E · ${EXTENT.minLat}°N — ${EXTENT.maxLat}°N`}
+    size="lg"
+    facts={[
+      { label: 'Plotted', value: String(publicCities.length).padStart(2, '0') },
+      { label: 'Ambassador-led', value: String(led.length).padStart(2, '0') },
+      { label: 'With activity', value: String(live.length).padStart(2, '0') },
+    ]}
   >
     <p>
-      Every city below is plotted at its true coordinates. Bhopal has been running events since
-      March. The rest are cities where the first Claude event has not happened yet — and starting
-      one is a conversation, not an application.
+      {`${inWordsCap(publicCities.length)} cities at their true coordinates. `}
+      A city appears as Ambassador-led because a verified Claude Community Ambassador is hosting there
+      — not because anyone claimed it. Everywhere else, the page says exactly what is true.
     </p>
-  </PageHeader>
+  </PageIntro>
 
-  <Section id="plate" index="A" label="Plate" tone="night" size="lg">
-    <h2 id="plate-heading" class="visually-hidden">The survey plate</h2>
-    <IndiaPlate />
+  <Section id="atlas" tone="night" size="lg" labelledby="atlas-heading">
+    <h2 id="atlas-heading" class="visually-hidden">The atlas</h2>
+    <CityAtlas />
   </Section>
 
-  <Section id="index" index="B" label="Index">
-    <CityGazetteer index="B — Gazetteer" heading="The gazetteer" />
+  <Section id="index" labelledby="cities-heading">
+    <CityIndex heading="The index" eyebrow="Index" />
+  </Section>
+
+  <Section id="register" tone="sunk" labelledby="city-heading">
+    <SubmitPanel formId="city" />
   </Section>
 </Base>

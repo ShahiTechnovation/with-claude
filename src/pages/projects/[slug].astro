@@ -1,0 +1,288 @@
+---
+import type { GetStaticPaths } from 'astro';
+import { Image } from 'astro:assets';
+import Base from '@/layouts/Base.astro';
+import Section from '@/components/Section.astro';
+import PageIntro from '@/components/PageIntro.astro';
+import { buildersOf, cityName, eventBySlug, publicProjects, site } from '@/data';
+import { formatDate } from '@/lib/datetime';
+import { asset } from '@/lib/images';
+import { formatName } from '@/lib/status';
+
+/**
+ * A project page.
+ *
+ * The archive is empty today, so this route generates nothing — which is
+ * correct. The page exists so that the first real submission has somewhere
+ * complete to land, and so the event → project → person loop closes the moment
+ * there is a project to close it with.
+ */
+export const getStaticPaths = (() =>
+  publicProjects.map((project) => ({
+    params: { slug: project.slug },
+    props: { project },
+  }))) satisfies GetStaticPaths;
+
+const { project } = Astro.props;
+
+const makers = buildersOf(project);
+const bornAt = project.builtAtEventSlug ? eventBySlug.get(project.builtAtEventSlug) : undefined;
+const image = asset(project.image);
+
+const schema = [
+  {
+    '@type': 'CreativeWork',
+    name: project.title,
+    description: project.summary,
+    url: `${site.url}/projects/${project.slug}`,
+    ...(project.url ? { sameAs: [project.url] } : {}),
+    ...(makers.length > 0
+      ? { creator: makers.map((maker) => ({ '@type': 'Person', name: maker.name })) }
+      : {}),
+    locationCreated: { '@type': 'Place', name: cityName(project.citySlug) },
+  },
+];
+---
+
+<Base
+  title={project.title}
+  description={project.summary}
+  active="/projects"
+  image={image ? undefined : '/og-card.jpg'}
+  schema={schema}
+>
+  <PageIntro
+    eyebrow={`${formatName(project.category)} · ${cityName(project.citySlug)}`}
+    title={project.title}
+    size="lg"
+  >
+    <p>{project.summary}</p>
+  </PageIntro>
+
+  <Section id="detail" tone="sunk" labelledby="detail-heading">
+    <h2 id="detail-heading" class="visually-hidden">About {project.title}</h2>
+
+    <div class="project">
+      <div class="project-main">
+        {
+          image && (
+            <div class="plate plate-framed project-image">
+              <Image
+                src={image}
+                alt={`${project.title} — screenshot`}
+                widths={[600, 1100]}
+                sizes="(max-width: 61.99em) 92vw, 680px"
+                loading="eager"
+                decoding="async"
+              />
+            </div>
+          )
+        }
+
+        {project.description && <p class="project-body">{project.description}</p>}
+
+        {
+          project.claudeUsage && (
+            <div class="usage">
+              <h3 class="label usage-head">How Claude was used</h3>
+              <p class="usage-body">{project.claudeUsage}</p>
+            </div>
+          )
+        }
+
+        <div class="project-actions">
+          {
+            project.url && (
+              <a class="btn btn-clay" href={project.url} target="_blank" rel="noopener">
+                <span>Open it</span>
+                <span class="arrow" aria-hidden="true">
+                  ↗
+                </span>
+              </a>
+            )
+          }
+          {
+            project.repoUrl && (
+              <a class="btn" href={project.repoUrl} target="_blank" rel="noopener">
+                <span>Source</span>
+                <span class="arrow" aria-hidden="true">
+                  ↗
+                </span>
+              </a>
+            )
+          }
+          {
+            project.videoUrl && (
+              <a class="link-arrow" href={project.videoUrl} target="_blank" rel="noopener">
+                <span>Demo</span>
+                <span class="arrow" aria-hidden="true">
+                  ↗
+                </span>
+              </a>
+            )
+          }
+        </div>
+      </div>
+
+      <aside class="project-side">
+        <dl class="facts">
+          <div>
+            <dt>Made by</dt>
+            <dd>
+              {
+                makers.length > 0 ? (
+                  <ul class="makers">
+                    {makers.map((maker) => (
+                      <li>
+                        <a href={`/builders/${maker.slug}`}>{maker.name}</a>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <span class="quiet">Not credited</span>
+                )
+              }
+            </dd>
+          </div>
+          <div>
+            <dt>City</dt>
+            <dd><a href={`/cities/${project.citySlug}`}>{cityName(project.citySlug)}</a></dd>
+          </div>
+          <div>
+            <dt>Category</dt>
+            <dd>{formatName(project.category)}</dd>
+          </div>
+          {
+            bornAt && (
+              <div>
+                <dt>Built at</dt>
+                <dd>
+                  <a href={`/events/${bornAt.slug}`}>{bornAt.title}</a>
+                  <span class="fact-sub">{formatDate(bornAt.date)}</span>
+                </dd>
+              </div>
+            )
+          }
+        </dl>
+
+        {project.tags && project.tags.length > 0 && <p class="tags">{project.tags.join(' · ')}</p>}
+      </aside>
+    </div>
+  </Section>
+
+  <Section id="back" size="sm">
+    <a class="link-arrow" href="/projects">
+      <span>The whole archive</span>
+      <span class="arrow" aria-hidden="true">→</span>
+    </a>
+  </Section>
+</Base>
+
+<style>
+  .project {
+    display: grid;
+    gap: var(--s-8);
+  }
+
+  .project-image {
+    aspect-ratio: 16 / 10;
+    margin-bottom: var(--s-6);
+  }
+
+  .project-body {
+    max-width: 62ch;
+    font-size: var(--t-lead);
+    color: var(--ink-2);
+  }
+
+  .usage {
+    margin-top: var(--s-7);
+    padding: var(--s-5);
+    border: var(--border-hair) solid var(--rule-strong);
+    border-left: 2px solid var(--clay);
+    background: var(--paper-raised);
+  }
+
+  .usage-head {
+    color: var(--clay-deep);
+    margin-bottom: var(--s-3);
+  }
+
+  .usage-body {
+    max-width: 58ch;
+    font-size: var(--t-small);
+    color: var(--ink-2);
+  }
+
+  .project-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-5);
+    margin-top: var(--s-7);
+  }
+
+  .facts {
+    display: grid;
+    gap: var(--s-5);
+    padding-top: var(--s-4);
+    border-top: var(--border-heavy) solid var(--ink);
+  }
+
+  .facts dt {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .facts dd {
+    margin-top: var(--s-2);
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+    font-weight: 500;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+  }
+
+  .facts a {
+    text-decoration: none;
+  }
+
+  .facts a:hover {
+    color: var(--clay-deep);
+  }
+
+  .fact-sub {
+    display: block;
+    margin-top: 2px;
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    font-weight: 400;
+    color: var(--ink-3);
+  }
+
+  .quiet {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    color: var(--ink-3);
+  }
+
+  .tags {
+    margin-top: var(--s-5);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.06em;
+    color: var(--ink-3);
+  }
+
+  @media (min-width: 62em) {
+    .project {
+      grid-template-columns: minmax(0, 1.35fr) minmax(240px, 0.65fr);
+      gap: var(--s-9);
+      align-items: start;
+    }
+  }
+</style>

@@ -1,0 +1,514 @@
+---
+import { citySignalsRanked, getCity } from '@/data';
+import { CITY_STATE_LABEL, CITY_STATE_NOTE, isLive } from '@/lib/city';
+import { dateParts } from '@/lib/datetime';
+import { distanceKm, formatCoords } from '@/lib/geo';
+import { inWordsCap, plural } from '@/lib/words';
+
+/**
+ * FIND YOUR CITY.
+ *
+ * The atlas introduces the geography; this is the browsable index of it.
+ *
+ * Note the framing. Cities without activity are not "available", "open", or
+ * waiting to be claimed — they are plotted, and the page says exactly what is
+ * true about each one. The action offered is to register interest, which is a
+ * signal about where people are, not an application for anything.
+ */
+interface Props {
+  heading?: string;
+  eyebrow?: string;
+  showHead?: boolean;
+  /** Compact renders the quiet cities as a name grid instead of a full index. */
+  compact?: boolean;
+}
+
+const {
+  heading = 'Find your city',
+  eyebrow = 'Cities',
+  showHead = true,
+  compact = false,
+} = Astro.props;
+
+const signals = citySignalsRanked();
+const live = signals.filter((s) => isLive(s.state));
+const quiet = signals.filter((s) => !isLive(s.state));
+
+// The first city with activity is the origin every distance is measured from.
+const origin = getCity(live[0]?.city.slug ?? 'bhopal');
+
+const quietWithDistance = quiet
+  .map((s) => ({ ...s, km: origin ? distanceKm(origin, s.city) : undefined }))
+  .sort((a, b) => (a.km ?? 0) - (b.km ?? 0));
+---
+
+<div class="cities">
+  {
+    showHead && (
+      <div class="section-head">
+        <p class="eyebrow">{eyebrow}</p>
+        <h2 id="cities-heading">{heading}</h2>
+        <p class="prose">
+          {`${inWordsCap(signals.length)} cities are plotted. ${inWordsCap(live.length)} ${live.length === 1 ? 'has' : 'have'} verified activity.`}{' '}
+          The rest are on the map because the map is of India — and because knowing where people are
+          is how activity finds them.
+        </p>
+      </div>
+    )
+  }
+
+  {
+    live.length > 0 && (
+      <div class="group">
+        <h3 class="label group-head">Where something is happening</h3>
+        <ul class="live-grid">
+          {live.map((signal) => {
+            const next = signal.next ? dateParts(signal.next.date) : undefined;
+            return (
+              <li data-reveal>
+                <a class="city-card" href={`/cities/${signal.city.slug}`}>
+                  <span class="city-card-lead">
+                    <span class="city-card-top">
+                      <span class:list={['chip', `chip-${signal.state}`]}>
+                        {CITY_STATE_LABEL[signal.state]}
+                      </span>
+                      <span class="coords">{formatCoords(signal.city.lat, signal.city.lon)}</span>
+                    </span>
+
+                    <span class="city-name">{signal.city.name}</span>
+                    <span class="city-region">{signal.city.state}</span>
+                    <span class="city-note">{CITY_STATE_NOTE[signal.state]}</span>
+
+                    {signal.ambassadors[0] && (
+                      <span class="city-ambassador">
+                        {`${signal.ambassadors[0].name} · ${signal.ambassadors[0].title}`}
+                      </span>
+                    )}
+                  </span>
+
+                  <span class="city-card-facts">
+                    <span class="city-stats">
+                      <span>
+                        <span class="stat-label">Events</span>
+                        <span class="stat-value">{String(signal.eventCount).padStart(2, '0')}</span>
+                      </span>
+                      <span>
+                        <span class="stat-label">Builders</span>
+                        <span class="stat-value">
+                          {String(signal.builderCount).padStart(2, '0')}
+                        </span>
+                      </span>
+                      <span>
+                        <span class="stat-label">Projects</span>
+                        <span class="stat-value">
+                          {String(signal.projectCount).padStart(2, '0')}
+                        </span>
+                      </span>
+                    </span>
+
+                    {next && signal.next && (
+                      <span class="city-next">
+                        {`Next: ${next.dayPadded} ${next.monthDisplay} — ${signal.next.title}`}
+                      </span>
+                    )}
+                  </span>
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    )
+  }
+
+  <div class="group">
+    <h3 class="label group-head">
+      Plotted, quiet for now <span class="group-count">{String(quiet.length).padStart(2, '0')}</span
+      >
+    </h3>
+
+    {
+      compact ? (
+        <>
+          <ul class="quiet-compact">
+            {quietWithDistance.map((signal) => (
+              <li>
+                <a href={`/cities/${signal.city.slug}`}>
+                  <span class="quiet-name">{signal.city.name}</span>
+                  <span class="quiet-region">{signal.city.state}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+          <a class="link-arrow group-more" href="/cities">
+            <span>The full index</span>
+            <span class="arrow" aria-hidden="true">
+              →
+            </span>
+          </a>
+        </>
+      ) : (
+        <ul class="quiet-index">
+          <li class="quiet-row quiet-head" aria-hidden="true">
+            <span>City</span>
+            <span>State</span>
+            <span>Coordinates</span>
+            <span>Status</span>
+            <span>From {origin?.name}</span>
+          </li>
+          {quietWithDistance.map((signal) => (
+            <li>
+              <a class="quiet-row" href={`/cities/${signal.city.slug}`}>
+                <span class="quiet-name">{signal.city.name}</span>
+                <span class="quiet-region">{signal.city.state}</span>
+                <span class="coords quiet-coords">
+                  {formatCoords(signal.city.lat, signal.city.lon, 1)}
+                </span>
+                <span class:list={['chip', `chip-${signal.state}`, 'quiet-chip']}>
+                  {CITY_STATE_LABEL[signal.state]}
+                </span>
+                <span class="quiet-distance">{signal.km ? `${signal.km} km` : '—'}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+  </div>
+
+  <div class="ask">
+    <div class="ask-copy">
+      <h3 class="ask-title">Your city isn’t here yet?</h3>
+      <p class="ask-text">
+        Tell us where you are. It is a signal about where people building with Claude actually are —
+        not an application, and not a chapter.
+      </p>
+    </div>
+    <a class="btn btn-solid" href="/join#city">
+      <span>Register your city</span>
+      <span class="arrow" aria-hidden="true">→</span>
+    </a>
+  </div>
+
+  <p class="cities-note">
+    {
+      `${plural(live.length, 'city', 'cities')} with verified activity out of ${signals.length} plotted.`
+    }
+    Hosting Claude Community events means becoming a Claude Community Ambassador, which is a programme
+    Anthropic runs — this site does not grant it.
+  </p>
+</div>
+
+<style>
+  .group + .group {
+    margin-top: var(--s-9);
+  }
+
+  .group-head {
+    display: flex;
+    align-items: baseline;
+    gap: var(--s-3);
+    padding-bottom: var(--s-3);
+    margin-bottom: var(--s-5);
+    border-bottom: var(--border-hair) solid var(--rule-strong);
+    color: var(--ink-3);
+  }
+
+  .group-count {
+    color: var(--clay-deep);
+  }
+
+  /* --- Cities with activity ------------------------------------------------ */
+  .live-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+    gap: var(--s-5);
+  }
+
+  .city-card {
+    display: grid;
+    align-content: start;
+    gap: var(--s-6);
+    height: 100%;
+    padding: var(--s-5);
+    border: var(--border-hair) solid var(--rule-strong);
+    background: var(--paper-raised);
+    text-decoration: none;
+    color: var(--ink);
+    transition:
+      border-color var(--dur-2) var(--ease-out),
+      transform var(--dur-2) var(--ease-out);
+  }
+
+  .city-card:hover,
+  .city-card:focus-visible {
+    border-color: var(--clay);
+    transform: translateY(-2px);
+  }
+
+  .city-card-lead,
+  .city-card-facts {
+    display: grid;
+    align-content: start;
+    gap: var(--s-2);
+  }
+
+  .city-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+    margin-bottom: var(--s-3);
+  }
+
+  .city-name {
+    font-family: var(--font-display);
+    font-size: clamp(1.8rem, 3.6vw, 2.5rem);
+    font-weight: 600;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    line-height: 1;
+    letter-spacing: -0.032em;
+  }
+
+  .city-region {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .city-note {
+    margin-top: var(--s-3);
+    font-size: var(--t-small);
+    color: var(--ink-2);
+  }
+
+  .city-ambassador {
+    margin-top: var(--s-2);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.05em;
+    color: var(--clay-deep);
+  }
+
+  .city-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-5);
+    padding-top: var(--s-4);
+    border-top: var(--border-hair) solid var(--rule);
+  }
+
+  .city-stats > span {
+    display: grid;
+    gap: var(--s-1);
+  }
+
+  .stat-label {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .stat-value {
+    font-family: var(--font-display);
+    font-size: 1.35rem;
+    font-weight: 600;
+    line-height: 1;
+    font-variant-numeric: lining-nums tabular-nums;
+  }
+
+  .city-next {
+    margin-top: var(--s-4);
+    padding-top: var(--s-3);
+    border-top: var(--border-hair) solid var(--rule);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.06em;
+    color: var(--clay-deep);
+  }
+
+  /* A lone card would otherwise stretch to the full width with its content
+     stacked down one edge. Splitting it in two is what a spread does. */
+  @media (min-width: 56em) {
+    .live-grid li:only-child .city-card {
+      grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr);
+      gap: var(--s-8);
+      padding: var(--s-7);
+    }
+
+    .live-grid li:only-child .city-name {
+      font-size: clamp(2.4rem, 5vw, 3.6rem);
+    }
+
+    .live-grid li:only-child .city-card-facts {
+      align-content: end;
+    }
+  }
+
+  /* --- The quiet index ----------------------------------------------------- */
+  .quiet-index {
+    border-top: var(--border-hair) solid var(--rule);
+  }
+
+  .quiet-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto auto;
+    align-items: center;
+    gap: var(--s-4);
+    padding-block: var(--s-4);
+    border-bottom: var(--border-hair) solid var(--rule);
+    text-decoration: none;
+    color: var(--ink-2);
+    transition:
+      background var(--dur-1) var(--ease-out),
+      color var(--dur-1) var(--ease-out);
+  }
+
+  .quiet-row:hover,
+  .quiet-row:focus-visible {
+    background: color-mix(in srgb, var(--clay) 7%, transparent);
+    color: var(--ink);
+  }
+
+  .quiet-head {
+    padding-block: var(--s-3);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .quiet-name {
+    font-family: var(--font-display);
+    font-size: 1.12rem;
+    font-weight: 500;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    color: var(--ink);
+  }
+
+  .quiet-region {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .quiet-chip {
+    justify-self: start;
+  }
+
+  .quiet-distance {
+    justify-self: end;
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  /* --- Compact list (homepage) --------------------------------------------- */
+  .quiet-compact {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 190px), 1fr));
+    gap: 0 var(--s-5);
+    border-top: var(--border-hair) solid var(--rule);
+  }
+
+  .quiet-compact a {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--s-3);
+    padding-block: var(--s-3);
+    border-bottom: var(--border-hair) solid var(--rule);
+    text-decoration: none;
+    color: var(--ink);
+    transition: color var(--dur-1) var(--ease-out);
+  }
+
+  .quiet-compact a:hover .quiet-name,
+  .quiet-compact a:focus-visible .quiet-name {
+    color: var(--clay-deep);
+  }
+
+  .group-more {
+    margin-top: var(--s-6);
+  }
+
+  /* --- The ask -------------------------------------------------------------- */
+  .ask {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-5);
+    margin-top: var(--s-8);
+    padding: var(--s-6);
+    border: var(--border-hair) dashed var(--rule-strong);
+  }
+
+  .ask-title {
+    font-size: var(--t-h3);
+    letter-spacing: -0.02em;
+  }
+
+  .ask-text {
+    margin-top: var(--s-2);
+    max-width: 48ch;
+    font-size: var(--t-small);
+    color: var(--ink-2);
+  }
+
+  .cities-note {
+    margin-top: var(--s-6);
+    max-width: 68ch;
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    line-height: 1.75;
+    color: var(--ink-3);
+  }
+
+  @media (max-width: 61.99em) {
+    .quiet-row {
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: var(--s-2) var(--s-4);
+    }
+
+    .quiet-region {
+      grid-column: 1;
+      grid-row: 2;
+    }
+
+    .quiet-coords {
+      display: none;
+    }
+
+    .quiet-chip {
+      grid-column: 2;
+      grid-row: 2;
+      justify-self: end;
+    }
+
+    .quiet-distance {
+      grid-column: 2;
+      grid-row: 1;
+    }
+
+    .quiet-head {
+      display: none;
+    }
+  }
+</style>

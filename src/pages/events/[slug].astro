@@ -3,46 +3,80 @@ import type { GetStaticPaths } from 'astro';
 import { Image } from 'astro:assets';
 import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
-import PageHeader from '@/components/PageHeader.astro';
-import { cityBySlug, cityName, events, eventsChronological, site, speakersOf } from '@/data';
-import { dateParts, formatDate, formatTimeRange, isoDateTime, relativeDay } from '@/lib/datetime';
+import PageIntro from '@/components/PageIntro.astro';
+import {
+  cityBySlug,
+  cityName,
+  eventsChronological,
+  hostAmbassador,
+  projectsFromEvent,
+  publicEvents,
+  site,
+  speakersOf,
+  storiesForEvent,
+} from '@/data';
+import {
+  dateParts,
+  formatDate,
+  formatTime,
+  formatTimeRange,
+  isoDateTime,
+  relativeDay,
+} from '@/lib/datetime';
 import { formatCoords } from '@/lib/geo';
-import { asset } from '@/lib/images';
-import { isRegistrationOpen, statusLabel, statusOf, statusTone } from '@/lib/status';
+import { asset, requireAsset } from '@/lib/images';
+import {
+  formatName,
+  isRegistrationOpen,
+  lifecycleLabel,
+  lifecycleOf,
+  lifecycleTone,
+} from '@/lib/status';
 
 export const getStaticPaths = (() =>
-  events.map((event) => ({
+  publicEvents.map((event) => ({
     params: { slug: event.slug },
     props: { event },
   }))) satisfies GetStaticPaths;
 
 const { event } = Astro.props;
 
-const status = statusOf(event);
+const lifecycle = lifecycleOf(event);
 const parts = dateParts(event.date);
 const city = cityBySlug.get(event.citySlug);
 const speakers = speakersOf(event);
+const ambassador = hostAmbassador(event);
 const canRegister = isRegistrationOpen(event);
 const cover = asset(event.coverImage);
+const outputs = projectsFromEvent(event.slug);
+const recaps = storiesForEvent(event.slug);
+const isPast = lifecycle === 'past';
 
-// An event with neither a cover nor photographs should not leave half the
-// page empty — the record simply runs full width.
+// An event with neither a cover nor photographs should not leave half the page
+// empty — the record simply runs full width.
 const hasAside = Boolean(cover || event.photos?.length);
 
 const position = eventsChronological.findIndex((e) => e.slug === event.slug);
 const previous = eventsChronological[position - 1];
 const upNext = eventsChronological[position + 1];
 
+/**
+ * Structured data.
+ *
+ * The organiser is only named when the host resolves to a verified Ambassador.
+ * Asserting an organiser in JSON-LD that the site cannot verify would put an
+ * unverified claim into search results, where nobody can see the caveat.
+ */
 const schema = [
   {
     '@type': 'Event',
-    name: `${cityName(event.citySlug)} | ${event.title}`,
+    name: `${event.title} · ${cityName(event.citySlug)}`,
     description: event.description ?? event.summary,
     url: `${site.url}/events/${event.slug}`,
     startDate: isoDateTime(event.date, event.startTime),
     ...(event.endTime ? { endDate: isoDateTime(event.date, event.endTime) } : {}),
     eventStatus:
-      status === 'cancelled'
+      lifecycle === 'cancelled'
         ? 'https://schema.org/EventCancelled'
         : 'https://schema.org/EventScheduled',
     eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
@@ -56,7 +90,22 @@ const schema = [
         addressCountry: 'IN',
       },
     },
+    ...(event.registrationUrl
+      ? {
+          offers: {
+            '@type': 'Offer',
+            price: event.free ? '0' : undefined,
+            priceCurrency: 'INR',
+            url: event.registrationUrl,
+            availability:
+              lifecycle === 'sold-out'
+                ? 'https://schema.org/SoldOut'
+                : 'https://schema.org/InStock',
+          },
+        }
+      : {}),
     organizer: { '@id': `${site.url}/#organization` },
+    ...(ambassador ? { performer: { '@type': 'Person', name: ambassador.name } } : {}),
   },
 ];
 ---
@@ -67,20 +116,22 @@ const schema = [
   active="/events"
   schema={schema}
 >
-  <PageHeader
-    record={event.volume ? String(event.volume).padStart(2, '0') : undefined}
-    kicker={`${cityName(event.citySlug)} · ${event.format.replace('-', ' ')}`}
+  <PageIntro
+    eyebrow={`${cityName(event.citySlug)} · ${formatName(event.format)}${event.volume ? ` · vol. ${String(event.volume).padStart(2, '0')}` : ''}`}
     title={event.title}
     stamp={city ? formatCoords(city.lat, city.lon) : undefined}
   >
     <p>{event.description ?? event.summary}</p>
-  </PageHeader>
+  </PageIntro>
 
-  <Section id="detail" index="A" label="Detail" tone="sunk">
+  <Section id="detail" tone="sunk" labelledby="detail-heading">
+    <h2 id="detail-heading" class="visually-hidden">Details</h2>
     <div class:list={['detail', { 'has-aside': hasAside }]}>
       <div class="detail-main">
         <div class="detail-status">
-          <span class:list={['pip', `pip-${statusTone(status)}`]}>{statusLabel(status)}</span>
+          <span class:list={['pip', `pip-${lifecycleTone(lifecycle)}`]}>
+            {lifecycleLabel(lifecycle)}
+          </span>
           <span class="detail-when">{relativeDay(event.date)}</span>
         </div>
 
@@ -88,6 +139,25 @@ const schema = [
           <time datetime={isoDateTime(event.date, event.startTime)}>{formatDate(event.date)}</time>
         </p>
         <p class="detail-time">{formatTimeRange(event.startTime, event.endTime)}</p>
+
+        {
+          ambassador && (
+            <div class="detail-host">
+              <span class="chip chip-verified">Ambassador-led</span>
+              <p class="detail-host-line">
+                Hosted by{' '}
+                <a href={`/builders/${ambassador.builderSlug ?? ambassador.slug}`}>
+                  {ambassador.name}
+                </a>
+                , {ambassador.title}.
+              </p>
+              <p class="detail-host-note">
+                Claude Community Ambassadors are appointed by Anthropic. This site records the
+                status, it does not grant it.
+              </p>
+            </div>
+          )
+        }
 
         <dl class="detail-meta">
           <div>
@@ -111,19 +181,36 @@ const schema = [
             <dd>{event.free ? 'Free · approval required' : 'Ticketed'}</dd>
           </div>
           {
-            event.hosts && (
+            event.host.organisations && event.host.organisations.length > 0 && (
               <div>
-                <dt class="label">Hosted by</dt>
-                <dd>{event.hosts.join(', ')}</dd>
+                <dt class="label">With</dt>
+                <dd>{event.host.organisations.join(', ')}</dd>
               </div>
             )
           }
         </dl>
 
         {
+          event.agenda && event.agenda.length > 0 && (
+            <div class="detail-block">
+              <h3 class="label detail-block-head">What happens</h3>
+              <ol class="detail-agenda">
+                {event.agenda.map((item) => (
+                  <li>
+                    {item.time && <span class="agenda-time">{formatTime(item.time)}</span>}
+                    <span class="agenda-title">{item.title}</span>
+                    {item.detail && <span class="detail-sub">{item.detail}</span>}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )
+        }
+
+        {
           speakers.length > 0 && (
             <div class="detail-block">
-              <h2 class="label detail-block-head">Led by</h2>
+              <h3 class="label detail-block-head">Led by</h3>
               <ul class="detail-people">
                 {speakers.map((person) => (
                   <li>
@@ -139,7 +226,7 @@ const schema = [
         {
           event.outcomes && (
             <div class="detail-block">
-              <h2 class="label detail-block-head">What happened</h2>
+              <h3 class="label detail-block-head">What happened</h3>
               <ul class="detail-outcomes">
                 {event.outcomes.map((outcome) => (
                   <li>{outcome}</li>
@@ -149,23 +236,70 @@ const schema = [
           )
         }
 
+        {
+          outputs.length > 0 && (
+            <div class="detail-block">
+              <h3 class="label detail-block-head">Built here</h3>
+              <ul class="detail-people">
+                {outputs.map((project) => (
+                  <li>
+                    <a href={`/projects/${project.slug}`}>{project.title}</a>
+                    <span class="detail-sub">{project.summary}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )
+        }
+
+        {
+          recaps.length > 0 && (
+            <div class="detail-block">
+              <h3 class="label detail-block-head">Written up</h3>
+              <ul class="detail-people">
+                {recaps.map((story) => (
+                  <li>
+                    <a href={`/stories/${story.slug}`}>{story.title}</a>
+                    <span class="detail-sub">{story.standfirst}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )
+        }
+
+        {
+          isPast && outputs.length === 0 && (
+            <div class="detail-block detail-open">
+              <h3 class="label detail-block-head">Build something here?</h3>
+              <p class="detail-open-copy">
+                Nothing from this room is in the archive yet. If you made something, it belongs on
+                the record.
+              </p>
+              <a class="link-arrow" href="/join#build">
+                <span>Submit your build</span>
+                <span class="arrow" aria-hidden="true">
+                  →
+                </span>
+              </a>
+            </div>
+          )
+        }
+
         <div class="detail-actions">
           {
             canRegister && event.registrationUrl ? (
               <a class="btn btn-clay" href={event.registrationUrl} target="_blank" rel="noopener">
-                <span>Register on Luma</span>
+                <span>Register</span>
                 <span class="arrow" aria-hidden="true">
                   ↗
                 </span>
               </a>
-            ) : event.registrationUrl ? (
-              <a class="btn btn-quiet" href={event.registrationUrl} target="_blank" rel="noopener">
-                <span>See the event page</span>
-                <span class="arrow" aria-hidden="true">
-                  ↗
-                </span>
-              </a>
-            ) : null
+            ) : (
+              <span class="btn btn-quiet" aria-disabled="true">
+                {lifecycleLabel(lifecycle)}
+              </span>
+            )
           }
           <a class="link-arrow" href="/events">
             <span>All events</span>
@@ -178,50 +312,49 @@ const schema = [
         hasAside && (
           <aside class="detail-aside">
             {cover && (
-              <figure>
-                <div class="plate">
+              <figure class="detail-cover">
+                <div class="plate plate-framed">
                   <Image
                     src={cover}
-                    alt={`Event cover for ${event.title}`}
-                    widths={[320, 480, 640]}
-                    sizes="(max-width: 55.99em) 90vw, 340px"
-                    loading="lazy"
+                    alt={`Poster for ${event.title} in ${cityName(event.citySlug)}`}
+                    widths={[360, 640]}
+                    sizes="(max-width: 61.99em) 90vw, 340px"
+                    loading="eager"
                     decoding="async"
                   />
                 </div>
                 <figcaption class="plate-caption">
-                  <span>{`Vol. ${String(event.volume ?? 0).padStart(2, '0')} cover`}</span>
+                  <span>{`vol. ${String(event.volume ?? 0).padStart(2, '0')}`}</span>
                   <span>{`${parts.monthShort} ${parts.year}`}</span>
                 </figcaption>
               </figure>
             )}
 
-            {event.photos && (
-              <div class="detail-shots">
-                <h2 class="label detail-block-head">From the floor</h2>
+            {event.photos && event.photos.length > 0 && (
+              <div class="detail-photos">
+                <h3 class="label detail-block-head">From the room</h3>
                 <ul>
-                  {event.photos.map((photo, i) => {
-                    const image = asset(photo.src);
-                    return image ? (
-                      <li>
-                        <figure>
-                          <div class="plate">
-                            <Image
-                              src={image}
-                              alt={photo.alt}
-                              widths={[240, 420, 640]}
-                              sizes="(max-width: 55.99em) 45vw, 160px"
-                              loading="lazy"
-                              decoding="async"
-                            />
-                          </div>
-                          <figcaption class="plate-caption">
-                            <span>{`Pl. ${String(i + 1).padStart(2, '0')}`}</span>
-                          </figcaption>
-                        </figure>
-                      </li>
-                    ) : null;
-                  })}
+                  {event.photos.map((photo, i) => (
+                    <li>
+                      <figure>
+                        <div class="plate plate-framed plate-zoom">
+                          <Image
+                            src={requireAsset(photo.src)}
+                            alt={photo.alt}
+                            widths={[400, 700]}
+                            sizes="(max-width: 61.99em) 90vw, 340px"
+                            loading="lazy"
+                            decoding="async"
+                          />
+                        </div>
+                        <figcaption class="plate-caption">
+                          <span>
+                            {`Pl. ${String(event.volume ?? 0).padStart(2, '0')}/${String(i + 1).padStart(2, '0')}`}
+                          </span>
+                        </figcaption>
+                      </figure>
+                    </li>
+                  ))}
                 </ul>
               </div>
             )}
@@ -231,14 +364,14 @@ const schema = [
     </div>
   </Section>
 
-  <Section id="around" index="B" label="Around">
-    <nav class="around" aria-label="Nearby in the record">
+  <Section id="around" size="sm">
+    <nav class="around" aria-label="Other events">
       {
         previous ? (
           <a class="around-link" href={`/events/${previous.slug}`}>
-            <span class="label">Before</span>
+            <span class="around-dir">← Before</span>
             <span class="around-title">{previous.title}</span>
-            <span class="around-date">{formatDate(previous.date)}</span>
+            <span class="around-meta">{formatDate(previous.date)}</span>
           </a>
         ) : (
           <span />
@@ -247,9 +380,9 @@ const schema = [
       {
         upNext && (
           <a class="around-link is-next" href={`/events/${upNext.slug}`}>
-            <span class="label">After</span>
+            <span class="around-dir">After →</span>
             <span class="around-title">{upNext.title}</span>
-            <span class="around-date">{formatDate(upNext.date)}</span>
+            <span class="around-meta">{formatDate(upNext.date)}</span>
           </a>
         )
       }
@@ -282,25 +415,51 @@ const schema = [
   .detail-date {
     margin-top: var(--s-6);
     font-family: var(--font-display);
-    font-size: clamp(1.8rem, 4vw, 2.8rem);
+    font-size: clamp(1.8rem, 4.5vw, 3rem);
     font-weight: 600;
     font-variation-settings:
       'SOFT' 0,
       'WONK' 1;
-    letter-spacing: -0.03em;
     line-height: 1;
+    letter-spacing: -0.035em;
   }
 
   .detail-time {
-    margin-top: var(--s-2);
+    margin-top: var(--s-3);
     font-family: var(--font-mono);
     font-size: var(--t-small);
+    letter-spacing: 0.05em;
     color: var(--clay-deep);
   }
 
+  /* --- Host ---------------------------------------------------------------- */
+  .detail-host {
+    display: grid;
+    gap: var(--s-3);
+    justify-items: start;
+    margin-top: var(--s-6);
+    padding: var(--s-5);
+    border: var(--border-hair) solid var(--rule-strong);
+    border-left: 2px solid var(--clay);
+    background: var(--paper-raised);
+  }
+
+  .detail-host-line {
+    font-size: var(--t-small);
+  }
+
+  .detail-host-note {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    line-height: 1.7;
+    color: var(--ink-3);
+    max-width: 52ch;
+  }
+
+  /* --- Meta ---------------------------------------------------------------- */
   .detail-meta {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: var(--s-5);
     margin-top: var(--s-7);
     padding-top: var(--s-5);
@@ -308,8 +467,8 @@ const schema = [
   }
 
   .detail-meta dt {
-    margin-bottom: var(--s-2);
     color: var(--ink-3);
+    margin-bottom: var(--s-2);
   }
 
   .detail-meta dd {
@@ -322,9 +481,11 @@ const schema = [
     margin-top: 2px;
     font-family: var(--font-mono);
     font-size: var(--t-micro);
+    line-height: 1.6;
     color: var(--ink-3);
   }
 
+  /* --- Blocks --------------------------------------------------------------- */
   .detail-block {
     margin-top: var(--s-7);
     padding-top: var(--s-5);
@@ -336,14 +497,30 @@ const schema = [
     margin-bottom: var(--s-4);
   }
 
-  .detail-people {
-    display: grid;
-    gap: var(--s-3);
+  .detail-agenda li,
+  .detail-people li {
+    padding-block: var(--s-3);
+    border-bottom: var(--border-hair) solid var(--rule);
   }
 
+  .detail-agenda li:last-child,
+  .detail-people li:last-child {
+    border-bottom: 0;
+  }
+
+  .agenda-time {
+    display: inline-block;
+    min-width: 6ch;
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.05em;
+    color: var(--clay-deep);
+  }
+
+  .agenda-title,
   .detail-people a {
     font-family: var(--font-display);
-    font-size: 1.2rem;
+    font-size: 1.08rem;
     font-weight: 500;
     font-variation-settings:
       'SOFT' 0,
@@ -355,25 +532,24 @@ const schema = [
     color: var(--clay-deep);
   }
 
-  .detail-outcomes {
-    display: grid;
+  .detail-outcomes li {
+    display: flex;
     gap: var(--s-3);
+    padding-block: var(--s-2);
     font-size: var(--t-small);
     color: var(--ink-2);
   }
 
-  .detail-outcomes li {
-    display: grid;
-    grid-template-columns: 14px minmax(0, 1fr);
-    gap: var(--s-3);
+  .detail-outcomes li::before {
+    content: '·';
+    color: var(--clay-deep);
   }
 
-  .detail-outcomes li::before {
-    content: '';
-    width: 6px;
-    height: 6px;
-    margin-top: 0.55em;
-    background: var(--clay);
+  .detail-open-copy {
+    max-width: 52ch;
+    font-size: var(--t-small);
+    color: var(--ink-2);
+    margin-bottom: var(--s-4);
   }
 
   .detail-actions {
@@ -381,85 +557,86 @@ const schema = [
     flex-wrap: wrap;
     align-items: center;
     gap: var(--s-5);
-    margin-top: var(--s-7);
+    margin-top: var(--s-8);
   }
 
-  /* --- Aside ------------------------------------------------------------ */
+  /* --- Aside ---------------------------------------------------------------- */
   .detail-aside {
     display: grid;
     gap: var(--s-6);
     align-content: start;
   }
 
-  .detail-aside .plate {
-    aspect-ratio: 1;
+  .detail-cover .plate {
+    aspect-ratio: 4 / 5;
   }
 
-  .detail-shots ul {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--s-3);
-  }
-
-  .detail-shots .plate {
-    aspect-ratio: 1;
-  }
-
-  /* --- Around ----------------------------------------------------------- */
-  .around {
+  .detail-photos ul {
     display: grid;
     gap: var(--s-5);
-    border-top: var(--border-heavy) solid var(--ink);
+  }
+
+  .detail-photos .plate {
+    aspect-ratio: 3 / 2;
+  }
+
+  /* --- Around ---------------------------------------------------------------- */
+  .around {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: var(--s-5);
+    padding-top: var(--s-5);
+    border-top: var(--border-hair) solid var(--rule);
   }
 
   .around-link {
     display: grid;
-    gap: var(--s-2);
-    padding-block: var(--s-5);
+    gap: var(--s-1);
     text-decoration: none;
     color: var(--ink);
+    max-width: 22rem;
   }
 
-  .around-link.is-next {
+  .is-next {
     text-align: right;
+    justify-items: end;
+  }
+
+  .around-dir {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--clay-deep);
   }
 
   .around-title {
     font-family: var(--font-display);
-    font-size: clamp(1.2rem, 2.6vw, 1.7rem);
+    font-size: var(--t-h3);
     font-weight: 500;
     font-variation-settings:
       'SOFT' 0,
       'WONK' 1;
     letter-spacing: -0.02em;
-    transition: color var(--dur-1) var(--ease-out);
   }
 
   .around-link:hover .around-title {
     color: var(--clay-deep);
   }
 
-  .around-date {
+  .around-meta {
     font-family: var(--font-mono);
     font-size: var(--t-micro);
     letter-spacing: 0.06em;
     color: var(--ink-3);
   }
 
-  @media (min-width: 56em) {
+  @media (min-width: 62em) {
     .detail.has-aside {
-      grid-template-columns: minmax(0, 1.5fr) minmax(260px, 0.8fr);
+      grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
       gap: var(--s-9);
       align-items: start;
-    }
-
-    .detail:not(.has-aside) .detail-main {
-      max-width: 72ch;
-    }
-
-    .around {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: var(--s-8);
     }
   }
 </style>

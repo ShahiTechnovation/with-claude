@@ -2,50 +2,54 @@
 /**
  * A movement of the page.
  *
- * Every section registers a tick on the meridian: a stub, its archive number,
- * and its name. That numbering is the page's index — it is what turns a scroll
- * into a record you are reading rather than a stack of marketing panels.
+ * Deliberately thin. The previous version stamped every section with a serial
+ * number and a tick on the meridian, which made eleven different ideas read as
+ * eleven entries in one scientific report. Sections now differ by ground,
+ * width and air — and each one writes its own eyebrow.
  */
 interface Props {
   id: string;
-  /** Archive number, e.g. `03`. Rendered on the meridian. */
-  index: string;
-  /** Short name shown beside the tick. */
-  label: string;
-  /** Ground the section sits on. */
-  tone?: 'paper' | 'sunk' | 'night';
-  /** `lg` gives the section extra air — use for the quiet moments. */
+  /** The ground this section sits on. */
+  tone?: 'paper' | 'sunk' | 'raised' | 'night' | 'deep';
+  /** Vertical air. `lg` is for the moments that should slow a reader down. */
   size?: 'sm' | 'md' | 'lg';
-  /** Full-width content that manages its own container. */
+  /** Content manages its own container — used for full-bleed photography. */
   bleed?: boolean;
+  width?: 'standard' | 'wide';
+  /** Id of the heading that names this section. */
+  labelledby?: string;
   class?: string;
 }
 
 const {
   id,
-  index,
-  label,
   tone = 'paper',
   size = 'md',
   bleed = false,
+  width = 'wide',
+  labelledby,
   class: className = '',
 } = Astro.props;
+
+const isDark = tone === 'night' || tone === 'deep';
 ---
 
 <section
   id={id}
-  class:list={['section', `is-${tone}`, `is-${size}`, { 'on-night': tone === 'night' }, className]}
-  aria-labelledby={`${id}-heading`}
+  class:list={[
+    'section',
+    `is-${tone}`,
+    `is-${size}`,
+    { 'on-night': isDark, 'on-deep': tone === 'deep' },
+    className,
+  ]}
+  aria-labelledby={labelledby}
 >
-  <span class="rail-anchor tick-anchor" aria-hidden="true">
-    <span class="tick" data-tick-label={label}>{index}</span>
-  </span>
-
   {
     bleed ? (
       <slot />
     ) : (
-      <div class="container-wide section-body">
+      <div class:list={[width === 'wide' ? 'container-wide' : 'container', 'section-body']}>
         <slot />
       </div>
     )
@@ -63,8 +67,12 @@ const {
     background: var(--paper-sunk);
   }
 
+  .is-raised {
+    background: var(--paper-raised);
+  }
+
   .is-sm {
-    padding-block: clamp(2.5rem, 5vw, 4rem);
+    padding-block: var(--section-y-sm);
   }
 
   .is-md {
@@ -77,31 +85,5 @@ const {
 
   .section-body {
     position: relative;
-  }
-
-  /* The tick hangs level with the section's first line of content. */
-  .tick-anchor {
-    top: var(--section-y);
-    transform: translateY(-0.15em);
-  }
-
-  .is-sm .tick-anchor {
-    top: clamp(2.5rem, 5vw, 4rem);
-  }
-
-  .is-lg .tick-anchor {
-    top: var(--section-y-lg);
-  }
-
-  .tick {
-    color: var(--clay-deep);
-    font-weight: 500;
-  }
-
-  /* Content clears the rail so the meridian and its ticks never cross text. */
-  @media (min-width: 64em) {
-    .section-body {
-      padding-left: calc(var(--gutter) + var(--rail));
-    }
   }
 </style>

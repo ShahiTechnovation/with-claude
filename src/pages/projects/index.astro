@@ -1,29 +1,34 @@
 ---
 import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
-import PageHeader from '@/components/PageHeader.astro';
+import PageIntro from '@/components/PageIntro.astro';
 import ProjectArchive from '@/components/ProjectArchive.astro';
-import { projects } from '@/data';
+import SubmitPanel from '@/components/SubmitPanel.astro';
+import { publicProjects } from '@/data';
 ---
 
 <Base
   title="Projects"
-  description="Built with Claude — an archive of what people in the Indian Claude community have actually made."
+  description="Made with Claude — an archive of what people across India have actually built."
   active="/projects"
 >
-  <PageHeader
-    record="05"
-    kicker="Projects"
-    title="Built with Claude."
-    stamp={`${String(projects.length).padStart(2, '0')} archived`}
+  <PageIntro
+    eyebrow="Projects"
+    title="Made with Claude."
+    stamp={`${String(publicProjects.length).padStart(2, '0')} archived`}
   >
     <p>
-      The long game. Every prototype from an Impact Lab, every weekend build, every thing someone
-      shipped after a workshop — filterable by city, by builder, and by what it was made with.
+      Things people across India are actually making. Every prototype from a build day, every
+      weekend project, every thing someone shipped after a workshop — with how Claude was actually
+      used, which is the part worth reading.
     </p>
-  </PageHeader>
+  </PageIntro>
 
-  <Section id="archive" index="A" label="Archive" tone="sunk">
-    <ProjectArchive />
+  <Section id="archive" tone="deep" size="lg" labelledby="projects-heading">
+    <ProjectArchive heading="The archive" eyebrow="Archive" filters />
+  </Section>
+
+  <Section id="submit" labelledby="build-heading">
+    <SubmitPanel formId="build" />
   </Section>
 </Base>

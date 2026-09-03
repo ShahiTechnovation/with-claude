@@ -1,0 +1,281 @@
+---
+import { official, participationPaths } from '@/data';
+
+/**
+ * Ways in.
+ *
+ * Six open paths and one that is not ours to give. The HOST path routes to
+ * Anthropic's Ambassador programme and says plainly that this site does not
+ * grant the status — it is set apart visually for the same reason it is set
+ * apart in the data model.
+ *
+ * Tally-backed CTAs open a popup where the embed script is available and fall
+ * back to a plain link everywhere else. The href is always real.
+ */
+interface Props {
+  showHead?: boolean;
+  heading?: string;
+  eyebrow?: string;
+}
+
+const { showHead = true, heading = 'Ways in', eyebrow = 'Take part' } = Astro.props;
+
+const usesTally = participationPaths.some((item) => item.tallyId);
+
+const paths = participationPaths.map((path) => {
+  const url = path.kind === 'official' ? official.ambassadorProgramUrl : path.url;
+  return {
+    ...path,
+    href: url ?? '#',
+    external: Boolean(url?.startsWith('http')),
+  };
+});
+
+const open = paths.filter((p) => p.kind !== 'official');
+const authorised = paths.filter((p) => p.kind === 'official');
+---
+
+<div class="ways">
+  {
+    showHead && (
+      <div class="section-head">
+        <p class="eyebrow">{eyebrow}</p>
+        <h2 id="join-heading">{heading}</h2>
+        <p class="prose">
+          Most of this is open to anyone. One part of it is not ours to hand out, and that
+          difference is the honest bit.
+        </p>
+      </div>
+    )
+  }
+
+  <ol class="paths">
+    {
+      open.map((item, i) => (
+        <li data-reveal="fade" style={`--reveal-delay:${i * 45}ms`}>
+          <a
+            class="path"
+            href={item.href}
+            target={item.external ? '_blank' : undefined}
+            rel={item.external ? 'noopener' : undefined}
+            data-tally-open={item.tallyId}
+            data-tally-layout={item.tallyId ? 'modal' : undefined}
+            data-tally-auto-close={item.tallyId ? '3000' : undefined}
+          >
+            <span class="path-num">{String(i + 1).padStart(2, '0')}</span>
+            <span class="path-body">
+              <span class="path-label">{item.label}</span>
+              <span class="path-title">{item.title}</span>
+              <span class="path-desc">{item.description}</span>
+            </span>
+            <span class="path-cta">
+              {item.ctaLabel}
+              <span class="arrow" aria-hidden="true">
+                {item.external ? '↗' : '→'}
+              </span>
+            </span>
+          </a>
+        </li>
+      ))
+    }
+  </ol>
+
+  {
+    authorised.map((item) => (
+      <div class="official">
+        <div class="official-body">
+          <p class="label official-label">{item.label} · Anthropic programme</p>
+          <h3 class="official-title">{item.title}</h3>
+          <p class="official-desc">{item.description}</p>
+          {item.note && <p class="official-note">{item.note}</p>}
+        </div>
+        <div class="official-action">
+          <a class="btn btn-solid" href={item.href} target="_blank" rel="noopener">
+            <span>{item.ctaLabel}</span>
+            <span class="arrow" aria-hidden="true">
+              ↗
+            </span>
+          </a>
+          <p class="official-fallback">
+            Opens {new URL(item.href).host} — the programme page is the authority on how to apply.
+          </p>
+        </div>
+      </div>
+    ))
+  }
+</div>
+
+{
+  usesTally && (
+    /* Loaded lazily and only because three real forms depend on it. Without it
+       the links still open the forms in a new tab. */
+    <script is:inline async src="https://tally.so/widgets/embed.js" />
+  )
+}
+
+<style>
+  .paths {
+    border-top: var(--border-heavy) solid var(--ink);
+  }
+
+  .path {
+    display: grid;
+    grid-template-columns: 4ch minmax(0, 1fr) auto;
+    align-items: start;
+    gap: var(--s-5);
+    padding-block: var(--s-6);
+    border-bottom: var(--border-hair) solid var(--rule);
+    text-decoration: none;
+    color: var(--ink);
+    transition: background var(--dur-2) var(--ease-out);
+  }
+
+  .path:hover,
+  .path:focus-visible {
+    background: color-mix(in srgb, var(--clay) 7%, transparent);
+  }
+
+  .path-num {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    color: var(--ink-3);
+    padding-top: 0.55em;
+  }
+
+  .path-body {
+    display: grid;
+    gap: var(--s-2);
+  }
+
+  .path-label {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--clay-deep);
+  }
+
+  .path-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.35rem, 2.8vw, 2rem);
+    font-weight: 500;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    line-height: 1.08;
+    letter-spacing: -0.025em;
+    transition: color var(--dur-1) var(--ease-out);
+  }
+
+  .path:hover .path-title {
+    color: var(--clay-deep);
+  }
+
+  .path-desc {
+    max-width: 54ch;
+    font-size: var(--t-small);
+    color: var(--ink-2);
+  }
+
+  .path-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-2);
+    align-self: center;
+    white-space: nowrap;
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .path-cta .arrow {
+    transition: transform var(--dur-2) var(--ease-out);
+  }
+
+  .path:hover .path-cta {
+    color: var(--ink);
+  }
+
+  .path:hover .arrow {
+    transform: translateX(3px);
+  }
+
+  /* --- The path this site does not grant ---------------------------------- */
+  .official {
+    display: grid;
+    gap: var(--s-6);
+    margin-top: var(--s-7);
+    padding: var(--s-6);
+    border: var(--border-rule) solid var(--ink);
+    background: var(--paper-raised);
+  }
+
+  .official-label {
+    color: var(--ink-3);
+  }
+
+  .official-title {
+    margin-top: var(--s-3);
+    font-size: var(--t-h3);
+    letter-spacing: -0.02em;
+  }
+
+  .official-desc {
+    margin-top: var(--s-3);
+    max-width: 56ch;
+    font-size: var(--t-small);
+    color: var(--ink-2);
+  }
+
+  .official-note {
+    margin-top: var(--s-4);
+    padding-top: var(--s-4);
+    border-top: var(--border-hair) solid var(--rule);
+    max-width: 56ch;
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    line-height: 1.75;
+    color: var(--ink-3);
+  }
+
+  .official-action {
+    display: grid;
+    gap: var(--s-3);
+    align-content: start;
+    justify-items: start;
+  }
+
+  .official-fallback {
+    max-width: 34ch;
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    line-height: 1.7;
+    color: var(--ink-3);
+  }
+
+  @media (min-width: 56em) {
+    .official {
+      grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.7fr);
+      gap: var(--s-8);
+      align-items: start;
+    }
+  }
+
+  @media (max-width: 47.99em) {
+    .path {
+      grid-template-columns: 4ch minmax(0, 1fr);
+      gap: var(--s-3) var(--s-4);
+    }
+
+    .path-cta {
+      grid-column: 2;
+      justify-self: start;
+      align-self: start;
+      margin-top: var(--s-2);
+      color: var(--clay-deep);
+    }
+  }
+</style>

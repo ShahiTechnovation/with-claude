@@ -1,0 +1,455 @@
+---
+import { cityName, eventsChronological, isAmbassadorLed } from '@/data';
+import { dateParts, isoDateTime } from '@/lib/datetime';
+import { formatName, lifecycleLabel, lifecycleOf, lifecycleTone } from '@/lib/status';
+import type { CommunityEvent } from '@/data/types';
+
+/**
+ * The event archive.
+ *
+ * A table, because a table is the right shape for eleven dated records and
+ * will still be the right shape for two hundred. What it is not is a grid of
+ * identical cards.
+ *
+ * Status is computed per row at build time and never authored. Filtering is an
+ * enhancement: every row is in the markup, so with scripts blocked the archive
+ * is complete and merely unfiltered.
+ */
+interface Props {
+  citySlug?: string;
+  limit?: number;
+  order?: 'chronological' | 'upcoming-first';
+  heading?: string;
+  eyebrow?: string;
+  showHead?: boolean;
+  showLink?: boolean;
+  filters?: boolean;
+}
+
+const {
+  citySlug,
+  limit,
+  order = 'upcoming-first',
+  heading = 'Events across India',
+  eyebrow = 'Events',
+  showHead = true,
+  showLink = true,
+  filters = false,
+} = Astro.props;
+
+const now = new Date();
+
+function sortEvents(list: CommunityEvent[]): CommunityEvent[] {
+  if (order === 'chronological') return [...list].reverse();
+  // Upcoming ascending, then past descending — the useful order.
+  const upcoming = list.filter((e) => lifecycleOf(e, now) !== 'past');
+  const past = list.filter((e) => lifecycleOf(e, now) === 'past').reverse();
+  return [...upcoming, ...past];
+}
+
+const scoped = citySlug
+  ? eventsChronological.filter((e) => e.citySlug === citySlug)
+  : eventsChronological;
+const all = sortEvents(scoped);
+const rows = limit ? all.slice(0, limit) : all;
+const remaining = all.length - rows.length;
+
+const entries = rows.map((event) => {
+  const lifecycle = lifecycleOf(event, now);
+  return {
+    event,
+    lifecycle,
+    parts: dateParts(event.date),
+    verified: isAmbassadorLed(event),
+    mode: lifecycle === 'past' ? 'past' : 'upcoming',
+  };
+});
+
+// Facets built from what is actually here.
+const formats = [...new Set(rows.map((e) => e.format))].sort();
+const cityList = [...new Set(rows.map((e) => e.citySlug))].sort();
+const hasUpcoming = entries.some((e) => e.mode === 'upcoming');
+const hasPast = entries.some((e) => e.mode === 'past');
+---
+
+<div class="archive">
+  {
+    showHead && (
+      <div class="archive-head">
+        <div class="section-head">
+          <p class="eyebrow">{eyebrow}</p>
+          <h2 id="events-heading">{heading}</h2>
+        </div>
+        {showLink && (
+          <a class="link-arrow archive-link" href="/events">
+            <span>Full record</span>
+            <span class="arrow" aria-hidden="true">
+              →
+            </span>
+          </a>
+        )}
+      </div>
+    )
+  }
+
+  {
+    filters && (
+      <div class="filters" data-filter-root>
+        {hasUpcoming && hasPast && (
+          <div class="filter-group" role="group" aria-label="Filter by when">
+            <span class="label filter-label">When</span>
+            <button class="filter is-on" type="button" data-filter="mode" data-value="all">
+              All
+            </button>
+            <button class="filter" type="button" data-filter="mode" data-value="upcoming">
+              Upcoming
+            </button>
+            <button class="filter" type="button" data-filter="mode" data-value="past">
+              Past
+            </button>
+          </div>
+        )}
+
+        {formats.length > 1 && (
+          <div class="filter-group" role="group" aria-label="Filter by format">
+            <span class="label filter-label">Format</span>
+            <button class="filter is-on" type="button" data-filter="format" data-value="all">
+              All
+            </button>
+            {formats.map((format) => (
+              <button class="filter" type="button" data-filter="format" data-value={format}>
+                {formatName(format)}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {cityList.length > 1 && (
+          <div class="filter-group" role="group" aria-label="Filter by city">
+            <span class="label filter-label">City</span>
+            <button class="filter is-on" type="button" data-filter="city" data-value="all">
+              All
+            </button>
+            {cityList.map((slug) => (
+              <button class="filter" type="button" data-filter="city" data-value={slug}>
+                {cityName(slug)}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <p class="filter-count" data-filter-count aria-live="polite" />
+      </div>
+    )
+  }
+
+  <div class="table">
+    <div class="row row-head" aria-hidden="true">
+      <span>Vol.</span>
+      <span>Date</span>
+      <span>Event</span>
+      <span>Format</span>
+      <span>City</span>
+      <span>Status</span>
+    </div>
+
+    <ul>
+      {
+        entries.map((entry) => (
+          <li
+            data-filter-item
+            data-mode={entry.mode}
+            data-format={entry.event.format}
+            data-city={entry.event.citySlug}
+          >
+            <a class="row" href={`/events/${entry.event.slug}`}>
+              <span class="cell-vol">
+                {entry.event.volume ? String(entry.event.volume).padStart(2, '0') : '—'}
+              </span>
+              <time
+                class="cell-date"
+                datetime={isoDateTime(entry.event.date, entry.event.startTime)}
+              >
+                <span class="cell-date-day">{`${entry.parts.dayPadded} ${entry.parts.monthShort}`}</span>
+                <span class="cell-date-year">{entry.parts.year}</span>
+              </time>
+              <span class="cell-title">
+                {entry.event.title}
+                {entry.verified && (
+                  <span class="cell-verified" title="Hosted by a Claude Community Ambassador">
+                    <span class="visually-hidden">Hosted by a Claude Community Ambassador</span>
+                    <span aria-hidden="true">✳</span>
+                  </span>
+                )}
+              </span>
+              <span class="cell-format">{formatName(entry.event.format)}</span>
+              <span class="cell-city">{cityName(entry.event.citySlug)}</span>
+              <span class:list={['pip', `pip-${lifecycleTone(entry.lifecycle)}`, 'cell-status']}>
+                {lifecycleLabel(entry.lifecycle)}
+              </span>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+
+  {
+    remaining > 0 && (
+      <a class="index-more" href="/events">
+        <span>{`${remaining} more in the record`}</span>
+        <span class="arrow" aria-hidden="true">
+          →
+        </span>
+      </a>
+    )
+  }
+
+  {
+    filters && (
+      <p class="archive-note">
+        <span aria-hidden="true">✳</span> Hosted by a Claude Community Ambassador — a programme
+        Anthropic runs. Events without the mark are community activity on the record.
+      </p>
+    )
+  }
+</div>
+
+{filters && <script>import '@/scripts/filters';</script>}
+
+<style>
+  .archive-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--s-4);
+  }
+
+  .archive-head .section-head {
+    margin-bottom: var(--s-6);
+  }
+
+  .archive-link {
+    margin-bottom: var(--s-7);
+  }
+
+  /* --- Filters ------------------------------------------------------------ */
+  .filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-4) var(--s-6);
+    padding-bottom: var(--s-5);
+    margin-bottom: var(--s-5);
+    border-bottom: var(--border-hair) solid var(--rule);
+  }
+
+  .filter-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-2);
+  }
+
+  .filter-label {
+    color: var(--ink-3);
+    margin-right: var(--s-2);
+  }
+
+  .filter {
+    padding: 0.42rem 0.7rem;
+    border: var(--border-hair) solid var(--rule-strong);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    transition:
+      background var(--dur-1) var(--ease-out),
+      border-color var(--dur-1) var(--ease-out),
+      color var(--dur-1) var(--ease-out);
+  }
+
+  .filter:hover {
+    border-color: var(--ink);
+    color: var(--ink);
+  }
+
+  .filter.is-on {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--paper);
+  }
+
+  .filter-count {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  /* --- Table --------------------------------------------------------------- */
+  .table {
+    border-top: var(--border-heavy) solid var(--ink);
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns:
+      4ch minmax(84px, 0.5fr) minmax(0, 2fr)
+      minmax(0, 0.8fr) minmax(0, 0.7fr) minmax(0, 0.95fr);
+    align-items: baseline;
+    gap: var(--s-4);
+    padding-block: var(--s-4);
+    border-bottom: var(--border-hair) solid var(--rule);
+    text-decoration: none;
+    color: var(--ink);
+    transition: background var(--dur-1) var(--ease-out);
+  }
+
+  a.row:hover,
+  a.row:focus-visible {
+    background: color-mix(in srgb, var(--clay) 7%, transparent);
+  }
+
+  .row-head {
+    padding-block: var(--s-3);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .cell-vol,
+  .cell-date,
+  .cell-format,
+  .cell-city {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .cell-date {
+    display: flex;
+    gap: var(--s-2);
+    white-space: nowrap;
+  }
+
+  .cell-date-day {
+    color: var(--ink-2);
+  }
+
+  .cell-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.02rem, 1.9vw, 1.28rem);
+    font-weight: 500;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    letter-spacing: -0.015em;
+    transition: color var(--dur-1) var(--ease-out);
+  }
+
+  a.row:hover .cell-title {
+    color: var(--clay-deep);
+  }
+
+  .cell-verified {
+    margin-left: 0.4em;
+    color: var(--clay-deep);
+    font-size: 0.7em;
+    vertical-align: 0.2em;
+  }
+
+  .cell-status {
+    font-size: var(--t-micro);
+    letter-spacing: 0.08em;
+    justify-self: start;
+  }
+
+  li[hidden] {
+    display: none;
+  }
+
+  .index-more {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-3);
+    margin-top: var(--s-5);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+    text-decoration: none;
+  }
+
+  .index-more:hover {
+    color: var(--clay-deep);
+  }
+
+  .archive-note {
+    margin-top: var(--s-6);
+    max-width: 64ch;
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    line-height: 1.75;
+    color: var(--ink-3);
+  }
+
+  .archive-note span[aria-hidden] {
+    color: var(--clay-deep);
+  }
+
+  /* --- Mobile: rows become records ----------------------------------------- */
+  @media (max-width: 61.99em) {
+    .row-head {
+      display: none;
+    }
+
+    .row {
+      grid-template-columns: 4ch minmax(0, 1fr) auto;
+      gap: var(--s-1) var(--s-4);
+      padding-block: var(--s-5);
+    }
+
+    .cell-date {
+      grid-column: 2;
+      grid-row: 1;
+    }
+
+    .cell-status {
+      grid-column: 3;
+      grid-row: 1;
+      justify-self: end;
+    }
+
+    .cell-title {
+      grid-column: 2 / -1;
+      grid-row: 2;
+      margin-block: var(--s-1);
+    }
+
+    .cell-format {
+      grid-column: 2;
+      grid-row: 3;
+    }
+
+    .cell-city {
+      grid-column: 3;
+      grid-row: 3;
+      justify-self: end;
+    }
+
+    .cell-vol {
+      grid-row: 1 / 4;
+    }
+  }
+</style>

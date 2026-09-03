@@ -1,0 +1,94 @@
+---
+import Mark from './Mark.astro';
+import { site } from '@/data';
+
+/**
+ * WITH CLAUDE — the wordmark.
+ *
+ * Two words, two weights. WITH is the light italic and CLAUDE is the heavy
+ * roman, so the relationship reads before the words do: the community is the
+ * preposition, not the product. It is set in Fraunces rather than borrowing
+ * Anthropic's identity, because this is an independent community site.
+ *
+ * `with` is the brand's recurring device — WITH PEOPLE, WITH YOUR CITY, MADE
+ * WITH CLAUDE. It earns that by being the first word of the name, which is
+ * also why it must not be sprayed across every heading.
+ */
+interface Props {
+  layout?: 'inline' | 'stacked';
+  /** Show the station mark alongside. */
+  mark?: boolean;
+  size?: 'sm' | 'md' | 'lg' | 'xl';
+  class?: string;
+}
+
+const { layout = 'inline', mark = false, size = 'md', class: className = '' } = Astro.props;
+const [first, second] = site.wordmark.split(' ');
+---
+
+<span class:list={['wm', `wm-${layout}`, `wm-${size}`, className]}>
+  {mark && <Mark size={size === 'sm' ? 16 : 20} class="wm-mark" />}
+  <span class="wm-text">
+    <span class="wm-with">{first}</span>
+    <span class="wm-claude">{second}</span>
+  </span>
+</span>
+
+<style>
+  .wm {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-3);
+    color: var(--ink);
+  }
+
+  .wm-text {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.3em;
+    font-family: var(--font-display);
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    line-height: 0.92;
+    letter-spacing: -0.015em;
+    text-transform: uppercase;
+  }
+
+  .wm-stacked .wm-text {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.02em;
+  }
+
+  /* The preposition: light, italic, clay. */
+  .wm-with {
+    font-weight: 400;
+    font-style: italic;
+    color: var(--clay-deep);
+    letter-spacing: 0.01em;
+  }
+
+  /* The subject: heavy, roman, ink. */
+  .wm-claude {
+    font-weight: 700;
+  }
+
+  .wm-sm .wm-text {
+    font-size: 1rem;
+  }
+  .wm-md .wm-text {
+    font-size: 1.22rem;
+  }
+  .wm-lg .wm-text {
+    font-size: clamp(1.8rem, 3.4vw, 2.6rem);
+  }
+  .wm-xl .wm-text {
+    font-size: clamp(2.6rem, 7.5vw, 5.4rem);
+    letter-spacing: -0.03em;
+  }
+
+  .wm :global(.wm-mark) {
+    color: var(--clay-deep);
+  }
+</style>

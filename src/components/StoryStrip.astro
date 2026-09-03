@@ -1,0 +1,301 @@
+---
+import { Image } from 'astro:assets';
+import { cityName, communityChannel, photoRecord, storiesChronological } from '@/data';
+import { dateParts } from '@/lib/datetime';
+import { requireAsset } from '@/lib/images';
+
+/**
+ * FROM THE COMMUNITY.
+ *
+ * The photographic record is the archive, not a stand-in for one. Written
+ * pieces join it when they are written; until then this section makes no
+ * excuses for being pictures, because pictures of real rooms are the strongest
+ * evidence on the site.
+ *
+ * A horizontal set of plates you scroll, not an autoplaying carousel: no
+ * timers, no hover-only affordances, and it works with a trackpad, a finger,
+ * or the Tab key.
+ */
+interface Props {
+  showHead?: boolean;
+  heading?: string;
+  eyebrow?: string;
+}
+
+const { showHead = true, heading = 'From the community', eyebrow = 'Stories' } = Astro.props;
+
+const plates = photoRecord();
+const written = storiesChronological();
+---
+
+<div class="floor">
+  {
+    showHead && (
+      <div class="container-wide floor-head">
+        <div class="section-head">
+          <p class="eyebrow">{eyebrow}</p>
+          <h2 id="stories-heading">{heading}</h2>
+          <p class="prose">
+            Rooms, in the order they happened. Every frame below is from an event on the record,
+            with the caption it was filed under.
+          </p>
+        </div>
+        <p class="label floor-hint">
+          <span aria-hidden="true">←→</span>
+          {`${String(plates.length).padStart(2, '0')} plates`}
+        </p>
+      </div>
+    )
+  }
+
+  {
+    written.length > 0 && (
+      <div class="container-wide floor-written">
+        <ul class="dispatches">
+          {written.slice(0, 3).map((story) => {
+            const parts = dateParts(story.date);
+            return (
+              <li>
+                <a href={`/stories/${story.slug}`}>
+                  <span class="label dispatch-kind">{story.kind.replace('-', ' ')}</span>
+                  <span class="dispatch-title">{story.title}</span>
+                  <span class="dispatch-standfirst">{story.standfirst}</span>
+                  <span class="dispatch-meta">
+                    {`${parts.monthShort} ${parts.year}`}
+                    {story.citySlug ? ` · ${cityName(story.citySlug)}` : ''}
+                  </span>
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    )
+  }
+
+  <ul class="floor-track" tabindex="0" aria-label="Photographs from past events, scrollable">
+    {
+      plates.map((plate, i) => {
+        const parts = dateParts(plate.event.date);
+        return (
+          <li class:list={['floor-item', { 'is-lead': i === 0 }]}>
+            <figure>
+              <a class="plate plate-framed plate-zoom" href={`/events/${plate.event.slug}`}>
+                <Image
+                  src={requireAsset(plate.src)}
+                  alt={plate.alt}
+                  widths={[380, 620, 900]}
+                  sizes="(max-width: 47.99em) 80vw, 440px"
+                  loading="lazy"
+                  decoding="async"
+                />
+                {/* The photograph's alt describes the picture; the link also
+                    has to say where it goes. The caption below is a sibling of
+                    the anchor, so it cannot name it. */}
+                <span class="visually-hidden">
+                  {`${plate.event.title}, ${cityName(plate.event.citySlug)}, ${parts.monthShort} ${parts.year}`}
+                </span>
+              </a>
+              <figcaption class="plate-caption floor-caption">
+                <span class="floor-plate-no">{`Pl. ${plate.plate}`}</span>
+                <span class="floor-where">{plate.event.title}</span>
+                <span class="floor-when">
+                  {`${cityName(plate.event.citySlug)} · ${parts.monthShort} ${parts.year}`}
+                </span>
+              </figcaption>
+            </figure>
+          </li>
+        );
+      })
+    }
+
+    <li class="floor-item floor-item-end">
+      <div class="floor-end">
+        <p class="floor-end-copy">Were you in one of these rooms?</p>
+        <p class="floor-end-sub">
+          The archive takes photographs, write-ups and recaps from anyone who was there.
+        </p>
+        <a class="link-arrow" href={communityChannel.url} target="_blank" rel="noopener">
+          <span>Send them in</span>
+          <span class="arrow" aria-hidden="true">↗</span>
+        </a>
+      </div>
+    </li>
+  </ul>
+</div>
+
+<style>
+  .floor {
+    /* Distance from the viewport edge to the content column. 100% is this
+       band's own width, so there is no scrollbar drift. */
+    --edge: max(var(--gutter), calc((100% - var(--measure-wide)) / 2 + var(--gutter)));
+    --track-pad: var(--gutter);
+  }
+
+  .floor-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--s-4);
+  }
+
+  .floor-head .section-head {
+    margin-bottom: var(--s-6);
+  }
+
+  .floor-hint {
+    color: var(--ink-3);
+    margin-bottom: var(--s-7);
+  }
+
+  /* --- Written dispatches, when they exist -------------------------------- */
+  .floor-written {
+    margin-bottom: var(--s-8);
+  }
+
+  .dispatches {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+    gap: var(--s-6);
+    border-top: var(--border-heavy) solid var(--ink);
+    padding-top: var(--s-5);
+  }
+
+  .dispatches a {
+    display: grid;
+    gap: var(--s-2);
+    text-decoration: none;
+    color: var(--ink);
+  }
+
+  .dispatch-kind {
+    color: var(--clay-deep);
+  }
+
+  .dispatch-title {
+    font-family: var(--font-display);
+    font-size: var(--t-h3);
+    font-weight: 600;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    letter-spacing: -0.02em;
+  }
+
+  .dispatch-standfirst {
+    font-size: var(--t-small);
+    color: var(--ink-2);
+  }
+
+  .dispatch-meta {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  /* --- The contact sheet --------------------------------------------------- */
+  .floor-track {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--s-5);
+    padding-inline: var(--track-pad);
+    padding-bottom: var(--s-4);
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    /* Without this the snap container scrolls its own leading padding away and
+       clips the first plate against the viewport edge. */
+    scroll-padding-left: var(--track-pad);
+    scrollbar-width: thin;
+    scrollbar-color: var(--rule-strong) transparent;
+    overscroll-behavior-x: contain;
+  }
+
+  .floor-track:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 4px;
+  }
+
+  .floor-item {
+    flex: 0 0 auto;
+    width: min(80vw, 400px);
+    scroll-snap-align: start;
+  }
+
+  .floor-item .plate {
+    aspect-ratio: 3 / 2;
+  }
+
+  /* The first frame leads at a larger size — a contact sheet laid out by hand,
+     not a row of equal tiles. */
+  .is-lead {
+    width: min(88vw, 560px);
+  }
+
+  .floor-item:nth-child(3n + 3) .plate {
+    aspect-ratio: 4 / 5;
+  }
+
+  .floor-item:nth-child(3n + 3) {
+    width: min(62vw, 310px);
+    align-self: flex-end;
+  }
+
+  .floor-caption {
+    display: grid;
+    gap: 1px;
+  }
+
+  .floor-plate-no {
+    color: var(--clay-deep);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .floor-where {
+    color: var(--ink-2);
+  }
+
+  /* --- Closing panel ------------------------------------------------------ */
+  .floor-item-end {
+    width: min(74vw, 300px);
+    align-self: center;
+  }
+
+  .floor-end {
+    display: grid;
+    gap: var(--s-3);
+    justify-items: start;
+    padding-left: var(--s-5);
+    border-left: var(--border-rule) solid var(--clay);
+  }
+
+  .floor-end-copy {
+    font-family: var(--font-display);
+    font-size: 1.35rem;
+    font-style: italic;
+    font-weight: 400;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    line-height: 1.2;
+  }
+
+  .floor-end-sub {
+    font-size: var(--t-small);
+    color: var(--ink-2);
+  }
+
+  /* The track bleeds to the right edge, but its first plate must line up with
+     every other section's content column. */
+  @media (min-width: 62em) {
+    .floor {
+      --track-pad: var(--edge);
+    }
+
+    .floor-track {
+      gap: var(--s-6);
+    }
+  }
+</style>

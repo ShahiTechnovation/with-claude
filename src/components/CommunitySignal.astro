@@ -1,0 +1,290 @@
+---
+import { cityName, communitySignal, nationalSignal } from '@/data';
+import { dateParts } from '@/lib/datetime';
+
+/**
+ * THE SIGNAL — what is happening across India, right now.
+ *
+ * Two halves that answer the same question differently: a set of counts, and
+ * the stream of things those counts are made of.
+ *
+ * Every figure is counted from the record. The one figure that is not — the
+ * community size a city reported about itself — is kept out of the row
+ * entirely and rendered as an attributed footnote, because a self-reported
+ * number sitting in a grid of derived ones is how a site starts lying.
+ *
+ * The feed is generated, not authored. There is no file of activity items to
+ * pad, so a quiet week reads as a quiet week.
+ */
+const signal = nationalSignal();
+const feed = communitySignal(5);
+
+const counts = [
+  { value: signal.eventsHeld, label: 'Events held', note: 'on the record' },
+  { value: signal.eventsScheduled, label: 'On the calendar', note: 'ahead of us', accent: true },
+  { value: signal.citiesAmbassadorLed, label: 'Ambassador-led', note: 'verified' },
+  { value: signal.citiesPlotted, label: 'Cities plotted', note: 'across India' },
+  { value: signal.builders, label: 'Builders indexed', note: 'and open' },
+  { value: signal.projects, label: 'Projects archived', note: 'submissions open' },
+];
+---
+
+<div class="signal">
+  <div class="signal-head">
+    <h2 id="signal-heading" class="signal-title">
+      <span class="pip pip-live" aria-hidden="true"></span>
+      The signal
+    </h2>
+    <p class="signal-sub">What is happening across India</p>
+  </div>
+
+  <div class="signal-body">
+    <dl class="signal-counts">
+      {
+        counts.map((cell) => (
+          <div class:list={['count', { 'is-accent': cell.accent, 'is-zero': cell.value === 0 }]}>
+            <dd class="count-value">{String(cell.value).padStart(2, '0')}</dd>
+            <dt class="count-label">{cell.label}</dt>
+            <p class="count-note">{cell.note}</p>
+          </div>
+        ))
+      }
+    </dl>
+
+    <div class="signal-feed">
+      <h3 class="label feed-head">Recently</h3>
+      {
+        feed.length > 0 ? (
+          <ol class="feed">
+            {feed.map((item) => {
+              const parts = dateParts(item.date);
+              const scheduled = item.kind === 'event-scheduled';
+              return (
+                <li class:list={['feed-item', { 'is-ahead': scheduled }]}>
+                  <a href={item.href ?? '#'}>
+                    <span class="feed-date">{`${parts.dayPadded} ${parts.monthShort}`}</span>
+                    <span class="feed-text">
+                      <span class="feed-subject">{item.subject}</span>
+                      <span class="feed-action">{item.action}</span>
+                    </span>
+                    {item.citySlug && <span class="feed-city">{cityName(item.citySlug)}</span>}
+                  </a>
+                </li>
+              );
+            })}
+          </ol>
+        ) : (
+          <p class="feed-empty">Nothing on the record yet.</p>
+        )
+      }
+    </div>
+  </div>
+
+  {
+    signal.reportedSources.length > 0 && signal.reportedMembers && (
+      <p class="signal-footnote">
+        Separately, {signal.reportedMembers}+ people are reported as part of the community locally.
+        That figure is self-reported and not independently verified —{' '}
+        {signal.reportedSources.join('; ')}. It is deliberately kept out of the counts above, which
+        are derived from the record.
+      </p>
+    )
+  }
+</div>
+
+<style>
+  .signal-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--s-3);
+    padding-bottom: var(--s-4);
+    border-bottom: var(--border-heavy) solid var(--ink);
+  }
+
+  .signal-title {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-3);
+    font-size: var(--t-h3);
+    letter-spacing: -0.02em;
+  }
+
+  .signal-sub {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .signal-body {
+    display: grid;
+    gap: var(--s-7);
+  }
+
+  /* --- Counts ------------------------------------------------------------ */
+  .signal-counts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+
+  .count {
+    padding: var(--s-5) var(--s-4) var(--s-4) 0;
+    border-bottom: var(--border-hair) solid var(--rule);
+  }
+
+  .count-value {
+    font-family: var(--font-display);
+    font-size: clamp(1.9rem, 3.6vw, 2.9rem);
+    font-weight: 600;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    line-height: 0.9;
+    letter-spacing: -0.045em;
+    font-variant-numeric: lining-nums tabular-nums;
+  }
+
+  .is-accent .count-value {
+    color: var(--clay-deep);
+    font-style: italic;
+    font-weight: 400;
+  }
+
+  /* A zero is a real reading, not a gap. It should look considered. */
+  .is-zero .count-value {
+    color: var(--ink-3);
+  }
+
+  .count-label {
+    margin-top: var(--s-3);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    font-weight: 500;
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+  }
+
+  .count-note {
+    margin-top: 2px;
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.04em;
+    color: var(--ink-3);
+  }
+
+  /* --- Feed -------------------------------------------------------------- */
+  .feed-head {
+    padding-bottom: var(--s-3);
+    border-bottom: var(--border-hair) solid var(--rule-strong);
+    color: var(--ink-3);
+  }
+
+  .feed-item a {
+    display: grid;
+    grid-template-columns: 5.5ch minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: var(--s-4);
+    padding-block: var(--s-3);
+    border-bottom: var(--border-hair) solid var(--rule);
+    text-decoration: none;
+    color: var(--ink-2);
+    transition: color var(--dur-1) var(--ease-out);
+  }
+
+  .feed-item a:hover,
+  .feed-item a:focus-visible {
+    color: var(--ink);
+  }
+
+  .feed-date {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .is-ahead .feed-date {
+    color: var(--clay-deep);
+  }
+
+  .feed-text {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--s-2) var(--s-3);
+  }
+
+  .feed-subject {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 500;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    color: var(--ink);
+  }
+
+  .feed-action,
+  .feed-city {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .feed-city {
+    white-space: nowrap;
+  }
+
+  .feed-empty {
+    padding-block: var(--s-5);
+    font-size: var(--t-small);
+    color: var(--ink-3);
+  }
+
+  .signal-footnote {
+    margin-top: var(--s-5);
+    max-width: 72ch;
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    line-height: 1.75;
+    color: var(--ink-3);
+  }
+
+  /* Vertical hairlines between counts, but never a trailing one. */
+  @media (min-width: 42em) {
+    .count {
+      padding-left: var(--s-5);
+      border-left: var(--border-hair) solid var(--rule);
+    }
+
+    .count:first-child {
+      padding-left: 0;
+      border-left: 0;
+    }
+  }
+
+  @media (min-width: 68em) {
+    .signal-body {
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+      gap: var(--s-9);
+      align-items: start;
+    }
+
+    .signal-counts {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .count:nth-child(4) {
+      padding-left: 0;
+      border-left: 0;
+    }
+  }
+</style>

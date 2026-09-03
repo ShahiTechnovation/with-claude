@@ -1,24 +1,64 @@
-import type { FaqItem, Involvement, Partner, SocialLink } from './types';
+import type { FaqItem, ParticipationPath, Partner, SocialLink } from './types';
 
 export const site = {
-  name: 'Claude India',
-  shortName: 'Claude India',
-  domain: 'claudeindia.in',
-  url: 'https://claudeindia.in',
-  tagline: 'Where India builds with Claude.',
-  headline: 'India is building.',
+  /** The brand, as it is written. */
+  name: 'With Claude',
+  /** The brand, as it is set. Used wherever the wordmark is typographic. */
+  wordmark: 'WITH CLAUDE',
+  domain: 'withclaude.in',
+  url: 'https://withclaude.in',
+
+  /** The manifesto. One line, and it is the loudest thing on the site. */
+  manifesto: 'India is building.',
+
+  /** The descriptor. What this is, in one sentence. */
+  descriptor: 'Where people across India meet, learn, experiment and build with Claude.',
+
+  /** The positioning line, for search results and social cards. */
+  positioning: "India's community for people building, learning and experimenting with Claude.",
+
   description:
-    'A community record of the people across India who meet, learn and ship with Claude. Events, cities, builders and projects — in one place.',
+    "India's community for people building, learning and experimenting with Claude. Find events, cities, builders and projects across the country.",
+
   /**
-   * Legal precision (brief §30): this is an independent community, not an
-   * Anthropic property. This line is rendered in the footer and must not be
-   * softened without checking with the organisers.
+   * Legal precision. This is a community *around* Claude, organised by the
+   * people in it. It is not an Anthropic property, an official Anthropic
+   * programme, or an endorsed representative of one — and the copy must never
+   * imply otherwise. Do not soften this line without checking with Anthropic.
    */
   affiliation:
-    'An independent, non-commercial community of people who build with Claude. Not affiliated with, endorsed by, or operated by Anthropic.',
+    'An independent, volunteer-run community of people who build with Claude. Not affiliated with, endorsed by, or operated by Anthropic. Claude and Anthropic are trademarks of Anthropic PBC.',
+
+  /**
+   * The one place the Ambassador relationship is explained. Rendered wherever
+   * someone is about to assume this site can make them an Ambassador.
+   */
+  ambassadorNote:
+    'Claude Community Ambassadors are appointed by Anthropic. Applications go through Anthropic — not through this site.',
+
   locale: 'en_IN',
   timezone: 'Asia/Kolkata',
 } as const;
+
+/**
+ * Official destinations.
+ *
+ * `ambassadorProgramUrl` is the confirmed home of the Claude Community
+ * Ambassador programme, and it is required rather than optional: every
+ * "Become an Ambassador" CTA on this site goes there and nowhere else. Typing
+ * it as a plain `string` is what removes the possibility of a fallback — a
+ * generic anthropic.com link would leave someone who wants to host events
+ * navigating for the page themselves.
+ */
+export const official: {
+  ambassadorProgramUrl: string;
+  anthropic: string;
+  claude: string;
+} = {
+  ambassadorProgramUrl: 'https://claude.com/community/ambassadors',
+  anthropic: 'https://www.anthropic.com',
+  claude: 'https://claude.ai',
+};
 
 export const socials: SocialLink[] = [
   { label: 'Telegram', url: 'https://t.me/tog_guild' },
@@ -27,22 +67,34 @@ export const socials: SocialLink[] = [
   { label: 'LinkedIn', url: 'https://www.linkedin.com/company/theoriginguild' },
 ];
 
+/** The channel where the community actually talks. Used as a real fallback. */
+export const communityChannel = {
+  label: 'Telegram',
+  url: 'https://t.me/tog_guild',
+};
+
 export const partners: Partner[] = [
   {
     id: 'ptr-origin-guild',
+    slug: 'the-origin-guild',
+    status: 'published',
     name: 'The Origin Guild',
-    role: 'Hosts the Bhopal chapter',
+    role: 'Organises community events in Bhopal',
     url: 'https://t.me/tog_guild',
     citySlug: 'bhopal',
   },
   {
     id: 'ptr-builder-base',
+    slug: 'builder-base',
+    status: 'published',
     name: 'Builder Base',
     role: 'Co-hosted the Claude Code Impact Lab',
     citySlug: 'bhopal',
   },
   {
     id: 'ptr-aic-rntu',
+    slug: 'aic-rntu-foundation',
+    status: 'published',
     name: 'AIC-RNTU Foundation',
     role: 'Venue, Claude Code Workshop (vol. 09)',
     citySlug: 'bhopal',
@@ -50,84 +102,121 @@ export const partners: Partner[] = [
 ];
 
 /**
- * Ways in. The three Tally forms are live and were created by the Bhopal
- * chapter; `tallyId` opens them as a popup with the plain URL as a no-JS
- * fallback.
+ * Ways in.
+ *
+ * Note what is *not* here: there is no path that lets a visitor start a
+ * chapter. Hosting Claude Community events is an Anthropic programme, so the
+ * HOST path routes to Anthropic and says so. Everything else is genuinely open
+ * to anyone.
+ *
+ * The three Tally forms are live and were created by the Bhopal organisers.
+ * The two `submission` paths are handled on-site by `SubmitPanel`.
  */
-export const involvement: Involvement[] = [
+export const participationPaths: ParticipationPath[] = [
   {
     id: 'attend',
     label: 'Attend',
-    title: 'Come to the next one',
+    title: 'Find an event',
     description:
-      'Every event is free and open. Registration is by approval on Luma, so put your name down early.',
-    ctaLabel: 'See upcoming events',
+      'Every event so far has been free and open, with registration by approval. Start with whatever is next on the calendar.',
+    ctaLabel: 'See what is on',
+    kind: 'internal',
     url: '/events',
   },
   {
-    id: 'host',
-    label: 'Host',
-    title: 'Start a chapter in your city',
+    id: 'build',
+    label: 'Build',
+    title: 'Submit what you made',
     description:
-      'Every open dot on the map is a city where the first Claude event has not happened yet. If you want to run it where you live, say hello in the group.',
-    ctaLabel: 'Talk to the organisers',
-    url: 'https://t.me/tog_guild',
+      'Anything you built with Claude — a product, an agent, a tool, a weekend experiment. Submissions are reviewed before they are published.',
+    ctaLabel: 'Add your build',
+    kind: 'submission',
+    formId: 'project',
+    url: '/join#build',
+  },
+  {
+    id: 'contribute',
+    label: 'Contribute',
+    title: 'Add yourself to the builder index',
+    description:
+      'Say who you are, where you are, and what you are building. This is an open index, not an appointment — anyone building with Claude can be in it.',
+    ctaLabel: 'Add yourself',
+    kind: 'submission',
+    formId: 'builder',
+    url: '/join#contribute',
   },
   {
     id: 'speak',
     label: 'Speak',
-    title: 'Give a talk or mentor',
+    title: 'Give a talk or a demo',
     description:
-      'Run a session, walk a room through what you built, or mentor a team through an Impact Lab.',
+      'Run a session, walk a room through something you built, or mentor a team through a build day.',
     ctaLabel: 'Submit a talk',
+    kind: 'external',
     url: 'https://tally.so/r/Y5lNo6',
     tallyId: 'Y5lNo6',
   },
   {
+    id: 'volunteer',
+    label: 'Volunteer',
+    title: 'Help run the room',
+    description:
+      'Check-in, stage, photographs, and the unglamorous work that makes a room feel welcoming.',
+    ctaLabel: 'Join the crew',
+    kind: 'external',
+    url: 'https://tally.so/r/D46gXj',
+    tallyId: 'D46gXj',
+  },
+  {
     id: 'partner',
     label: 'Partner',
-    title: 'Co-host with your community',
+    title: 'Bring a venue or a community',
     description:
-      'Share a venue, co-run a workshop, or bring your members along. Community partners, campuses and spaces welcome.',
+      'Share a space, co-run a session, or bring your members along. Campuses, communities and workspaces welcome.',
     ctaLabel: 'Collaborate',
+    kind: 'external',
     url: 'https://tally.so/r/dWeBZy',
     tallyId: 'dWeBZy',
   },
   {
-    id: 'volunteer',
-    label: 'Volunteer',
-    title: 'Join the crew',
+    id: 'host',
+    label: 'Host',
+    title: 'Lead Claude Community events',
     description:
-      'Check-in, stage, photos, and the unglamorous work of making a room feel welcoming.',
-    ctaLabel: 'Join the crew',
-    url: 'https://tally.so/r/D46gXj',
-    tallyId: 'D46gXj',
+      'Claude Community events are hosted by Claude Community Ambassadors. It is a programme Anthropic runs, and the application goes to them.',
+    ctaLabel: 'Become an Ambassador',
+    kind: 'official',
+    note: site.ambassadorNote,
   },
 ];
 
 export const faq: FaqItem[] = [
   {
+    q: 'Is this run by Anthropic?',
+    a: 'No. This is an independent, volunteer-run community of people who build with Claude. Anthropic runs the Claude Community Ambassador programme that some of the events here are hosted under, but this website is not an Anthropic property and does not speak for them.',
+  },
+  {
     q: 'Is it free?',
-    a: 'Yes. Every event so far has been free. Entry is by approval on Luma, so register early.',
+    a: 'Every event on the record so far has been free. Registration is usually by approval, so put your name down early.',
   },
   {
     q: 'Do I need to know how to code?',
-    a: 'No. Impact Lab teams deliberately mix developers with designers, students, and people who simply know the city and its problems well.',
+    a: 'No. Build days deliberately mix developers with designers, students, and people who simply know a city and its problems well.',
   },
   {
     q: 'What should I bring?',
     a: 'A charged laptop and a charger. Sessions use public data only — no special access needed.',
   },
   {
-    q: 'There is no chapter in my city. Can I start one?',
-    a: 'Yes, and that is the fastest way to grow this. Message the organisers on Telegram and they will walk you through how Bhopal did it.',
+    q: 'There is nothing happening in my city. What can I do?',
+    a: 'Two things, and they are different. You can register interest for your city, which is a signal for where community activity should go next — it is not an application and it does not create a chapter. And if you want to host Claude Community events yourself, that means becoming a Claude Community Ambassador, which is a programme Anthropic runs.',
   },
   {
-    q: 'Is this run by Anthropic?',
-    a: 'No. This is an independent, non-commercial community of people who build with Claude. It is organised by volunteers, currently through The Origin Guild in Bhopal.',
+    q: 'How do I get into the builder index?',
+    a: 'Add yourself. Anyone building with Claude in India can submit an entry — it is reviewed before it appears, and being in the index is not the same as being an Ambassador or an organiser.',
   },
   {
     q: 'How do I hear about new dates?',
-    a: 'New dates and new cities land in the Telegram group first.',
+    a: 'New dates land in the community channel first, and every scheduled event appears on this site the moment it is confirmed.',
   },
 ];

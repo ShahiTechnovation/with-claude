@@ -1,5 +1,5 @@
 /* =========================================================================
-   CLAUDE INDIA — DESIGN TOKENS
+   WITH CLAUDE — DESIGN TOKENS
    The only place raw values live. Nothing below this file hard-codes a colour,
    a size, or a duration.
    ========================================================================= */
@@ -7,97 +7,102 @@
 :root {
   /* --- SURFACES -------------------------------------------------------- */
   /* Warm paper is the ground. The site is a printed record, not a screen UI. */
-  --paper: #f2eee6;
-  --paper-sunk: #e8e2d5; /* recessed bands, table stripes */
-  --paper-raised: #fbf9f4; /* cards lifted off the ground */
+  --paper: #f3efe7;
+  --paper-sunk: #eae4d7; /* recessed bands, table stripes */
+  --paper-raised: #fcfaf5; /* lifted off the ground */
 
-  --night: #14120d; /* the dark counterpart — map, manifesto */
-  --night-raised: #1f1c15;
+  --night: #16130e; /* the dark counterpart — atlas, projects, manifesto */
+  --night-raised: #211d16;
+  --night-deep: #0d0b07; /* the darkest ground, used once per page at most */
 
   /* --- INK ------------------------------------------------------------- */
-  --ink: #17150f; /* primary text on paper */
-  --ink-2: #45403a; /* secondary text, long copy */
-  --ink-3: #6b655c; /* metadata. AA on --paper (4.9:1) — do not lighten */
-  --rule: #d6cfc2; /* hairlines */
+  --ink: #16140e; /* primary text on paper */
+  --ink-2: #443f38; /* secondary text, long copy */
+  --ink-3: #69635a; /* metadata. AA on --paper (5.0:1) — do not lighten */
+  --rule: #d8d1c4; /* hairlines */
   --rule-strong: #b9b0a0;
 
-  --on-night: #efeadf; /* primary text on night */
-  --on-night-2: #a9a294;
-  --rule-night: #353024;
+  --on-night: #f0ebe0; /* primary text on night */
+  --on-night-2: #aaa395;
+  --rule-night: #35301f;
 
   /* --- ACCENT ---------------------------------------------------------- */
-  /* Claude clay. Reserved for LIVE, NEXT, and the meridian. Never decoration. */
+  /* Claude clay. Reserved for live state, the brand mark, and the meridian. */
   --clay: #d97757;
-  --clay-deep: #a0472a; /* the text-safe clay — use on paper */
+  --clay-deep: #9e4526; /* the text-safe clay — use on paper */
   --clay-lift: #e58b6c;
-  --clay-tint: #f6ddd1;
-
-  /* Secondary naturals — states, not decoration. */
-  --moss: #4a5d4e; /* archive / past */
-  --slate: #3e4c5e; /* neutral data */
+  --clay-tint: #f7ded2;
 
   /*  Contrast rule, enforced by review:
       · --clay on --paper is 2.7:1 — FILL ONLY, never text.
-      · --clay-deep on --paper is 5.3:1 — safe for text.
+      · --clay-deep on --paper is 5.6:1 — safe for text.
       · --clay on --night is 5.9:1 — safe for text.                        */
+
+  /* --- COMMUNITY STATE -------------------------------------------------
+     Four states, distinguished by FORM first and colour second, so the atlas
+     still reads in monochrome and for a colour-blind reader. See
+     `src/lib/city.ts` for what each one is allowed to claim. */
+  --state-led: var(--clay); /* verified Ambassador — filled station */
+  --state-activity: #b8703f; /* events on record — open ring */
+  --state-interest: #5d6b73; /* interest registered — small solid dot */
+  --state-discovery: var(--ink-3); /* plotted only — hairline circle */
 
   /* --- TYPEFACES ------------------------------------------------------- */
   --font-display: 'Fraunces Variable', 'Fraunces', Georgia, 'Times New Roman', serif;
   --font-body: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', 'Cascadia Mono', monospace;
 
-  /* --- TYPE SCALE ------------------------------------------------------ */
-  /* Fluid, but every step is deliberately far from its neighbour. Editorial
-     pages need violent contrast, not a gentle modular ramp. */
-  --t-poster: clamp(
-    3rem,
-    15vw,
-    11rem
-  ); /* INDIA IS BUILDING — floors at 3rem so
-     "building." still fits a 320px column */
-  --t-display: clamp(2.5rem, 6.4vw, 5.25rem);
-  --t-h2: clamp(1.9rem, 4.2vw, 3.25rem);
-  --t-h3: clamp(1.25rem, 2vw, 1.7rem);
-  --t-lead: clamp(1.05rem, 1.35vw, 1.3rem);
-  --t-body: 1.0625rem;
-  --t-small: 0.9375rem;
+  /* --- TYPE SCALE ------------------------------------------------------
+     Fluid, and every step is deliberately far from its neighbour. Editorial
+     pages need violent contrast, not a gentle modular ramp.
+
+     These are true sizes: the document renders at 100% zoom. An earlier build
+     applied `zoom: 0.8` to the whole page to fake density, which quietly made
+     every rem value a lie and pushed metadata under 11px. */
+  --t-poster: clamp(3.1rem, 14.5vw, 9.5rem); /* INDIA IS BUILDING */
+  --t-display: clamp(2.1rem, 5.2vw, 4.35rem);
+  --t-h2: clamp(1.6rem, 3.5vw, 2.7rem);
+  --t-h3: clamp(1.12rem, 1.7vw, 1.4rem);
+  --t-lead: clamp(1rem, 1.15vw, 1.12rem);
+  --t-body: 1rem;
+  --t-small: 0.875rem;
   --t-meta: 0.75rem; /* mono, tracked, uppercase */
   --t-micro: 0.6875rem;
 
-  --lh-poster: 0.84;
+  --lh-poster: 0.83;
   --lh-display: 0.94;
   --lh-heading: 1.06;
-  --lh-body: 1.62;
+  --lh-body: 1.6;
 
-  --track-poster: -0.035em;
-  --track-display: -0.025em;
-  --track-meta: 0.16em;
+  --track-poster: -0.038em;
+  --track-display: -0.026em;
+  --track-meta: 0.15em;
 
   /* --- SPACE ----------------------------------------------------------- */
   --s-1: 0.25rem;
   --s-2: 0.5rem;
   --s-3: 0.75rem;
   --s-4: 1rem;
-  --s-5: 1.5rem;
-  --s-6: 2rem;
-  --s-7: 2.5rem;
-  --s-8: 3rem;
+  --s-5: 1.4rem;
+  --s-6: 1.9rem;
+  --s-7: 2.4rem;
+  --s-8: 3.1rem;
   --s-9: 4rem;
-  --s-10: 5rem;
-  --s-11: 6.5rem;
-  --s-12: 8rem;
+  --s-10: 5.2rem;
+  --s-11: 6.6rem;
+  --s-12: 8.4rem;
 
-  /* Vertical rhythm between major sections. The page breathes on this. */
-  --section-y: clamp(3.75rem, 7vw, 7rem);
-  --section-y-lg: clamp(5rem, 10vw, 9.5rem);
+  /* Vertical rhythm between movements. The page breathes on this, and the
+     three sizes are what stop every section feeling identically weighted. */
+  --section-y-sm: clamp(2.4rem, 4vw, 3.4rem);
+  --section-y: clamp(3.4rem, 6vw, 6rem);
+  --section-y-lg: clamp(4.6rem, 8.5vw, 8.5rem);
 
   /* --- GRID ------------------------------------------------------------ */
-  --measure: 1280px; /* standard content width */
-  --measure-wide: 1520px; /* full-bleed-ish editorial spreads */
-  --measure-text: 64ch; /* reading column */
-  --gutter: clamp(1.25rem, 4vw, 3rem);
-  /* The meridian's channel. Content sits to its right on desktop. */
-  --rail: clamp(0px, 4vw, 68px);
+  --measure: 1180px; /* standard content width */
+  --measure-wide: 1440px; /* editorial spreads */
+  --measure-text: 62ch; /* reading column */
+  --gutter: clamp(1.15rem, 3.6vw, 2.75rem);
 
   /* --- BORDERS & SURFACES ---------------------------------------------- */
   --border-hair: 1px;
@@ -107,8 +112,7 @@
   --radius-none: 0px;
   --radius-xs: 2px;
   --radius-sm: 3px;
-  --shadow-plate: 0 1px 0 var(--rule-strong);
-  --shadow-lift: 0 18px 40px -28px rgb(23 21 15 / 0.45);
+  --shadow-lift: 0 20px 44px -30px rgb(22 20 14 / 0.5);
 
   /* --- MOTION ---------------------------------------------------------- */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -116,7 +120,7 @@
   --dur-1: 140ms; /* state flicks: hover, focus */
   --dur-2: 320ms; /* element transitions */
   --dur-3: 640ms; /* reveals */
-  --dur-4: 1200ms; /* line draws */
+  --dur-4: 1150ms; /* line draws */
 
   /* --- LAYERS ---------------------------------------------------------- */
   --z-grain: 60;
@@ -127,7 +131,7 @@
   color-scheme: light;
 }
 
-/* Sections that flip to the dark ground remap the semantic tokens rather than
+/* Sections that flip to a dark ground remap the semantic tokens rather than
    overriding colours one by one. Everything inside keeps working. */
 .on-night {
   --paper: var(--night);
@@ -135,12 +139,22 @@
   --paper-raised: var(--night-raised);
   --ink: var(--on-night);
   --ink-2: var(--on-night-2);
-  --ink-3: #8c8577;
+  --ink-3: #8d8678;
   --rule: var(--rule-night);
-  --rule-strong: #4a4436;
+  --rule-strong: #4c4535;
   --clay-deep: var(--clay-lift); /* clay is text-safe here; use the brighter one */
-  --clay-tint: #2a1f18;
+  --clay-tint: #2c2018;
+  --state-activity: #d18a5c;
+  --state-interest: #8ba0ab;
+  --state-discovery: #6f695c;
   color-scheme: dark;
   background: var(--paper);
   color: var(--ink);
+}
+
+/* The deepest ground. One per page, for the moment that should stop a scroll. */
+.on-deep {
+  --paper: var(--night-deep);
+  --paper-sunk: #060503;
+  --paper-raised: #17140e;
 }

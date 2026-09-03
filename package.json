@@ -1,9 +1,9 @@
 {
-  "name": "claude-india",
+  "name": "with-claude",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Claude India — where India builds with Claude.",
+  "description": "WITH CLAUDE — India is building.",
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",

@@ -1,0 +1,286 @@
+---
+import { citySignalsRanked, nextEvent } from '@/data';
+import { CITY_STATE_LABEL, isLive } from '@/lib/city';
+import { dateParts } from '@/lib/datetime';
+
+/**
+ * The way in.
+ *
+ * Three questions, no account. The point of the Join CTA is to get someone to
+ * the part of the site that is relevant to them — not to collect them. Nothing
+ * here is stored, sent, or remembered; the answers only decide which real
+ * links are shown.
+ *
+ * Without scripts the questions are still readable and every destination the
+ * flow could offer is present further down the page, so nothing is gated
+ * behind the island.
+ */
+const signals = citySignalsRanked();
+const next = nextEvent();
+
+const cityData = signals.map((s) => ({
+  slug: s.city.slug,
+  name: s.city.name,
+  region: s.city.state,
+  live: isLive(s.state),
+  stateLabel: CITY_STATE_LABEL[s.state],
+  next: s.next
+    ? {
+        title: s.next.title,
+        slug: s.next.slug,
+        date: `${dateParts(s.next.date).dayPadded} ${dateParts(s.next.date).monthDisplay}`,
+      }
+    : null,
+}));
+
+const nationalNext = next
+  ? {
+      title: next.title,
+      slug: next.slug,
+      city: signals.find((s) => s.city.slug === next.citySlug)?.city.name ?? '',
+      date: `${dateParts(next.date).dayPadded} ${dateParts(next.date).monthDisplay}`,
+    }
+  : null;
+
+const builds = [
+  { id: 'software', label: 'Software' },
+  { id: 'design', label: 'Design' },
+  { id: 'research', label: 'Research' },
+  { id: 'student', label: 'Studying' },
+  { id: 'founder', label: 'A company' },
+  { id: 'exploring', label: 'Still working it out' },
+];
+
+const wants = [
+  { id: 'attend', label: 'An event to go to' },
+  { id: 'people', label: 'People to build with' },
+  { id: 'show', label: 'To show what I made' },
+  { id: 'help', label: 'To help run things' },
+];
+---
+
+<div class="flow" data-join-flow>
+  <div class="section-head">
+    <p class="eyebrow">Start here</p>
+    <h2 id="flow-heading">Three questions.</h2>
+    <p class="prose">
+      No account, nothing stored, nothing sent. The answers just decide which part of this site is
+      worth your time.
+    </p>
+  </div>
+
+  <div class="questions">
+    <div class="question">
+      <label class="label question-label" for="join-city">Where are you?</label>
+      <select id="join-city" data-join-city>
+        <option value="">Choose a city…</option>
+        {
+          cityData.map((city) => (
+            <option value={city.slug}>{`${city.name} — ${city.region}`}</option>
+          ))
+        }
+        <option value="elsewhere">Somewhere else in India</option>
+      </select>
+    </div>
+
+    <div class="question">
+      <span class="label question-label" id="join-build-label">What do you build?</span>
+      <div class="chips" role="group" aria-labelledby="join-build-label">
+        {
+          builds.map((build) => (
+            <button class="choice" type="button" data-join-build={build.id} aria-pressed="false">
+              {build.label}
+            </button>
+          ))
+        }
+      </div>
+    </div>
+
+    <div class="question">
+      <span class="label question-label" id="join-want-label">What are you looking for?</span>
+      <div class="chips" role="group" aria-labelledby="join-want-label">
+        {
+          wants.map((want) => (
+            <button class="choice" type="button" data-join-want={want.id} aria-pressed="false">
+              {want.label}
+            </button>
+          ))
+        }
+      </div>
+    </div>
+  </div>
+
+  <div class="result js-only" data-join-result hidden aria-live="polite">
+    <p class="label result-head">Where to go</p>
+    <ul class="result-list" data-join-links></ul>
+  </div>
+
+  <p class="flow-fallback no-js-only">
+    Everything the questions would point you at is on this page: the ways in are below, and the
+    three submission forms follow them.
+  </p>
+
+  <script
+    is:inline
+    type="application/json"
+    data-join-data
+    set:html={JSON.stringify({ cities: cityData, next: nationalNext })}
+  />
+</div>
+
+<script>
+  import '@/scripts/join';
+</script>
+
+<style>
+  .questions {
+    display: grid;
+    gap: var(--s-6);
+    padding-top: var(--s-6);
+    border-top: var(--border-heavy) solid var(--ink);
+  }
+
+  .question {
+    display: grid;
+    gap: var(--s-3);
+  }
+
+  .question-label {
+    font-family: var(--font-display);
+    font-size: var(--t-h3);
+    font-weight: 500;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    letter-spacing: -0.02em;
+    text-transform: none;
+    color: var(--ink);
+  }
+
+  .question select {
+    max-width: 30rem;
+    padding: 0.7rem 0.8rem;
+    background: var(--paper-raised);
+    border: var(--border-hair) solid var(--rule-strong);
+    border-radius: var(--radius-none);
+    font-size: var(--t-small);
+  }
+
+  .question select:focus {
+    outline: none;
+    border-color: var(--clay);
+    box-shadow: inset 0 0 0 1px var(--clay);
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+  }
+
+  .choice {
+    padding: 0.55rem 0.85rem;
+    border: var(--border-hair) solid var(--rule-strong);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    transition:
+      background var(--dur-1) var(--ease-out),
+      border-color var(--dur-1) var(--ease-out),
+      color var(--dur-1) var(--ease-out);
+  }
+
+  .choice:hover {
+    border-color: var(--ink);
+    color: var(--ink);
+  }
+
+  .choice[aria-pressed='true'] {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--paper);
+  }
+
+  /* --- Result ------------------------------------------------------------ */
+  .result {
+    margin-top: var(--s-7);
+    padding: var(--s-5);
+    border: var(--border-hair) solid var(--rule-strong);
+    border-left: 2px solid var(--clay);
+    background: var(--paper-raised);
+  }
+
+  .result[hidden] {
+    display: none;
+  }
+
+  .result-head {
+    color: var(--clay-deep);
+    margin-bottom: var(--s-2);
+  }
+
+  .result-list :global(li) {
+    border-bottom: var(--border-hair) solid var(--rule);
+  }
+
+  .result-list :global(li:last-child) {
+    border-bottom: 0;
+  }
+
+  .result-list :global(a) {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: var(--s-2) var(--s-4);
+    padding-block: var(--s-4);
+    text-decoration: none;
+    color: var(--ink);
+  }
+
+  .result-list :global(.result-title) {
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    font-weight: 500;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    letter-spacing: -0.015em;
+    transition: color var(--dur-1) var(--ease-out);
+  }
+
+  .result-list :global(a:hover .result-title) {
+    color: var(--clay-deep);
+  }
+
+  .result-list :global(.result-why) {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.05em;
+    color: var(--ink-3);
+  }
+
+  .result-list :global(.result-arrow) {
+    margin-left: auto;
+    color: var(--ink-3);
+  }
+
+  .flow-fallback {
+    margin-top: var(--s-6);
+    max-width: 56ch;
+    font-size: var(--t-small);
+    color: var(--ink-2);
+  }
+
+  @media (min-width: 62em) {
+    .questions {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--s-7) var(--s-8);
+    }
+
+    .question:last-child {
+      grid-column: 1 / -1;
+    }
+  }
+</style>
