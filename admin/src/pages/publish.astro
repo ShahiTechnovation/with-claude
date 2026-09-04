@@ -1,0 +1,359 @@
+---
+import Admin from '@/layouts/Admin.astro';
+import { pooledDb } from '@db/pool';
+import { ageLabel } from '@/server/submissions';
+import {
+  PUBLISHABLE,
+  canPublish,
+  countPublishable,
+  listPublishable,
+  type ContentStatus,
+} from '@/server/publishing';
+
+export const prerender = false;
+
+/**
+ * THE PUBLISH QUEUE.
+ *
+ * What has been approved and is not on the website yet. One screen, one job.
+ *
+ * This is deliberately not a CMS. There is no editor here, no field to change,
+ * no preview and no scheduling — §14 says do not build a complicated one and
+ * the reason is sound: every feature added to this page is a way for somebody
+ * to change a record without the change being an auditable transition. The
+ * only things this page can do are publish, archive and restore, and all three
+ * go through the same state machine as everything else.
+ *
+ * The three states it shows:
+ *
+ *   approved    approved by an editor, not on the site. The working list.
+ *   published   live. Shown so a takedown is one click from here.
+ *   archived    taken down. Shown so it is visible that it was, and by whom.
+ *
+ * The middleware has already established the viewer. If this page renders at
+ * all, `Astro.locals.user` is an active account with an admin role.
+ */
+const db = pooledDb();
+const user = Astro.locals.user!;
+
+const VIEWS = {
+  approved: { label: 'Ready to publish', statuses: ['approved'] as ContentStatus[] },
+  published: { label: 'Live', statuses: ['published'] as ContentStatus[] },
+  archived: { label: 'Archived', statuses: ['archived'] as ContentStatus[] },
+} as const;
+
+type ViewKey = keyof typeof VIEWS;
+
+const requested = Astro.url.searchParams.get('view');
+const view: ViewKey = requested && requested in VIEWS ? (requested as ViewKey) : 'approved';
+
+const [rows, counts] = await Promise.all([
+  listPublishable(db, VIEWS[view].statuses),
+  countPublishable(db),
+]);
+
+const now = new Date();
+const mayPublish = canPublish(user.role);
+
+const error = Astro.url.searchParams.get('error');
+const done = Astro.url.searchParams.get('done');
+
+/**
+ * Where a record will live once it is published.
+ *
+ * A link an editor can check BEFORE putting something on the site is worth
+ * more than one they can check afterwards, so the route is shown for
+ * everything — but it is only a link once the record is actually live, because
+ * a link to a page that does not exist yet is a 404 with an editor's name on
+ * it.
+ */
+const ROUTE: Partial<Record<string, string>> = {
+  builder: '/builders',
+  project: '/projects',
+  use_case: '/use-cases',
+  event: '/events',
+  city: '/cities',
+  story: '/stories',
+  guide: '/guides',
+};
+
+const publicOrigin = import.meta.env.PUBLIC_SITE_URL ?? 'https://www.withclaude.in';
+
+function publicUrl(entityType: string, slug: string): string | undefined {
+  const base = ROUTE[entityType];
+  return base ? `${publicOrigin}${base}/${slug}/` : undefined;
+}
+---
+
+<Admin title="Publish" active="publish">
+  <header class="head">
+    <h1>Publish</h1>
+    <p class="lede">
+      Approved records that are not on the website yet. Publishing is a separate act from
+      approving — nothing here reached this page by itself.
+    </p>
+  </header>
+
+  {error && <p class="banner banner-error" role="alert">{error}</p>}
+  {done && <p class="banner banner-done" role="status">{done}</p>}
+
+  <nav class="filters" aria-label="Views">
+    {
+      (Object.keys(VIEWS) as ViewKey[]).map((key) => (
+        <a
+          href={`/publish?view=${key}`}
+          class:list={['chip', view === key && 'chip-on']}
+          aria-current={view === key ? 'page' : undefined}
+        >
+          {VIEWS[key].label}
+          <span class="chip-n">{counts[key]}</span>
+        </a>
+      ))
+    }
+  </nav>
+
+  {
+    !mayPublish && (
+      <p class="banner banner-error">
+        Your role ({user.role}) can read this queue but cannot publish. Publishing and takedown
+        are Editor and Admin actions.
+      </p>
+    )
+  }
+
+  {
+    rows.length === 0 ? (
+      <p class="empty">
+        {view === 'approved'
+          ? 'Nothing is waiting to be published. Approve a submission and promote it, and it will appear here.'
+          : `Nothing is ${VIEWS[view].label.toLowerCase()}.`}
+      </p>
+    ) : (
+      <table class="queue">
+        <thead>
+          <tr>
+            <th scope="col">Type</th>
+            <th scope="col">Record</th>
+            <th scope="col">From</th>
+            <th scope="col">Approved</th>
+            <th scope="col">Status</th>
+            <th scope="col">
+              <span class="visually-hidden">Actions</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => {
+            const url = publicUrl(row.entityType, row.slug);
+            return (
+              <tr>
+                <td class="cell-type">{PUBLISHABLE[row.entityType].label}</td>
+
+                <td class="cell-title">
+                  <span class="title">{row.title}</span>
+                  {row.status === 'published' && url ? (
+                    <a class="slug" href={url} target="_blank" rel="noopener">
+                      {row.slug} ↗
+                    </a>
+                  ) : (
+                    <span class="slug">{row.slug}</span>
+                  )}
+                </td>
+
+                <td class="cell-from">
+                  {row.submissionId ? (
+                    <a href={`/submissions/${row.submissionId}`}>
+                      {row.submitterName ?? 'a submission'}
+                    </a>
+                  ) : (
+                    <span class="muted">imported</span>
+                  )}
+                </td>
+
+                <td class="cell-when">
+                  {row.approvedAt ? (
+                    <>
+                      <span>{ageLabel(row.approvedAt, now)} ago</span>
+                      {row.approvedBy && <span class="by">{row.approvedBy}</span>}
+                    </>
+                  ) : (
+                    <span class="muted">—</span>
+                  )}
+                </td>
+
+                <td class="cell-status">
+                  <span class:list={['pip', `pip-${row.status}`]}>{row.status}</span>
+                </td>
+
+                <td class="cell-actions">
+                  {mayPublish && row.status === 'approved' && (
+                    <form method="POST" action={`/api/content/${row.entityType}/${row.id}/transition`}>
+                      <input type="hidden" name="action" value="publish" />
+                      <input type="hidden" name="return" value={`/publish?view=${view}`} />
+                      <button class="btn btn-solid" type="submit">
+                        Publish
+                      </button>
+                    </form>
+                  )}
+
+                  {/*
+                    Archive and restore both need a written reason, so both are
+                    a details/summary rather than a bare button. A takedown
+                    somebody has to explain is a takedown somebody thought
+                    about, and the note is what the audit log will carry.
+                  */}
+                  {mayPublish && row.status === 'published' && (
+                    <details class="with-note">
+                      <summary class="btn btn-quiet">Archive</summary>
+                      <form method="POST" action={`/api/content/${row.entityType}/${row.id}/transition`}>
+                        <input type="hidden" name="action" value="archive" />
+                        <input type="hidden" name="return" value={`/publish?view=${view}`} />
+                        <label for={`note-${row.id}`}>Why is this coming down?</label>
+                        <textarea id={`note-${row.id}`} name="note" rows="2" required />
+                        <button class="btn btn-solid" type="submit">
+                          Take it down
+                        </button>
+                      </form>
+                    </details>
+                  )}
+
+                  {mayPublish && row.status === 'archived' && (
+                    <details class="with-note">
+                      <summary class="btn btn-quiet">Restore</summary>
+                      <form method="POST" action={`/api/content/${row.entityType}/${row.id}/transition`}>
+                        <input type="hidden" name="action" value="restore" />
+                        <input type="hidden" name="return" value={`/publish?view=${view}`} />
+                        <label for={`restore-${row.id}`}>Why is it coming back?</label>
+                        <textarea id={`restore-${row.id}`} name="note" rows="2" required />
+                        <p class="hint">
+                          This returns it to the queue as approved. Publishing it again is a
+                          separate step.
+                        </p>
+                        <button class="btn btn-solid" type="submit">
+                          Restore to queue
+                        </button>
+                      </form>
+                    </details>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    )
+  }
+
+  <p class="foot">
+    Publishing triggers a rebuild of the public site. The database is the record; the build is
+    how it reaches the CDN. If a rebuild cannot be triggered, the change is still saved and the
+    nightly build carries it.
+  </p>
+</Admin>
+
+<style>
+  .head {
+    margin-bottom: var(--s-5);
+  }
+
+  .lede {
+    margin-top: var(--s-2);
+    max-width: 62ch;
+    color: var(--ink-2);
+  }
+
+  .filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+    margin-bottom: var(--s-5);
+  }
+
+  .chip-n {
+    margin-left: var(--s-2);
+    font-variant-numeric: tabular-nums;
+    opacity: 0.7;
+  }
+
+  .queue {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .queue th {
+    text-align: left;
+    font-size: var(--t-micro);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-3);
+    padding-bottom: var(--s-2);
+    border-bottom: 1px solid var(--rule-strong);
+  }
+
+  .queue td {
+    padding: var(--s-3) var(--s-3) var(--s-3) 0;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+
+  .cell-type {
+    font-size: var(--t-micro);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-3);
+    white-space: nowrap;
+  }
+
+  .title {
+    display: block;
+    font-weight: 600;
+  }
+
+  .slug,
+  .by,
+  .hint {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    color: var(--ink-3);
+  }
+
+  .muted {
+    color: var(--ink-3);
+  }
+
+  .cell-when {
+    white-space: nowrap;
+    font-size: var(--t-small);
+  }
+
+  .cell-actions {
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .with-note textarea {
+    display: block;
+    width: 100%;
+    min-width: 22ch;
+    margin: var(--s-2) 0;
+  }
+
+  .with-note summary {
+    cursor: pointer;
+    display: inline-block;
+  }
+
+  .hint {
+    margin-bottom: var(--s-2);
+    text-align: left;
+  }
+
+  .empty,
+  .foot {
+    margin-top: var(--s-5);
+    max-width: 62ch;
+    color: var(--ink-3);
+    font-size: var(--t-small);
+  }
+</style>

@@ -1,14 +1,7 @@
 import { istInstant } from '@/lib/datetime';
 import { cityState, cityStateRank } from '@/lib/city';
 import { lifecycleOf } from '@/lib/status';
-import { ambassadors } from './ambassadors';
-import { builders } from './builders';
-import { cities } from './cities';
-import { events } from './events';
-import { guides } from './guides';
-import { projects } from './projects';
-import { stories } from './stories';
-import { useCases } from './use-cases';
+import { derived, listProxy, mapProxy } from './dataset';
 import type {
   Ambassador,
   Authorship,
@@ -26,9 +19,41 @@ import type {
   UseCase,
 } from './types';
 
-export { ambassadors, builders, cities, events, guides, projects, stories, useCases };
 export * from './site';
 export type * from './types';
+export { activeSource } from './dataset';
+export type { DataSourceName, RecordSet } from './source';
+
+/**
+ * THE RECORD, FROM WHICHEVER SOURCE THIS BUILD READS.
+ *
+ * `DATA_SOURCE=ts` (the default) hands back the TypeScript arrays in
+ * `src/data/*.ts`. `DATA_SOURCE=db` hands back the same shapes, reconstructed
+ * from PostgreSQL by the prebuild. Everything below this line is written once
+ * and cannot tell the difference — see `src/data/source.ts` for why the seam
+ * is here and not further up.
+ *
+ * These eight are unfiltered, exactly as they always were. `isPublic()` below
+ * is what decides what renders, and it is the only thing that decides it.
+ */
+/**
+ * ── WHY THESE ARE GETTERS AND NOT CONSTANTS ──────────────────────────────
+ *
+ * Every collection below used to be a module-scope `const`, evaluated once at
+ * import. For a build that is exactly right — one process renders one dataset,
+ * so a constant is a cache that never misses — and the public API is a value,
+ * so it has to keep looking like one to the fifty files that read it.
+ *
+ * What a frozen constant cannot do is be re-derived, and the equivalence suite
+ * has to evaluate this whole layer against two datasets in one process. With
+ * constants it compared the first dataset with itself and passed, which is
+ * worse than having no suite at all.
+ *
+ * So each one is a getter over `derived()`, memoized on the identity of the
+ * record set it came from. Reading `publicBuilders` still yields an array and
+ * still computes once per dataset; it is simply no longer computed before the
+ * dataset is known. Nothing that consumes this file changes.
+ */
 
 /**
  * A record is public once a human has moved it past review. Everything the
@@ -41,14 +66,48 @@ export function isPublic(record: { status: ModerationStatus }): boolean {
 
 const publicOnly = <T extends RecordBase>(list: T[]): T[] => list.filter(isPublic);
 
-export const publicAmbassadors = publicOnly(ambassadors);
-export const publicBuilders = publicOnly(builders);
-export const publicProjects = publicOnly(projects);
-export const publicStories = publicOnly(stories);
-export const publicEvents = publicOnly(events);
-export const publicCities = publicOnly(cities);
-export const publicUseCases = publicOnly(useCases);
-export const publicGuides = publicOnly(guides);
+const $ambassadors = derived((r) => r.ambassadors);
+const $builders = derived((r) => r.builders);
+const $cities = derived((r) => r.cities);
+const $events = derived((r) => r.events);
+const $guides = derived((r) => r.guides);
+const $projects = derived((r) => r.projects);
+const $stories = derived((r) => r.stories);
+const $useCases = derived((r) => r.useCases);
+
+/** The record, unfiltered, exactly as it always was. */
+export const ambassadors: Ambassador[] = new Proxy([] as Ambassador[], listProxy($ambassadors));
+export const builders: Builder[] = new Proxy([] as Builder[], listProxy($builders));
+export const cities: City[] = new Proxy([] as City[], listProxy($cities));
+export const events: CommunityEvent[] = new Proxy([] as CommunityEvent[], listProxy($events));
+export const guides: Guide[] = new Proxy([] as Guide[], listProxy($guides));
+export const projects: Project[] = new Proxy([] as Project[], listProxy($projects));
+export const stories: Story[] = new Proxy([] as Story[], listProxy($stories));
+export const useCases: UseCase[] = new Proxy([] as UseCase[], listProxy($useCases));
+
+const $publicAmbassadors = derived((r) => publicOnly(r.ambassadors));
+const $publicBuilders = derived((r) => publicOnly(r.builders));
+const $publicProjects = derived((r) => publicOnly(r.projects));
+const $publicStories = derived((r) => publicOnly(r.stories));
+const $publicEvents = derived((r) => publicOnly(r.events));
+const $publicCities = derived((r) => publicOnly(r.cities));
+const $publicUseCases = derived((r) => publicOnly(r.useCases));
+const $publicGuides = derived((r) => publicOnly(r.guides));
+
+export const publicAmbassadors: Ambassador[] = new Proxy(
+  [] as Ambassador[],
+  listProxy($publicAmbassadors),
+);
+export const publicBuilders: Builder[] = new Proxy([] as Builder[], listProxy($publicBuilders));
+export const publicProjects: Project[] = new Proxy([] as Project[], listProxy($publicProjects));
+export const publicStories: Story[] = new Proxy([] as Story[], listProxy($publicStories));
+export const publicEvents: CommunityEvent[] = new Proxy(
+  [] as CommunityEvent[],
+  listProxy($publicEvents),
+);
+export const publicCities: City[] = new Proxy([] as City[], listProxy($publicCities));
+export const publicUseCases: UseCase[] = new Proxy([] as UseCase[], listProxy($publicUseCases));
+export const publicGuides: Guide[] = new Proxy([] as Guide[], listProxy($publicGuides));
 
 // =========================================================================
 // EVENTS
@@ -58,7 +117,11 @@ const byDateAsc = (a: CommunityEvent, b: CommunityEvent) =>
   istInstant(a.date, a.startTime).getTime() - istInstant(b.date, b.startTime).getTime();
 
 /** Ascending by start time. */
-export const eventsChronological = [...publicEvents].sort(byDateAsc);
+const $eventsChronological = derived((r) => publicOnly(r.events).sort(byDateAsc));
+export const eventsChronological: CommunityEvent[] = new Proxy(
+  [] as CommunityEvent[],
+  listProxy($eventsChronological),
+);
 
 /** Everything that has not finished, soonest first. */
 export function upcomingEvents(now: Date = new Date()): CommunityEvent[] {
@@ -90,14 +153,32 @@ export function liveEvents(now: Date = new Date()): CommunityEvent[] {
 // LOOKUPS
 // =========================================================================
 
-export const cityBySlug = new Map(cities.map((c) => [c.slug, c]));
-export const eventBySlug = new Map(publicEvents.map((e) => [e.slug, e]));
-export const builderBySlug = new Map(publicBuilders.map((b) => [b.slug, b]));
-export const projectBySlug = new Map(publicProjects.map((p) => [p.slug, p]));
-export const storyBySlug = new Map(publicStories.map((s) => [s.slug, s]));
-export const ambassadorBySlug = new Map(publicAmbassadors.map((a) => [a.slug, a]));
-export const useCaseBySlug = new Map(publicUseCases.map((u) => [u.slug, u]));
-export const guideBySlug = new Map(publicGuides.map((g) => [g.slug, g]));
+const bySlug = <T extends { slug: string }>(list: T[]): Map<string, T> =>
+  new Map(list.map((record) => [record.slug, record]));
+
+const $cityBySlug = derived((r) => bySlug(r.cities));
+const $eventBySlug = derived((r) => bySlug(publicOnly(r.events)));
+const $builderBySlug = derived((r) => bySlug(publicOnly(r.builders)));
+const $projectBySlug = derived((r) => bySlug(publicOnly(r.projects)));
+const $storyBySlug = derived((r) => bySlug(publicOnly(r.stories)));
+const $ambassadorBySlug = derived((r) => bySlug(publicOnly(r.ambassadors)));
+const $useCaseBySlug = derived((r) => bySlug(publicOnly(r.useCases)));
+const $guideBySlug = derived((r) => bySlug(publicOnly(r.guides)));
+
+export const cityBySlug: Map<string, City> = new Proxy(new Map(), mapProxy($cityBySlug));
+export const eventBySlug: Map<string, CommunityEvent> = new Proxy(
+  new Map(),
+  mapProxy($eventBySlug),
+);
+export const builderBySlug: Map<string, Builder> = new Proxy(new Map(), mapProxy($builderBySlug));
+export const projectBySlug: Map<string, Project> = new Proxy(new Map(), mapProxy($projectBySlug));
+export const storyBySlug: Map<string, Story> = new Proxy(new Map(), mapProxy($storyBySlug));
+export const ambassadorBySlug: Map<string, Ambassador> = new Proxy(
+  new Map(),
+  mapProxy($ambassadorBySlug),
+);
+export const useCaseBySlug: Map<string, UseCase> = new Proxy(new Map(), mapProxy($useCaseBySlug));
+export const guideBySlug: Map<string, Guide> = new Proxy(new Map(), mapProxy($guideBySlug));
 
 export function getCity(slug: string): City | undefined {
   return cityBySlug.get(slug);
@@ -150,6 +231,24 @@ export function creditsFor(event: CommunityEvent): string[] {
     ...coHostsOf(event).map((builder) => builder.name),
     ...(event.host.organisations ?? []),
   ].filter((name): name is string => Boolean(name));
+}
+
+/**
+ * The printable venue for an event, or undefined when the record has none.
+ *
+ * A venue is only worth printing when it names somewhere. `private: true`
+ * means the address goes to confirmed registrants only, and several older
+ * entries use the city name as an honest stand-in for a venue nobody
+ * recorded. Neither is a location, so neither is rendered as one.
+ *
+ * Lives here rather than in a component so the event record, the archive and
+ * the history page can never print a room's address three different ways.
+ */
+export function venueLabel(event: CommunityEvent): string | undefined {
+  const { name, address, private: isPrivate } = event.venue;
+  if (isPrivate) return undefined;
+  if (name === cityName(event.citySlug)) return undefined;
+  return address && !name.includes(address) ? `${name}, ${address}` : name;
 }
 
 export function eventsHostedBy(ambassadorSlug: string): CommunityEvent[] {
@@ -206,7 +305,7 @@ export function buildersOf(project: Project): Builder[] {
 // but their names must appear on project cards and detail pages as "Built
 // by X, Y, Z". This map resolves against ALL builders, not just public ones.
 
-const allBuildersBySlug = new Map(builders.map((b) => [b.slug, b]));
+const $allBuildersBySlug = derived((r) => bySlug(r.builders));
 
 /** Builder name + slug + public status, for attribution display. */
 export interface BuilderAttribution {
@@ -224,7 +323,7 @@ export interface BuilderAttribution {
 export function builderNamesOf(project: Project): BuilderAttribution[] {
   return project.builderSlugs
     .map((slug) => {
-      const builder = allBuildersBySlug.get(slug);
+      const builder = $allBuildersBySlug().get(slug);
       return builder
         ? { name: builder.name, slug: builder.slug, isPublic: isPublic(builder) }
         : { name: slug, slug, isPublic: false };

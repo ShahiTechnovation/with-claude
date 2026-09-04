@@ -1,0 +1,96 @@
+---
+import Admin from '@/layouts/Admin.astro';
+import { pooledDb } from '@db/pool';
+import { recentAudit } from '@/server/submissions';
+
+export const prerender = false;
+
+/**
+ * THE AUDIT LOG.
+ *
+ * Read-only, and it could not be otherwise: the table rejects UPDATE, DELETE
+ * and TRUNCATE at the database, so there is nothing this page could offer to
+ * change even if it wanted to. Correcting a mistaken entry means appending a
+ * correcting one, which is the point — the history of what was believed is
+ * itself part of the record.
+ *
+ * Newest first here, unlike the queue. The queue asks "what has waited
+ * longest"; this asks "what just happened", and they are opposite questions.
+ *
+ * Deliberately unfiltered. A log with four days of entries in it does not need
+ * search, and building one now would be guessing at which questions people
+ * will actually ask of it.
+ */
+const rows = await recentAudit(pooledDb(), 200);
+
+const when = new Intl.DateTimeFormat('en-GB', {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+  timeZone: 'Asia/Kolkata',
+});
+---
+
+<Admin title="Audit" active="audit">
+  <div class="page-head">
+    <h1>Audit</h1>
+    <p>{rows.length === 0 ? 'No entries yet' : `${rows.length} most recent`}</p>
+  </div>
+
+  {
+    rows.length === 0 ? (
+      <p class="empty">Nothing has been reviewed yet. Every action taken here will appear.</p>
+    ) : (
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">When</th>
+              <th scope="col">Who</th>
+              <th scope="col">What</th>
+              <th scope="col">Change</th>
+              <th scope="col">Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr>
+                <td class="num">{when.format(row.createdAt)}</td>
+                {/* The email is kept on the entry itself, so the log still
+                    reads correctly after an account is removed. */}
+                <td>{row.actorName ?? row.actorEmail ?? <span class="num">system</span>}</td>
+                <td>
+                  {row.entityType === 'submission' && row.entityId ? (
+                    <a href={`/submissions/${row.entityId}`}>{row.action}</a>
+                  ) : (
+                    row.action
+                  )}
+                </td>
+                <td>
+                  {row.fromStatus && row.toStatus ? (
+                    <>
+                      <span class="chip" data-status={row.fromStatus}>
+                        {row.fromStatus.replace(/_/g, ' ')}
+                      </span>
+                      {' → '}
+                      <span class="chip" data-status={row.toStatus}>
+                        {row.toStatus.replace(/_/g, ' ')}
+                      </span>
+                    </>
+                  ) : (
+                    <span class="num">—</span>
+                  )}
+                </td>
+                <td>{row.note ?? <span class="num">—</span>}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+
+  <p class="hint" style="margin-top: 1.5rem">
+    Append-only. The database rejects any attempt to edit or delete an entry, including from a
+    migration — a correction is a new entry, never an edit to an old one.
+  </p>
+</Admin>

@@ -41,6 +41,54 @@ npm test           # vitest
 npm run format     # prettier
 ```
 
+The site runs with no configuration at all. `/api/submit` needs a database, so without one it
+answers 503 and the forms fall back to the clipboard — which is exactly what a visitor would see
+if the endpoint were down, and is worth seeing once.
+
+To run the backend locally, copy `.env.example` to `.env`, fill it in, then:
+
+```bash
+npm run db:generate   # SQL from db/schema.ts, into db/migrations (only after a schema change)
+npm run db:migrate    # apply migrations to DATABASE_URL
+npm run db:import     # copy src/data/*.ts into the database — idempotent, run it as often as you like
+npm run db:studio     # browse the data
+```
+
+`DATABASE_URL` can point at Neon or at a PostgreSQL on `localhost` — the driver is chosen from the
+hostname. A local database is the easier way to work on the admin, which cannot do anything at all
+without one:
+
+```bash
+createdb withclaude_dev
+# DATABASE_URL="postgresql://postgres@127.0.0.1:5432/withclaude_dev"
+npm run db:migrate
+```
+
+### The admin
+
+```bash
+cp admin/.env.example admin/.env
+npm run db:create-user -- --email you@example.com --name "Your Name" --role admin
+npm run dev:admin     # http://localhost:4322
+npm run build:admin
+```
+
+`BETTER_AUTH_URL` must match how you actually reach it (`http://localhost:4322` locally), because
+magic-link URLs are built from it and every state-changing request is checked against it.
+
+**Signing in without a mail provider.** With no `RESEND_API_KEY`, the sign-in link is printed to
+the admin's terminal and the log says so. Nothing pretends to have sent an email — copy the link
+out of the terminal and open it. The two apps run side by side on different ports, which is the
+same separation they have in production:
+
+|             | Local                   | Production                    |
+| ----------- | ----------------------- | ----------------------------- |
+| Public site | `http://localhost:4321` | `https://www.withclaude.in`   |
+| Admin       | `http://localhost:4322` | `https://admin.withclaude.in` |
+
+`npm test` needs none of it: the database tests run against PGlite, which is PostgreSQL compiled
+to WebAssembly and running in-process, so there is no server, no credential and no Docker.
+
 Node 20+ (CI uses 22).
 
 ## The governance model
@@ -81,7 +129,13 @@ there and says so.
 - **Self-hosted fonts** via Fontsource (no external requests): Fraunces Variable (WONK axis only —
   the expressive axis, at a third the file size of the full build), Inter Variable, IBM Plex Mono.
 - **`astro:assets`** for responsive images (WebP, explicit dimensions, lazy below the fold).
-- Zero runtime dependencies beyond Astro itself.
+- **PostgreSQL on Neon + Drizzle ORM**, server-side only, for submissions. Reached by exactly one
+  route (`/api/submit`); nothing public reads it yet.
+- **Zod** for server-side validation, **Resend** for the transactional email each app sends.
+- **better-auth** for the admin's magic-link sign-in — declared in `admin/package.json` only, so
+  the public site cannot even resolve it.
+- The public site still ships zero runtime dependencies. None of the above reaches the browser —
+  `tests/security.test.ts` and `tests/admin-isolation.test.ts` search the built bundle to prove it.
 
 ## Architecture
 
@@ -116,10 +170,40 @@ src/
     base.css         reset, document typography, a11y primitives, the reveal system
     primitives.css   containers, meridian, buttons, chips, pips, plates, fields
   components/      one concern each, styles scoped alongside
-  scripts/         the six islands
+  scripts/         the six islands — browser only
+  server/          server only. Never imported by anything that reaches a browser.
+    submissions/
+      validate.ts    the rules, derived from forms.ts. Rejects unknown fields.
+      handle.ts      the pipeline, with its database and mailer passed in
+      rate-limit.ts  honeypot timing, per-address and per-email ceilings
+      identity.ts    salted one-way IP hashing. The address is never stored.
+    email/
+      acknowledge.ts the one transactional email. Fails visibly, never silently.
   layouts/Base.astro   head, SEO, JSON-LD, masthead, meridian, footer
   pages/           routes
-tests/             vitest — lifecycle logic, date handling, data and governance integrity
+    api/submit.ts    the ONLY write path. prerender = false.
+    api/cron/rebuild.ts  the nightly rebuild trigger. prerender = false.
+db/                server only. Shared by both apps. One schema, one set of migrations.
+  schema.ts        the governance rules, as constraints a database will enforce
+  client.ts        Neon over HTTP — one insert per request, for /api/submit
+  pool.ts          pooled and transactional, for the admin. Driver picked by URL.
+  env.ts           refuses to start if a secret was exposed as PUBLIC_*
+  migrations/      committed SQL. The only way production ever changes.
+  import/          the idempotent copy of src/data into PostgreSQL
+  create-user.ts   the ONLY way an editorial account is created
+  testing.ts       an in-process PostgreSQL for the tests
+admin/             a SEPARATE Astro app. output: 'server'. Its own Vercel project.
+  src/middleware.ts  the gate. Private by default; four paths are not.
+  src/server/
+    auth.ts          better-auth: magic link, no sign-up, hashed tokens
+    session.ts       who is asking, re-checked against the database every request
+    login.ts         the allowlist gate. Tells nobody whether an address exists.
+    transitions.ts   THE submission state machine. Audit + status, one transaction.
+    submissions.ts   the queue and detail queries. The privacy line lives here.
+    email.ts         the sign-in link. Fails loudly; never fakes a send.
+  src/pages/         login, submissions, submissions/[id], audit, and two APIs
+tests/             vitest — lifecycle logic, dates, governance, the schema, the
+                   import, the endpoint, and the security boundary
 scripts/           dev tooling (screenshots, audit, OG card). Not part of the build.
 ```
 
@@ -399,6 +483,143 @@ Everything added this way lands in the search index, the activity feed, the time
 relevant city, builder and event pages without another edit — that is what the graph in
 `src/data/index.ts` is for.
 
+## Submissions
+
+Every form on the site posts to `POST /api/submit`, which is the only write path the public site
+has. It does exactly this and nothing else:
+
+```
+validate → rate limit → write one submissions row → send an acknowledgement → 202
+```
+
+**A submission is an inbox item.** It publishes nothing, creates no builder and no project, and
+changes no record's status. `id`, `slug`, `status`, `entity_type`, `reviewer_id` and their
+relatives are not fields with strict validation — they are refused by name, because they belong to
+the editorial side of the system and a submitter has no business naming one. Nothing becomes
+public until a person decides it should, which is the same promise every form already made in
+prose and is now enforced in code.
+
+202 rather than 201 is the accurate status: the request was accepted, and no resource was created
+that the caller can go and look at.
+
+**The clipboard fallback still matters.** If the POST fails for any reason, the panel composes what
+you typed into a clean block of text with a copy button and a link to the community channel. A form
+that loses somebody's answers because a server is having a bad afternoon is worse than a form with
+no server, so the path that never needed one is kept.
+
+**Anti-abuse, without a CAPTCHA.** A hidden honeypot, a minimum time-to-submit, a request size
+ceiling, and per-address and per-email rate limits counted straight out of the `submissions` table.
+No Redis: this is a community site receiving single-digit submissions a week, and two indexed counts
+cost less than the round trip to a second always-on service would. No CAPTCHA: it taxes every honest
+visitor, hands a third party a record of them, and loses to the automation it claims to stop.
+
+**Privacy.** A submitter's email is never rendered by the public site — there is no public read path
+to the table at all, which is the only way to actually guarantee it. IP addresses are salted and
+hashed before storage and the original is discarded; the stored value is good for counting and
+useless for identifying anybody. `tests/security.test.ts` searches the built site for the private
+column names and the browser bundle for connection strings.
+
+**The email is honest.** If Resend is not configured, the endpoint still stores the submission and
+still returns 202, but it does not pretend to have sent anything: the response says
+`acknowledgementSent: false` and the panel says so too, rather than promising a message that is
+never going to arrive.
+
+## The database
+
+`db/schema.ts` carries the governance rules that TypeScript can only describe. Read the absences:
+
+- **No city state column.** No `chapter`, no `tier`, no `active`. A city becomes ambassador-led
+  because a verified ambassador row points at it, and there is nothing an editor can set instead.
+  `region` is the Indian state — geography, named so it can never be mistaken for a lifecycle.
+- **No stored event lifecycle.** No `upcoming` / `today` / `live` / `past`. Only `status_override`,
+  for the three door states a clock genuinely cannot know.
+- **`builders.roles` cannot contain `ambassador`** — a CHECK rejects it. The role is read from
+  `ambassadors`, which requires non-empty `verified_via`, or it is not read at all.
+- **Credentials and alt text are NOT NULL.** No anonymous authority, no undescribed image.
+- **A reported figure cannot be stored without its source.**
+- **`audit_log` is append-only** — triggers reject UPDATE, DELETE and TRUNCATE. Created in Phase 1
+  even though the dashboard that writes to it is Phase 2, because a log that starts the day the
+  dashboard ships cannot answer questions about the day before.
+
+`npm run db:import` copies `src/data/*.ts` in. It is idempotent, it deduplicates organisations
+(`The Origin Guild` is one organisation whether it is named on an event or as a city's organiser),
+and it **fails loudly** on any reference it cannot resolve rather than writing a null. It invents no
+timestamps: `created_at` is backfilled only where the repository evidences a date — an event was
+created no later than the day it was held, and the Impact Lab cohort came off a submission form on a
+date the record states in prose. Everything else stays null.
+
+**`src/data/*.ts` remains the public site's source of truth.** Every page still renders from those
+files. The database is populated and tested, and nothing public reads it yet — that is Phase 3.
+
+## The admin
+
+`admin.withclaude.in` is a **separate Astro application** in `admin/`, deployed as its own Vercel
+project. The two share `db/` and share nothing else — no cookie, no bundle, no build. That is what
+makes "the public site has no authentication" a fact about the artifact rather than a claim about
+the code, and `tests/admin-isolation.test.ts` checks the artifact.
+
+|                   | `withclaude.in`              | `admin.withclaude.in`                          |
+| ----------------- | ---------------------------- | ---------------------------------------------- |
+| Output            | `static` — 71 files on a CDN | `server` — every response rendered per request |
+| Session           | none                         | HttpOnly, Secure, SameSite=Lax, host-only      |
+| Database          | one insert, over HTTP        | pooled, transactional                          |
+| Prerendered pages | 71                           | 0                                              |
+
+**Sign-in is an emailed link, and only for accounts that already exist.** There is no sign-up
+anywhere. `npm run db:create-user` writes the row; the login form checks `users` and, if there is
+no active row with an admin role, sends nothing at all. The confirmation it shows is identical
+either way — a login form that says "no such user" is a way to enumerate who has editorial access
+to this project, and the first step of every targeted phishing attempt that follows.
+
+**Two roles: `admin` and `editor`.** Both can review. The architecture deliberately treats
+Moderator as Editor rather than inventing a third tier that means almost the same thing. `role` and
+`active` are read from the database on _every request_, never from the session token, so
+deactivating an account or demoting a role takes effect on that person's next click rather than
+whenever their session expires.
+
+### The review workflow
+
+```
+draft → pending → in_review ─┬→ changes_requested → pending
+                             ├→ approved
+                             └→ rejected
+```
+
+Every status change goes through one function — `transitionSubmission()` in
+`admin/src/server/transitions.ts` — and no route writes `submissions.status` itself. It checks the
+actor's role, that the transition is on the map above, and that a note was written where refusing
+somebody's work requires one, then writes the audit entry and the status change **in a single
+transaction**. Both halves or neither: the log never records a move that did not happen, and no
+move happens unaccounted for.
+
+`request_changes` and `reject` require a non-empty note. A refusal with no reason is not a review.
+
+**`approved` is not `published`.** Approving records that a person read something and it belongs in
+the record. It puts nothing on the website. Publication is tied to a build and is Phase 3 — which
+is exactly why they are different words.
+
+### Privacy
+
+The queue selects five columns: kind, name, status, received, age. `submitter_email`, `ip_hash` and
+`user_agent` are not hidden from it — they are never fetched, so they are never in memory and
+cannot leak through a template edit or a debug dump. The submitter's email appears on the
+authenticated detail page and on no other screen, because a reviewer asking for changes has to be
+able to reply. `ip_hash` and `user_agent` appear nowhere: they exist for abuse triage, which is not
+editorial review.
+
+### `/audit`
+
+Read-only, and it could not be otherwise — the table rejects UPDATE, DELETE and TRUNCATE at the
+database. Correcting an entry means appending a correcting one, which is the point: the history of
+what was believed is itself part of the record.
+
+### Storage, by phase
+
+- **Neon PostgreSQL** — the database, from Phase 1. Records, submissions, users, audit log.
+- **Vercel Blob** — the planned media store for **Phase 4**. Not installed, not configured, not
+  referenced. A dependency added for a phase that has not started is how a phase boundary stops
+  meaning anything.
+
 ## Search visibility
 
 The strategy is topical authority through real entities, not keywords. Every record links to the
@@ -453,8 +674,61 @@ touch targets and the no-JS render across every route.
 
 ## Deploying
 
-Netlify is configured in `netlify.toml`: build `npm run build`, publish `dist`. Nothing
-server-side, so any static host works on the same two settings.
+**Vercel, and only Vercel.** The project is linked to one (`.vercel/project.json`), the headers and
+the nightly cron live in `vercel.json`, analytics come from `@vercel/analytics`, and `/api/submit`
+is built by `@astrojs/vercel`. A `netlify.toml` sat alongside all of that describing a pure-static
+publish of `dist`; it was never used by the live site and, since the submission endpoint landed, it
+described a deployment that would ship a broken form. It has been removed rather than left as a
+second, wrong answer to "where does this run".
+
+The site is still **static-first**: `output: 'static'` prerenders all 71 pages at build time, and
+only routes that opt out with `export const prerender = false` become functions. Today that is
+`/api/submit` and `/api/cron/rebuild`. Everything a visitor reads is a file on a CDN.
+
+**The nightly rebuild.** Event lifecycle is derived from the clock, so a static build goes stale
+without any commit: an event that finished last night keeps saying "Upcoming" until something
+rebuilds. `vercel.json` schedules `/api/cron/rebuild` at `30 22 * * *` UTC — **04:00 IST** — which
+POSTs to a Vercel deploy hook and triggers an ordinary production build. Nothing stays running.
+
+To finish setting it up: create a deploy hook in _Project Settings → Git → Deploy Hooks_ against
+the production branch, and set `VERCEL_DEPLOY_HOOK_URL` to its URL. `CRON_SECRET` is set by Vercel
+and is checked by the route, so the trigger cannot be fired by anyone who finds the URL.
+
+### The admin, as a second Vercel project
+
+`admin/` deploys separately from the same repository. Two projects, one git remote:
+
+| Setting                    | Value                                |
+| -------------------------- | ------------------------------------ |
+| Root Directory             | `admin`                              |
+| Include files outside root | on — the app imports `../db`         |
+| Build Command              | `npm run build` (run inside `admin`) |
+| Output                     | detected from `.vercel/output`       |
+| Domain                     | `admin.withclaude.in`                |
+
+Environment variables, all server-side, none prefixed `PUBLIC_`:
+
+| Variable             | Notes                                                                 |
+| -------------------- | --------------------------------------------------------------------- |
+| `DATABASE_URL`       | the **same** value as the public project. One database, one schema.   |
+| `BETTER_AUTH_SECRET` | 32 random bytes. Rotating it signs everybody out.                     |
+| `BETTER_AUTH_URL`    | `https://admin.withclaude.in`, no trailing slash. Must match exactly. |
+| `RESEND_API_KEY`     | without it, production sign-in fails loudly rather than silently.     |
+| `RESEND_FROM`        | an address on a domain verified in Resend.                            |
+| `RESEND_REPLY_TO`    | optional.                                                             |
+
+`SUBMISSION_IP_SALT` is _not_ set here — it belongs to the public site's `/api/submit`, and the
+admin never stores an address.
+
+Then create the first account, from a machine that has the production `DATABASE_URL`:
+
+```bash
+npm run db:create-user -- --email you@example.com --name "Your Name" --role admin
+```
+
+There is no other way to create one. The web interface cannot, deliberately: access to the admin is
+this project's whole security boundary, and a form that grants it is a form reachable by a stolen
+session or a bug in a role check.
 
 Set `site` in `astro.config.mjs` if the domain changes — canonical URLs, Open Graph tags and the
 sitemap all read from it. Regenerate the share card after a brand change: `node scripts/og.mjs`.

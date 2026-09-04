@@ -8,3 +8,11 @@ scripts/.og.html
 .vercel
 
 .vercel
+
+# admin (separate Astro app, same repo)
+admin/node_modules/
+admin/dist/
+admin/.astro/
+admin/.env
+admin/.vercel
+scratch-*

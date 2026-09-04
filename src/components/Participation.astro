@@ -1,5 +1,6 @@
 ---
 import { official, participationPaths } from '@/data';
+import { formById } from '@/data/forms';
 
 /**
  * Ways in.
@@ -22,8 +23,31 @@ const { showHead = true, heading = 'Ways in', eyebrow = 'Take part' } = Astro.pr
 
 const usesTally = participationPaths.some((item) => item.tallyId);
 
+/**
+ * A `submission` path is a pointer at a panel on `/join`, so its destination is
+ * derived from the form it names rather than written out a second time. That
+ * makes `formId` load-bearing: name a form that does not exist and the build
+ * stops here, the same way `SubmitPanel` stops. The alternative — a `formId`
+ * nothing reads — is how the two drifted apart in the first place.
+ */
+function submissionHref(path: (typeof participationPaths)[number]): string {
+  const form = path.formId ? formById.get(path.formId) : undefined;
+  if (!form) {
+    throw new Error(
+      `Participation path "${path.id}" names submission form "${path.formId}", which does not ` +
+        `exist. Known forms: ${[...formById.keys()].join(', ')}.`,
+    );
+  }
+  return `/join#${form.anchor}`;
+}
+
 const paths = participationPaths.map((path) => {
-  const url = path.kind === 'official' ? official.ambassadorProgramUrl : path.url;
+  const url =
+    path.kind === 'official'
+      ? official.ambassadorProgramUrl
+      : path.kind === 'submission'
+        ? submissionHref(path)
+        : path.url;
   return {
     ...path,
     href: url ?? '#',

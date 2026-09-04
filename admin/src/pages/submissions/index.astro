@@ -1,0 +1,170 @@
+---
+import Admin from '@/layouts/Admin.astro';
+import { pooledDb } from '@db/pool';
+import { ageLabel, countByStatus, listSubmissions } from '@/server/submissions';
+import { ALL_STATUSES, OPEN_STATUSES, type SubmissionStatus } from '@/server/transitions';
+
+export const prerender = false;
+
+/**
+ * THE QUEUE.
+ *
+ * What is waiting, and how long it has been waiting. That is the entire brief,
+ * and everything not serving it has been left out — there is no chart, no
+ * throughput number and no summary tile, because none of them help anybody
+ * pick up the next item.
+ *
+ * Two decisions carry the screen:
+ *
+ *  · OLDEST FIRST. A queue sorted newest-first buries the thing that has been
+ *    waiting longest, which is the one item it exists to surface.
+ *
+ *  · NO PRIVATE COLUMNS. `submitter_email`, `ip_hash` and `user_agent` are not
+ *    hidden here, they are not fetched — `listSubmissions` selects five
+ *    columns and the other three are never in memory. See the note there.
+ *
+ * The middleware has already established the viewer. If this page renders at
+ * all, `Astro.locals.user` is an active account with an admin role.
+ */
+const db = pooledDb();
+
+const statusParam = Astro.url.searchParams.get('status');
+const kindParam = Astro.url.searchParams.get('kind') ?? undefined;
+
+/** `open` (the default), `all`, or one specific state. */
+const statuses: readonly SubmissionStatus[] =
+  statusParam === 'all'
+    ? ALL_STATUSES
+    : statusParam && (ALL_STATUSES as readonly string[]).includes(statusParam)
+      ? [statusParam as SubmissionStatus]
+      : OPEN_STATUSES;
+
+const [rows, counts] = await Promise.all([
+  listSubmissions(db, { statuses, kind: kindParam }),
+  countByStatus(db),
+]);
+
+const now = new Date();
+const openTotal = OPEN_STATUSES.reduce((sum, s) => sum + counts[s], 0);
+
+/** Anything older than this has been waiting too long, and the row says so. */
+const STALE_AFTER_DAYS = 7;
+const STALE_MS = STALE_AFTER_DAYS * 24 * 60 * 60 * 1000;
+
+const filters = [
+  { key: 'open', label: 'Needs attention', n: openTotal, href: '/submissions' },
+  ...ALL_STATUSES.map((status) => ({
+    key: status,
+    label: status.replace(/_/g, ' '),
+    n: counts[status],
+    href: `/submissions?status=${status}`,
+  })),
+  {
+    key: 'all',
+    label: 'Everything',
+    n: ALL_STATUSES.reduce((sum, s) => sum + counts[s], 0),
+    href: '/submissions?status=all',
+  },
+];
+
+const current = statusParam ?? 'open';
+
+const KIND_LABEL: Record<string, string> = {
+  builder: 'Builder',
+  project: 'Project',
+  'use-case': 'Use case',
+  'city-interest': 'City interest',
+};
+
+const formatted = new Intl.DateTimeFormat('en-GB', {
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  timeZone: 'Asia/Kolkata',
+});
+---
+
+<Admin title="Submissions" active="submissions">
+  <div class="page-head">
+    <h1>Submissions</h1>
+    <p>
+      {openTotal === 0 ? 'Nothing waiting' : `${openTotal} waiting`}
+    </p>
+  </div>
+
+  <nav class="filters" aria-label="Filter by status">
+    {
+      filters.map((filter) => (
+        <a href={filter.href} aria-current={current === filter.key ? 'true' : undefined}>
+          {filter.label} <span class="n">{filter.n}</span>
+        </a>
+      ))
+    }
+  </nav>
+
+  {
+    rows.length === 0 ? (
+      <p class="empty">
+        Nothing here. {current === 'open' ? 'The queue is clear.' : 'Try another filter.'}
+      </p>
+    ) : (
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Kind</th>
+              <th scope="col">From</th>
+              <th scope="col">Status</th>
+              <th scope="col">Received</th>
+              <th scope="col">Waiting</th>
+              <th scope="col">
+                <span class="visually-hidden">Open</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => {
+              const stale =
+                OPEN_STATUSES.includes(row.status) &&
+                now.getTime() - row.createdAt.getTime() > STALE_MS;
+
+              return (
+                <tr>
+                  <td>{KIND_LABEL[row.kind] ?? row.kind}</td>
+                  {/* A name, never an address. The email is on the detail page. */}
+                  <td>{row.submitterName ?? <span class="num">not given</span>}</td>
+                  <td>
+                    <span class="chip" data-status={row.status}>
+                      {row.status.replace(/_/g, ' ')}
+                    </span>
+                  </td>
+                  <td class="num">{formatted.format(row.createdAt)}</td>
+                  <td class="age" data-stale={String(stale)}>
+                    {ageLabel(row.createdAt, now)}
+                  </td>
+                  <td>
+                    <a class="btn" href={`/submissions/${row.id}`}>
+                      Open
+                      <span class="visually-hidden">
+                        {' '}
+                        {KIND_LABEL[row.kind] ?? row.kind} from{' '}
+                        {row.submitterName ?? 'an unnamed submitter'}
+                      </span>
+                    </a>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
+
+  <p class="hint" style="margin-top: 1.5rem">
+    Oldest first — the top of this list is whoever has been waiting longest. Email addresses are on
+    the submission itself, never here.
+  </p>
+</Admin>

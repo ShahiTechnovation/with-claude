@@ -78,6 +78,15 @@ export function formatTime(time: ClockTime): string {
   return m === 0 ? `${hour12} ${suffix}` : `${hour12}:${String(m).padStart(2, '0')} ${suffix}`;
 }
 
+/** `06:00 PM` — zero-padded 12-hour clock, for tabular event listings. */
+export function formatTimePadded(time: ClockTime): string {
+  const [hStr, mStr] = time.split(':');
+  const h = Number(hStr);
+  const suffix = h < 12 ? 'AM' : 'PM';
+  const hour12 = h % 12 === 0 ? 12 : h % 12;
+  return `${String(hour12).padStart(2, '0')}:${mStr} ${suffix}`;
+}
+
 /** `6:00 – 8:30 PM IST`, collapsing a shared AM/PM suffix. */
 export function formatTimeRange(start: ClockTime, end?: ClockTime): string {
   if (!end) return `${formatTime(start)} IST`;

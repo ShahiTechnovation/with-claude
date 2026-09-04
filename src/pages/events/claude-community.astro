@@ -3,58 +3,103 @@ import { trail } from '@/lib/seo';
 import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
 import PageIntro from '@/components/PageIntro.astro';
+import type { CommunityEvent } from '@/data';
+import { cityName, creditsFor, pastEvents, publicEvents, upcomingEvents, venueLabel } from '@/data';
+import { dateParts, formatTimePadded } from '@/lib/datetime';
+import { lifecycleLabel, lifecycleOf } from '@/lib/status';
+import { listJoin } from '@/lib/words';
 
-// Event Dataset Hardcoded
-const upcoming = [
-  {
-    title: 'Delhi | Claude Meetup',
-    date: 'SEP 05, 2026',
-    dateShort: 'SEP 05',
-    time: '11:00 AM',
-    city: 'Delhi',
-    venue: 'Paytm, Delhi',
-    host: 'Aniket Sahu',
-    status: 'Upcoming',
-    luma: 'https://luma.com/claude-44tv'
-  },
-  {
-    title: 'Bhopal | Claude Conversation',
-    date: 'SEP 12, 2026',
-    dateShort: 'SEP 12',
-    time: '06:00 PM',
-    city: 'Bhopal',
-    host: 'Aniket Sahu',
-    status: 'Upcoming',
-    luma: 'https://luma.com/claude-6khk'
-  },
-  {
-    title: 'Bhopal | Claude Impact Lab',
-    date: 'SEP 13, 2026',
-    dateShort: 'SEP 13',
-    time: '10:00 AM',
-    city: 'Bhopal',
-    host: 'Aniket Sahu',
-    status: 'Upcoming',
-    luma: 'https://luma.com/claude-r61u'
-  }
-];
+/**
+ * ANIKET SAHU'S CLAUDE EVENT HISTORY.
+ *
+ * This page used to carry its own inline copy of the event list, which had
+ * already drifted from `src/data/events.ts` — a workshop was listed at 02:30
+ * in the morning, and several venues had gone missing. It now reads the same
+ * selectors as every other page, so there is one event record and one place
+ * to correct it.
+ *
+ * Nothing below is authored: the counts, the span, the city tallies and the
+ * lifecycle labels are all computed from the record at build time. That is
+ * also why the site rebuilds nightly — see `vercel.json`.
+ */
+interface Entry {
+  slug: string;
+  /** `Bhopal | Claude Meetup` — the city reads first on this page. */
+  title: string;
+  city: string;
+  /** `SEP 05, 2026` */
+  date: string;
+  /** `SEP 05` */
+  dateShort: string;
+  /** `06:00 PM` */
+  time: string;
+  venue?: string;
+  host: string;
+  status: string;
+  luma?: string;
+}
 
-const past = [
-  { title: 'Bhopal | Claude Code Workshop', date: 'SEP 02', time: '04:00 PM', city: 'Bhopal', host: 'Aniket Sahu' },
-  { title: 'Bhopal | Claude for College Builders', date: 'AUG 27', time: '02:30 AM', city: 'Bhopal', host: 'Aniket Sahu' },
-  { title: 'Bhopal | Claude Code Impact Lab', date: 'AUG 23', time: '09:00 AM', city: 'Bhopal', venue: 'PaPaPet head office', host: 'Aniket Sahu, The Origin Guild & Builder Base' },
-  { title: 'Claude for Businesses', date: 'AUG 16', time: '05:30 PM', city: 'Bhopal', venue: 'Farzi Cafe, Bhopal', host: 'Aniket Sahu', luma: 'https://luma.com/claude-ssrl' },
-  { title: 'Indore | Claude Meetup', date: 'AUG 15', time: '05:30 PM', city: 'Indore', venue: 'Walkover', host: 'Aniket Sahu' },
-  { title: 'Bhopal | Claude Code Workshop', date: 'AUG 09', time: '05:30 PM', city: 'Bhopal', venue: 'BIBA', host: 'Aniket Sahu', luma: 'https://luma.com/claude-jy40' },
-  { title: 'Bhopal | Claude Code Workshop', date: 'AUG 05', time: '05:00 PM', city: 'Bhopal', venue: 'RICR — Raj Institute of Coding & Robotics', host: 'Aniket Sahu & Vishal Kumar', luma: 'https://luma.com/claude-7myk' },
-  { title: 'Bhopal | Getting Started with Claude & Claude Code', date: 'AUG 02', time: '05:00 PM', city: 'Bhopal', venue: 'BIBA', host: 'Aniket Sahu, The Origin Guild, Builder Base & Vishal Kumar', luma: 'https://luma.com/claude-9g93' },
-  { title: 'Bhopal | Claude Community Conversation', date: 'JUL 26', time: '06:00 PM', city: 'Bhopal', venue: 'Sheryians HQ', host: 'Aniket Sahu', luma: 'https://luma.com/claude-w1nu' },
-  { title: 'Bhopal | Claude Meetup', date: 'JUL 12', time: '04:30 PM', city: 'Bhopal', venue: 'Aanarchy', host: 'Aniket Sahu, The Origin Guild & Builder Base', luma: 'https://luma.com/claude-18gk' },
-  { title: 'Bhopal | Claude Code for Builders', date: 'MAR 01', time: '04:00 PM', city: 'Bhopal', host: 'Aniket Sahu, The Origin Guild & Vishal Kumar', luma: 'https://luma.com/hphplrbx' },
-];
+const toEntry = (event: CommunityEvent): Entry => {
+  const parts = dateParts(event.date);
+  const city = cityName(event.citySlug);
+  return {
+    slug: event.slug,
+    title: `${city} | ${event.title}`,
+    city,
+    date: `${parts.monthDisplay} ${parts.dayPadded}, ${parts.year}`,
+    dateShort: `${parts.monthDisplay} ${parts.dayPadded}`,
+    time: formatTimePadded(event.startTime),
+    venue: venueLabel(event),
+    host: listJoin(creditsFor(event)),
+    status: lifecycleLabel(lifecycleOf(event)),
+    luma: event.registrationUrl,
+  };
+};
 
-const cities = ['Delhi (1)', 'Bhopal (12)', 'Indore (1)'];
+const upcomingRecords = upcomingEvents();
+const pastRecords = pastEvents();
+
+const upcoming = upcomingRecords.map(toEntry);
+const past = pastRecords.map(toEntry);
 const [lead, ...restUpcoming] = upcoming;
+
+// Ordered by how much has actually happened there, so the list reads as a
+// ranking rather than as an alphabet. Same rule as `EventSignal`.
+const cities = [...new Set(publicEvents.map((event) => event.citySlug))]
+  .map((slug) => ({
+    name: cityName(slug),
+    count: publicEvents.filter((event) => event.citySlug === slug).length,
+  }))
+  .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+  .map((city) => `${city.name} (${city.count})`);
+
+const chronological = [...publicEvents].sort((a, b) => (a.date < b.date ? -1 : 1));
+const first = chronological[0];
+const last = chronological[chronological.length - 1];
+const span =
+  first && last
+    ? `${dateParts(first.date).monthDisplay} ${dateParts(first.date).year} — ${dateParts(last.date).monthDisplay} ${dateParts(last.date).year}`
+    : undefined;
+
+const pad = (n: number) => String(n).padStart(2, '0');
+
+const figures = [
+  { value: publicEvents.length, label: 'Claude events' },
+  { value: upcoming.length, label: 'Upcoming' },
+  { value: past.length, label: 'Held' },
+  { value: cities.length, label: 'Cities' },
+];
+
+// The archive is grouped under one year mark on this page. Every event on the
+// record so far falls in the same year; if that stops being true the rail
+// below labels the span rather than claiming a single year.
+const archiveYears = [...new Set(pastRecords.map((event) => dateParts(event.date).year))].sort(
+  (a, b) => b - a,
+);
+const archiveYearMark =
+  archiveYears.length > 1
+    ? `${archiveYears[archiveYears.length - 1]}—${archiveYears[0]}`
+    : (archiveYears[0]?.toString() ?? '');
 ---
 
 <Base
@@ -67,11 +112,11 @@ const [lead, ...restUpcoming] = upcoming;
   <PageIntro
     eyebrow="Archive"
     title="Aniket Sahu's Claude Event History."
-    stamp="14 events"
+    stamp={`${publicEvents.length} events`}
     facts={[
-      { label: 'Held', value: '11' },
-      { label: 'Ahead', value: '03' },
-      { label: 'Cities', value: '03' },
+      { label: 'Held', value: pad(past.length) },
+      { label: 'Ahead', value: pad(upcoming.length) },
+      { label: 'Cities', value: pad(cities.length) },
     ]}
   >
     <p>
@@ -92,26 +137,18 @@ const [lead, ...restUpcoming] = upcoming;
 
       <div class="wild-figures">
         <dl class="figures">
-          <div class="figure">
-            <dd>14</dd>
-            <dt>Claude events</dt>
-          </div>
-          <div class="figure">
-            <dd>03</dd>
-            <dt>Upcoming</dt>
-          </div>
-          <div class="figure">
-            <dd>11</dd>
-            <dt>Held</dt>
-          </div>
-          <div class="figure">
-            <dd>03</dd>
-            <dt>Cities</dt>
-          </div>
+          {
+            figures.map((figure) => (
+              <div class="figure">
+                <dd>{pad(figure.value)}</dd>
+                <dt>{figure.label}</dt>
+              </div>
+            ))
+          }
         </dl>
 
         <p class="wild-span">
-          <span class="wild-span-dates">MAR 2026 — SEP 2026</span>
+          {span && <span class="wild-span-dates">{span}</span>}
           <span class="wild-span-cities">
             {cities.join(' · ')}
           </span>
@@ -121,20 +158,19 @@ const [lead, ...restUpcoming] = upcoming;
   </Section>
 
   <Section id="record" size="lg" labelledby="ahead-heading">
+    {lead && (
     <section class="ahead" aria-labelledby="ahead-heading">
       <div class="block-head">
         <h2 class="label" id="ahead-heading">
           Upcoming events
         </h2>
-        <span class="coords">03</span>
+        <span class="coords">{pad(upcoming.length)}</span>
       </div>
 
       <article class="lead">
         <p class="lead-index">
           <span class="lead-n">01</span>
-          <span class="pip pip-blue">
-            Upcoming
-          </span>
+          <span class="pip pip-blue">{lead.status}</span>
         </p>
 
         <h3 class="lead-title">
@@ -193,9 +229,7 @@ const [lead, ...restUpcoming] = upcoming;
                 <span class="next-hosts">{entry.host}</span>
               </span>
 
-              <span class="pip pip-blue next-pip">
-                Upcoming
-              </span>
+              <span class="pip pip-blue next-pip">{entry.status}</span>
             </div>
 
             {entry.luma && (
@@ -215,30 +249,28 @@ const [lead, ...restUpcoming] = upcoming;
         ))}
       </ul>
     </section>
+    )}
 
+    {past.length > 0 && (
     <section class="archive" aria-labelledby="archive-heading">
       <div class="block-head">
         <h2 class="label" id="archive-heading">
           The archive
         </h2>
-        <span class="coords">11</span>
+        <span class="coords">{pad(past.length)}</span>
       </div>
 
       <div class="year">
-        <p class="year-mark" aria-hidden="true">
-          2026
-        </p>
+        <p class="year-mark" aria-hidden="true">{archiveYearMark}</p>
 
         <ul class="year-list">
           {past.map((entry, index) => (
             <li class="past-item">
               <div class="past-row">
-                <span class="past-n">{String(index + 4).padStart(2, '0')}</span>
+                <span class="past-n">{pad(upcoming.length + index + 1)}</span>
 
                 <span class="past-when">
-                  <span class="past-date">
-                    {entry.date}
-                  </span>
+                  <span class="past-date">{entry.dateShort}</span>
                   <span class="past-time">{entry.time}</span>
                 </span>
 
@@ -268,6 +300,7 @@ const [lead, ...restUpcoming] = upcoming;
         </ul>
       </div>
     </section>
+    )}
   </Section>
 </Base>
 

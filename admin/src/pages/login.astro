@@ -1,0 +1,107 @@
+---
+import Admin from '@/layouts/Admin.astro';
+import { assertSameOrigin } from '@/server/session';
+import { GENERIC_CONFIRMATION, requestMagicLink, safeNext } from '@/server/login';
+
+export const prerender = false;
+
+/**
+ * The only door.
+ *
+ * A plain form that posts to itself. No client-side JavaScript at all: the one
+ * screen standing between the internet and an editorial queue is the last
+ * place to make sign-in depend on a bundle loading.
+ *
+ * The confirmation never says whether the address has an account — see
+ * `src/server/login.ts` for why.
+ */
+const next = safeNext(Astro.url.searchParams.get('next'));
+
+let sent = false;
+let error: string | undefined;
+let email = '';
+
+if (Astro.request.method === 'POST') {
+  if (!assertSameOrigin(Astro.request)) {
+    // SameSite=Lax already stops a cross-site POST carrying a cookie. This is
+    // the second lock, and it applies even though this form has no session yet.
+    error = 'That request did not come from this site. Reload and try again.';
+  } else {
+    const form = await Astro.request.formData();
+    email = String(form.get('email') ?? '');
+
+    const outcome = await requestMagicLink({
+      email,
+      // `x-forwarded-for` is the caller on Vercel. Used to throttle, never stored.
+      callerKey: Astro.request.headers.get('x-forwarded-for')?.split(',')[0]?.trim(),
+      next,
+    });
+
+    if (outcome.ok) {
+      sent = true;
+      email = '';
+    } else {
+      error = outcome.error;
+    }
+  }
+}
+
+/**
+ * Why the middleware sent somebody here, when it was not simply "no session".
+ * A deactivated account that keeps being bounced to a blank login form is a
+ * bad half-hour for whoever has to explain it.
+ */
+const REASONS: Record<string, string> = {
+  inactive: 'That account has been deactivated. Ask an administrator.',
+  role: 'That account does not have admin access.',
+  'unknown-user': 'That account no longer exists.',
+};
+const bounced = REASONS[Astro.url.searchParams.get('reason') ?? ''];
+---
+
+<Admin title="Sign in" bare>
+  <div class="login">
+    <h1>WITH CLAUDE admin</h1>
+    <p class="hint">Editorial access. Sign-in is by emailed link.</p>
+
+    {bounced && <p class="notice notice-error">{bounced}</p>}
+    {error && <p class="notice notice-error">{error}</p>}
+
+    {
+      sent ? (
+        <>
+          <p class="notice notice-ok">{GENERIC_CONFIRMATION}</p>
+          <p class="hint">
+            Nothing is sent to an address without an account, so no link arriving may simply mean
+            this address is not one of them.
+          </p>
+        </>
+      ) : (
+        <form method="POST">
+          <div>
+            <label for="email">Email</label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              value={email}
+              required
+              autocomplete="email"
+              autofocus
+              inputmode="email"
+              placeholder="you@example.com"
+            />
+          </div>
+
+          <button class="btn btn-solid" type="submit">
+            Email me a link
+          </button>
+
+          <p class="hint">
+            Accounts are created by an administrator, never by this form. There is no password.
+          </p>
+        </form>
+      )
+    }
+  </div>
+</Admin>

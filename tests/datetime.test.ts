@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import type { ClockTime } from '../src/data/types';
 import {
   dateParts,
   daysUntil,
   formatDate,
   formatTime,
+  formatTimePadded,
   formatTimeRange,
   isoDateTime,
   istDay,
@@ -88,5 +90,34 @@ describe('daysUntil / relativeDay', () => {
 describe('isoDateTime', () => {
   it('always stamps the IST offset', () => {
     expect(isoDateTime('2026-09-12', '18:00')).toBe('2026-09-12T18:00:00+05:30');
+  });
+});
+
+/**
+ * The zero-padded clock the event history page sets its listings in.
+ * `formatTime` drops `:00` because prose reads better without it; a tabular
+ * listing needs the columns to line up, so it does not.
+ */
+describe('formatTimePadded', () => {
+  it.each([
+    ['00:00', '12:00 AM'],
+    ['09:00', '09:00 AM'],
+    ['10:30', '10:30 AM'],
+    ['11:00', '11:00 AM'],
+    ['12:00', '12:00 PM'],
+    ['12:30', '12:30 PM'],
+    ['16:00', '04:00 PM'],
+    ['17:30', '05:30 PM'],
+    ['18:00', '06:00 PM'],
+    ['23:45', '11:45 PM'],
+  ])('formats %s as %s', (input, expected) => {
+    expect(formatTimePadded(input as ClockTime)).toBe(expected);
+  });
+
+  it('always produces a two-digit hour, so listings line up', () => {
+    for (let h = 0; h < 24; h += 1) {
+      const value = formatTimePadded(`${String(h).padStart(2, '0')}:00` as ClockTime);
+      expect(value, `hour ${h}`).toMatch(/^\d{2}:\d{2} (AM|PM)$/);
+    }
   });
 });

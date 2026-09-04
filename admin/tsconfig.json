@@ -1,0 +1,15 @@
+{
+  "extends": "astro/tsconfigs/strict",
+  "compilerOptions": {
+    "strictNullChecks": true,
+    "allowJs": true,
+    "verbatimModuleSyntax": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@db/*": ["../db/*"]
+    }
+  },
+  "include": [".astro/types.d.ts", "**/*", "../db/**/*"],
+  "exclude": ["dist", "node_modules"]
+}

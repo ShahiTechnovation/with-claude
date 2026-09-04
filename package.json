@@ -4,32 +4,54 @@
   "private": true,
   "type": "module",
   "description": "WITH CLAUDE — India is building.",
+  "workspaces": [
+    "admin"
+  ],
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",
-    "build": "astro check && astro build",
+    "prebuild": "tsx db/snapshot.ts",
+    "build": "npm run prebuild && astro check && astro build",
     "preview": "astro preview",
     "astro": "astro",
     "test": "vitest run",
     "test:watch": "vitest",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "lint": "astro check"
+    "lint": "astro check",
+    "dev:admin": "npm --prefix admin run dev",
+    "build:admin": "npm --prefix admin run build",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx db/migrate.ts",
+    "db:import": "tsx db/import/run.ts",
+    "db:create-user": "tsx db/create-user.ts",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.2.1",
+    "@astrojs/vercel": "^9.0.5",
     "@fontsource-variable/fraunces": "^5.1.0",
     "@fontsource-variable/inter": "^5.1.0",
     "@fontsource/ibm-plex-mono": "^5.1.0",
+    "@neondatabase/serverless": "^1.1.0",
     "@vercel/analytics": "^2.0.1",
     "astro": "^5.1.1",
-    "sharp": "^0.33.5"
+    "drizzle-orm": "^0.45.2",
+    "pg": "^8.23.0",
+    "resend": "^6.26.0",
+    "sharp": "^0.33.5",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.4",
+    "@electric-sql/pglite": "^0.5.8",
+    "@types/pg": "^8.23.1",
+    "dotenv": "^17.4.2",
+    "drizzle-kit": "^0.31.10",
     "playwright": "^1.62.1",
     "prettier": "^3.4.2",
     "prettier-plugin-astro": "^0.14.1",
+    "tsx": "^4.23.13",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
   }

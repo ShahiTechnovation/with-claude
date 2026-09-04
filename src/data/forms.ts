@@ -4,18 +4,23 @@ import { communityChannel } from './site';
 /**
  * Submission forms.
  *
- * There is no backend, and inventing one would be worse than not having one.
- * So a submission is composed in the browser into a clean, complete block of
- * text that the person copies and sends to the organisers through the channel
- * the community actually uses. Nothing is posted anywhere without them doing
- * it, which is also the most honest possible privacy story.
+ * Every form now posts to `/api/submit`, which validates it, rate-limits it,
+ * stores it as one row in `submissions`, and emails an acknowledgement. That
+ * endpoint is the site's only write path, and it is deliberately narrow: a
+ * submission is an inbox item, it publishes nothing, and it cannot set its own
+ * status. Nothing appears on the site until a person decides it should.
  *
- * When a real endpoint exists, set `endpoint` on a form and the panel posts to
- * it instead. Nothing else has to change.
+ * THE CLIPBOARD FALLBACK IS STILL HERE, AND STILL MATTERS. If the endpoint is
+ * down, refuses the request, or the person is offline, the panel composes what
+ * they typed into a clean block of text they can send through the channel the
+ * community actually reads. A form that eats somebody's work when a server is
+ * having a bad afternoon is worse than a form with no server at all, so the
+ * path that never needed one is kept.
  *
  * Every form says the same thing at the end: submissions are reviewed before
- * they are published. That is the `pending` state in the data model, made
- * visible to the person filling it in.
+ * they are published. That is the moderation state in the data model, made
+ * visible to the person filling it in — and now also what the acknowledgement
+ * email says.
  */
 
 export type FieldType = 'text' | 'email' | 'url' | 'textarea' | 'select';
@@ -46,6 +51,18 @@ export interface SubmissionForm {
   fields: SubmissionField[];
 }
 
+/**
+ * Where every form posts.
+ *
+ * The trailing slash is deliberate. `trailingSlash: 'always'` means Vercel
+ * answers `/api/submit` with a 308 to `/api/submit/`; a 308 does preserve the
+ * method and the body, but paying for a redirect on every submission to reach
+ * a URL we already know is careless — and it makes the whole write path
+ * depend on that redirect never being downgraded to a 301, which would drop
+ * the body silently.
+ */
+const SUBMIT_ENDPOINT = '/api/submit/';
+
 const cityOptions = [...cities.map((c) => c.name).sort(), 'Somewhere else'];
 
 export const forms: SubmissionForm[] = [
@@ -60,6 +77,7 @@ export const forms: SubmissionForm[] = [
     subject: 'BUILDER SUBMISSION',
     afterword:
       'Entries are reviewed before they are published. Only what you write below is shown — your email is used to reach you and is never displayed.',
+    endpoint: SUBMIT_ENDPOINT,
     fields: [
       { name: 'name', label: 'Name', type: 'text', required: true, placeholder: 'Your name' },
       {
@@ -106,6 +124,7 @@ export const forms: SubmissionForm[] = [
     subject: 'PROJECT SUBMISSION',
     afterword:
       'Projects are reviewed before they are published. The archive stays empty rather than being filled with things nobody can verify.',
+    endpoint: SUBMIT_ENDPOINT,
     fields: [
       {
         name: 'title',
@@ -179,6 +198,7 @@ export const forms: SubmissionForm[] = [
     subject: 'USE CASE SUBMISSION',
     afterword:
       'Use cases are reviewed before they are published, and every entry carries your name and a reason you would know. Nothing in this library is written by the site.',
+    endpoint: SUBMIT_ENDPOINT,
     fields: [
       {
         name: 'title',
@@ -272,6 +292,7 @@ export const forms: SubmissionForm[] = [
     subject: 'CITY INTEREST',
     afterword:
       'This is an interest signal, not an application. It does not create a chapter and it does not make anyone an Ambassador — Claude Community Ambassadors are appointed by Anthropic.',
+    endpoint: SUBMIT_ENDPOINT,
     fields: [
       { name: 'city', label: 'City', type: 'text', required: true, placeholder: 'Where you are' },
       {

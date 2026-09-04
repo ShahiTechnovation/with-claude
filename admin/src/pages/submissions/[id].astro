@@ -1,0 +1,332 @@
+---
+import Admin from '@/layouts/Admin.astro';
+import { pooledDb } from '@db/pool';
+import { ageLabel, getSubmission, historyOf, orderedPayload } from '@/server/submissions';
+import { availableActions, RULES, type ReviewAction } from '@/server/transitions';
+import { canPromote } from '@/server/promotion';
+
+export const prerender = false;
+
+/**
+ * One submission, as the person actually wrote it.
+ *
+ * ── THE RAW PAYLOAD IS RAW ───────────────────────────────────────────────
+ *
+ * The payload is rendered field by field with no normalisation, no trimming
+ * and no prettying-up. A reviewer's whole job here is to judge what somebody
+ * actually submitted, and a screen that tidies it first is showing them
+ * something else. When this eventually becomes a record, that record will be a
+ * separate thing with its own history — this stays as evidence of what arrived.
+ *
+ * The one liberty taken is the ORDER of the fields, which `jsonb` does not
+ * preserve. They are put back into the order the person met them on the form,
+ * so the screen reads like the thing they filled in. No key is changed, no
+ * value is touched, and an unrecognised key is appended rather than dropped —
+ * see `orderedPayload`.
+ *
+ * ── THE ONE PRIVATE FIELD ────────────────────────────────────────────────
+ *
+ * The submitter's email is on this page and nowhere else, set apart so it
+ * cannot be mistaken for content. It is here because a reviewer asking for
+ * changes has to be able to reach the person. `ip_hash` and `user_agent` are
+ * not fetched at all: they exist for abuse triage, which is not this job.
+ */
+const { id } = Astro.params;
+const user = Astro.locals.user!;
+const db = pooledDb();
+
+// Anything that is not a uuid is a 404 rather than a database error.
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const submission = id && UUID.test(id) ? await getSubmission(db, id) : undefined;
+
+if (!submission) {
+  return new Response('No submission with that id.', { status: 404 });
+}
+
+const history = await historyOf(db, submission.id);
+const actions = availableActions(submission.status, user.role);
+
+/**
+ * Whether this submission can become a real record.
+ *
+ * Only from `approved`, and only for an Editor or Admin. `promoted` is read
+ * off the submission's own back-reference rather than a separate flag: the
+ * columns that say what it created ARE the record of whether it has been
+ * promoted, so the two can never disagree.
+ */
+const promoted = Boolean(submission.entityType && submission.entityId);
+const mayPromote = canPromote(user.role) && submission.status === 'approved';
+
+/** Set by the review endpoint on redirect, so a result survives the round trip. */
+const flashError = Astro.url.searchParams.get('error');
+const flashOk = Astro.url.searchParams.get('done');
+
+const KIND_LABEL: Record<string, string> = {
+  builder: 'Builder',
+  project: 'Project',
+  'use-case': 'Use case',
+  'city-interest': 'City interest',
+};
+
+const when = new Intl.DateTimeFormat('en-GB', {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+  timeZone: 'Asia/Kolkata',
+});
+
+/**
+ * The payload as ordered pairs.
+ *
+ * Values are stringified only where they are not already strings — an array or
+ * a number is shown as JSON rather than coerced, so nothing about the shape of
+ * what was submitted is lost on the way to the screen.
+ */
+const payload = orderedPayload(submission.kind, submission.payload);
+
+const show = (value: unknown): string =>
+  typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+
+const ACTION_ORDER: ReviewAction[] = [
+  'start_review',
+  'approve',
+  'request_changes',
+  'reject',
+  'resubmit',
+];
+const ordered = ACTION_ORDER.filter((action) => actions.includes(action));
+---
+
+<Admin title={`${KIND_LABEL[submission.kind] ?? submission.kind} submission`} active="submissions">
+  <div class="page-head">
+    <h1>{KIND_LABEL[submission.kind] ?? submission.kind} submission</h1>
+    <p>
+      <span class="chip" data-status={submission.status}>
+        {submission.status.replace(/_/g, ' ')}
+      </span>
+    </p>
+  </div>
+
+  <p><a href="/submissions">&larr; Back to the queue</a></p>
+
+  {flashError && <p class="notice notice-error">{flashError}</p>}
+  {flashOk && <p class="notice notice-ok">{flashOk}</p>}
+
+  <section class="panel">
+    <h2>Submission</h2>
+    <dl class="meta-grid">
+      <dt>Reference</dt>
+      <dd class="num">{submission.id}</dd>
+
+      <dt>Kind</dt>
+      <dd>{KIND_LABEL[submission.kind] ?? submission.kind}</dd>
+
+      <dt>Name</dt>
+      <dd>{submission.submitterName ?? 'Not given'}</dd>
+
+      <dt>Received</dt>
+      <dd>
+        {when.format(submission.createdAt)} IST
+        <span class="num"> · {ageLabel(submission.createdAt)} ago</span>
+      </dd>
+
+      {
+        submission.reviewedAt && (
+          <>
+            <dt>Last reviewed</dt>
+            <dd>
+              {when.format(submission.reviewedAt)} IST
+              {submission.reviewerEmail && (
+                <span class="num"> · {submission.reviewerName ?? submission.reviewerEmail}</span>
+              )}
+            </dd>
+          </>
+        )
+      }
+
+      {
+        submission.reviewerNote && (
+          <>
+            <dt>Reviewer note</dt>
+            <dd>{submission.reviewerNote}</dd>
+          </>
+        )
+      }
+    </dl>
+  </section>
+
+  <section class="panel">
+    <h2>Contact</h2>
+    <div class="private">
+      <dl class="meta-grid">
+        <dt>Email</dt>
+        <dd><a href={`mailto:${submission.submitterEmail}`}>{submission.submitterEmail}</a></dd>
+      </dl>
+      <p class="private-note">
+        Private. This address is never rendered by the public site and appears on no other screen in
+        here. It is for replying to this person about this submission.
+      </p>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>As submitted</h2>
+    {
+      payload.length === 0 ? (
+        <p class="hint">The stored payload is empty.</p>
+      ) : (
+        <dl class="payload">
+          {payload.map(({ field, value }) => (
+            <>
+              <dt>{field}</dt>
+              <dd>{show(value)}</dd>
+            </>
+          ))}
+        </dl>
+      )
+    }
+    <p class="private-note">
+      Exactly what was sent, unmodified. Nothing here has been published, and approving it does not
+      publish it.
+    </p>
+  </section>
+
+  {
+    ordered.length > 0 && (
+      <section class="panel">
+        <h2>Review</h2>
+
+        <div class="action-form">
+          {ordered.map((action) => {
+            const rule = RULES[action];
+            return (
+              <form method="POST" action={`/api/submissions/${submission.id}/review`}>
+                <input type="hidden" name="action" value={action} />
+
+                {rule.requiresNote && (
+                  <p style="margin: 0 0 0.5rem">
+                    <label for={`note-${action}`}>Why — required for “{rule.label}”</label>
+                    <textarea
+                      id={`note-${action}`}
+                      name="note"
+                      required
+                      placeholder="What needs to change, or why this is not going ahead. The submitter is a person who spent time on this."
+                    />
+                  </p>
+                )}
+
+                <div class="actions">
+                  <button
+                    class:list={[
+                      'btn',
+                      action === 'approve' && 'btn-solid',
+                      action === 'reject' && 'btn-danger',
+                    ]}
+                    type="submit"
+                  >
+                    {rule.label}
+                  </button>
+                  <span class="hint">
+                    {submission.status.replace(/_/g, ' ')} → {rule.to.replace(/_/g, ' ')}
+                  </span>
+                </div>
+              </form>
+            );
+          })}
+        </div>
+
+        <p class="private-note">
+          Approving records that this belongs in the record. It does not put anything on the
+          website — creating the record and publishing it are two further steps, taken
+          deliberately.
+        </p>
+      </section>
+    )
+  }
+
+  {
+    (mayPromote || promoted) && (
+      <section class="panel">
+        <h2>The record</h2>
+
+        {promoted ? (
+          <>
+            <p>
+              This submission created a{' '}
+              <strong>{submission.entityType!.replace(/_/g, ' ')}</strong>. It is not published by
+              being created — it goes live from the{' '}
+              <a href="/publish">publish queue</a>, deliberately.
+            </p>
+            <p class="private-note">
+              The submission is kept exactly as it was sent. It is the historical source for the
+              record it produced, and promotion does not alter or replace it.
+            </p>
+          </>
+        ) : (
+          <>
+            <form method="POST" action={`/api/submissions/${submission.id}/promote`}>
+              <div class="actions">
+                <button class="btn btn-solid" type="submit">
+                  Create the record
+                </button>
+                <span class="hint">approved → a real record, still unpublished</span>
+              </div>
+            </form>
+
+            <p class="private-note">
+              This creates the {submission.kind.replace(/-/g, ' ')} from what was submitted, and
+              nothing more. Nothing is invented: if a field a record needs is missing, this
+              refuses and says which one. The result is <strong>approved</strong>, not published —
+              putting it on the website is a separate act, from the publish queue.
+            </p>
+          </>
+        )}
+      </section>
+    )
+  }
+
+  {
+    ordered.length === 0 && (
+      <section class="panel">
+        <h2>Review</h2>
+        <p class="hint">
+          Nothing to do: “{submission.status.replace(/_/g, ' ')}” is a resting state.
+        </p>
+      </section>
+    )
+  }
+
+  <section class="panel">
+    <h2>History</h2>
+    {
+      history.length === 0 ? (
+        <p class="hint">Nothing has happened to this submission yet.</p>
+      ) : (
+        <ol class="timeline">
+          {history.map((entry) => (
+            <li>
+              <span class="num">
+                {when.format(entry.createdAt)} IST · {entry.actorEmail ?? 'unknown actor'}
+              </span>
+              <span>
+                {entry.fromStatus && entry.toStatus ? (
+                  <>
+                    <span class="chip" data-status={entry.fromStatus}>
+                      {entry.fromStatus.replace(/_/g, ' ')}
+                    </span>
+                    {' → '}
+                    <span class="chip" data-status={entry.toStatus}>
+                      {entry.toStatus.replace(/_/g, ' ')}
+                    </span>
+                  </>
+                ) : (
+                  entry.action
+                )}
+              </span>
+              {entry.note && <span>{entry.note}</span>}
+            </li>
+          ))}
+        </ol>
+      )
+    }
+  </section>
+</Admin>

@@ -1,5 +1,12 @@
 ---
-import { cityName, creditsFor, isAmbassadorLed, pastEvents, upcomingEvents } from '@/data';
+import {
+  cityName,
+  creditsFor,
+  isAmbassadorLed,
+  pastEvents,
+  upcomingEvents,
+  venueLabel,
+} from '@/data';
 import type { CommunityEvent } from '@/data';
 import { dateParts, formatTime, isoDateTime } from '@/lib/datetime';
 import { formatName, lifecycleLabel, lifecycleOf, lifecycleTone } from '@/lib/status';
@@ -42,26 +49,12 @@ interface Entry {
   lifecycle: ReturnType<typeof lifecycleOf>;
 }
 
-/**
- * A venue is only worth printing when it names somewhere.
- *
- * `private: true` means the address goes to confirmed registrants only, and
- * several older entries use the city name as an honest stand-in for a venue
- * nobody recorded. Neither is a location, so neither is rendered as one.
- */
-function venueOf(event: CommunityEvent): string | undefined {
-  const { name, address, private: isPrivate } = event.venue;
-  if (isPrivate) return undefined;
-  if (name === cityName(event.citySlug)) return undefined;
-  return address && !name.includes(address) ? `${name}, ${address}` : name;
-}
-
 const toEntry = (event: CommunityEvent, i: number): Entry => ({
   event,
   n: String(i + 1).padStart(2, '0'),
   parts: dateParts(event.date),
   city: cityName(event.citySlug),
-  venue: venueOf(event),
+  venue: venueLabel(event),
   hosts: creditsFor(event),
   verified: isAmbassadorLed(event),
   lifecycle: lifecycleOf(event),

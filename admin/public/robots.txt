@@ -1,0 +1,4 @@
+# Nothing here is for a crawler. The login page is the only reachable URL
+# without a session, and it has nothing on it worth indexing.
+User-agent: *
+Disallow: /

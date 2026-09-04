@@ -58,29 +58,43 @@ const lower = (parts: (string | undefined)[]): string =>
   parts.filter(Boolean).join(' ').toLowerCase();
 
 function personRecords(): SearchRecord[] {
-  return publicBuilders.map((builder) => ({
-    id: `person:${builder.slug}`,
-    kind: 'person' as const,
-    title: builder.name,
-    subtitle: [cityName(builder.citySlug), builder.role].filter(Boolean).join(' · '),
-    summary: builder.building ?? builder.bio ?? builder.role,
-    href: `/builders/${builder.slug}`,
-    facets: {
-      city: builder.citySlug,
-      category: builder.roles[0],
-      surfaces: (builder.claudeTools ?? []).map((t) => t.toLowerCase()),
-    },
-    terms: lower([
-      builder.name,
-      builder.role,
-      builder.building,
-      builder.bio,
-      cityName(builder.citySlug),
-      builder.roles.join(' '),
-      (builder.claudeTools ?? []).join(' '),
-    ]),
-    weight: builder.status === 'featured' ? 2 : 1,
-  }));
+  return publicBuilders.map((builder) => {
+    /**
+     * Ambassador status is not a role a builder carries.
+     *
+     * It is granted by Anthropic, recorded in `ambassadors` with its
+     * provenance, and rendered from there — both places that print role chips
+     * already filter this exact value out for that reason, and the database
+     * refuses to store it at all (a CHECK on `builders.roles`). Filtering here
+     * too makes the index say the same thing as the page, and makes it say the
+     * same thing whichever source the build read.
+     */
+    const roles = builder.roles.filter((role) => role !== 'ambassador');
+
+    return {
+      id: `person:${builder.slug}`,
+      kind: 'person' as const,
+      title: builder.name,
+      subtitle: [cityName(builder.citySlug), builder.role].filter(Boolean).join(' · '),
+      summary: builder.building ?? builder.bio ?? builder.role,
+      href: `/builders/${builder.slug}`,
+      facets: {
+        city: builder.citySlug,
+        category: roles[0],
+        surfaces: (builder.claudeTools ?? []).map((t) => t.toLowerCase()),
+      },
+      terms: lower([
+        builder.name,
+        builder.role,
+        builder.building,
+        builder.bio,
+        cityName(builder.citySlug),
+        roles.join(' '),
+        (builder.claudeTools ?? []).join(' '),
+      ]),
+      weight: builder.status === 'featured' ? 2 : 1,
+    };
+  });
 }
 
 function projectRecords(): SearchRecord[] {

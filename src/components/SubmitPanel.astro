@@ -5,15 +5,20 @@ import { site } from '@/data';
 /**
  * A submission panel.
  *
- * There is no backend on this site. Rather than pretend otherwise with a form
- * that silently goes nowhere, the panel composes what you typed into a clean,
- * complete block of text and hands it to you to send through the channel the
- * community actually reads. You press send, so nothing leaves the browser
- * without you doing it.
+ * The panel posts to `/api/submit`, which stores the submission and emails an
+ * acknowledgement. If that fails for any reason it composes what you typed
+ * into a clean, complete block of text and hands it to you to send through the
+ * channel the community actually reads — so a bad afternoon on the server
+ * costs you a click, not your answers.
  *
  * Without scripts the fields still render as the definitive list of what is
  * being asked for, and the channel link is a real link. Nothing here is a dead
  * control.
+ *
+ * The one field a person never sees is the honeypot below. It is `hidden`
+ * and `display: none` — out of the layout, out of the accessibility tree and
+ * out of tab order — so nobody using this site can fill it in by any means,
+ * which is what makes a filled-in one conclusive rather than a guess.
  */
 interface Props {
   formId: string;
@@ -48,8 +53,22 @@ if (!form) {
     class="submit-form"
     data-submit-form
     data-subject={`${site.wordmark} — ${form.subject}`}
+    data-form-id={form.id}
     data-endpoint={form.endpoint}
   >
+    {/* Hidden from people, hidden from assistive technology, out of tab order.
+        Only something filling in every input it finds will fill this one. */}
+    <div class="submit-trap" hidden>
+      <label for={`${form.id}-website`}>Website</label>
+      <input
+        id={`${form.id}-website`}
+        type="text"
+        name="website"
+        tabindex="-1"
+        autocomplete="off"
+      />
+    </div>
+
     <div class="submit-fields">
       {
         form.fields.map((field) => (
@@ -109,7 +128,7 @@ if (!form) {
     </div>
 
     <div class="submit-out js-only" data-submit-out hidden>
-      <p class="label submit-out-head">Ready to send</p>
+      <p class="label submit-out-head" data-submit-out-head>Ready to send</p>
       <pre class="submit-text" data-submit-text></pre>
       <div class="submit-out-actions">
         <button class="btn btn-sm" type="button" data-submit-copy>
@@ -120,7 +139,7 @@ if (!form) {
           <span class="arrow" aria-hidden="true">↗</span>
         </a>
       </div>
-      <p class="submit-out-note">
+      <p class="submit-out-note" data-submit-out-note>
         Paste it in the group and an organiser will pick it up. Nothing has been sent yet.
       </p>
     </div>
@@ -163,6 +182,17 @@ if (!form) {
   .submit-form {
     padding-top: var(--s-6);
     border-top: var(--border-heavy) solid var(--ink);
+  }
+
+  /* `display: none`, not the visually-hidden pattern.
+     A clipped 1px input is still in the layout, still focusable by script,
+     and still has a box — which makes it a real control that no person can
+     see, and that is exactly the thing this site does not ship. Removed
+     outright, it is out of the layout, out of the accessibility tree and out
+     of tab order, and a filled-in value can only have come from something
+     that ignored all three. */
+  .submit-trap {
+    display: none;
   }
 
   /* Forms read better narrow than wide. Two columns is the most a set of

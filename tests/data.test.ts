@@ -1,4 +1,8 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { cityName, creditsFor, participationPaths, venueLabel } from '../src/data';
+import { forms, formById } from '../src/data/forms';
+import { listJoin } from '../src/lib/words';
 import { ambassadors } from '../src/data/ambassadors';
 import { builders } from '../src/data/builders';
 import { cities } from '../src/data/cities';
@@ -441,5 +445,129 @@ describe('Impact Lab project archive', () => {
     expect(impactLab).toBeDefined();
     expect(impactLab!.projectSlugs).toBeDefined();
     expect(impactLab!.projectSlugs).toHaveLength(26);
+  });
+});
+
+// =========================================================================
+// PARTICIPATION PATHS — the `formId` mismatch that went unnoticed
+// =========================================================================
+
+/**
+ * Two participation paths named submission forms that do not exist
+ * (`project`, `builder`, against real ids `contribute` / `build` /
+ * `practice` / `city`). Nothing read the field, so nothing failed.
+ *
+ * `Participation.astro` now derives each CTA's destination from the named
+ * form, which makes a bad id a build error. These are the cheaper guard.
+ */
+describe('participation paths', () => {
+  it('every submission path names a real form', () => {
+    for (const path of participationPaths) {
+      if (path.kind !== 'submission') continue;
+      expect(path.formId, `path ${path.id}`).toBeDefined();
+      expect([...formById.keys()], `path ${path.id}`).toContain(path.formId!);
+    }
+  });
+
+  it('a submission path carries no second, hand-written destination', () => {
+    // The type says `url` is "undefined only for `submission` paths" — the
+    // anchor is read off the form, so a hand-written one could only drift.
+    for (const path of participationPaths) {
+      if (path.kind === 'submission') expect(path.url, `path ${path.id}`).toBeUndefined();
+    }
+  });
+
+  it('every non-submission path has somewhere real to go', () => {
+    for (const path of participationPaths) {
+      if (path.kind === 'submission' || path.kind === 'official') continue;
+      expect(path.url, `path ${path.id}`).toBeTruthy();
+    }
+  });
+
+  it('every form is reachable from /join by its own anchor', () => {
+    for (const form of forms) {
+      expect(form.anchor, `form ${form.id}`).toBeTruthy();
+    }
+    // Anchors are unique, or two panels would fight over the same fragment.
+    const anchors = forms.map((f) => f.anchor);
+    expect(new Set(anchors).size).toBe(anchors.length);
+  });
+});
+
+// =========================================================================
+// ONE AUTHORITATIVE EVENT DATASET
+// =========================================================================
+
+/**
+ * `/events/claude-community` carried its own inline copy of the event list,
+ * which had drifted: a workshop was listed at 02:30 in the morning, several
+ * venues had gone missing, and the counts were typed in by hand. It now reads
+ * the same selectors as everything else.
+ */
+describe('the event record has one source', () => {
+  it('has no second event dataset in the page that used to hold one', () => {
+    const page = readFileSync('src/pages/events/claude-community.astro', 'utf8');
+
+    expect(page).not.toMatch(/Event Dataset Hardcoded/);
+    // The two shapes the inline copy used, neither of which is in the record.
+    expect(page).not.toMatch(/dateShort:\s*'[A-Z]{3} \d\d'/);
+    expect(page).not.toMatch(/luma:\s*'https:/);
+    // And it reads the selector layer instead.
+    expect(page).toMatch(/from '@\/data'/);
+    expect(page).toMatch(/upcomingEvents\(\)/);
+    expect(page).toMatch(/pastEvents\(\)/);
+  });
+
+  it('hard-codes no count that the record already knows', () => {
+    const page = readFileSync('src/pages/events/claude-community.astro', 'utf8');
+    // `14 events`, `<dd>03</dd>`, `<span class="coords">11</span>` and the
+    // like — every one of them a number that goes stale on the next event.
+    expect(page).not.toMatch(/stamp="\d+ events"/);
+    expect(page).not.toMatch(/<dd[^>]*>\d\d?<\/dd>/);
+    expect(page).not.toMatch(/class="coords">\d/);
+  });
+
+  it('renders a venue the same way everywhere', () => {
+    // One rule, in the selector layer, rather than a copy per component.
+    const record = readFileSync('src/components/EventRecord.astro', 'utf8');
+    const history = readFileSync('src/pages/events/claude-community.astro', 'utf8');
+    expect(record).toMatch(/venueLabel/);
+    expect(history).toMatch(/venueLabel/);
+  });
+
+  it('omits a venue that is private or is only the city name', () => {
+    for (const event of events) {
+      const label = venueLabel(event);
+      if (event.venue.private) {
+        expect(label, `event ${event.slug}`).toBeUndefined();
+      } else if (event.venue.name === cityName(event.citySlug)) {
+        expect(label, `event ${event.slug}`).toBeUndefined();
+      } else {
+        expect(label, `event ${event.slug}`).toBeTruthy();
+      }
+    }
+  });
+
+  it('credits a room from the record rather than from a typed-out string', () => {
+    const impactLab = events.find((e) => e.slug === 'claude-code-impact-lab')!;
+    // Ambassador first, then co-hosts, then the organisations that lent the room.
+    expect(creditsFor(impactLab)).toEqual([
+      'Aniket Sahu',
+      'The Origin Guild',
+      'Builder Base',
+    ]);
+    expect(listJoin(creditsFor(impactLab))).toBe('Aniket Sahu, The Origin Guild & Builder Base');
+  });
+});
+
+describe('listJoin', () => {
+  it.each([
+    [[], ''],
+    [['A'], 'A'],
+    [['A', 'B'], 'A & B'],
+    [['A', 'B', 'C'], 'A, B & C'],
+    [['A', 'B', 'C', 'D'], 'A, B, C & D'],
+  ])('joins %j as %j', (input, expected) => {
+    expect(listJoin(input as string[])).toBe(expected);
   });
 });

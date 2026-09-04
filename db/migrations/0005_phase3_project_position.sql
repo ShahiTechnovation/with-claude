@@ -1,0 +1,39 @@
+-- Phase 3 — the project's authored position.
+--
+-- ── WHAT WAS MISSING ─────────────────────────────────────────────────────
+--
+-- `src/data/projects.ts` is one flat array with a real, deliberate order —
+-- the file's own comments say so ("Homepage preview candidates first,
+-- varied, with strong links"). Nothing enforced that order before this
+-- migration, but three real rendering surfaces depend on it implicitly:
+-- `projectsInCity()` and `projectsFromEvent()` both return
+-- `publicProjects.filter(...)`, which preserves array order, and
+-- `src/pages/events/[slug].astro` renders `projectsFromEvent()`'s result with
+-- a plain `.map()` and no sort.
+--
+-- PostgreSQL has no equivalent of "array order" for a table. A `SELECT *`
+-- with no `ORDER BY` returns rows in whatever order the storage engine finds
+-- them, which is unspecified — verified directly against Neon during this
+-- verification pass, where `ORDER BY id` (the primary key, a random
+-- `gen_random_uuid()`) produced a completely different order from the
+-- TypeScript array and confirmed that no existing column recovers it.
+--
+-- ── THE FIX ──────────────────────────────────────────────────────────────
+--
+-- One column, following the pattern already established elsewhere in this
+-- schema for exactly this problem — `event_agenda_items.position`,
+-- `event_outcomes.position`, `event_photos.position`, `project_builders.position`
+-- all exist because an ordered list needed a real column to preserve its
+-- order. Projects are a single flat list rather than a list nested under a
+-- parent, so the position lives directly on the row instead of a join table.
+--
+-- ── SAFETY ───────────────────────────────────────────────────────────────
+--
+-- Nullable, with no default and no backfill: a database that has not been
+-- re-imported has `position IS NULL` on every row, and the reader falls back
+-- to a stable, if not authored, tiebreaker (slug) for any row without one —
+-- see `src/data/source-db.ts`. Nothing is rewritten, no constraint is
+-- revalidated, and this runs against a populated database as a pure metadata
+-- change.
+
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "position" smallint;

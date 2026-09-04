@@ -145,7 +145,10 @@ export const partners: Partner[] = [
  * to anyone.
  *
  * The three Tally forms are live and were created by the Bhopal organisers.
- * The two `submission` paths are handled on-site by `SubmitPanel`.
+ * The two `submission` paths are handled on-site by `SubmitPanel`. Each names a
+ * form in `forms.ts` by id and nothing else: the anchor the CTA scrolls to is
+ * read off that form, so an id that does not resolve fails the build rather
+ * than quietly pointing at a panel that is not there.
  */
 export const participationPaths: ParticipationPath[] = [
   {
@@ -166,8 +169,7 @@ export const participationPaths: ParticipationPath[] = [
       'Anything you built with Claude — a product, an agent, a tool, a weekend experiment. Submissions are reviewed before they are published.',
     ctaLabel: 'Add your build',
     kind: 'submission',
-    formId: 'project',
-    url: '/join#build',
+    formId: 'build',
   },
   {
     id: 'contribute',
@@ -177,8 +179,7 @@ export const participationPaths: ParticipationPath[] = [
       'Say who you are, where you are, and what you are building. This is an open index, not an appointment — anyone building with Claude can be in it.',
     ctaLabel: 'Add yourself',
     kind: 'submission',
-    formId: 'builder',
-    url: '/join#contribute',
+    formId: 'contribute',
   },
   {
     id: 'speak',

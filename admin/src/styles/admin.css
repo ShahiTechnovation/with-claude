@@ -1,0 +1,594 @@
+/* =========================================================================
+   WITH CLAUDE — ADMIN
+
+   A tool, not a publication. It borrows the public site's palette and its
+   monospace metadata voice so the two feel like one organisation, and borrows
+   nothing else: no display face, no reveal animations, no editorial rhythm.
+   Those are for a page somebody chose to read. This is a queue somebody has to
+   get through, and it should be dense, legible, and boring.
+
+   The values are copied rather than imported. The public site's tokens are its
+   own contract and it should be free to change them without moving a button in
+   here; two applications sharing a stylesheet is how a design system starts
+   deciding what an admin screen looks like.
+   ========================================================================= */
+
+:root {
+  --paper: #f3efe7;
+  --paper-sunk: #eae4d7;
+  --paper-raised: #fcfaf5;
+
+  --ink: #16140e;
+  --ink-2: #443f38;
+  --ink-3: #69635a;
+  --rule: #d8d1c4;
+  --rule-strong: #b9b0a0;
+
+  --clay: #d97757;
+  --clay-deep: #9e4526;
+  --clay-tint: #f7ded2;
+
+  /* Review outcomes. Distinguished by shape as well as colour — every status
+     chip carries its own border weight — so the queue reads in monochrome. */
+  --ok: #2f6b46;
+  --ok-tint: #dff0e5;
+  --warn: #8a6100;
+  --warn-tint: #fbeecc;
+  --stop: #9a3232;
+  --stop-tint: #f7dede;
+
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', 'IBM Plex Mono', Menlo, Consolas, monospace;
+
+  --s-1: 0.25rem;
+  --s-2: 0.5rem;
+  --s-3: 0.75rem;
+  --s-4: 1rem;
+  --s-5: 1.5rem;
+  --s-6: 2rem;
+  --s-7: 3rem;
+
+  --radius: 3px;
+  --track-meta: 0.08em;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+a {
+  color: var(--clay-deep);
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+h1 {
+  font-size: 1.5rem;
+}
+h2 {
+  font-size: 1.125rem;
+}
+
+/* --- Chrome ------------------------------------------------------------ */
+
+.masthead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-5);
+  padding: var(--s-4) var(--s-5);
+  border-bottom: 2px solid var(--ink);
+  background: var(--paper-raised);
+}
+
+.wordmark {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.wordmark span {
+  color: var(--clay-deep);
+}
+
+.masthead nav {
+  display: flex;
+  gap: var(--s-4);
+}
+
+.masthead nav a {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: var(--track-meta);
+  text-transform: uppercase;
+  color: var(--ink-3);
+  text-decoration: none;
+  padding-bottom: 2px;
+  border-bottom: 2px solid transparent;
+}
+
+.masthead nav a:hover,
+.masthead nav a:focus-visible {
+  color: var(--ink);
+}
+
+.masthead nav a[aria-current='page'] {
+  color: var(--ink);
+  border-bottom-color: var(--clay);
+}
+
+.whoami {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: var(--track-meta);
+  color: var(--ink-3);
+}
+
+main {
+  max-width: 68rem;
+  margin: 0 auto;
+  padding: var(--s-6) var(--s-5) var(--s-7);
+}
+
+.page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s-4);
+  margin-bottom: var(--s-5);
+}
+
+.page-head p {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: var(--track-meta);
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* --- Buttons and forms -------------------------------------------------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-4);
+  border: 1px solid var(--ink);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: var(--track-meta);
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--paper-raised);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-solid {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.btn-solid:hover:not(:disabled) {
+  background: var(--ink-2);
+}
+
+.btn-danger {
+  border-color: var(--stop);
+  color: var(--stop);
+}
+
+.btn-quiet {
+  border-color: var(--rule-strong);
+  color: var(--ink-2);
+}
+
+label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: var(--track-meta);
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-bottom: var(--s-2);
+}
+
+input[type='email'],
+input[type='text'],
+textarea,
+select {
+  width: 100%;
+  padding: var(--s-3);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  background: var(--paper-raised);
+  color: var(--ink);
+  font: inherit;
+}
+
+textarea {
+  min-height: 6rem;
+  resize: vertical;
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+.btn:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--clay-deep);
+  outline-offset: 2px;
+}
+
+/* --- Tables ------------------------------------------------------------- */
+
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--paper-raised);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+th {
+  text-align: left;
+  padding: var(--s-3) var(--s-4);
+  border-bottom: 2px solid var(--ink);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: var(--track-meta);
+  text-transform: uppercase;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+td {
+  padding: var(--s-3) var(--s-4);
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+
+tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+tbody tr:hover {
+  background: var(--paper-sunk);
+}
+
+.num {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+/* The age column is what the queue is about, so it is the one thing set in
+   the ink colour rather than in metadata grey. */
+.age {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.age[data-stale='true'] {
+  color: var(--stop);
+  font-weight: 600;
+}
+
+/* --- Status chips ------------------------------------------------------- */
+
+.chip {
+  display: inline-block;
+  padding: 2px var(--s-2);
+  border: 1px solid currentColor;
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: var(--track-meta);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.chip[data-status='pending'] {
+  color: var(--clay-deep);
+  background: var(--clay-tint);
+}
+.chip[data-status='in_review'] {
+  color: var(--warn);
+  background: var(--warn-tint);
+}
+.chip[data-status='changes_requested'] {
+  color: var(--warn);
+  background: transparent;
+  border-style: dashed;
+}
+.chip[data-status='approved'] {
+  color: var(--ok);
+  background: var(--ok-tint);
+}
+.chip[data-status='rejected'] {
+  color: var(--stop);
+  background: var(--stop-tint);
+}
+.chip[data-status='draft'] {
+  color: var(--ink-3);
+  background: transparent;
+  border-style: dotted;
+}
+
+/* --- Filters ------------------------------------------------------------ */
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  margin-bottom: var(--s-4);
+  padding-bottom: var(--s-4);
+  border-bottom: 1px solid var(--rule);
+}
+
+.filters a {
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: var(--track-meta);
+  text-transform: uppercase;
+  color: var(--ink-2);
+  text-decoration: none;
+}
+
+.filters a[aria-current='true'] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.filters .n {
+  opacity: 0.6;
+}
+
+/* --- Panels ------------------------------------------------------------- */
+
+.panel {
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--paper-raised);
+  padding: var(--s-5);
+  margin-bottom: var(--s-5);
+}
+
+.panel > h2 {
+  margin-bottom: var(--s-4);
+  padding-bottom: var(--s-3);
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: var(--track-meta);
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.meta-grid {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--s-3) var(--s-5);
+  margin: 0;
+}
+
+.meta-grid dt {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: var(--track-meta);
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.meta-grid dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The raw payload. Set in monospace and never reflowed, because a reviewer is
+   reading exactly what somebody typed and any prettying-up is a lie about it. */
+.payload {
+  margin: 0;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--s-3) var(--s-5);
+}
+
+.payload dt {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: var(--track-meta);
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.payload dd {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.private {
+  border-left: 2px solid var(--clay);
+  padding-left: var(--s-4);
+}
+
+.private-note {
+  margin: var(--s-3) 0 0;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  line-height: 1.6;
+  color: var(--ink-3);
+}
+
+/* --- Actions ------------------------------------------------------------ */
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+  align-items: center;
+}
+
+.action-form {
+  display: grid;
+  gap: var(--s-3);
+}
+
+.hint {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  line-height: 1.6;
+  color: var(--ink-3);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.notice {
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid currentColor;
+  border-radius: var(--radius);
+  margin-bottom: var(--s-5);
+  font-size: 0.875rem;
+}
+
+.notice-error {
+  color: var(--stop);
+  background: var(--stop-tint);
+}
+
+.notice-ok {
+  color: var(--ok);
+  background: var(--ok-tint);
+}
+
+.notice-info {
+  color: var(--ink-2);
+  background: var(--paper-sunk);
+  border-color: var(--rule-strong);
+}
+
+.empty {
+  padding: var(--s-7) var(--s-5);
+  text-align: center;
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+/* --- Login -------------------------------------------------------------- */
+
+.login {
+  max-width: 26rem;
+  margin: 12vh auto;
+  padding: 0 var(--s-5);
+}
+
+.login form {
+  display: grid;
+  gap: var(--s-4);
+  margin-top: var(--s-5);
+}
+
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s-4);
+}
+
+.timeline li {
+  display: grid;
+  gap: var(--s-1);
+  padding-bottom: var(--s-4);
+  border-bottom: 1px solid var(--rule);
+}
+
+.timeline li:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 40rem) {
+  .meta-grid,
+  .payload {
+    grid-template-columns: 1fr;
+    gap: var(--s-1) 0;
+  }
+
+  .payload dd,
+  .meta-grid dd {
+    margin-bottom: var(--s-3);
+  }
+}

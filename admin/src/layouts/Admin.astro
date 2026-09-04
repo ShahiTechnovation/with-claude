@@ -1,0 +1,79 @@
+---
+import '@/styles/admin.css';
+
+/**
+ * The admin chrome.
+ *
+ * Three links and a name. There is no dashboard, no chart and no summary tile,
+ * because the queue is the product: the only question this application answers
+ * is "what is waiting, and how long has it waited", and anything else on the
+ * screen is something between a reviewer and that question.
+ *
+ * `Astro.locals.user` is set by the middleware, which has already checked the
+ * session, the account's existence, its `active` flag and its role against the
+ * database. A page rendering this layout does not re-check any of that.
+ */
+interface Props {
+  title: string;
+  /** Nav item to mark current. */
+  active?: 'submissions' | 'publish' | 'audit';
+  /** Chrome is dropped on the login page — there is nobody to show yet. */
+  bare?: boolean;
+}
+
+const { title, active, bare = false } = Astro.props;
+const user = Astro.locals.user;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Nothing in here is for a crawler, a cache, or a link preview. -->
+    <meta name="robots" content="noindex, nofollow, noarchive" />
+    <meta name="referrer" content="same-origin" />
+    <title>{title} — WITH CLAUDE admin</title>
+  </head>
+
+  <body>
+    {
+      !bare && user && (
+        <header class="masthead">
+          <a class="wordmark" href="/submissions">
+            WITH CLAUDE <span>admin</span>
+          </a>
+
+          <nav aria-label="Sections">
+            <a href="/submissions" aria-current={active === 'submissions' ? 'page' : undefined}>
+              Submissions
+            </a>
+            <a href="/publish" aria-current={active === 'publish' ? 'page' : undefined}>
+              Publish
+            </a>
+            <a href="/audit" aria-current={active === 'audit' ? 'page' : undefined}>
+              Audit
+            </a>
+          </nav>
+
+          <div class="whoami">
+            <span>
+              {user.name ?? user.email} · {user.role}
+            </span>
+            {/* A POST, not a link: signing out changes state, and a GET that
+                changes state can be triggered by anything that prefetches. */}
+            <form method="POST" action="/api/logout">
+              <button class="btn btn-quiet" type="submit">
+                Sign out
+              </button>
+            </form>
+          </div>
+        </header>
+      )
+    }
+
+    <main>
+      <slot />
+    </main>
+  </body>
+</html>

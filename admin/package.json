@@ -1,0 +1,26 @@
+{
+  "name": "with-claude-admin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "WITH CLAUDE — the editorial admin. Authenticated, server-rendered, separate origin.",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro check && astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/vercel": "^9.0.5",
+    "@neondatabase/serverless": "^1.1.0",
+    "astro": "^5.18.2",
+    "better-auth": "^1.7.2",
+    "drizzle-orm": "^0.45.2",
+    "resend": "^6.26.0",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "typescript": "^5.9.3"
+  }
+}
