@@ -45,6 +45,7 @@ import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import { pooledDb } from '../../../db/pool';
 import * as schema from '../../../db/schema';
 import { sendMagicLinkEmail } from './email';
+import { isTrustedOrigin, validatedRequestOrigin } from './origin';
 
 type AnyDatabase = PgDatabase<PgQueryResultHKT, typeof schema>;
 
@@ -71,11 +72,18 @@ function required(name: string): string {
 let cached: ReturnType<typeof build> | undefined;
 
 function build() {
+  /**
+   * The canonical origin. Magic-link URLs are built from it, so it has to be
+   * a hostname the recipient can actually open — which is why Preview sets its
+   * own rather than inheriting production's.
+   */
+  const baseURL = required('BETTER_AUTH_URL');
+
   return betterAuth({
     /** Signs session cookies. Rotating it signs everybody out, which is the point. */
     secret: required('BETTER_AUTH_SECRET'),
     /** The admin origin. Magic-link URLs are built from this. */
-    baseURL: required('BETTER_AUTH_URL'),
+    baseURL,
 
     database: drizzleAdapter(pooledDb(), {
       provider: 'pg',
@@ -121,8 +129,24 @@ function build() {
      * Origins allowed to make state-changing requests. better-auth rejects a
      * mismatched Origin header, which is the CSRF defence for its endpoints;
      * our own POST routes check the same thing in `assertSameOrigin()`.
+     *
+     * A FUNCTION, NOT A LIST, for the same reason `assertSameOrigin()` stopped
+     * being a string compare: this deployment answers on several hostnames and
+     * Vercel invents a new one on every push, so a list fixed at build time is
+     * wrong for all but one of them. The origin the request was really served
+     * on is added — but only after `isTrustedOrigin()` agrees it is a host this
+     * admin is allowed to answer on, so this widens nothing that
+     * `src/server/origin.ts` has not already vouched for.
      */
-    trustedOrigins: [required('BETTER_AUTH_URL')],
+    trustedOrigins: (request) => {
+      // Undefined for a direct `auth.api.*` call from our own server code —
+      // `requestMagicLink()` signs in that way — where there is no browser and
+      // so nothing to check. The canonical origin alone is right there.
+      if (!request) return [baseURL];
+
+      const served = validatedRequestOrigin(request);
+      return served && isTrustedOrigin(served) ? [baseURL, served] : [baseURL];
+    },
 
     plugins: [
       magicLink({

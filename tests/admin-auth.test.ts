@@ -362,8 +362,15 @@ describe('state-changing requests must come from this origin', () => {
     else process.env.BETTER_AUTH_URL = previous;
   });
 
-  const post = (headers: Record<string, string>) =>
-    new Request(`${ADMIN_ORIGIN}/api/submissions/x/review`, { method: 'POST', headers });
+  /** A POST served on the production origin. */
+  const post = (headers: Record<string, string>) => servedOn(ADMIN_ORIGIN, headers);
+
+  /**
+   * A POST served on `origin`, which is what Astro has already resolved from
+   * the validated forwarded host by the time `assertSameOrigin` sees it.
+   */
+  const servedOn = (origin: string, headers: Record<string, string>) =>
+    new Request(`${origin}/api/submissions/x/review`, { method: 'POST', headers });
 
   it('accepts a matching Origin', () => {
     expect(assertSameOrigin(post({ origin: ADMIN_ORIGIN }))).toBe(true);
@@ -386,9 +393,71 @@ describe('state-changing requests must come from this origin', () => {
     expect(assertSameOrigin(post({}))).toBe(false);
   });
 
-  it('refuses everything when the expected origin is not configured', () => {
+  /**
+   * The production origin is a literal in `src/server/origin.ts`, not a value
+   * read from the environment. A missing or mistyped `BETTER_AUTH_URL` is then
+   * a broken sign-in email, which is loud, rather than an admin that refuses
+   * every POST it receives, which looks like a bug in the form.
+   */
+  it('still trusts the production origin when BETTER_AUTH_URL is unset', () => {
     delete process.env.BETTER_AUTH_URL;
-    expect(assertSameOrigin(post({ origin: ADMIN_ORIGIN }))).toBe(false);
+    expect(assertSameOrigin(post({ origin: ADMIN_ORIGIN }))).toBe(true);
+  });
+
+  /**
+   * ── THE REGRESSION ─────────────────────────────────────────────────────
+   *
+   * This is the bug. The admin was reached on its Vercel hostname while
+   * `BETTER_AUTH_URL` still named the custom domain, the check compared the
+   * browser's Origin against that canonical string rather than against the
+   * host the page had actually been served from, and a genuinely same-origin
+   * sign-in POST was answered "That request did not come from this site."
+   */
+  describe('a deployment reached on its Vercel hostname', () => {
+    const PREVIEW = 'https://with-claude-admin-git-phase3-abc123-someteam.vercel.app';
+    const ALIAS = 'https://with-claude-admin.vercel.app';
+
+    it.each([
+      ['the project alias', ALIAS],
+      ['a branch deployment', PREVIEW],
+    ])('accepts a same-origin POST on %s while BETTER_AUTH_URL names the custom domain', (
+      _label,
+      host,
+    ) => {
+      expect(process.env.BETTER_AUTH_URL).toBe(ADMIN_ORIGIN);
+      expect(assertSameOrigin(servedOn(host, { origin: host }))).toBe(true);
+    });
+
+    /**
+     * And it is still a SAME-origin check, not a longer list of origins: the
+     * canonical origin is not accepted on a host that is not it.
+     */
+    it('refuses an Origin of BETTER_AUTH_URL when served on a different host', () => {
+      expect(assertSameOrigin(servedOn(ALIAS, { origin: ADMIN_ORIGIN }))).toBe(false);
+    });
+
+    it('refuses a cross-site POST into a preview deployment', () => {
+      expect(assertSameOrigin(servedOn(PREVIEW, { origin: 'https://evil.example.com' }))).toBe(
+        false,
+      );
+    });
+
+    /**
+     * The second lock. Even a perfectly self-consistent request — the same
+     * host in the forwarded header and in `Origin` — is refused if that host
+     * is not one this admin is allowed to answer on. `**.vercel.app` in
+     * `astro.config.mjs` is wider than this project, deliberately, because
+     * Astro's matcher only supports a leading wildcard; this is where that is
+     * narrowed back down.
+     */
+    it.each([
+      ['another project on vercel.app', 'https://someone-elses-app.vercel.app'],
+      ['the public site', 'https://with-claude.vercel.app'],
+      ['a prefixed lookalike', 'https://evil-with-claude-admin.vercel.app'],
+      ['a suffixed lookalike', 'https://with-claude-admin.vercel.app.evil.example.com'],
+    ])('refuses a self-consistent request from %s', (_label, host) => {
+      expect(assertSameOrigin(servedOn(host, { origin: host }))).toBe(false);
+    });
   });
 });
 

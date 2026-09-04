@@ -99,13 +99,15 @@ export default defineConfig({
        * degrades to an exact string compare and silently never matches, which
        * would leave preview deployments still answering 403.
        *
-       * The residual risk is small and bounded: `X-Forwarded-Host` is set by
-       * Vercel's edge, which overwrites any client-supplied value, so this is
-       * not attacker-controlled in this deployment. Even if it were, the only
-       * thing it moves is `Astro.url`; the session cookie is host-only, and
-       * `assertSameOrigin()` independently pins every state-changing POST to
-       * `BETTER_AUTH_URL`, which is a fixed value and not derived from the
-       * request. Production above does not rely on this entry.
+       * The residual risk is small and bounded, and it is narrowed again one
+       * layer up. `X-Forwarded-Host` is set by Vercel's edge, which overwrites
+       * any client-supplied value, so it is not attacker-controlled in this
+       * deployment. Even if it were, the only thing it moves is `Astro.url` —
+       * and `src/server/origin.ts` then requires that origin to be this
+       * project's own `with-claude-admin*.vercel.app` namespace before it may
+       * mint or spend a session, so a wildcard match here is not enough on its
+       * own. The session cookie is host-only either way. Production above does
+       * not rely on this entry.
        */
       { protocol: 'https', hostname: '**.vercel.app' },
     ],

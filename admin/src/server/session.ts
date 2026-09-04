@@ -23,6 +23,7 @@ import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import { pooledDb } from '../../../db/pool';
 import * as schema from '../../../db/schema';
 import { ADMIN_ROLES, auth, type AdminRole, type AdminUser } from './auth';
+import { isTrustedOrigin, validatedRequestOrigin } from './origin';
 
 type AnyDatabase = PgDatabase<PgQueryResultHKT, typeof schema>;
 
@@ -103,37 +104,52 @@ export function isAdmin(role: string): boolean {
  * carrying one. This is the second lock: a POST whose `Origin` is not the
  * admin's own is refused before it reaches any handler, so a CSRF defence does
  * not rest on one browser behaviour being implemented the way we expect.
+ *
+ * ── WHAT IT COMPARES, AND WHY THAT CHANGED ───────────────────────────────
+ *
+ * The origin the request was ACTUALLY SERVED ON — not `BETTER_AUTH_URL`.
+ *
+ * Pinning to a canonical string meant that every hostname this deployment
+ * legitimately answers on except one was treated as an attacker. On Vercel
+ * that is most of them, and a new one appears on every push. See
+ * `src/server/origin.ts` for the full account.
+ *
+ * Both locks have to hold:
+ *
+ *   1. the browser's `Origin` equals the origin this response is being served
+ *      from. This is the CSRF control. An attacker on `evil.example` posting
+ *      into the admin sends `Origin: https://evil.example`, which is not the
+ *      origin the request was served on, and is refused. A browser will not
+ *      let a page forge this header, which is the whole reason it exists.
+ *
+ *   2. that origin is one this admin is allowed to be served on at all. Astro
+ *      has already validated the forwarded host against
+ *      `security.allowedDomains`, so this is defence in depth against a
+ *      host-header injection that got past the framework: it means a host we
+ *      never intended could not become the trusted origin merely by asserting
+ *      itself consistently in two headers.
  */
 export function assertSameOrigin(request: Request): boolean {
-  const origin = request.headers.get('origin');
-
   // Some clients omit Origin on same-origin form posts; fall back to Referer.
-  const candidate = origin ?? request.headers.get('referer');
+  const candidate = request.headers.get('origin') ?? request.headers.get('referer');
   if (!candidate) return false;
 
-  const expected = process.env.BETTER_AUTH_URL;
-  if (!expected) return false;
+  const served = validatedRequestOrigin(request);
+  if (!served) return false;
 
+  let claimed: string;
   try {
-    const candidateOrigin = new URL(candidate).origin;
-    const expectedOrigin = new URL(expected).origin;
-
-    // Primary check: exact match against BETTER_AUTH_URL.
-    if (candidateOrigin === expectedOrigin) return true;
-
-    // Preview fallback: on Vercel Preview deployments the URL rotates with
-    // every push, so BETTER_AUTH_URL cannot be pre-set to it. We trust
-    // *.vercel.app origins on Preview only — production never enters this
-    // branch because VERCEL_ENV is "production" there.
-    if (
-      process.env.VERCEL_ENV === 'preview' &&
-      /^https:\/\/[a-z0-9-]+-builder3base-8480s-projects\.vercel\.app$/.test(candidateOrigin)
-    ) {
-      return true;
-    }
-
-    return false;
+    claimed = new URL(candidate).origin;
   } catch {
     return false;
   }
+
+  // An opaque origin is not this site, whatever it is.
+  if (claimed === 'null') return false;
+
+  // FIRST LOCK — the same-origin comparison itself.
+  if (claimed !== served) return false;
+
+  // SECOND LOCK — and is that an origin we answer on?
+  return isTrustedOrigin(served);
 }
