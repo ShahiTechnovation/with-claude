@@ -1,0 +1,57 @@
+---
+import Base from '@/layouts/Base.astro';
+import Section from '@/components/Section.astro';
+import PageIntro from '@/components/PageIntro.astro';
+import PracticeLibrary from '@/components/PracticeLibrary.astro';
+import SubmitPanel from '@/components/SubmitPanel.astro';
+import { publicUseCases } from '@/data';
+import { itemListSchema, titles, trail } from '@/lib/seo';
+
+const crumbs = trail({ name: 'Use cases', href: '/use-cases' });
+
+const description =
+  'How people across India actually use Claude — first-hand workflows written by the person who ran them, with what Claude did and what they did kept separate.';
+
+// An ItemList is only emitted once there is a list. Marking up an empty
+// collection would be describing a page that is not there.
+const schema = publicUseCases.length
+  ? [
+      itemListSchema(
+        publicUseCases.map((useCase) => ({
+          name: useCase.title,
+          href: `/use-cases/${useCase.slug}`,
+        })),
+        'Claude in practice',
+      ),
+    ]
+  : [];
+---
+
+<Base
+  title="Use cases"
+  seoTitle={titles.useCases()}
+  description={description}
+  active="/use-cases"
+  breadcrumbs={crumbs}
+  schema={schema}
+>
+  <PageIntro
+    eyebrow="Use cases"
+    title="Claude in practice."
+    stamp={`${String(publicUseCases.length).padStart(2, '0')} recorded`}
+  >
+    <p>
+      Not a list of things Claude can do. A record of how named people in this community actually
+      work with it — the problem they had, the workflow they ran, what Claude contributed, what they
+      had to fix, and what came out the other end.
+    </p>
+  </PageIntro>
+
+  <Section id="library" tone="sunk" size="lg" labelledby="practice-library-heading">
+    <PracticeLibrary filters />
+  </Section>
+
+  <Section id="submit" labelledby="practice-heading">
+    <SubmitPanel formId="practice" />
+  </Section>
+</Base>

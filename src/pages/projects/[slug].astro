@@ -4,10 +4,19 @@ import { Image } from 'astro:assets';
 import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
 import PageIntro from '@/components/PageIntro.astro';
-import { buildersOf, cityName, eventBySlug, publicProjects, site } from '@/data';
+import {
+  builderNamesOf,
+  buildersOf,
+  cityName,
+  eventBySlug,
+  publicProjects,
+  site,
+  useCasesForProject,
+} from '@/data';
 import { formatDate } from '@/lib/datetime';
 import { asset } from '@/lib/images';
 import { formatName } from '@/lib/status';
+import { titles, trail } from '@/lib/seo';
 
 /**
  * A project page.
@@ -25,7 +34,8 @@ export const getStaticPaths = (() =>
 
 const { project } = Astro.props;
 
-const makers = buildersOf(project);
+const makers = builderNamesOf(project);
+const publicMakers = buildersOf(project);
 const bornAt = project.builtAtEventSlug ? eventBySlug.get(project.builtAtEventSlug) : undefined;
 const image = asset(project.image);
 
@@ -42,12 +52,22 @@ const schema = [
     locationCreated: { '@type': 'Place', name: cityName(project.citySlug) },
   },
 ];
+
+// How this project was actually made, where somebody has written it up.
+const practice = useCasesForProject(project.slug);
+
+const crumbs = trail(
+  { name: 'Projects', href: '/projects' },
+  { name: project.title, href: `/projects/${project.slug}` },
+);
 ---
 
 <Base
   title={project.title}
+  seoTitle={titles.project(project.title, cityName(project.citySlug))}
   description={project.summary}
   active="/projects"
+  breadcrumbs={crumbs}
   image={image ? undefined : '/og-card.jpg'}
   schema={schema}
 >
@@ -134,7 +154,11 @@ const schema = [
                   <ul class="makers">
                     {makers.map((maker) => (
                       <li>
-                        <a href={`/builders/${maker.slug}`}>{maker.name}</a>
+                        {maker.isPublic ? (
+                          <a href={`/builders/${maker.slug}`}>{maker.name}</a>
+                        ) : (
+                          <span>{maker.name}</span>
+                        )}
                       </li>
                     ))}
                   </ul>
@@ -159,6 +183,22 @@ const schema = [
                 <dd>
                   <a href={`/events/${bornAt.slug}`}>{bornAt.title}</a>
                   <span class="fact-sub">{formatDate(bornAt.date)}</span>
+                </dd>
+              </div>
+            )
+          }
+          {
+            /* Closes the project → practice edge: the write-up of how this
+              was actually made, when one exists. */
+          }
+          {
+            practice.length > 0 && (
+              <div>
+                <dt>Written up</dt>
+                <dd>
+                  {practice.map((useCase) => (
+                    <a href={`/use-cases/${useCase.slug}`}>{useCase.title}</a>
+                  ))}
                 </dd>
               </div>
             )

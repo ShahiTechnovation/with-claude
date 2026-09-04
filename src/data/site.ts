@@ -61,17 +61,52 @@ export const official: {
 };
 
 export const socials: SocialLink[] = [
-  { label: 'Telegram', url: 'https://t.me/tog_guild' },
+  { label: 'Telegram', url: 'https://t.me/+wItpj8Qh-kszNzA1' },
   { label: 'Instagram', url: 'https://www.instagram.com/theoriginguild' },
-  { label: 'X', url: 'https://x.com/og_guild' },
+  { label: 'X', url: 'https://x.com/Claude_In_' },
   { label: 'LinkedIn', url: 'https://www.linkedin.com/company/theoriginguild' },
 ];
 
 /** The channel where the community actually talks. Used as a real fallback. */
 export const communityChannel = {
   label: 'Telegram',
-  url: 'https://t.me/tog_guild',
+  url: 'https://t.me/+wItpj8Qh-kszNzA1',
 };
+
+/**
+ * How the record is maintained.
+ *
+ * A public record is only worth trusting if it says how it can be wrong and
+ * what happens when it is. This is the honest version: the site is run by
+ * volunteers, corrections come through the channel the community already
+ * uses, and there is no claim of an editorial desk that does not exist.
+ *
+ * `maintainers` deliberately names organisations rather than individuals.
+ * Nobody's name goes on this site as a maintainer until they have said they
+ * want it there.
+ */
+export const stewardship = {
+  /** Who keeps the record. Organisations only, and only real ones. */
+  maintainers: [
+    {
+      name: 'The Origin Guild',
+      role: 'Organises the community events in Bhopal and supplies the event record and photography',
+      url: 'https://t.me/tog_guild',
+    },
+  ],
+  /** Where a correction goes. A real channel, read by real people. */
+  corrections: communityChannel,
+  /**
+   * The correction policy, in the order the steps actually happen. Rendered
+   * verbatim — if a step here is not true, change the process, not the copy.
+   */
+  correctionSteps: [
+    'Tell us what is wrong and, where you can, how you know. A link, a photograph or a name is enough.',
+    'Anything factual that cannot be checked comes down while it is being checked, rather than staying up with a note on it.',
+    'A record that turns out to be wrong is corrected or removed. It is not quietly edited into something else.',
+    'Anyone listed here can ask to have their entry changed or taken down, and it comes down.',
+  ],
+} as const;
 
 export const partners: Partner[] = [
   {
@@ -80,7 +115,7 @@ export const partners: Partner[] = [
     status: 'published',
     name: 'The Origin Guild',
     role: 'Organises community events in Bhopal',
-    url: 'https://t.me/tog_guild',
+    url: 'https://t.me/+wItpj8Qh-kszNzA1',
     citySlug: 'bhopal',
   },
   {

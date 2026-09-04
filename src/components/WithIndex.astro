@@ -1,0 +1,430 @@
+---
+import { Image } from 'astro:assets';
+import { nationalSignal, photoRecord } from '@/data';
+import { requireAsset } from '@/lib/images';
+
+/**
+ * WITH — the connection index.
+ *
+ * The name of this site is a preposition. That is the whole idea, and this is
+ * where the idea is stated plainly rather than implied: five strands, each one
+ * naming something the community is *with*, each one reporting what is
+ * actually on the other end of it.
+ *
+ * The interaction is the argument. Arriving at a strand draws a thread from
+ * the word across to the thing itself — a photograph and the counts, pulled
+ * from the record. Connection, drawn. There is no other motion here.
+ *
+ * Every number is counted, never authored. A strand with nothing behind it
+ * shows a zero and says what is true instead, which is the only version of
+ * this component worth shipping: an index of relationships is worthless the
+ * moment it starts implying ones that do not exist.
+ */
+interface Strand {
+  key: string;
+  noun: string;
+  href: string;
+  /** The headline count for the row. */
+  count: number;
+  /** What that count counts. */
+  unit: string;
+  /** The honest sentence, shown beside the photograph. */
+  line: string;
+  facts: [string, number][];
+  image: string;
+  alt: string;
+  caption: string;
+}
+
+const signal = nationalSignal();
+const photographs = photoRecord().length;
+
+const strands: Strand[] = [
+  {
+    key: 'builders',
+    noun: 'Builders',
+    href: '/builders',
+    count: signal.builders,
+    unit: 'named',
+    line: 'People, with what they actually made attached to the name.',
+    facts: [
+      ['On the record', signal.builders],
+      ['Verified Ambassadors', signal.ambassadors],
+    ],
+    image: 'events/vol02-3.jpg',
+    alt: 'A speaker in a plaid shirt addressing the room at the Claude Meetup in Bhopal',
+    caption: 'Bhopal · vol. 02',
+  },
+  {
+    key: 'projects',
+    noun: 'Projects',
+    href: '/projects',
+    count: signal.projects,
+    unit: 'on the record',
+    line: 'Things built with Claude, filed by the people who built them.',
+    facts: [
+      ['Published', signal.projects],
+      ['Builders behind them', signal.builders],
+    ],
+    image: 'events/vol06-1.jpg',
+    alt: 'Four participants pitching their project beside the Claude Community standee at the Claude Code Workshop',
+    caption: 'Bhopal · vol. 06',
+  },
+  {
+    key: 'cities',
+    noun: 'Cities',
+    href: '/cities',
+    count: signal.citiesPlotted,
+    unit: 'plotted',
+    line: 'Plotted at their real coordinates, and never drawn as an offer.',
+    facts: [
+      ['Plotted', signal.citiesPlotted],
+      ['Ambassador-led', signal.citiesAmbassadorLed],
+      ['With event activity', signal.citiesWithActivity],
+    ],
+    image: 'city/city-01.jpg',
+    alt: 'The lakefront at Bhopal, the city where this record starts',
+    caption: 'Bhopal · 23.26° N, 77.41° E',
+  },
+  {
+    key: 'events',
+    noun: 'Events',
+    href: '/events',
+    count: signal.eventsHeld,
+    unit: 'held',
+    line: 'Rooms that happened, and the ones already on the calendar.',
+    facts: [
+      ['Held', signal.eventsHeld],
+      ['Scheduled', signal.eventsScheduled],
+    ],
+    image: 'covers/cover-vol06.jpg',
+    alt: 'The Claude Code Workshop in Bhopal, in progress',
+    caption: 'Bhopal · vol. 06',
+  },
+  {
+    key: 'stories',
+    noun: 'Stories',
+    href: '/stories',
+    count: signal.stories,
+    unit: 'written',
+    line: 'Until people write them, the photographic record tells it instead.',
+    facts: [
+      ['Written', signal.stories],
+      ['Photographs on the record', photographs],
+    ],
+    image: 'events/vol02-1.jpg',
+    alt: 'Attendees of the Claude Meetup posing for a group photo in a lounge venue in Bhopal',
+    caption: 'Bhopal · vol. 02',
+  },
+];
+
+const pad = (n: number) => String(n).padStart(2, '0');
+---
+
+<div class="with-index" data-with>
+  <div class="section-head">
+    <p class="eyebrow">The preposition</p>
+    <h2 id="with-heading">With is the whole claim.</h2>
+    <p class="prose">
+      The name is not a product and it is not a place — it is a relationship. Every part of this
+      record is something that happened <span class="with">with</span> someone. Follow a strand to see
+      what is on the other end of it.
+    </p>
+  </div>
+
+  <div class="with-body">
+    <ul class="with-list">
+      {
+        strands.map((strand) => (
+          <li>
+            <a class="with-link" href={strand.href} data-with-link={strand.key}>
+              <span class="with-word">
+                <span class="with-pre">With</span>
+                <span class="with-noun">{strand.noun}</span>
+              </span>
+              {/* The thread. It draws from the word, through the count, and
+                  off the end of the row toward the thing itself. The tally
+                  sits on it like a station on a line. */}
+              <span class="with-thread" aria-hidden="true" />
+              <span class="with-tally">
+                <span class="with-count">{pad(strand.count)}</span>
+                <span class="with-unit">{strand.unit}</span>
+              </span>
+              <span class="with-thread with-thread-tail" aria-hidden="true" />
+            </a>
+            {/* Below the split there is no preview column and no hover to open
+                one, so the sentence travels with the row instead. */}
+            <p class="with-line">{strand.line}</p>
+          </li>
+        ))
+      }
+    </ul>
+
+    <div class="with-previews">
+      {
+        strands.map((strand, i) => (
+          <figure
+            class="with-preview"
+            data-with-preview={strand.key}
+            data-active={i === 0 ? true : undefined}
+            aria-hidden={i !== 0 ? 'true' : undefined}
+          >
+            <div class="plate plate-framed">
+              <Image
+                src={requireAsset(strand.image)}
+                alt={strand.alt}
+                widths={[380, 760]}
+                sizes="(max-width: 61.99em) 0px, 380px"
+                loading="lazy"
+                decoding="async"
+              />
+            </div>
+            <figcaption class="with-preview-body">
+              <p class="with-preview-line">{strand.line}</p>
+              <dl class="with-preview-facts">
+                {strand.facts.map(([label, value]) => (
+                  <div>
+                    <dt>{label}</dt>
+                    <dd>{pad(value)}</dd>
+                  </div>
+                ))}
+              </dl>
+              <p class="plate-caption">
+                <span>{strand.caption}</span>
+              </p>
+            </figcaption>
+          </figure>
+        ))
+      }
+    </div>
+  </div>
+</div>
+
+<style>
+  .with-body {
+    display: grid;
+    gap: var(--s-7);
+  }
+
+  /* --- The strands -------------------------------------------------------
+     Set at display size, because these are the five nouns the whole site is
+     an index of. */
+  .with-list > li {
+    border-top: var(--border-hair) solid var(--rule);
+  }
+
+  .with-list > li:last-child {
+    border-bottom: var(--border-hair) solid var(--rule);
+  }
+
+  .with-link {
+    display: grid;
+    grid-template-columns: auto minmax(var(--s-5), 1fr) auto 0;
+    align-items: center;
+    gap: var(--s-4);
+    padding-block: clamp(var(--s-4), 1.6vw, var(--s-6));
+    text-decoration: none;
+    color: var(--ink);
+  }
+
+  .with-word {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.28em;
+    font-family: var(--font-display);
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    font-size: clamp(1.6rem, 4.4vw, 2.9rem);
+    line-height: 1;
+    letter-spacing: -0.028em;
+    text-transform: uppercase;
+  }
+
+  /* The preposition is quiet until the connection is made, then it is the
+     brightest thing in the row. That is the entire idea, animated once. */
+  .with-pre {
+    font-weight: 400;
+    font-style: italic;
+    letter-spacing: 0.01em;
+    color: var(--clay-deep);
+    opacity: 0.3;
+    transition: opacity var(--dur-2) var(--ease-out);
+  }
+
+  .with-noun {
+    font-weight: 700;
+  }
+
+  .with-link:hover .with-pre,
+  .with-link:focus-visible .with-pre,
+  .with-link.is-active .with-pre {
+    opacity: 1;
+  }
+
+  /* --- The thread --------------------------------------------------------
+     A hairline that already runs the width of the row, with a clay strand
+     drawn along it from the word outward. It ends where the preview begins,
+     so the gesture reads as reaching the thing rather than as decoration. */
+  .with-thread {
+    position: relative;
+    height: 1px;
+    background: var(--rule);
+  }
+
+  .with-thread::after {
+    content: '';
+    position: absolute;
+    inset: 0 0 0 0;
+    background: var(--clay);
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform var(--dur-3) var(--ease-out);
+  }
+
+  .with-link:hover .with-thread::after,
+  .with-link:focus-visible .with-thread::after,
+  .with-link.is-active .with-thread::after {
+    transform: scaleX(1);
+  }
+
+  /* The tail only exists where there is a preview for it to reach. */
+  .with-thread-tail {
+    display: none;
+  }
+
+  .with-tally {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--s-3);
+  }
+
+  .with-count {
+    font-family: var(--font-mono);
+    font-size: 1.05rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+  }
+
+  .with-unit {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .with-line {
+    padding-bottom: var(--s-4);
+    max-width: 46ch;
+    font-size: var(--t-small);
+    color: var(--ink-2);
+  }
+
+  /* --- The preview -------------------------------------------------------
+     One slot, five panels stacked in it. All five are server-rendered, so
+     with scripts blocked the first strand simply stands and every row is
+     still an ordinary link to the index it names. */
+  .with-previews {
+    display: none;
+  }
+
+  .with-preview-line {
+    margin-top: var(--s-4);
+    font-size: var(--t-small);
+    color: var(--ink-2);
+  }
+
+  .with-preview-facts {
+    display: grid;
+    gap: var(--s-2);
+    margin-top: var(--s-4);
+    padding-top: var(--s-4);
+    border-top: var(--border-hair) solid var(--rule);
+  }
+
+  .with-preview-facts > div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--s-4);
+  }
+
+  .with-preview-facts dt {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .with-preview-facts dd {
+    font-family: var(--font-mono);
+    font-size: 0.95rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* =====================================================================
+     DESKTOP — the strand and the thing it reaches, side by side
+     ===================================================================== */
+  @media (min-width: 62em) {
+    .with-body {
+      grid-template-columns: minmax(0, 1fr) minmax(280px, 380px);
+      gap: var(--s-9);
+      align-items: start;
+    }
+
+    /* The sentence moves into the preview, where there is room for it. */
+    .with-line {
+      display: none;
+    }
+
+    .with-link {
+      grid-template-columns: auto minmax(var(--s-5), 1fr) auto var(--s-9);
+      gap: var(--s-4);
+    }
+
+    .with-thread-tail {
+      display: block;
+    }
+
+    .with-previews {
+      display: grid;
+      position: sticky;
+      top: 96px;
+    }
+
+    .with-preview {
+      grid-area: 1 / 1;
+      opacity: 0;
+      visibility: hidden;
+      transition:
+        opacity var(--dur-2) var(--ease-out),
+        visibility 0s linear var(--dur-2);
+    }
+
+    .with-preview[data-active] {
+      opacity: 1;
+      visibility: visible;
+      transition-delay: 0s;
+    }
+
+    .with-preview .plate {
+      aspect-ratio: 4 / 3;
+    }
+  }
+
+  /* On a coarse pointer nothing is hovered and nothing is revealed, so the
+     rows stay ordinary links and the thread stays a rule. */
+  @media (pointer: coarse) {
+    .with-thread::after {
+      display: none;
+    }
+
+    .with-pre {
+      opacity: 0.62;
+    }
+  }
+</style>

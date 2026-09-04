@@ -3,8 +3,10 @@ import { ambassadors } from '../src/data/ambassadors';
 import { builders } from '../src/data/builders';
 import { cities } from '../src/data/cities';
 import { events } from '../src/data/events';
+import { guides } from '../src/data/guides';
 import { projects } from '../src/data/projects';
 import { stories } from '../src/data/stories';
+import { useCases } from '../src/data/use-cases';
 import { cityState } from '../src/lib/city';
 import { EXTENT, formatCoords, project } from '../src/lib/geo';
 
@@ -20,6 +22,9 @@ const builderSlugs = new Set(builders.map((b) => b.slug));
 const eventSlugs = new Set(events.map((e) => e.slug));
 const ambassadorSlugs = new Set(ambassadors.map((a) => a.slug));
 
+const projectSlugs = new Set(projects.map((p) => p.slug));
+const useCaseSlugs = new Set(useCases.map((u) => u.slug));
+
 const everyRecord = [
   ...cities.map((r) => ['city', r] as const),
   ...events.map((r) => ['event', r] as const),
@@ -27,6 +32,14 @@ const everyRecord = [
   ...projects.map((r) => ['project', r] as const),
   ...stories.map((r) => ['story', r] as const),
   ...ambassadors.map((r) => ['ambassador', r] as const),
+  ...useCases.map((r) => ['use case', r] as const),
+  ...guides.map((r) => ['guide', r] as const),
+];
+
+/** Everything the community writes, which all carries the same byline rule. */
+const everyByline = [
+  ...useCases.map((r) => ['use case', r] as const),
+  ...guides.map((r) => ['guide', r] as const),
 ];
 
 describe('referential integrity', () => {
@@ -40,6 +53,14 @@ describe('referential integrity', () => {
     for (const event of events) {
       if (event.host.ambassadorSlug) {
         expect(ambassadorSlugs, `event ${event.slug}`).toContain(event.host.ambassadorSlug);
+      }
+    }
+  });
+
+  it('every co-host credit points at a real builder', () => {
+    for (const event of events) {
+      for (const slug of event.host.builderSlugs ?? []) {
+        expect(builderSlugs, `event ${event.slug}`).toContain(slug);
       }
     }
   });
@@ -177,6 +198,80 @@ describe('governance', () => {
   });
 });
 
+describe('authorship', () => {
+  it('everything written carries an author with a credential', () => {
+    // An unattributed workflow is indistinguishable from a generated one,
+    // which is the exact thing the knowledge library exists not to be.
+    for (const [kind, record] of everyByline) {
+      const author = record.author;
+      expect(Boolean(author.builderSlug || author.name), `${kind} ${record.slug}`).toBe(true);
+      expect(author.credential.length, `${kind} ${record.slug}`).toBeGreaterThan(10);
+    }
+  });
+
+  it('every byline that names a builder points at a real one', () => {
+    for (const [kind, record] of everyByline) {
+      if (record.author.builderSlug) {
+        expect(builderSlugs, `${kind} ${record.slug}`).toContain(record.author.builderSlug);
+      }
+    }
+  });
+
+  it('every source cited is labelled', () => {
+    for (const [kind, record] of everyByline) {
+      for (const source of record.sources ?? []) {
+        expect(source.label.length, `${kind} ${record.slug}`).toBeGreaterThan(0);
+      }
+    }
+  });
+});
+
+describe('use case shape', () => {
+  it('names what Claude did AND what the person did', () => {
+    // A record that cannot name the human contribution is a product demo.
+    for (const useCase of useCases) {
+      expect(useCase.claudeDid.length, `use case ${useCase.slug}`).toBeGreaterThan(0);
+      expect(useCase.humanDid.length, `use case ${useCase.slug}`).toBeGreaterThan(0);
+    }
+  });
+
+  it('every workflow step says who did it', () => {
+    for (const useCase of useCases) {
+      expect(useCase.workflow.length, `use case ${useCase.slug}`).toBeGreaterThan(0);
+      for (const step of useCase.workflow) {
+        expect(['human', 'claude', 'both'], `use case ${useCase.slug}`).toContain(step.by);
+      }
+    }
+  });
+
+  it('every cross-reference resolves', () => {
+    for (const useCase of useCases) {
+      if (useCase.citySlug) expect(citySlugs, useCase.slug).toContain(useCase.citySlug);
+      if (useCase.eventSlug) expect(eventSlugs, useCase.slug).toContain(useCase.eventSlug);
+      if (useCase.projectSlug) expect(projectSlugs, useCase.slug).toContain(useCase.projectSlug);
+    }
+  });
+});
+
+describe('guide shape', () => {
+  it('a modified guide was modified after it was published', () => {
+    for (const guide of guides) {
+      if (guide.modified) {
+        expect(guide.modified >= guide.published, `guide ${guide.slug}`).toBe(true);
+      }
+    }
+  });
+
+  it('every cross-reference resolves', () => {
+    for (const guide of guides) {
+      for (const slug of guide.builderSlugs ?? []) expect(builderSlugs, guide.slug).toContain(slug);
+      for (const slug of guide.eventSlugs ?? []) expect(eventSlugs, guide.slug).toContain(slug);
+      for (const slug of guide.projectSlugs ?? []) expect(projectSlugs, guide.slug).toContain(slug);
+      for (const slug of guide.useCaseSlugs ?? []) expect(useCaseSlugs, guide.slug).toContain(slug);
+    }
+  });
+});
+
 describe('event data shape', () => {
   it('uses ISO dates and 24-hour times', () => {
     for (const event of events) {
@@ -221,5 +316,130 @@ describe('geo', () => {
 
   it('formats coordinates with a hemisphere', () => {
     expect(formatCoords(23.2599, 77.4126)).toBe('23.26° N, 77.41° E');
+  });
+});
+
+// =========================================================================
+// IMPACT LAB PROJECT ARCHIVE — regression tests
+// =========================================================================
+
+describe('Impact Lab project archive', () => {
+  const impactLabProjects = projects.filter(
+    (p) => p.builtAtEventSlug === 'claude-code-impact-lab',
+  );
+
+  it('publishes exactly 26 unique projects', () => {
+    expect(impactLabProjects).toHaveLength(26);
+    const slugs = new Set(impactLabProjects.map((p) => p.slug));
+    expect(slugs.size).toBe(26);
+  });
+
+  it('every project points at Bhopal', () => {
+    for (const project of impactLabProjects) {
+      expect(project.citySlug, project.slug).toBe('bhopal');
+    }
+  });
+
+  it('every project points at the Impact Lab event', () => {
+    for (const project of impactLabProjects) {
+      expect(project.builtAtEventSlug, project.slug).toBe('claude-code-impact-lab');
+    }
+  });
+
+  it('every project has at least one builder slug', () => {
+    for (const project of impactLabProjects) {
+      expect(project.builderSlugs.length, project.slug).toBeGreaterThan(0);
+    }
+  });
+
+  it('every builder slug resolves to a builder in the registry', () => {
+    for (const project of impactLabProjects) {
+      for (const slug of project.builderSlugs) {
+        expect(builderSlugs, `project ${project.slug} → ${slug}`).toContain(slug);
+      }
+    }
+  });
+
+  it('contains exactly 69 builder-name mentions across all projects', () => {
+    const totalMentions = impactLabProjects.reduce(
+      (sum, p) => sum + p.builderSlugs.length,
+      0,
+    );
+    expect(totalMentions).toBe(69);
+  });
+
+  it('does not include excluded projects', () => {
+    const titles = impactLabProjects.map((p) => p.title.toLowerCase());
+    expect(titles).not.toContain('bhopal lake guardian ai');
+    expect(titles).not.toContain('hospital management system');
+  });
+
+  it('collapsed duplicate submission names to single entries', () => {
+    const count = (name: string) =>
+      impactLabProjects.filter((p) => p.title.toLowerCase() === name.toLowerCase()).length;
+    expect(count('Carbon Miles'), 'Carbon Miles').toBe(1);
+    expect(count('Bhopal Metro Website'), 'Bhopal Metro Website').toBe(1);
+    expect(count('Bhopal Tourism'), 'Bhopal Tourism').toBe(1);
+  });
+
+  it('every repoUrl is a GitHub URL', () => {
+    for (const project of impactLabProjects) {
+      if (project.repoUrl) {
+        expect(project.repoUrl, project.slug).toMatch(/^https:\/\/github\.com\//);
+      }
+    }
+  });
+
+  it('every live url is HTTPS and not a Drive link or bare word', () => {
+    for (const project of impactLabProjects) {
+      if (project.url) {
+        expect(project.url, project.slug).toMatch(/^https:\/\//);
+        expect(project.url, project.slug).not.toMatch(/drive\.google\.com/);
+        expect(project.url, project.slug).not.toBe('Live');
+        expect(project.url, project.slug).not.toBe('Yes');
+        expect(project.url, project.slug).not.toBe('None');
+      }
+    }
+  });
+
+  it('no project field contains an email address', () => {
+    for (const project of impactLabProjects) {
+      const fields = [
+        project.title,
+        project.summary,
+        project.description,
+        project.url,
+        project.repoUrl,
+      ].filter(Boolean);
+      for (const field of fields) {
+        expect(field, `${project.slug}: ${field}`).not.toMatch(
+          /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/,
+        );
+      }
+    }
+  });
+
+  it('no project carries a videoUrl (Demo Video is suppressed)', () => {
+    for (const project of impactLabProjects) {
+      expect(project.videoUrl, project.slug).toBeUndefined();
+    }
+  });
+
+  it('Impact Lab builders are pending (no automatic public profiles)', () => {
+    const impactLabBuilderSlugs = new Set(
+      impactLabProjects.flatMap((p) => p.builderSlugs),
+    );
+    for (const builder of builders) {
+      if (impactLabBuilderSlugs.has(builder.slug) && builder.slug !== 'aniket-sahu' && builder.slug !== 'vishal-kumar') {
+        expect(builder.status, builder.slug).toBe('pending');
+      }
+    }
+  });
+
+  it('Impact Lab event carries all 26 project slugs', () => {
+    const impactLab = events.find((e) => e.slug === 'claude-code-impact-lab');
+    expect(impactLab).toBeDefined();
+    expect(impactLab!.projectSlugs).toBeDefined();
+    expect(impactLab!.projectSlugs).toHaveLength(26);
   });
 });

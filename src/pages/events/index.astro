@@ -1,33 +1,48 @@
 ---
+import { titles, trail } from '@/lib/seo';
 import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
 import PageIntro from '@/components/PageIntro.astro';
-import NextEvent from '@/components/NextEvent.astro';
+import EventSignal from '@/components/EventSignal.astro';
+import EventRecord from '@/components/EventRecord.astro';
 import EventArchive from '@/components/EventArchive.astro';
 import { cityName, nextEvent, pastEvents, publicEvents, upcomingEvents } from '@/data';
 import { formatDate } from '@/lib/datetime';
 
+/**
+ * THE EVENT RECORD.
+ *
+ * The page runs editorial-first: the fact block, then what is coming, then the
+ * archive by year. The filterable table stays at the bottom as the working
+ * index — it is the fastest way to find one specific room out of fourteen, and
+ * it is the same component the homepage and the city pages use, so there is no
+ * second implementation of the table to keep in step.
+ */
 const next = nextEvent();
 const upcoming = upcomingEvents();
 const past = pastEvents();
+const cities = new Set(publicEvents.map((event) => event.citySlug));
 
 const description = next
-  ? `Every Claude community event in India, past and upcoming. Next: ${next.title} in ${cityName(next.citySlug)}, ${formatDate(next.date)}.`
-  : 'Every Claude community event in India, past and upcoming.';
+  ? `Every Claude community event in India, past and upcoming — ${publicEvents.length} rooms across ${cities.size} cities. Next: ${next.title} in ${cityName(next.citySlug)}, ${formatDate(next.date)}.`
+  : `Every Claude community event in India, past and upcoming — ${publicEvents.length} rooms across ${cities.size} cities.`;
 ---
 
-<Base title="Events" description={description} active="/events">
+<Base
+  title="Events"
+  seoTitle={titles.events()}
+  description={description}
+  active="/events"
+  breadcrumbs={trail({ name: 'Events', href: '/events' })}
+>
   <PageIntro
     eyebrow="Events"
     title="Every room, on the record."
-    stamp={`${publicEvents.length} events`}
+    stamp={`${String(publicEvents.length).padStart(2, '0')} events`}
     facts={[
       { label: 'Held', value: String(past.length).padStart(2, '0') },
       { label: 'Ahead', value: String(upcoming.length).padStart(2, '0') },
-      {
-        label: 'Cities',
-        value: String(new Set(publicEvents.map((e) => e.citySlug)).size).padStart(2, '0'),
-      },
+      { label: 'Cities', value: String(cities.size).padStart(2, '0') },
     ]}
   >
     <p>
@@ -36,15 +51,15 @@ const description = next
     </p>
   </PageIntro>
 
-  {
-    next && (
-      <Section id="next" tone="sunk" labelledby="next-heading">
-        <NextEvent />
-      </Section>
-    )
-  }
+  <Section id="wild" tone="sunk" labelledby="wild-heading">
+    <EventSignal />
+  </Section>
 
-  <Section id="record" labelledby="events-heading">
-    <EventArchive heading="The full record" eyebrow="Archive" showLink={false} filters />
+  <Section id="record" size="lg" labelledby="ahead-heading">
+    <EventRecord />
+  </Section>
+
+  <Section id="index" tone="sunk" labelledby="events-heading">
+    <EventArchive heading="Find a room" eyebrow="Index" showLink={false} filters />
   </Section>
 </Base>

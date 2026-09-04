@@ -234,63 +234,6 @@ const hasPast = entries.some((e) => e.mode === 'past');
     margin-bottom: var(--s-7);
   }
 
-  /* --- Filters ------------------------------------------------------------ */
-  .filters {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--s-4) var(--s-6);
-    padding-bottom: var(--s-5);
-    margin-bottom: var(--s-5);
-    border-bottom: var(--border-hair) solid var(--rule);
-  }
-
-  .filter-group {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--s-2);
-  }
-
-  .filter-label {
-    color: var(--ink-3);
-    margin-right: var(--s-2);
-  }
-
-  .filter {
-    padding: 0.42rem 0.7rem;
-    border: var(--border-hair) solid var(--rule-strong);
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: 0.09em;
-    text-transform: uppercase;
-    color: var(--ink-2);
-    transition:
-      background var(--dur-1) var(--ease-out),
-      border-color var(--dur-1) var(--ease-out),
-      color var(--dur-1) var(--ease-out);
-  }
-
-  .filter:hover {
-    border-color: var(--ink);
-    color: var(--ink);
-  }
-
-  .filter.is-on {
-    background: var(--ink);
-    border-color: var(--ink);
-    color: var(--paper);
-  }
-
-  .filter-count {
-    margin-left: auto;
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: var(--track-meta);
-    text-transform: uppercase;
-    color: var(--ink-3);
-  }
-
   /* --- Table --------------------------------------------------------------- */
   .table {
     border-top: var(--border-heavy) solid var(--ink);

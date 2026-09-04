@@ -11,12 +11,21 @@ interface Props {
 
 const { active = '/' } = Astro.props;
 
+/**
+ * Primary navigation.
+ *
+ * Five entries, and adding a sixth would cost more than the route gains. The
+ * knowledge library sits under `/use-cases` because "how people use it" is a
+ * question people arrive with; guides, the record and the trust page are
+ * reachable from the footer and from the pages that need them, and `/discover`
+ * has its own control at the end of the row rather than a nav slot.
+ */
 const nav = [
   { href: '/events', label: 'Events' },
   { href: '/cities', label: 'Cities' },
   { href: '/builders', label: 'Builders' },
   { href: '/projects', label: 'Projects' },
-  { href: '/stories', label: 'Stories' },
+  { href: '/use-cases', label: 'Practice' },
 ];
 
 // The masthead's live chip reads the same source of truth as everything else.
@@ -49,54 +58,72 @@ const nextTone = next ? lifecycleTone(lifecycleOf(next)) : undefined;
       </ul>
     </nav>
 
-    <div class="masthead-end">
-      {
-        next && nextParts && (
-          <a href={`/events/${next.slug}`} class="next-chip">
-            <span class:list={['pip', `pip-${nextTone}`]} aria-hidden="true" />
-            <span class="next-chip-text">
-              <span class="next-chip-label">Next</span>
-              <span class="next-chip-date">{`${nextParts.dayPadded} ${nextParts.monthDisplay}`}</span>
-              <span class="next-chip-city">{cityName(next.citySlug)}</span>
-            </span>
-          </a>
-        )
-      }
+    <a
+      href="/discover"
+      class:list={['nav-search', { 'is-active': active.startsWith('/discover') }]}
+      aria-current={active.startsWith('/discover') ? 'page' : undefined}
+    >
+      <span class="nav-search-glyph" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="10.5" cy="10.5" r="6.5"></circle>
+          <line x1="15.4" y1="15.4" x2="21" y2="21"></line>
+        </svg>
+      </span>
+      <span class="nav-search-label">Search</span>
+    </a>
 
-      <a
-        href="/join"
-        class:list={['btn btn-sm btn-solid join-cta', { 'is-active': active.startsWith('/join') }]}
-      >
-        <span>Join</span>
-      </a>
+    {
+      next && nextParts && (
+        <a href={`/events/${next.slug}`} class="next-chip">
+          <span class:list={['pip', `pip-${nextTone}`]} aria-hidden="true" />
+          <span class="next-chip-text">
+            <span class="next-chip-label">Next</span>
+            <span class="next-chip-date">{`${nextParts.dayPadded} ${nextParts.monthDisplay}`}</span>
+            <span class="next-chip-city">{cityName(next.citySlug)}</span>
+          </span>
+          <span class="arrow" aria-hidden="true">
+            →
+          </span>
+        </a>
+      )
+    }
 
-      <button
-        class="nav-toggle"
-        type="button"
-        data-nav-toggle
-        aria-expanded="false"
-        aria-controls="nav-drawer"
-      >
-        <span class="visually-hidden">Menu</span>
-        <span class="nav-toggle-bars" aria-hidden="true"><i></i><i></i></span>
-      </button>
-    </div>
+    <button
+      class="nav-toggle"
+      type="button"
+      data-nav-toggle
+      aria-expanded="false"
+      aria-controls="nav-drawer"
+    >
+      <span class="visually-hidden">Menu</span>
+      <span class="nav-toggle-bars" aria-hidden="true"><i></i><i></i></span>
+    </button>
   </div>
 
   <div class="nav-drawer" id="nav-drawer" data-nav-drawer>
     <nav aria-label="Primary, mobile">
       <ul>
         {
-          nav.map((item) => (
-            <li>
+          nav.map((item, i) => (
+            <li style={`--i:${i}`}>
               <a href={item.href} aria-current={active.startsWith(item.href) ? 'page' : undefined}>
+                <span class="nav-drawer-index">{String(i + 1).padStart(2, '0')}</span>
                 {item.label}
               </a>
             </li>
           ))
         }
-        <li>
-          <a href="/join" class="nav-drawer-join"> Join </a>
+        <li style={`--i:${nav.length}`}>
+          <a href="/discover" aria-current={active.startsWith('/discover') ? 'page' : undefined}>
+            <span class="nav-drawer-index">{String(nav.length + 1).padStart(2, '0')}</span>
+            Search
+          </a>
+        </li>
+        <li style={`--i:${nav.length + 1}`}>
+          <a href="/join" class="nav-drawer-join">
+            <span class="nav-drawer-index">{String(nav.length + 2).padStart(2, '0')}</span>
+            Join
+          </a>
         </li>
       </ul>
     </nav>
@@ -118,8 +145,7 @@ const nextTone = next ? lifecycleTone(lifecycleOf(next)) : undefined;
     position: sticky;
     top: 0;
     z-index: var(--z-nav);
-    background: color-mix(in srgb, var(--paper) 90%, transparent);
-    backdrop-filter: blur(8px);
+    background: color-mix(in srgb, var(--paper) 92%, transparent);
     border-bottom: var(--border-hair) solid transparent;
     transition:
       border-color var(--dur-2) var(--ease-out),
@@ -127,21 +153,21 @@ const nextTone = next ? lifecycleTone(lifecycleOf(next)) : undefined;
   }
 
   .masthead.is-condensed {
-    background: color-mix(in srgb, var(--paper) 96%, transparent);
+    background: var(--paper);
     border-bottom-color: var(--rule);
   }
 
   .masthead-inner {
     display: flex;
     align-items: center;
-    gap: var(--s-6);
-    min-height: 66px;
-    padding-block: var(--s-2);
+    gap: var(--s-5);
+    min-height: 68px;
+    padding-block: var(--s-3);
     transition: min-height var(--dur-2) var(--ease-out);
   }
 
   .is-condensed .masthead-inner {
-    min-height: 56px;
+    min-height: 58px;
   }
 
   .brand {
@@ -151,13 +177,24 @@ const nextTone = next ? lifecycleTone(lifecycleOf(next)) : undefined;
     margin-right: auto;
   }
 
-  .brand :global(.mark) {
-    transition: transform var(--dur-3) var(--ease-out);
+  .brand :global(.mark),
+  .brand :global(.wm-logo-wrap) {
+    transition:
+      transform var(--dur-3) var(--ease-out),
+      box-shadow var(--dur-3) var(--ease-out);
   }
 
   .brand:hover :global(.mark),
   .brand:focus-visible :global(.mark) {
     transform: rotate(45deg);
+  }
+
+  .brand:hover :global(.wm-logo-wrap),
+  .brand:focus-visible :global(.wm-logo-wrap) {
+    transform: scale(1.08);
+    box-shadow:
+      0 2px 8px rgba(217, 119, 6, 0.35),
+      0 0 0 1.5px var(--clay-deep);
   }
 
   /* --- Desktop nav ------------------------------------------------------ */
@@ -206,18 +243,52 @@ const nextTone = next ? lifecycleTone(lifecycleOf(next)) : undefined;
     transform: scaleX(1);
   }
 
-  /* --- End cluster ------------------------------------------------------ */
-  .masthead-end {
-    display: flex;
+  /* --- The live next-event chip ----------------------------------------- */
+  /* The search affordance sits with the nav rather than in it: search is a
+     control, not a section, and giving it a nav slot would push a real
+     destination out of the row. */
+  .nav-search {
+    display: inline-flex;
     align-items: center;
-    gap: var(--s-4);
+    gap: var(--s-2);
+    padding: var(--s-2) var(--s-3);
+    border: var(--border-hair) solid var(--rule-strong);
+    border-radius: var(--radius-xs);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-2);
+    text-decoration: none;
+    transition:
+      border-color var(--dur-1) var(--ease-out),
+      color var(--dur-1) var(--ease-out);
+  }
+
+  .nav-search:hover,
+  .nav-search:focus-visible,
+  .nav-search.is-active {
+    border-color: var(--ink);
+    color: var(--ink);
+  }
+
+  .nav-search-glyph {
+    display: block;
+    width: 0.85rem;
+    height: 0.85rem;
+  }
+
+  .nav-search-glyph svg {
+    width: 100%;
+    height: 100%;
+    stroke-linecap: round;
   }
 
   .next-chip {
     display: inline-flex;
     align-items: center;
     gap: var(--s-3);
-    padding: 0.4rem 0.7rem;
+    padding: 0.45rem 0.75rem 0.45rem 0.7rem;
     border: var(--border-hair) solid var(--rule-strong);
     text-decoration: none;
     color: var(--ink);
@@ -256,20 +327,24 @@ const nextTone = next ? lifecycleTone(lifecycleOf(next)) : undefined;
     color: var(--ink-3);
   }
 
-  .next-chip :global(.pip) {
-    gap: 0;
+  .next-chip .arrow {
+    font-size: 0.8rem;
+    transition: transform var(--dur-2) var(--ease-out);
   }
 
-  .join-cta.is-active {
-    background: var(--clay-deep);
-    border-color: var(--clay-deep);
+  .next-chip:hover .arrow {
+    transform: translateX(3px);
+  }
+
+  .next-chip :global(.pip) {
+    gap: 0;
   }
 
   /* --- Mobile ----------------------------------------------------------- */
   .nav-toggle {
     display: none;
-    padding: 13px var(--s-2);
-    margin-right: calc(var(--s-2) * -1);
+    padding: 13px var(--s-3);
+    margin-right: calc(var(--s-3) * -1);
   }
 
   .nav-toggle-bars {
@@ -300,13 +375,20 @@ const nextTone = next ? lifecycleTone(lifecycleOf(next)) : undefined;
     display: none;
   }
 
-  @media (max-width: 67.49em) {
-    .nav-desktop {
+  @media (max-width: 63.99em) {
+    .nav-desktop,
+    .nav-search {
       display: none;
     }
 
     .nav-toggle {
       display: block;
+      order: 3;
+    }
+
+    .next-chip {
+      order: 2;
+      padding: 0.4rem 0.55rem;
     }
 
     .next-chip-city,
@@ -314,10 +396,14 @@ const nextTone = next ? lifecycleTone(lifecycleOf(next)) : undefined;
       display: none;
     }
 
+    .next-chip .arrow {
+      display: none;
+    }
+
     .nav-drawer {
       display: block;
       position: fixed;
-      inset: 66px 0 0;
+      inset: 68px 0 0;
       background: var(--paper);
       border-top: var(--border-hair) solid var(--rule);
       padding: var(--s-6) var(--gutter) var(--s-9);
@@ -339,14 +425,17 @@ const nextTone = next ? lifecycleTone(lifecycleOf(next)) : undefined;
 
     .nav-drawer ul {
       display: grid;
+      gap: var(--s-1);
     }
 
     .nav-drawer a {
-      display: block;
+      display: flex;
+      align-items: baseline;
+      gap: var(--s-4);
       padding-block: var(--s-4);
       border-bottom: var(--border-hair) solid var(--rule);
       font-family: var(--font-display);
-      font-size: clamp(1.7rem, 7.5vw, 2.4rem);
+      font-size: clamp(1.8rem, 8vw, 2.6rem);
       font-variation-settings:
         'SOFT' 0,
         'WONK' 1;
@@ -361,6 +450,13 @@ const nextTone = next ? lifecycleTone(lifecycleOf(next)) : undefined;
       font-style: italic;
     }
 
+    .nav-drawer-index {
+      font-family: var(--font-mono);
+      font-size: var(--t-micro);
+      letter-spacing: var(--track-meta);
+      color: var(--ink-3);
+    }
+
     .nav-drawer-cta {
       width: 100%;
       justify-content: space-between;
@@ -368,16 +464,10 @@ const nextTone = next ? lifecycleTone(lifecycleOf(next)) : undefined;
     }
   }
 
-  @media (max-width: 30em) {
-    .join-cta {
-      display: none;
-    }
-  }
-
   /* On short viewports the drawer must not trap content off-screen. */
-  @media (max-width: 67.49em) and (max-height: 30rem) {
+  @media (max-width: 63.99em) and (max-height: 30rem) {
     .nav-drawer a {
-      font-size: 1.4rem;
+      font-size: 1.5rem;
       padding-block: var(--s-3);
     }
   }

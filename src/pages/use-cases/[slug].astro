@@ -1,0 +1,607 @@
+---
+import Base from '@/layouts/Base.astro';
+import Section from '@/components/Section.astro';
+import PageIntro from '@/components/PageIntro.astro';
+import {
+  authorName,
+  authorOf,
+  cityName,
+  eventBySlug,
+  projectBySlug,
+  publicUseCases,
+  site,
+} from '@/data';
+import type { UseCase } from '@/data';
+import { formatDate } from '@/lib/datetime';
+import { asset } from '@/lib/images';
+import { formatName } from '@/lib/status';
+import { articleSchema, titles, trail } from '@/lib/seo';
+
+/**
+ * One use case.
+ *
+ * The page is built around a single claim: this happened, to this person, and
+ * here is the split between what they did and what Claude did. That split is
+ * rendered as two columns side by side rather than as one blended narrative,
+ * because the blended version is what makes a workflow unfalsifiable.
+ *
+ * Generates nothing today. `use-cases.ts` is empty on purpose, and this route
+ * is ready for the first real submission.
+ */
+export function getStaticPaths() {
+  return publicUseCases.map((useCase) => ({
+    params: { slug: useCase.slug },
+    props: { useCase },
+  }));
+}
+
+interface Props {
+  useCase: UseCase;
+}
+
+const { useCase } = Astro.props;
+
+const author = authorOf(useCase);
+const byline = authorName(useCase);
+const city = useCase.citySlug ? cityName(useCase.citySlug) : undefined;
+const project = useCase.projectSlug ? projectBySlug.get(useCase.projectSlug) : undefined;
+const event = useCase.eventSlug ? eventBySlug.get(useCase.eventSlug) : undefined;
+const cover = asset(useCase.image);
+
+const url = `${site.url}/use-cases/${useCase.slug}`;
+const crumbs = trail(
+  { name: 'Use cases', href: '/use-cases' },
+  { name: useCase.title, href: `/use-cases/${useCase.slug}` },
+);
+
+const schema = [
+  articleSchema(
+    {
+      headline: useCase.title,
+      description: useCase.summary,
+      published: useCase.date,
+      modified: useCase.updatedAt,
+      authorName: byline,
+      authorUrl: author ? `${site.url}/builders/${author.slug}` : undefined,
+      image: cover ? new URL(cover.src, site.url).href : undefined,
+      sources: useCase.sources,
+    },
+    url,
+  ),
+];
+---
+
+<Base
+  title={useCase.title}
+  seoTitle={titles.useCase(useCase.title)}
+  description={useCase.summary}
+  active="/use-cases"
+  breadcrumbs={crumbs}
+  schema={schema}
+>
+  <PageIntro
+    eyebrow={formatName(useCase.category)}
+    title={useCase.title}
+    stamp={[city, formatDate(useCase.date)].filter(Boolean).join(' · ')}
+  >
+    <p>{useCase.summary}</p>
+  </PageIntro>
+
+  <Section id="byline" size="sm">
+    <div class="byline">
+      <div>
+        <p class="label byline-label">Written by</p>
+        <p class="byline-name">
+          {author ? <a href={`/builders/${author.slug}`}>{byline}</a> : byline}
+        </p>
+        <p class="byline-credential">{useCase.author.credential}</p>
+      </div>
+
+      <dl class="byline-facts">
+        {
+          city && (
+            <div>
+              <dt class="label">City</dt>
+              <dd>
+                <a href={`/cities/${useCase.citySlug}`}>{city}</a>
+              </dd>
+            </div>
+          )
+        }
+        <div>
+          <dt class="label">Recorded</dt>
+          <dd>{formatDate(useCase.date)}</dd>
+        </div>
+        {
+          useCase.updatedAt && (
+            <div>
+              <dt class="label">Updated</dt>
+              <dd>{formatDate(useCase.updatedAt)}</dd>
+            </div>
+          )
+        }
+      </dl>
+    </div>
+  </Section>
+
+  <Section id="problem" tone="sunk" labelledby="problem-heading">
+    <div class="frame">
+      <div class="frame-block">
+        <h2 class="label" id="problem-heading">The problem</h2>
+        <p class="frame-body">{useCase.problem}</p>
+      </div>
+      <div class="frame-block">
+        <h2 class="label">The context</h2>
+        <p class="frame-body">{useCase.context}</p>
+      </div>
+    </div>
+  </Section>
+
+  <Section id="workflow" labelledby="workflow-heading">
+    <div class="section-head">
+      <p class="eyebrow">Workflow</p>
+      <h2 id="workflow-heading">What actually happened.</h2>
+    </div>
+
+    <ol class="steps">
+      {
+        useCase.workflow.map((step, i) => (
+          <li class:list={['step', `is-${step.by}`]}>
+            <span class="step-num">{String(i + 1).padStart(2, '0')}</span>
+            <div class="step-body">
+              <h3 class="step-title">{step.title}</h3>
+              <p class="step-detail">{step.detail}</p>
+            </div>
+            <span class="step-by">
+              {step.by === 'both' ? 'Together' : step.by === 'claude' ? 'Claude' : 'Human'}
+            </span>
+          </li>
+        ))
+      }
+    </ol>
+  </Section>
+
+  <!-- The split. Two columns, deliberately equal weight — a workflow that
+       cannot name the human contribution is a product demo. -->
+  <Section id="split" tone="night" size="lg" labelledby="split-heading">
+    <div class="section-head">
+      <p class="eyebrow">The split</p>
+      <h2 id="split-heading">Who did what.</h2>
+    </div>
+
+    <div class="split">
+      <div class="split-col">
+        <h3 class="label split-head">What Claude did</h3>
+        <ul class="split-list">
+          {useCase.claudeDid.map((item) => <li>{item}</li>)}
+        </ul>
+      </div>
+      <div class="split-col">
+        <h3 class="label split-head">What {byline.split(' ')[0]} did</h3>
+        <ul class="split-list">
+          {useCase.humanDid.map((item) => <li>{item}</li>)}
+        </ul>
+      </div>
+    </div>
+
+    {
+      useCase.tools.length > 0 && (
+        <p class="tools">
+          <span class="label tools-label">Tools</span>
+          {useCase.tools.map((tool) => (
+            <span class="tool">{tool}</span>
+          ))}
+        </p>
+      )
+    }
+  </Section>
+
+  {
+    useCase.artifacts && useCase.artifacts.length > 0 && (
+      <Section id="artifacts" tone="sunk" labelledby="artifacts-heading">
+        <div class="section-head">
+          <p class="eyebrow">Artifacts</p>
+          <h2 id="artifacts-heading">Shared by the author.</h2>
+        </div>
+        <div class="artifacts">
+          {useCase.artifacts.map((artifact) => (
+            <figure class="artifact">
+              <figcaption class="label artifact-label">{artifact.label}</figcaption>
+              <pre class="artifact-body">{artifact.body}</pre>
+            </figure>
+          ))}
+        </div>
+      </Section>
+    )
+  }
+
+  <Section id="result" labelledby="result-heading">
+    <div class="result">
+      <h2 class="label" id="result-heading">The result</h2>
+      <p class="result-body">{useCase.result}</p>
+    </div>
+  </Section>
+
+  {
+    (project || event || useCase.sources?.length) && (
+      <Section id="connected" tone="sunk" labelledby="connected-heading">
+        <div class="section-head">
+          <p class="eyebrow">Connected</p>
+          <h2 id="connected-heading">What this touches.</h2>
+        </div>
+
+        <div class="links">
+          {project && (
+            <a class="link-card" href={`/projects/${project.slug}`}>
+              <span class="label">Project</span>
+              <span class="link-card-title">{project.title}</span>
+              <span class="arrow" aria-hidden="true">
+                →
+              </span>
+            </a>
+          )}
+          {event && (
+            <a class="link-card" href={`/events/${event.slug}`}>
+              <span class="label">Came out of</span>
+              <span class="link-card-title">{event.title}</span>
+              <span class="arrow" aria-hidden="true">
+                →
+              </span>
+            </a>
+          )}
+          {author && (
+            <a class="link-card" href={`/builders/${author.slug}`}>
+              <span class="label">Written by</span>
+              <span class="link-card-title">{author.name}</span>
+              <span class="arrow" aria-hidden="true">
+                →
+              </span>
+            </a>
+          )}
+        </div>
+
+        {useCase.sources && useCase.sources.length > 0 && (
+          <div class="sources">
+            <h3 class="label">Sources</h3>
+            <ul class="sources-list">
+              {useCase.sources.map((source) => (
+                <li>
+                  {source.url ? <a href={source.url}>{source.label}</a> : source.label}
+                  {source.retrieved && (
+                    <span class="source-date">{formatDate(source.retrieved)}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </Section>
+    )
+  }
+</Base>
+
+<style>
+  .byline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-7) var(--s-9);
+    justify-content: space-between;
+    padding-bottom: var(--s-6);
+    border-bottom: var(--border-hair) solid var(--rule);
+  }
+
+  .byline-label {
+    color: var(--ink-3);
+  }
+
+  .byline-name {
+    margin-top: var(--s-2);
+    font-family: var(--font-display);
+    font-size: 1.4rem;
+    font-weight: 600;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    letter-spacing: -0.02em;
+  }
+
+  .byline-name a {
+    color: inherit;
+  }
+
+  .byline-credential {
+    margin-top: var(--s-2);
+    max-width: 46ch;
+    font-size: var(--t-small);
+    color: var(--ink-3);
+  }
+
+  .byline-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-6);
+  }
+
+  .byline-facts dt {
+    color: var(--ink-3);
+  }
+
+  .byline-facts dd {
+    margin-top: var(--s-2);
+    font-size: var(--t-small);
+  }
+
+  .frame {
+    display: grid;
+    gap: var(--s-8);
+  }
+
+  .frame-block .label {
+    color: var(--ink-3);
+    padding-bottom: var(--s-3);
+    border-bottom: var(--border-hair) solid var(--rule);
+    display: block;
+  }
+
+  .frame-body {
+    margin-top: var(--s-4);
+    max-width: 58ch;
+    font-size: var(--t-lead);
+    color: var(--ink-2);
+  }
+
+  /* ---- workflow ---- */
+
+  .steps {
+    list-style: none;
+    padding: 0;
+    margin: var(--s-8) 0 0;
+    border-top: var(--border-heavy) solid var(--ink);
+  }
+
+  .step {
+    display: grid;
+    grid-template-columns: 3ch minmax(0, 1fr) auto;
+    gap: var(--s-4);
+    align-items: baseline;
+    padding: var(--s-5) var(--s-2);
+    border-bottom: var(--border-hair) solid var(--rule);
+  }
+
+  .step-num {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .step-title {
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-weight: 600;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    letter-spacing: -0.018em;
+  }
+
+  .step-detail {
+    margin-top: var(--s-2);
+    max-width: 60ch;
+    color: var(--ink-2);
+  }
+
+  .step-by {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+    white-space: nowrap;
+  }
+
+  /* Claude's steps take the clay, so scanning the column tells you the shape
+     of the collaboration before you read a word of it. */
+  .step.is-claude .step-by {
+    color: var(--clay-deep);
+  }
+
+  /* ---- the split ---- */
+
+  .split {
+    display: grid;
+    gap: var(--s-8);
+    margin-top: var(--s-8);
+  }
+
+  .split-head {
+    display: block;
+    padding-bottom: var(--s-3);
+    border-bottom: var(--border-hair) solid var(--rule-night);
+    color: var(--on-night-2);
+  }
+
+  .split-list {
+    list-style: none;
+    padding: 0;
+    margin: var(--s-5) 0 0;
+  }
+
+  .split-list li {
+    position: relative;
+    padding-left: var(--s-5);
+    padding-block: var(--s-3);
+    font-size: var(--t-lead);
+    border-bottom: var(--border-hair) solid var(--rule-night);
+  }
+
+  .split-list li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 1.15em;
+    width: 8px;
+    height: var(--border-hair);
+    background: var(--clay);
+  }
+
+  .tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--s-3);
+    margin-top: var(--s-8);
+  }
+
+  .tools-label {
+    color: var(--on-night-2);
+  }
+
+  .tool {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    padding: var(--s-1) var(--s-3);
+    border: var(--border-hair) solid var(--rule-night);
+    border-radius: var(--radius-xs);
+  }
+
+  /* ---- artifacts ---- */
+
+  .artifacts {
+    display: grid;
+    gap: var(--s-6);
+    margin-top: var(--s-7);
+  }
+
+  .artifact {
+    border: var(--border-hair) solid var(--rule);
+    background: var(--paper-raised);
+  }
+
+  .artifact-label {
+    display: block;
+    padding: var(--s-3) var(--s-4);
+    border-bottom: var(--border-hair) solid var(--rule);
+    color: var(--ink-3);
+  }
+
+  .artifact-body {
+    margin: 0;
+    padding: var(--s-4);
+    font-family: var(--font-mono);
+    font-size: var(--t-small);
+    line-height: 1.7;
+    white-space: pre-wrap;
+    overflow-x: auto;
+  }
+
+  /* ---- result ---- */
+
+  .result .label {
+    display: block;
+    color: var(--ink-3);
+    padding-bottom: var(--s-3);
+    border-bottom: var(--border-hair) solid var(--rule);
+  }
+
+  .result-body {
+    margin-top: var(--s-5);
+    max-width: 58ch;
+    font-family: var(--font-display);
+    font-size: var(--t-h3);
+    font-weight: 500;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    line-height: 1.35;
+    letter-spacing: -0.02em;
+  }
+
+  /* ---- connected ---- */
+
+  .links {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+    gap: var(--s-4);
+    margin-top: var(--s-7);
+  }
+
+  .link-card {
+    display: grid;
+    gap: var(--s-2);
+    padding: var(--s-5);
+    border: var(--border-hair) solid var(--rule-strong);
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    color: inherit;
+    transition: border-color var(--dur-1) var(--ease-out);
+  }
+
+  .link-card:hover,
+  .link-card:focus-visible {
+    border-color: var(--ink);
+  }
+
+  .link-card .label {
+    color: var(--ink-3);
+  }
+
+  .link-card-title {
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-weight: 600;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    letter-spacing: -0.018em;
+  }
+
+  .sources {
+    margin-top: var(--s-8);
+    padding-top: var(--s-5);
+    border-top: var(--border-hair) solid var(--rule);
+  }
+
+  .sources .label {
+    color: var(--ink-3);
+  }
+
+  .sources-list {
+    list-style: none;
+    padding: 0;
+    margin: var(--s-4) 0 0;
+    font-size: var(--t-small);
+  }
+
+  .sources-list li {
+    padding-block: var(--s-2);
+  }
+
+  .source-date {
+    margin-left: var(--s-3);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    color: var(--ink-3);
+  }
+
+  @media (min-width: 60rem) {
+    .frame,
+    .split {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--s-10);
+    }
+  }
+
+  @media (max-width: 45rem) {
+    .step {
+      grid-template-columns: 3ch minmax(0, 1fr);
+    }
+
+    .step-by {
+      grid-column: 2;
+    }
+  }
+</style>

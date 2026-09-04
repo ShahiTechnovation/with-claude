@@ -6,12 +6,14 @@ import JoinFlow from '@/components/JoinFlow.astro';
 import Participation from '@/components/Participation.astro';
 import SubmitPanel from '@/components/SubmitPanel.astro';
 import { site } from '@/data';
+import { trail } from '@/lib/seo';
 ---
 
 <Base
   title="Join"
   description="Find your way into the Claude community in India — an event to attend, people to build with, or somewhere to show what you made."
   active="/join"
+  breadcrumbs={trail({ name: 'Join', href: '/join' })}
 >
   <PageIntro eyebrow="Join" title="Come and build with us." size="lg">
     <p>
@@ -36,7 +38,11 @@ import { site } from '@/data';
     <SubmitPanel formId="build" />
   </Section>
 
-  <Section id="city-panel" tone="sunk" labelledby="city-heading">
+  <Section id="practice-panel" tone="sunk" labelledby="practice-heading">
+    <SubmitPanel formId="practice" />
+  </Section>
+
+  <Section id="city-panel" labelledby="city-heading">
     <SubmitPanel formId="city" />
   </Section>
 

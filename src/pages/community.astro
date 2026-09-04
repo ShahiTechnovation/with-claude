@@ -5,6 +5,7 @@ import PageIntro from '@/components/PageIntro.astro';
 import Participation from '@/components/Participation.astro';
 import { faq, official, partners, publicAmbassadors, site } from '@/data';
 import { CITY_STATE_LABEL, CITY_STATE_NOTE, CITY_STATE_ORDER } from '@/lib/city';
+import { trail } from '@/lib/seo';
 
 const faqSchema = [
   {
@@ -51,6 +52,7 @@ const entities = [
   title="How this works"
   description="How the Claude community in India is organised, who runs what, and what this website is and is not."
   active="/community"
+  breadcrumbs={trail({ name: 'How this works', href: '/community' })}
   schema={faqSchema}
 >
   <PageIntro eyebrow="How this works" title="Who runs what." stamp="Volunteer-run">

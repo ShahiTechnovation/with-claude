@@ -7,13 +7,16 @@ import PageIntro from '@/components/PageIntro.astro';
 import EventArchive from '@/components/EventArchive.astro';
 import BuilderIndex from '@/components/BuilderIndex.astro';
 import ProjectArchive from '@/components/ProjectArchive.astro';
+import PracticeLibrary from '@/components/PracticeLibrary.astro';
 import SubmitPanel from '@/components/SubmitPanel.astro';
-import { citySignal, nextEvent, official, publicCities, site } from '@/data';
+import { citySignal, nextEvent, official, publicCities, site, useCasesInCity } from '@/data';
 import { CITY_STATE_LABEL, CITY_STATE_NOTE, isLive } from '@/lib/city';
 import { dateParts, formatDate } from '@/lib/datetime';
 import { distanceKm, formatCoords } from '@/lib/geo';
 import { asset } from '@/lib/images';
 import { lifecycleLabel, lifecycleOf, lifecycleTone } from '@/lib/status';
+import { isCityIndexable } from '@/lib/indexable';
+import { titles, trail } from '@/lib/seo';
 
 export const getStaticPaths = (() =>
   publicCities.map((city) => ({
@@ -36,12 +39,32 @@ const elsewhere = publicCities
   .map(({ other, s }) => ({ other, s, km: distanceKm(city, other) }))
   .sort((a, b) => a.km - b.km)[0];
 
+// Rendered only when it exists. A "Practice" heading with an empty state
+// under it on all fourteen city pages would be fourteen promises.
+const practice = useCasesInCity(city.slug);
+
+const crumbs = trail(
+  { name: 'Cities', href: '/cities' },
+  { name: city.name, href: `/cities/${city.slug}` },
+);
+
+// Navigable always, indexable only once there is something in it. The rule
+// itself lives in `src/lib/indexable.ts` because the sitemap reads it too.
+const indexable = isCityIndexable(city);
+
 const description = live
   ? `The Claude community in ${city.name}, ${city.state}. ${signal.heldCount} events held${signal.next ? `, next on ${formatDate(signal.next.date)}` : ''}.`
   : `There is no verified Claude community activity in ${city.name} yet. Here is what is true, and what you can do about it.`;
 ---
 
-<Base title={`${city.name}, ${city.state}`} description={description} active="/cities">
+<Base
+  title={`${city.name}, ${city.state}`}
+  seoTitle={titles.city(city.name)}
+  description={description}
+  active="/cities"
+  breadcrumbs={crumbs}
+  noindex={!indexable}
+>
   <PageIntro
     eyebrow={`${city.state} · ${CITY_STATE_LABEL[signal.state]}`}
     title={city.name}
@@ -269,6 +292,18 @@ const description = live
     live && (
       <Section id="projects" tone="deep" size="lg" labelledby="projects-heading">
         <ProjectArchive citySlug={city.slug} heading={`Made in ${city.name}`} eyebrow="Projects" />
+      </Section>
+    )
+  }
+
+  {
+    practice.length > 0 && (
+      <Section id="practice" labelledby="practice-library-heading">
+        <PracticeLibrary
+          citySlug={city.slug}
+          heading={`How ${city.name} works with Claude`}
+          eyebrow="Practice"
+        />
       </Section>
     )
   }

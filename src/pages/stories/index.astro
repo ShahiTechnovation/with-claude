@@ -1,4 +1,5 @@
 ---
+import { titles, trail } from '@/lib/seo';
 import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
 import PageIntro from '@/components/PageIntro.astro';
@@ -11,8 +12,10 @@ const rooms = new Set(plates.map((p) => p.event.slug)).size;
 
 <Base
   title="Stories"
+  seoTitle={titles.stories()}
   description="From the community — the photographic and written record of people building with Claude in India."
   active="/stories"
+  breadcrumbs={trail({ name: 'Stories', href: '/stories' })}
 >
   <PageIntro
     eyebrow="Stories"

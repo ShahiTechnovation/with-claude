@@ -1,0 +1,350 @@
+---
+import { authorName, cityName, useCasesChronological } from '@/data';
+import { formatDate } from '@/lib/datetime';
+import { formatName } from '@/lib/status';
+
+/**
+ * CLAUDE IN PRACTICE — the use-case library.
+ *
+ * The strategic bet of this section is that first-hand beats comprehensive.
+ * There is already an enormous amount of generic Claude content on the web
+ * and none of it can say "this is how a person in Bhopal actually did it,
+ * here is their name, here is what went wrong". That is the only thing this
+ * library publishes.
+ *
+ * The empty state therefore does something different from the project
+ * archive's: rather than listing fields, it prints the *anatomy* of an entry
+ * and the standard it is held to, because the standard is the product. Anyone
+ * reading it should be able to tell immediately whether what they have is a
+ * use case or a tips post.
+ */
+interface Props {
+  /**
+   * Drop the anatomy panel from the empty state. The homepage sets this: the
+   * full standard belongs on /use-cases, and printing it twice makes two
+   * pages that say the same thing.
+   */
+  compact?: boolean;
+  limit?: number;
+  citySlug?: string;
+  builderSlug?: string;
+  showHead?: boolean;
+  heading?: string;
+  eyebrow?: string;
+  filters?: boolean;
+}
+
+const {
+  compact = false,
+  limit,
+  citySlug,
+  builderSlug,
+  showHead = true,
+  heading = 'Claude in practice',
+  eyebrow = 'Use cases',
+  filters = false,
+} = Astro.props;
+
+let scoped = useCasesChronological();
+if (citySlug) scoped = scoped.filter((u) => u.citySlug === citySlug);
+if (builderSlug) scoped = scoped.filter((u) => u.author.builderSlug === builderSlug);
+
+const rows = limit ? scoped.slice(0, limit) : scoped;
+const isEmpty = rows.length === 0;
+const categories = [...new Set(rows.map((u) => u.category))].sort();
+
+/** The record a use case keeps, in the order the page tells it. */
+const anatomy = [
+  { label: 'The problem', detail: 'What was actually in the way. Not a demo scenario.' },
+  { label: 'The context', detail: 'Who you are, what you were building, what the stakes were.' },
+  { label: 'The workflow', detail: 'What happened, in order.' },
+  { label: 'What Claude did', detail: 'Specifically. "Helped" is not an answer.' },
+  { label: 'What you did', detail: 'The judgement, the corrections, the parts it got wrong.' },
+  { label: 'The result', detail: 'Including what still does not work.' },
+];
+---
+
+<div class="practice">
+  {
+    showHead && (
+      <div class="section-head">
+        <p class="eyebrow">{eyebrow}</p>
+        <h2 id="practice-library-heading">{heading}</h2>
+        <p class="prose">
+          Not what Claude can do — what people here actually do with it, written by the person who
+          did it.
+        </p>
+      </div>
+    )
+  }
+
+  {
+    isEmpty ? (
+      <div class:list={['empty', { 'is-compact': compact }]}>
+        <div class="empty-main">
+          <p class="empty-status">No use cases published yet.</p>
+          <p class="empty-lede">
+            This library only holds first-hand accounts. One good write-up from someone who has
+            actually shipped something is worth more than fifty posts about what Claude can do in
+            principle — and the second kind is already everywhere.
+          </p>
+          <a class="btn btn-clay empty-cta" href="/use-cases#practice">
+            <span>Write one up</span>
+            <span class="arrow" aria-hidden="true">
+              →
+            </span>
+          </a>
+        </div>
+
+        <div class="empty-aside" hidden={compact}>
+          <h3 class="label empty-aside-head">What an entry answers</h3>
+          <dl class="anatomy">
+            {anatomy.map((item, i) => (
+              <div class="anatomy-row">
+                <dt>
+                  <span class="anatomy-num">{String(i + 1).padStart(2, '0')}</span>
+                  {item.label}
+                </dt>
+                <dd>{item.detail}</dd>
+              </div>
+            ))}
+          </dl>
+          <p class="empty-note">
+            Every entry carries a name and a reason that person would know. Nothing here is written
+            by the site.
+          </p>
+        </div>
+      </div>
+    ) : (
+      <>
+        {filters && categories.length > 1 && (
+          <div class="filters" data-filter-root>
+            <div class="filter-group" role="group" aria-label="Filter by category">
+              <span class="label filter-label">Category</span>
+              <button class="filter is-on" type="button" data-filter="category" data-value="all">
+                All
+              </button>
+              {categories.map((category) => (
+                <button class="filter" type="button" data-filter="category" data-value={category}>
+                  {formatName(category)}
+                </button>
+              ))}
+            </div>
+            <p class="coords" data-filter-count />
+          </div>
+        )}
+
+        <ul class="practice-list">
+          {rows.map((useCase) => (
+            <li class="practice-item" data-filter-item data-category={useCase.category}>
+              <a class="practice-row" href={`/use-cases/${useCase.slug}`}>
+                <p class="practice-meta">
+                  <span class="practice-category">{formatName(useCase.category)}</span>
+                  {useCase.citySlug && <span>{cityName(useCase.citySlug)}</span>}
+                  <span>{formatDate(useCase.date)}</span>
+                </p>
+                <h3 class="practice-title">{useCase.title}</h3>
+                <p class="practice-summary">{useCase.summary}</p>
+                <p class="practice-byline">
+                  <span class="practice-by">{authorName(useCase)}</span>
+                  <span class="practice-credential">{useCase.author.credential}</span>
+                </p>
+                <p class="practice-tools">
+                  {useCase.tools.map((tool) => (
+                    <span class="practice-tool">{tool}</span>
+                  ))}
+                </p>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </>
+    )
+  }
+</div>
+
+{filters && !isEmpty && <script>import '@/scripts/filters';</script>}
+
+<style>
+  /* ---- empty ---- */
+
+  .empty {
+    display: grid;
+    gap: var(--s-8);
+    padding-top: var(--s-7);
+  }
+
+  .empty-status {
+    font-family: var(--font-display);
+    font-size: var(--t-h3);
+    font-weight: 600;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    letter-spacing: -0.02em;
+  }
+
+  .empty-lede {
+    margin-top: var(--s-4);
+    max-width: 46ch;
+    color: var(--ink-2);
+  }
+
+  .empty-cta {
+    margin-top: var(--s-6);
+  }
+
+  .empty-aside-head {
+    color: var(--ink-3);
+    padding-bottom: var(--s-3);
+    border-bottom: var(--border-hair) solid var(--rule);
+  }
+
+  .anatomy {
+    margin-top: var(--s-4);
+  }
+
+  .anatomy-row {
+    padding: var(--s-4) 0;
+    border-bottom: var(--border-hair) solid var(--rule);
+  }
+
+  .anatomy-row dt {
+    display: flex;
+    align-items: baseline;
+    gap: var(--s-3);
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: 600;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    letter-spacing: -0.015em;
+  }
+
+  .anatomy-num {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    color: var(--clay-deep);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .anatomy-row dd {
+    margin-top: var(--s-2);
+    margin-left: 2.4rem;
+    font-size: var(--t-small);
+    color: var(--ink-3);
+  }
+
+  .empty-note {
+    margin-top: var(--s-5);
+    font-size: var(--t-small);
+    color: var(--ink-3);
+    max-width: 44ch;
+  }
+
+  /* ---- populated ---- */
+
+  .practice-list {
+    list-style: none;
+    padding: 0;
+    margin: var(--s-7) 0 0;
+    border-top: var(--border-hair) solid var(--rule);
+  }
+
+  .practice-item {
+    border-bottom: var(--border-hair) solid var(--rule);
+  }
+
+  .practice-row {
+    display: block;
+    padding: var(--s-6) var(--s-2);
+    text-decoration: none;
+    color: inherit;
+    transition: background var(--dur-1) var(--ease-out);
+  }
+
+  .practice-row:hover,
+  .practice-row:focus-visible {
+    background: var(--paper-raised);
+  }
+
+  .practice-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-3);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .practice-category {
+    color: var(--clay-deep);
+  }
+
+  .practice-title {
+    margin-top: var(--s-3);
+    font-size: var(--t-h3);
+    font-weight: 600;
+    line-height: var(--lh-heading);
+    letter-spacing: -0.022em;
+    max-width: 30ch;
+  }
+
+  .practice-summary {
+    margin-top: var(--s-3);
+    max-width: 62ch;
+    color: var(--ink-2);
+  }
+
+  .practice-byline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--s-3);
+    margin-top: var(--s-4);
+  }
+
+  .practice-by {
+    font-weight: 600;
+    font-size: var(--t-small);
+  }
+
+  .practice-credential {
+    font-size: var(--t-small);
+    color: var(--ink-3);
+  }
+
+  .practice-tools {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+    margin-top: var(--s-4);
+  }
+
+  .practice-tool {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+    padding: var(--s-1) var(--s-3);
+    border: var(--border-hair) solid var(--rule);
+    border-radius: var(--radius-xs);
+  }
+
+  @media (min-width: 60rem) {
+    .empty {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: var(--s-10);
+      align-items: start;
+    }
+
+    .empty.is-compact {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

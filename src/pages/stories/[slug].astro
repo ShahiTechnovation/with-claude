@@ -8,6 +8,7 @@ import { builderBySlug, cityName, eventBySlug, publicStories, site } from '@/dat
 import { formatDate, isoDateTime } from '@/lib/datetime';
 import { asset } from '@/lib/images';
 import { formatName } from '@/lib/status';
+import { articleSchema, titles, trail } from '@/lib/seo';
 
 /**
  * A story page.
@@ -31,20 +32,38 @@ const people = (story.builderSlugs ?? [])
   .filter((b) => Boolean(b));
 const image = asset(story.image);
 
+const url = `${site.url}/stories/${story.slug}`;
+
+// `author` is omitted entirely rather than defaulted to the organisation when
+// a piece carries no byline. "The site wrote it" is not an author.
 const schema = [
-  {
-    '@type': 'Article',
-    headline: story.title,
-    description: story.standfirst,
-    datePublished: isoDateTime(story.date),
-    url: `${site.url}/stories/${story.slug}`,
-    ...(story.author ? { author: { '@type': 'Person', name: story.author } } : {}),
-    publisher: { '@id': `${site.url}/#organization` },
-  },
+  articleSchema(
+    {
+      headline: story.title,
+      description: story.standfirst,
+      published: isoDateTime(story.date),
+      modified: story.updatedAt,
+      authorName: story.author,
+      image: image ? new URL(image.src, site.url).href : undefined,
+    },
+    url,
+  ),
 ];
+
+const crumbs = trail(
+  { name: 'Stories', href: '/stories' },
+  { name: story.title, href: `/stories/${story.slug}` },
+);
 ---
 
-<Base title={story.title} description={story.standfirst} active="/stories" schema={schema}>
+<Base
+  title={story.title}
+  seoTitle={titles.story(story.title)}
+  description={story.standfirst}
+  active="/stories"
+  breadcrumbs={crumbs}
+  schema={schema}
+>
   <PageIntro
     eyebrow={`${formatName(story.kind)}${story.citySlug ? ` · ${cityName(story.citySlug)}` : ''}`}
     title={story.title}

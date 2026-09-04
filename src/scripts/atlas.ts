@@ -86,14 +86,40 @@ function initAtlas(svg: SVGSVGElement): void {
   const nodeFrom = (event: Event): HTMLElement | null =>
     (event.target as Element | null)?.closest<HTMLElement>('[data-node]') ?? null;
 
+  /**
+   * Tell the scout where the city is, in page coordinates.
+   *
+   * A custom event rather than an import: the scout is its own island and
+   * neither of these two has to exist for the other to work. The plate node
+   * is measured rather than the row, so the scout turns toward the point on
+   * the map even when the list drove the change.
+   */
+  const pointAt = (slug: string) => {
+    const mark = svg.querySelector<SVGGraphicsElement>(`[data-node="${CSS.escape(slug)}"]`);
+    if (!mark) return;
+    const box = mark.getBoundingClientRect();
+    document.dispatchEvent(
+      new CustomEvent('scout:look', {
+        detail: { x: box.left + box.width / 2, y: box.top + box.height / 2 },
+      }),
+    );
+  };
+
+  const release = () => document.dispatchEvent(new CustomEvent('scout:release'));
+
   const preview = (event: Event) => {
     const slug = nodeFrom(event)?.dataset.node;
-    if (slug) render(bySlug.get(slug));
+    if (!slug) return;
+    render(bySlug.get(slug));
+    pointAt(slug);
   };
 
   if (canHover) {
     root.addEventListener('pointerover', preview);
-    svg.addEventListener('pointerleave', () => render(resting));
+    svg.addEventListener('pointerleave', () => {
+      render(resting);
+      release();
+    });
   } else {
     // First tap previews, second tap opens. Only on the plate — the list rows
     // are ordinary links and must stay one-tap.
@@ -106,8 +132,16 @@ function initAtlas(svg: SVGSVGElement): void {
     });
   }
 
+  // Leaving the whole instrument — plate or list — lets the scout go. The
+  // plate's own leave handler above also resets the readout; this one does
+  // not, so a city previewed from the list stays on the panel.
+  root.addEventListener('pointerleave', release);
+
   // Focus always previews, for keyboard users on any input device.
   root.addEventListener('focusin', preview);
+  root.addEventListener('focusout', (event) => {
+    if (!root.contains(event.relatedTarget as Node | null)) release();
+  });
 }
 
 document.querySelectorAll<SVGSVGElement>('[data-atlas]').forEach(initAtlas);

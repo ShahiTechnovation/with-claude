@@ -1,0 +1,119 @@
+---
+import type { Crumb } from '@/lib/seo';
+
+/**
+ * The trail back up.
+ *
+ * Rendered as real links in the document, not just as JSON-LD: a breadcrumb
+ * that only exists in structured data is a claim about a page's place in a
+ * hierarchy that the page does not actually offer. The last crumb is the
+ * current page, so it is plain text and carries `aria-current`.
+ *
+ * Set in mono at metadata size, which puts it in the same family as the
+ * coordinate stamps and volume numbers rather than making it a second nav.
+ */
+interface Props {
+  crumbs: Crumb[];
+  /** Sits on a dark ground. */
+  dark?: boolean;
+}
+
+const { crumbs, dark = false } = Astro.props;
+---
+
+{
+  crumbs.length > 1 && (
+    <nav class:list={['crumbs', { 'is-dark': dark }]} aria-label="Breadcrumb">
+      <ol class="container-wide crumbs-list">
+        {crumbs.map((crumb, i) => {
+          const last = i === crumbs.length - 1;
+          return (
+            <li class="crumb">
+              {last ? (
+                <span aria-current="page">{crumb.name}</span>
+              ) : (
+                <a href={crumb.href}>{crumb.name}</a>
+              )}
+              {!last && (
+                <span class="crumb-sep" aria-hidden="true">
+                  /
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
+  )
+}
+
+<style>
+  .crumbs {
+    padding-top: var(--s-5);
+  }
+
+  .crumbs-list {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--s-2);
+    list-style: none;
+    padding-left: var(--gutter);
+    padding-right: var(--gutter);
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .crumb {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--s-2);
+    /* A long event title should wrap rather than push the row wide. */
+    min-width: 0;
+  }
+
+  .crumb a {
+    color: var(--ink-3);
+    text-decoration: none;
+    /* Mono at micro size gives a 19px line box, which is under the 30px
+       touch target this site holds itself to. The padding is what makes the
+       trail tappable; it is not decoration. */
+    padding-block: var(--s-2);
+    border-bottom: var(--border-hair) solid transparent;
+    transition:
+      color var(--dur-1) var(--ease-out),
+      border-color var(--dur-1) var(--ease-out);
+  }
+
+  .crumb a:hover,
+  .crumb a:focus-visible {
+    color: var(--ink);
+    border-bottom-color: var(--rule-strong);
+  }
+
+  .crumb [aria-current='page'] {
+    color: var(--ink-2);
+  }
+
+  .crumb-sep {
+    color: var(--rule-strong);
+  }
+
+  .is-dark .crumbs-list,
+  .is-dark .crumb a {
+    color: var(--on-night-2);
+  }
+
+  .is-dark .crumb a:hover,
+  .is-dark .crumb a:focus-visible {
+    color: var(--on-night);
+  }
+
+  .is-dark .crumb [aria-current='page'] {
+    color: var(--on-night);
+  }
+</style>

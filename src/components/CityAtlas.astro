@@ -1,4 +1,5 @@
 ---
+import Scout from './Scout.astro';
 import { citySignalsRanked } from '@/data';
 import { CITY_STATE_LABEL, CITY_STATE_NOTE, CITY_STATE_ORDER } from '@/lib/city';
 import { PLATE, formatCoords, graticule, project, scaleBar } from '@/lib/geo';
@@ -88,6 +89,16 @@ const atlasData: AtlasCity[] = signals.map((s) => ({
 
 const atlasId = `atlas-${variant}`;
 
+/**
+ * Where the scout stands.
+ *
+ * Both positions are open water, clear of every plotted city and of the
+ * plate's own furniture. They differ because the two plates are cropped by
+ * different things: the full atlas has its bottom-right corner free, while
+ * the hero's copy of it has the proof photograph sitting exactly there.
+ */
+const scoutAt = variant === 'ghost' ? { x: 115, y: 723 } : { x: 545, y: 596 };
+
 // The readout's resting state is server-rendered, so the panel reads correctly
 // with scripts blocked. JS only ever replaces content that is already right.
 const resting = atlasData[0];
@@ -165,6 +176,9 @@ const legend = CITY_STATE_ORDER.map((state: CityState) => ({
         )
       }
 
+      {/* The scout: a surveyor standing in open water, clear of every city. */}
+      <Scout variant={variant} x={scoutAt.x} y={scoutAt.y} />
+
       <g class="atlas-nodes">
         {
           quiet.map((n) => {
@@ -181,6 +195,11 @@ const legend = CITY_STATE_ORDER.map((state: CityState) => ({
                 }
               >
                 <circle class="node-hit" cx={n.point.x} cy={n.point.y} r="20" />
+                {/* DISCOVERY reacts by being surveyed, not by transmitting:
+                    four register ticks step outward and hold. */}
+                <g class="node-ticks" transform={`translate(${n.point.x} ${n.point.y})`}>
+                  <path d="M0 -7.5v-4M0 7.5v4M-7.5 0h-4M7.5 0h4" />
+                </g>
                 <circle class="node-dot" cx={n.point.x} cy={n.point.y} r="3.4" />
                 <text
                   class="node-label"
@@ -213,6 +232,20 @@ const legend = CITY_STATE_ORDER.map((state: CityState) => ({
                 }
               >
                 <circle class="node-hit" cx={n.point.x} cy={n.point.y} r="28" />
+                {/* One activation form per state, so the plate still explains
+                    itself with the colour taken out. ACTIVE throws a ring;
+                    EVENT throws a slower, wider one; INTEREST does not travel
+                    at all — it holds a ring at a fixed radius. */}
+                {n.signal.state === 'community-interest' ? (
+                  <circle class="node-hold" cx={n.point.x} cy={n.point.y} r="11" />
+                ) : (
+                  <circle
+                    class:list={['node-pulse', `node-pulse-${n.signal.state}`]}
+                    cx={n.point.x}
+                    cy={n.point.y}
+                    r={led ? 13 : 6}
+                  />
+                )}
                 {led && (
                   <>
                     <circle class="node-signal" cx={n.point.x} cy={n.point.y} r="14" />
@@ -363,6 +396,11 @@ const legend = CITY_STATE_ORDER.map((state: CityState) => ({
 
 {interactive && <script>import '@/scripts/atlas';</script>}
 
+{/* The ghost plate has no readout to drive, but it still has a scout. */}
+<script>
+  import '@/scripts/scout';
+</script>
+
 <style>
   .atlas {
     position: relative;
@@ -435,7 +473,9 @@ const legend = CITY_STATE_ORDER.map((state: CityState) => ({
     font-family: var(--font-mono);
     font-size: 14px;
     letter-spacing: 0.04em;
-    transition: fill var(--dur-2) var(--ease-out);
+    transition:
+      fill var(--dur-2) var(--ease-out),
+      font-size var(--dur-2) var(--ease-out);
   }
 
   .node-label-lit {
@@ -523,20 +563,144 @@ const legend = CITY_STATE_ORDER.map((state: CityState) => ({
     }
   }
 
-  /* Hover, focus and programmatic selection all read the same. */
+  /* =====================================================================
+     ACTIVATION — what a city does when you arrive at it.
+
+     Hover, keyboard focus and programmatic selection are one state, and the
+     four community states answer it with four different *forms*: a thrown
+     ring, a slower wider ring, a held ring, four register ticks. Convert the
+     plate to greyscale and you can still tell them apart, which is the whole
+     rule the atlas is built on.
+
+     Every one of them is a single pass. Nothing here loops.
+     ===================================================================== */
+  .node-pulse,
+  .node-hold {
+    fill: none;
+    stroke: var(--clay);
+    stroke-width: 1.4;
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .node-ticks path {
+    stroke: var(--state-discovery);
+    stroke-width: 1.2;
+    stroke-linecap: round;
+    fill: none;
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: center;
+    transition:
+      opacity var(--dur-2) var(--ease-out),
+      transform var(--dur-2) var(--ease-out);
+    transform: scale(0.55);
+  }
+
   .node:hover .node-dot,
+  .node:focus-visible .node-dot,
   .node.is-selected .node-dot {
     fill: var(--clay);
     stroke: var(--clay);
   }
 
-  .node:hover .node-label,
-  .node.is-selected .node-label {
-    fill: var(--ink);
+  /* INTEREST holds. It has registered, and registering is not an event. */
+  .node:hover .node-hold,
+  .node:focus-visible .node-hold,
+  .node.is-selected .node-hold {
+    opacity: 0.55;
+    transition:
+      opacity var(--dur-2) var(--ease-out),
+      transform var(--dur-2) var(--ease-out);
+    transform: scale(1);
   }
 
+  /* DISCOVERY is surveyed rather than lit: the ticks step out and stop. */
+  .node:hover .node-ticks path,
+  .node:focus-visible .node-ticks path,
+  .node.is-selected .node-ticks path {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .node-hold {
+      transform: scale(0.72);
+    }
+
+    /* ACTIVE — a short, firm ring off a station that is already transmitting. */
+    .node:hover .node-pulse-ambassador-led,
+    .node:focus-visible .node-pulse-ambassador-led,
+    .node.is-selected .node-pulse-ambassador-led {
+      animation: node-throw 720ms var(--ease-out) 1;
+    }
+
+    /* EVENT — wider and slower, and it starts from the ring itself. */
+    .node:hover .node-pulse-event-activity,
+    .node:focus-visible .node-pulse-event-activity,
+    .node.is-selected .node-pulse-event-activity {
+      /* Deliberately not the same easing as ACTIVE. A station's ring leaves
+         fast and is gone; an event's ring is watched all the way out. */
+      animation: node-carry 1080ms var(--ease-in-out) 1;
+    }
+  }
+
+  /* With motion reduced the ring is simply present. Same information, held
+     still — the state is never carried by the animation alone. */
+  @media (prefers-reduced-motion: reduce) {
+    .node:hover .node-pulse,
+    .node:focus-visible .node-pulse,
+    .node.is-selected .node-pulse {
+      opacity: 0.45;
+    }
+  }
+
+  @keyframes node-throw {
+    from {
+      transform: scale(0.62);
+      opacity: 0.7;
+    }
+    to {
+      transform: scale(1.85);
+      opacity: 0;
+    }
+  }
+
+  @keyframes node-carry {
+    from {
+      transform: scale(0.9);
+      opacity: 0.62;
+      stroke-width: 2.2;
+    }
+    to {
+      transform: scale(3.4);
+      opacity: 0;
+      stroke-width: 0.9;
+    }
+  }
+
+  /* The label is the readout's first line, so it steps forward too — up a
+     size, into full ink, and stroked in paper so it lifts off the graticule
+     instead of tangling with it. */
+  .node:hover .node-label,
+  .node:focus-visible .node-label,
   .node.is-selected .node-label {
+    fill: var(--ink);
     font-weight: 500;
+    paint-order: stroke;
+    stroke: var(--paper);
+    stroke-width: 3.5px;
+    stroke-linejoin: round;
+  }
+
+  .node:hover .node-label {
+    font-size: 15.5px;
+  }
+
+  .node:hover .node-label-lit,
+  .node.is-selected .node-label-lit {
+    font-size: 18.5px;
   }
 
   .node:focus-visible .node-dot,
@@ -808,7 +972,7 @@ const legend = CITY_STATE_ORDER.map((state: CityState) => ({
   }
 
   .is-ghost .plate-grid line {
-    stroke: color-mix(in srgb, var(--ink) 10%, transparent);
+    stroke: color-mix(in srgb, var(--ink) 9%, transparent);
   }
 
   .is-ghost .node-label {
@@ -816,20 +980,20 @@ const legend = CITY_STATE_ORDER.map((state: CityState) => ({
   }
 
   .is-ghost .node-discovery .node-dot {
-    stroke: color-mix(in srgb, var(--ink) 30%, transparent);
-    stroke-width: 1.4;
+    stroke: color-mix(in srgb, var(--ink) 38%, transparent);
+    stroke-width: 1.5;
   }
 
   .is-ghost .node-halo {
-    fill: color-mix(in srgb, var(--clay) 12%, transparent);
+    fill: color-mix(in srgb, var(--clay) 16%, transparent);
   }
 
   .is-ghost .node-mark {
-    stroke: color-mix(in srgb, var(--clay) 58%, transparent);
+    stroke: color-mix(in srgb, var(--clay) 70%, transparent);
   }
 
   .is-ghost .node-mark-core {
-    fill: color-mix(in srgb, var(--clay) 58%, transparent);
+    fill: color-mix(in srgb, var(--clay) 70%, transparent);
   }
 
   .atlas-list-hint {

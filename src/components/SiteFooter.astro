@@ -1,5 +1,7 @@
 ---
+import { Image } from 'astro:assets';
 import Mark from './Mark.astro';
+import logoImg from '@/assets/brand/logo.jpg';
 import { official, site, socials } from '@/data';
 
 const year = new Date().getFullYear();
@@ -15,12 +17,15 @@ const columns = [
   {
     heading: 'Discover',
     links: [
+      { label: 'Search the community', href: '/discover' },
       { label: 'Events', href: '/events' },
       { label: 'Cities', href: '/cities' },
       { label: 'Builders', href: '/builders' },
       { label: 'Projects', href: '/projects' },
+      { label: 'Use cases', href: '/use-cases' },
+      { label: 'Guides', href: '/guides' },
       { label: 'Stories', href: '/stories' },
-      { label: 'How this works', href: '/community' },
+      { label: 'The record', href: '/record' },
     ],
   },
   {
@@ -28,6 +33,7 @@ const columns = [
     links: [
       { label: 'Add yourself', href: '/join#contribute' },
       { label: 'Submit a build', href: '/join#build' },
+      { label: 'Write up a workflow', href: '/join#practice' },
       { label: 'Register your city', href: '/join#city' },
       { label: 'Speak or mentor', href: 'https://tally.so/r/Y5lNo6' },
       { label: 'Volunteer', href: 'https://tally.so/r/D46gXj' },
@@ -57,6 +63,9 @@ const columns = [
 
   <div class="container-wide footer-inner">
     <div class="footer-brand">
+      <div class="footer-logo-wrap" aria-hidden="true">
+        <Image src={logoImg} alt="" width={96} height={96} class="footer-logo-img" />
+      </div>
       <p class="footer-wordmark">
         <span class="footer-with">With</span>
         <span class="footer-claude">Claude</span>
@@ -159,6 +168,29 @@ const columns = [
     grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.45fr);
     gap: var(--s-9) var(--s-8);
     padding-bottom: var(--s-9);
+  }
+
+  .footer-logo-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #000;
+    margin-bottom: var(--s-4);
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.15),
+      0 4px 16px rgba(0, 0, 0, 0.5);
+  }
+
+  .footer-logo-img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
   }
 
   .footer-wordmark {

@@ -1,4 +1,5 @@
 ---
+import { titles, trail } from '@/lib/seo';
 import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
 import PageIntro from '@/components/PageIntro.astro';
@@ -17,8 +18,10 @@ const led = signals.filter((s) => s.state === 'ambassador-led');
 
 <Base
   title="Cities"
+  seoTitle={titles.cities()}
   description={`Where the Claude community meets in India. ${publicCities.length} cities plotted, ${live.length} with verified activity.`}
   active="/cities"
+  breadcrumbs={trail({ name: 'Cities', href: '/cities' })}
 >
   <PageIntro
     eyebrow="Cities"

@@ -3,9 +3,10 @@ import type { CommunityEvent } from './types';
 /**
  * The event record.
  *
- * Every entry below is a real event run by the Claude community in Bhopal,
- * carried over from claude-community-bhopal.netlify.app with its registration
- * link intact.
+ * Every entry below is a real Claude community event, carried over with its
+ * registration link intact. It started as Bhopal's record and is no longer
+ * only that: Aniket Sahu has since hosted in Indore and Delhi, which is why
+ * `volume` is scoped to a city's own series rather than to the list.
  *
  * Two things are never authored here:
  *
@@ -22,6 +23,13 @@ const bhopalHost = {
   organisations: ['The Origin Guild'],
 };
 
+/**
+ * Outside Bhopal there is no local organising partner on the record, so the
+ * host is the Ambassador alone. Listing The Origin Guild here would credit a
+ * Bhopal organisation with rooms it did not run.
+ */
+const soloHost = { ambassadorSlug: 'aniket-sahu' };
+
 export const events: CommunityEvent[] = [
   {
     id: 'evt-bhopal-01',
@@ -31,7 +39,7 @@ export const events: CommunityEvent[] = [
     format: 'meetup',
     volume: 1,
     citySlug: 'bhopal',
-    host: bhopalHost,
+    host: { ...bhopalHost, builderSlugs: ['vishal-kumar'] },
     date: '2026-03-01',
     startTime: '16:00',
     venue: { name: 'Bhopal', private: true },
@@ -48,10 +56,10 @@ export const events: CommunityEvent[] = [
     format: 'meetup',
     volume: 2,
     citySlug: 'bhopal',
-    host: bhopalHost,
+    host: { ambassadorSlug: 'aniket-sahu', organisations: ['The Origin Guild', 'Builder Base'] },
     date: '2026-07-12',
-    startTime: '16:00',
-    venue: { name: 'Bhopal', private: true },
+    startTime: '16:30',
+    venue: { name: 'Aanarchy', address: 'Bhopal' },
     summary: 'Developers and AI enthusiasts showing each other what they had built.',
     registrationUrl: 'https://luma.com/claude-18gk',
     free: true,
@@ -82,7 +90,7 @@ export const events: CommunityEvent[] = [
     host: bhopalHost,
     date: '2026-07-26',
     startTime: '18:00',
-    venue: { name: 'Bhopal', private: true },
+    venue: { name: 'Sheryians HQ', address: 'Bhopal' },
     summary: 'Small-group talks on building with AI in 2026.',
     registrationUrl: 'https://luma.com/claude-w1nu',
     free: true,
@@ -97,10 +105,14 @@ export const events: CommunityEvent[] = [
     format: 'workshop',
     volume: 4,
     citySlug: 'bhopal',
-    host: bhopalHost,
+    host: {
+      ambassadorSlug: 'aniket-sahu',
+      builderSlugs: ['vishal-kumar'],
+      organisations: ['The Origin Guild', 'Builder Base'],
+    },
     date: '2026-08-02',
-    startTime: '16:00',
-    venue: { name: 'BIBA, Bhopal' },
+    startTime: '17:00',
+    venue: { name: 'BIBA', address: 'Bhopal' },
     summary: 'Hands-on intro to Claude.ai, Claude Code, the API and MCP.',
     registrationUrl: 'https://luma.com/claude-9g93',
     free: true,
@@ -114,10 +126,10 @@ export const events: CommunityEvent[] = [
     format: 'workshop',
     volume: 5,
     citySlug: 'bhopal',
-    host: bhopalHost,
+    host: { ...bhopalHost, builderSlugs: ['vishal-kumar'] },
     date: '2026-08-05',
-    startTime: '16:00',
-    venue: { name: 'Bhopal', private: true },
+    startTime: '17:00',
+    venue: { name: 'RICR — Raj Institute of Coding & Robotics', address: 'Bhopal' },
     summary: 'A deeper Claude Code session, run by Aniket Sahu and Vishal Kumar.',
     registrationUrl: 'https://luma.com/claude-7myk',
     free: true,
@@ -134,8 +146,8 @@ export const events: CommunityEvent[] = [
     citySlug: 'bhopal',
     host: bhopalHost,
     date: '2026-08-09',
-    startTime: '16:00',
-    venue: { name: 'Bhopal', private: true },
+    startTime: '17:30',
+    venue: { name: 'BIBA', address: 'Bhopal' },
     summary: 'Advanced workflows, larger codebases, live coding.',
     registrationUrl: 'https://luma.com/claude-jy40',
     free: true,
@@ -156,6 +168,36 @@ export const events: CommunityEvent[] = [
     ],
   },
   {
+    id: 'evt-indore-01',
+    slug: 'claude-meetup-indore',
+    status: 'published',
+    title: 'Claude Meetup',
+    format: 'meetup',
+    volume: 1,
+    citySlug: 'indore',
+    host: soloHost,
+    date: '2026-08-15',
+    startTime: '17:30',
+    venue: { name: 'Walkover', address: 'Indore' },
+    summary: 'The first Claude community room in Indore.',
+    free: true,
+  },
+  {
+    id: 'evt-bhopal-businesses',
+    slug: 'claude-for-businesses',
+    status: 'published',
+    title: 'Claude for Businesses',
+    format: 'meetup',
+    citySlug: 'bhopal',
+    host: bhopalHost,
+    date: '2026-08-16',
+    startTime: '17:30',
+    venue: { name: 'Farzi Cafe', address: 'Bhopal' },
+    summary: 'An evening on what Claude changes for people running a business.',
+    registrationUrl: 'https://luma.com/claude-ssrl',
+    free: true,
+  },
+  {
     id: 'evt-bhopal-07',
     slug: 'claude-code-impact-lab',
     status: 'published',
@@ -165,9 +207,9 @@ export const events: CommunityEvent[] = [
     citySlug: 'bhopal',
     host: { ambassadorSlug: 'aniket-sahu', organisations: ['The Origin Guild', 'Builder Base'] },
     date: '2026-08-23',
-    startTime: '10:00',
+    startTime: '09:00',
     endTime: '19:00',
-    venue: { name: 'Bhopal', private: true },
+    venue: { name: 'PaPaPet head office', address: 'Bhopal' },
     summary: 'The first full-day build day: how could AI make Bhopal better?',
     registrationUrl: 'https://luma.com/claude-af61',
     statusOverride: 'sold-out',
@@ -177,6 +219,34 @@ export const events: CommunityEvent[] = [
       'Sold out',
       '$100 in Claude API credits for every attendee',
       'The winning team took home Claude Max 20x for up to 5 members',
+    ],
+    projectSlugs: [
+      'navdisha',
+      'carbon-miles',
+      'jal-drishti',
+      'civic-navigator',
+      'drivecheck-bhopal',
+      'crowd-sense-ai',
+      'shaksham-sathi',
+      'headline-threads',
+      'civic-bhopal',
+      'swachh-bhopal',
+      'mycitybhopal',
+      'bhopal-metro-passenger-assistance',
+      'bhopal-metro-website',
+      'eryss',
+      'bhojnav',
+      'plugnet-ai',
+      'smart-city',
+      'ledgerflow',
+      'smart-bhopal',
+      'smart-farm',
+      'bhopal-blogs',
+      'vaani-ai',
+      'mp-civic-connect',
+      'meetup-buddy',
+      'queueless',
+      'bhopal-tourism',
     ],
   },
   {
@@ -225,6 +295,22 @@ export const events: CommunityEvent[] = [
       { title: 'The Claude ecosystem', detail: 'Claude.ai, Claude Code, the API and MCP' },
       { title: 'Guided build', detail: 'A small project, built live with Claude Code' },
     ],
+  },
+  {
+    id: 'evt-delhi-01',
+    slug: 'claude-meetup-delhi',
+    status: 'published',
+    title: 'Claude Meetup',
+    format: 'meetup',
+    volume: 1,
+    citySlug: 'delhi',
+    host: soloHost,
+    date: '2026-09-05',
+    startTime: '11:00',
+    venue: { name: 'Paytm', address: 'Delhi' },
+    summary: 'The first Claude community room in Delhi.',
+    registrationUrl: 'https://luma.com/claude-44tv',
+    free: true,
   },
   {
     id: 'evt-bhopal-10',

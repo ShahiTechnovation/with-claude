@@ -9,12 +9,16 @@ import {
   cityName,
   eventsHostedBy,
   eventsOf,
+  guidesBy,
   projectsOf,
   publicBuilders,
+  site,
+  useCasesBy,
 } from '@/data';
 import { formatDate } from '@/lib/datetime';
 import { asset } from '@/lib/images';
 import { formatName, lifecycleLabel, lifecycleOf, lifecycleTone } from '@/lib/status';
+import { profileSchema, titles, trail } from '@/lib/seo';
 
 export const getStaticPaths = (() =>
   publicBuilders.map((builder) => ({
@@ -44,9 +48,47 @@ const missing = [
 
 const description =
   builder.bio ?? `${builder.name} — ${builder.role} in ${cityName(builder.citySlug)}.`;
+
+// The practice half of this person's record. Empty until somebody writes one.
+const written = useCasesBy(builder.slug);
+const guides = guidesBy(builder.slug);
+
+const url = `${site.url}/builders/${builder.slug}`;
+const crumbs = trail(
+  { name: 'Builders', href: '/builders' },
+  { name: builder.name, href: `/builders/${builder.slug}` },
+);
+
+/**
+ * `ProfilePage` → `Person`.
+ *
+ * Only what the page renders: the role it prints, the bio it shows, the links
+ * it lists. The Ambassador title is passed as the job title ONLY when a
+ * verified Ambassador record claims this person — the same rule the chip
+ * follows, so the markup and the page can never disagree.
+ */
+const schema = profileSchema(
+  {
+    name: builder.name,
+    slug: builder.slug,
+    city: cityName(builder.citySlug),
+    role: ambassador ? ambassador.title : builder.role,
+    bio: builder.bio,
+    links: builder.links,
+    image: portrait ? new URL(portrait.src, site.url).href : undefined,
+  },
+  url,
+);
 ---
 
-<Base title={builder.name} description={description} active="/builders">
+<Base
+  title={builder.name}
+  seoTitle={titles.builder(builder.name, cityName(builder.citySlug))}
+  description={description}
+  active="/builders"
+  breadcrumbs={crumbs}
+  schema={schema}
+>
   <PageIntro
     eyebrow={`${cityName(builder.citySlug)} · ${builder.role}`}
     title={builder.name}
@@ -125,6 +167,37 @@ const description =
             )
           }
         </div>
+
+        {
+          /* The practice half of the graph: what this person has written up.
+            Rendered only when it exists — an empty "Practice" heading on
+            every profile would be a promise the library cannot keep yet. */
+        }
+        {
+          (written.length > 0 || guides.length > 0) && (
+            <div class="block">
+              <h3 class="label block-head">Practice</h3>
+              <ul class="list">
+                {written.map((useCase) => (
+                  <li>
+                    <a href={`/use-cases/${useCase.slug}`}>
+                      <span class="list-title">{useCase.title}</span>
+                      <span class="list-meta">{useCase.summary}</span>
+                    </a>
+                  </li>
+                ))}
+                {guides.map((guide) => (
+                  <li>
+                    <a href={`/guides/${guide.slug}`}>
+                      <span class="list-title">{guide.title}</span>
+                      <span class="list-meta">{guide.standfirst}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )
+        }
 
         {
           builder.claudeTools && builder.claudeTools.length > 0 && (

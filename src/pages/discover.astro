@@ -1,0 +1,55 @@
+---
+import Base from '@/layouts/Base.astro';
+import Section from '@/components/Section.astro';
+import PageIntro from '@/components/PageIntro.astro';
+import CommunitySearch from '@/components/CommunitySearch.astro';
+import { nationalSignal } from '@/data';
+import { buildSearchIndex } from '@/lib/search';
+import { titles, trail } from '@/lib/seo';
+
+const index = buildSearchIndex();
+const signal = nationalSignal();
+
+const crumbs = trail({ name: 'Discover', href: '/discover' });
+
+// The search page is indexable on purpose: it is a complete, ranked directory
+// of the community, which is a genuine page. What is NOT indexable is a query
+// — `/discover?q=x` is the same static document, and the canonical tag points
+// at the bare path, so no result set can become its own thin page.
+const description =
+  'Search everything on the record — people, projects, events, cities, use cases and stories from the community building with Claude in India.';
+---
+
+<Base
+  title="Discover"
+  seoTitle={titles.discover()}
+  description={description}
+  active="/discover"
+  breadcrumbs={crumbs}
+>
+  <PageIntro
+    eyebrow="Discover"
+    title="Search the community."
+    stamp={`${String(index.length).padStart(2, '0')} records`}
+    facts={[
+      { label: 'People', value: String(signal.builders).padStart(2, '0') },
+      {
+        label: 'Events',
+        value: String(signal.eventsHeld + signal.eventsScheduled).padStart(2, '0'),
+      },
+      { label: 'Cities', value: String(signal.citiesPlotted).padStart(2, '0') },
+      { label: 'Projects', value: String(signal.projects).padStart(2, '0') },
+    ]}
+  >
+    <p>
+      One index across everything on the site. Type a name, a city, a Claude surface or a plain
+      question — <em>Claude Code builders in Bhopal</em> reads as three filters, not as three words. It
+      only ever returns what has actually been published.
+    </p>
+  </PageIntro>
+
+  <Section id="search" tone="sunk" size="lg" labelledby="search-results-heading">
+    <h2 class="visually-hidden" id="search-results-heading">Search results</h2>
+    <CommunitySearch />
+  </Section>
+</Base>

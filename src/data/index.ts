@@ -5,23 +5,28 @@ import { ambassadors } from './ambassadors';
 import { builders } from './builders';
 import { cities } from './cities';
 import { events } from './events';
+import { guides } from './guides';
 import { projects } from './projects';
 import { stories } from './stories';
+import { useCases } from './use-cases';
 import type {
   Ambassador,
+  Authorship,
   Builder,
   City,
   CityState,
   CommunityEvent,
   EventPhoto,
+  Guide,
   ModerationStatus,
   Project,
   RecordBase,
   SignalItem,
   Story,
+  UseCase,
 } from './types';
 
-export { ambassadors, builders, cities, events, projects, stories };
+export { ambassadors, builders, cities, events, guides, projects, stories, useCases };
 export * from './site';
 export type * from './types';
 
@@ -42,6 +47,8 @@ export const publicProjects = publicOnly(projects);
 export const publicStories = publicOnly(stories);
 export const publicEvents = publicOnly(events);
 export const publicCities = publicOnly(cities);
+export const publicUseCases = publicOnly(useCases);
+export const publicGuides = publicOnly(guides);
 
 // =========================================================================
 // EVENTS
@@ -89,6 +96,8 @@ export const builderBySlug = new Map(publicBuilders.map((b) => [b.slug, b]));
 export const projectBySlug = new Map(publicProjects.map((p) => [p.slug, p]));
 export const storyBySlug = new Map(publicStories.map((s) => [s.slug, s]));
 export const ambassadorBySlug = new Map(publicAmbassadors.map((a) => [a.slug, a]));
+export const useCaseBySlug = new Map(publicUseCases.map((u) => [u.slug, u]));
+export const guideBySlug = new Map(publicGuides.map((g) => [g.slug, g]));
 
 export function getCity(slug: string): City | undefined {
   return cityBySlug.get(slug);
@@ -119,6 +128,28 @@ export function hostAmbassador(event: CommunityEvent): Ambassador | undefined {
  */
 export function isAmbassadorLed(event: CommunityEvent): boolean {
   return Boolean(hostAmbassador(event));
+}
+
+/** Builders who ran a room alongside the Ambassador. */
+export function coHostsOf(event: CommunityEvent): Builder[] {
+  return (event.host.builderSlugs ?? [])
+    .map((slug) => builderBySlug.get(slug))
+    .filter((builder): builder is Builder => Boolean(builder));
+}
+
+/**
+ * Everyone credited with an event, in the order the site prints them:
+ * the Ambassador, then co-hosts, then the organisations that lent the room.
+ *
+ * One function so the archive, the event page and the city page can never
+ * credit a room differently from one another.
+ */
+export function creditsFor(event: CommunityEvent): string[] {
+  return [
+    hostAmbassador(event)?.name,
+    ...coHostsOf(event).map((builder) => builder.name),
+    ...(event.host.organisations ?? []),
+  ].filter((name): name is string => Boolean(name));
 }
 
 export function eventsHostedBy(ambassadorSlug: string): CommunityEvent[] {
@@ -169,6 +200,37 @@ export function buildersOf(project: Project): Builder[] {
     .filter((b): b is Builder => Boolean(b));
 }
 
+// ── Attribution-only builder resolution ───────────────────────────────
+//
+// Impact Lab builders are `pending` — they do not get public profile pages,
+// but their names must appear on project cards and detail pages as "Built
+// by X, Y, Z". This map resolves against ALL builders, not just public ones.
+
+const allBuildersBySlug = new Map(builders.map((b) => [b.slug, b]));
+
+/** Builder name + slug + public status, for attribution display. */
+export interface BuilderAttribution {
+  name: string;
+  slug: string;
+  isPublic: boolean;
+}
+
+/**
+ * Resolve builder names for a project, including pending builders.
+ *
+ * Published builders get linked profiles. Pending builders get plain-text
+ * attribution — their name appears, but there is no profile page to link to.
+ */
+export function builderNamesOf(project: Project): BuilderAttribution[] {
+  return project.builderSlugs
+    .map((slug) => {
+      const builder = allBuildersBySlug.get(slug);
+      return builder
+        ? { name: builder.name, slug: builder.slug, isPublic: isPublic(builder) }
+        : { name: slug, slug, isPublic: false };
+    });
+}
+
 /** Everything one builder has made. */
 export function projectsOf(builder: Builder): Project[] {
   const declared = (builder.projectSlugs ?? [])
@@ -185,6 +247,74 @@ export function eventsOf(builder: Builder): CommunityEvent[] {
     .filter((e): e is CommunityEvent => Boolean(e));
   const credited = eventsChronological.filter((e) => e.speakerSlugs?.includes(builder.slug));
   return [...new Set([...declared, ...credited])].sort(byDateAsc);
+}
+
+// -------------------------------------------------------------------------
+// USE CASES AND GUIDES — the practice half of the graph
+// -------------------------------------------------------------------------
+
+/** Newest first. Practice ages, so the most recent account leads. */
+export function useCasesChronological(): UseCase[] {
+  return [...publicUseCases].sort((a, b) => (a.date < b.date ? 1 : -1));
+}
+
+export function guidesChronological(): Guide[] {
+  return [...publicGuides].sort((a, b) =>
+    (a.modified ?? a.published) < (b.modified ?? b.published) ? 1 : -1,
+  );
+}
+
+/**
+ * The builder behind a byline.
+ *
+ * An `Authorship` can name someone who has no profile yet, so this resolves
+ * where it can and the UI falls back to the plain name where it cannot.
+ */
+export function authorOf(record: { author: Authorship }): Builder | undefined {
+  return record.author.builderSlug ? builderBySlug.get(record.author.builderSlug) : undefined;
+}
+
+/** The name to print on a byline, resolved profile or not. */
+export function authorName(record: { author: Authorship }): string {
+  return authorOf(record)?.name ?? record.author.name ?? 'The community';
+}
+
+export function useCasesInCity(slug: string): UseCase[] {
+  return publicUseCases.filter((u) => u.citySlug === slug);
+}
+
+/** Everything one builder has written up. */
+export function useCasesBy(builderSlug: string): UseCase[] {
+  return useCasesChronological().filter((u) => u.author.builderSlug === builderSlug);
+}
+
+export function guidesBy(builderSlug: string): Guide[] {
+  return guidesChronological().filter(
+    (g) => g.author.builderSlug === builderSlug || g.builderSlugs?.includes(builderSlug),
+  );
+}
+
+/** The practice written up around one project — the project → knowledge edge. */
+export function useCasesForProject(slug: string): UseCase[] {
+  return publicUseCases.filter((u) => u.projectSlug === slug);
+}
+
+/** What came out of a room, in writing. */
+export function useCasesForEvent(slug: string): UseCase[] {
+  return publicUseCases.filter((u) => u.eventSlug === slug);
+}
+
+export function guidesForEvent(slug: string): Guide[] {
+  return publicGuides.filter((g) => g.eventSlugs?.includes(slug));
+}
+
+/** Which Claude surfaces the community has actually documented using. */
+export function claudeSurfaces(): string[] {
+  const surfaces = new Set<string>();
+  for (const useCase of publicUseCases) for (const tool of useCase.tools) surfaces.add(tool);
+  for (const builder of publicBuilders)
+    for (const tool of builder.claudeTools ?? []) surfaces.add(tool);
+  return [...surfaces].sort();
 }
 
 export function storiesChronological(): Story[] {
@@ -276,6 +406,8 @@ export interface NationalSignal {
   builders: number;
   projects: number;
   stories: number;
+  useCases: number;
+  guides: number;
   ambassadors: number;
   /** Community-reported figures, summed. Undefined when none are reported. */
   reportedMembers?: number;
@@ -305,6 +437,8 @@ export function nationalSignal(now: Date = new Date()): NationalSignal {
     builders: publicBuilders.length,
     projects: publicProjects.length,
     stories: publicStories.length,
+    useCases: publicUseCases.length,
+    guides: publicGuides.length,
     ambassadors: publicAmbassadors.length,
     reportedMembers: members > 0 ? members : undefined,
     reportedSources: reported.map((c) => c.reported!.source),
@@ -316,14 +450,14 @@ export function nationalSignal(now: Date = new Date()): NationalSignal {
 // =========================================================================
 
 /**
- * A merged stream of things that actually happened: what is on the calendar,
- * soonest first, then what has been held, most recent first.
+ * Everything in the record that carries a real date, in two piles.
  *
- * Every item is generated from a record with a real date. There is no authored
- * feed file, so there is nothing here to invent — if the community is quiet,
- * the feed is short, and that is the honest reading.
+ * There is no authored feed file, so there is nothing here to invent — if the
+ * community is quiet, the feed is short, and that is the honest reading. The
+ * activity feed and the timeline both read this, so the two can never drift
+ * into telling different stories about the same month.
  */
-export function communitySignal(limit = 6, now: Date = new Date()): SignalItem[] {
+function assembleSignals(now: Date): { scheduled: SignalItem[]; recent: SignalItem[] } {
   const scheduled: SignalItem[] = upcomingEvents(now).map((event) => ({
     kind: 'event-scheduled',
     date: event.date,
@@ -375,11 +509,99 @@ export function communitySignal(limit = 6, now: Date = new Date()): SignalItem[]
     href: `/stories/${s.slug}`,
   }));
 
-  const recent = [...held, ...joined, ...shipped, ...written].sort((a, b) =>
-    a.date < b.date ? 1 : -1,
+  const documented: SignalItem[] = publicUseCases.map((u) => ({
+    kind: 'use-case-published',
+    date: u.date,
+    subject: u.title,
+    action: 'written up',
+    citySlug: u.citySlug,
+    href: `/use-cases/${u.slug}`,
+  }));
+
+  const explained: SignalItem[] = publicGuides.map((g) => ({
+    kind: 'guide-published',
+    date: g.modified ?? g.published,
+    subject: g.title,
+    action: g.modified ? 'updated' : 'published',
+    href: `/guides/${g.slug}`,
+  }));
+
+  const recent = [...held, ...joined, ...shipped, ...written, ...documented, ...explained].sort(
+    (a, b) => (a.date < b.date ? 1 : -1),
   );
 
+  return { scheduled, recent };
+}
+
+/**
+ * A merged stream of things that actually happened: what is on the calendar,
+ * soonest first, then what has been held, most recent first.
+ */
+export function communitySignal(limit = 6, now: Date = new Date()): SignalItem[] {
+  const { scheduled, recent } = assembleSignals(now);
   return [...scheduled, ...recent].slice(0, limit);
+}
+
+// =========================================================================
+// COMMUNITY MEMORY — the record, by month
+// =========================================================================
+
+export interface TimelineEntry extends SignalItem {
+  /** True when this has not happened yet. Drives the unfilled marker. */
+  ahead: boolean;
+}
+
+export interface TimelineMonth {
+  /** `2026-09` — the sort key and the anchor id. */
+  key: string;
+  year: number;
+  /** Three letters, e.g. `SEP`. */
+  month: string;
+  /** True when the year changes at this month, so the rail can label it once. */
+  opensYear: boolean;
+  entries: TimelineEntry[];
+}
+
+const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+
+/**
+ * THE RECORD — every dated thing in the community, grouped by month.
+ *
+ * Reads forward in time, because that is what a record is: it starts where
+ * the community started and ends at what is next. Every entry comes from a
+ * record carrying a real date, so a quiet month is genuinely a quiet month
+ * and there is nothing here anyone had to write.
+ */
+export function timeline(now: Date = new Date()): TimelineMonth[] {
+  const { scheduled, recent } = assembleSignals(now);
+  const entries: TimelineEntry[] = [
+    ...scheduled.map((item) => ({ ...item, ahead: true })),
+    ...recent.map((item) => ({ ...item, ahead: false })),
+  ].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+
+  const months = new Map<string, TimelineMonth>();
+  for (const entry of entries) {
+    const [year, month] = entry.date.split('-');
+    const key = `${year}-${month}`;
+    let bucket = months.get(key);
+    if (!bucket) {
+      bucket = {
+        key,
+        year: Number(year),
+        month: MONTHS[Number(month) - 1] ?? month,
+        opensYear: false,
+        entries: [],
+      };
+      months.set(key, bucket);
+    }
+    bucket.entries.push(entry);
+  }
+
+  const ordered = [...months.values()];
+  ordered.forEach((bucket, i) => {
+    bucket.opensYear = i === 0 || ordered[i - 1].year !== bucket.year;
+  });
+  return ordered;
 }
 
 // =========================================================================

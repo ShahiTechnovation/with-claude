@@ -1,0 +1,228 @@
+---
+import { citySignalsRanked, eventsChronological, nationalSignal, publicBuilders } from '@/data';
+import { claudeSurfaces } from '@/data';
+import { formatName } from '@/lib/status';
+
+/**
+ * SEARCH THE COMMUNITY — the homepage entry point.
+ *
+ * A real GET form pointed at `/discover`, so it works before any JavaScript
+ * runs and keeps working if none ever does. The homepage does not try to be
+ * the search results page: it asks the question and hands over.
+ *
+ * The example queries are derived, never written. Each one is built from a
+ * record that exists, so every suggestion on this page returns something —
+ * a suggested search that comes back empty is worse than no suggestion.
+ */
+const signal = nationalSignal();
+const ranked = citySignalsRanked();
+
+const liveCity = ranked.find((s) => s.state === 'ambassador-led' || s.state === 'event-activity');
+const formats = [...new Set(eventsChronological.map((event) => event.format))];
+const surface = claudeSurfaces()[0];
+const person = publicBuilders[0];
+
+// Built in order of what the record can actually support, then trimmed to
+// three so the row stays a suggestion rather than a menu.
+const examples = [
+  liveCity ? liveCity.city.name : undefined,
+  surface,
+  formats.length ? formatName(formats[0]) : undefined,
+  person?.name,
+]
+  .filter((value): value is string => Boolean(value))
+  .slice(0, 3);
+
+const searchable =
+  signal.builders +
+  signal.projects +
+  signal.eventsHeld +
+  signal.eventsScheduled +
+  signal.citiesPlotted;
+---
+
+<div class="prompt">
+  <div class="prompt-head">
+    <p class="eyebrow">Search</p>
+    <h2 id="search-heading">Find something specific.</h2>
+    <p class="prose">
+      One index across everything on the record — people, projects, events, cities, use cases and
+      stories. It searches what has been published and nothing else.
+    </p>
+  </div>
+
+  <form class="prompt-form" role="search" action="/discover" method="get">
+    <label class="visually-hidden" for="home-q">Search the community</label>
+    <div class="prompt-field">
+      <span class="prompt-glyph" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+          <circle cx="10.5" cy="10.5" r="6.5"></circle>
+          <line x1="15.4" y1="15.4" x2="21" y2="21"></line>
+        </svg>
+      </span>
+      <input
+        id="home-q"
+        name="q"
+        type="search"
+        class="prompt-input"
+        autocomplete="off"
+        placeholder="Search people, projects, events, cities or Claude workflows…"
+      />
+      <button class="btn btn-clay prompt-go" type="submit">
+        <span>Search</span>
+        <span class="arrow" aria-hidden="true">→</span>
+      </button>
+    </div>
+
+    <div class="prompt-foot">
+      {
+        examples.length > 0 && (
+          <p class="prompt-examples">
+            <span class="label prompt-examples-label">Try</span>
+            {examples.map((example) => (
+              <a class="prompt-example" href={`/discover?q=${encodeURIComponent(example)}`}>
+                {example}
+              </a>
+            ))}
+          </p>
+        )
+      }
+      <p class="coords prompt-count">{`${String(searchable).padStart(2, '0')} records indexed`}</p>
+    </div>
+  </form>
+</div>
+
+<style>
+  .prompt {
+    display: grid;
+    gap: var(--s-7);
+  }
+
+  .prompt-head {
+    max-width: 56ch;
+  }
+
+  .prompt-head h2 {
+    margin-top: var(--s-3);
+    font-size: var(--t-h2);
+    font-weight: 600;
+    line-height: var(--lh-heading);
+    letter-spacing: var(--track-display);
+  }
+
+  .prompt-head .prose {
+    margin-top: var(--s-4);
+  }
+
+  .prompt-field {
+    display: flex;
+    align-items: center;
+    gap: var(--s-3);
+    padding: var(--s-3) var(--s-3) var(--s-3) var(--s-4);
+    border: var(--border-rule) solid var(--ink);
+    border-radius: var(--radius-sm);
+    background: var(--paper-raised);
+  }
+
+  .prompt-field:focus-within {
+    outline: var(--border-heavy) solid var(--clay-deep);
+    outline-offset: 2px;
+  }
+
+  .prompt-glyph {
+    display: grid;
+    place-items: center;
+    width: 1.35rem;
+    height: 1.35rem;
+    color: var(--ink-3);
+    flex: none;
+  }
+
+  .prompt-glyph svg {
+    width: 100%;
+    height: 100%;
+    stroke-linecap: round;
+  }
+
+  .prompt-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: 0;
+    background: none;
+    font-family: var(--font-body);
+    font-size: var(--t-lead);
+    color: var(--ink);
+    padding-block: var(--s-3);
+  }
+
+  .prompt-input::placeholder {
+    color: var(--ink-3);
+  }
+
+  .prompt-input:focus {
+    outline: none;
+  }
+
+  .prompt-input::-webkit-search-cancel-button {
+    display: none;
+  }
+
+  .prompt-go {
+    flex: none;
+  }
+
+  .prompt-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--s-4);
+    margin-top: var(--s-4);
+  }
+
+  .prompt-examples {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--s-3);
+  }
+
+  .prompt-examples-label {
+    color: var(--ink-3);
+  }
+
+  .prompt-example {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-2);
+    text-decoration: none;
+    padding: var(--s-1) var(--s-3);
+    border: var(--border-hair) solid var(--rule-strong);
+    border-radius: var(--radius-xs);
+    transition:
+      border-color var(--dur-1) var(--ease-out),
+      color var(--dur-1) var(--ease-out);
+  }
+
+  .prompt-example:hover,
+  .prompt-example:focus-visible {
+    border-color: var(--ink);
+    color: var(--ink);
+  }
+
+  .prompt-count {
+    color: var(--ink-3);
+  }
+
+  @media (max-width: 40rem) {
+    .prompt-field {
+      flex-wrap: wrap;
+    }
+
+    .prompt-go {
+      width: 100%;
+    }
+  }
+</style>

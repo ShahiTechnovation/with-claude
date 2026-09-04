@@ -1,5 +1,6 @@
 ---
-import Mark from './Mark.astro';
+import { Image } from 'astro:assets';
+import logoImage from '@/assets/brand/logo.jpg';
 import { site } from '@/data';
 
 /**
@@ -16,7 +17,7 @@ import { site } from '@/data';
  */
 interface Props {
   layout?: 'inline' | 'stacked';
-  /** Show the station mark alongside. */
+  /** Show the brand logo alongside. */
   mark?: boolean;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   class?: string;
@@ -27,7 +28,20 @@ const [first, second] = site.wordmark.split(' ');
 ---
 
 <span class:list={['wm', `wm-${layout}`, `wm-${size}`, className]}>
-  {mark && <Mark size={size === 'sm' ? 16 : 20} class="wm-mark" />}
+  {
+    mark && (
+      <span class="wm-logo-wrap">
+        <Image
+          src={logoImage}
+          alt={`${site.wordmark} logo`}
+          width={80}
+          height={80}
+          class="wm-logo-img"
+          loading="eager"
+        />
+      </span>
+    )
+  }
   <span class="wm-text">
     <span class="wm-with">{first}</span>
     <span class="wm-claude">{second}</span>
@@ -88,7 +102,46 @@ const [first, second] = site.wordmark.split(' ');
     letter-spacing: -0.03em;
   }
 
-  .wm :global(.wm-mark) {
-    color: var(--clay-deep);
+  /* Logo badge presentation */
+  .wm-logo-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #000;
+    box-shadow:
+      0 1px 4px rgba(0, 0, 0, 0.2),
+      0 0 0 1px rgba(0, 0, 0, 0.1);
+  }
+
+  .wm-logo-img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+  }
+
+  .wm-sm .wm-logo-wrap {
+    width: 24px;
+    height: 24px;
+  }
+
+  .wm-md .wm-logo-wrap {
+    width: 36px;
+    height: 36px;
+  }
+
+  .wm-lg .wm-logo-wrap {
+    width: 48px;
+    height: 48px;
+  }
+
+  .wm-xl .wm-logo-wrap {
+    width: 64px;
+    height: 64px;
   }
 </style>

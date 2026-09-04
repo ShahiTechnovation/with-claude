@@ -56,20 +56,23 @@
      Fluid, and every step is deliberately far from its neighbour. Editorial
      pages need violent contrast, not a gentle modular ramp.
 
-     These are true sizes: the document renders at 100% zoom. An earlier build
-     applied `zoom: 0.8` to the whole page to fake density, which quietly made
-     every rem value a lie and pushed metadata under 11px. */
-  --t-poster: clamp(3.1rem, 14.5vw, 9.5rem); /* INDIA IS BUILDING */
-  --t-display: clamp(2.1rem, 5.2vw, 4.35rem);
-  --t-h2: clamp(1.6rem, 3.5vw, 2.7rem);
-  --t-h3: clamp(1.12rem, 1.7vw, 1.4rem);
-  --t-lead: clamp(1rem, 1.15vw, 1.12rem);
-  --t-body: 1rem;
-  --t-small: 0.875rem;
+     Desktop scale applies 0.8 zoom for compact editorial density,
+     preserving elegant proportions and breathing room across screens. */
+  /* INDIA IS BUILDING. The slope is set so the cap engages around 1440 rather
+     than around 1050 — the old ramp went flat at 152px across the whole
+     desktop range, which is why 1280, 1440 and 1728 all rendered the same
+     headline at three different composition widths. */
+  --t-poster: clamp(3rem, 15vw, 11rem);
+  --t-display: clamp(2.5rem, 6.4vw, 5.25rem);
+  --t-h2: clamp(1.9rem, 4.2vw, 3.25rem);
+  --t-h3: clamp(1.25rem, 2vw, 1.7rem);
+  --t-lead: clamp(1.05rem, 1.35vw, 1.3rem);
+  --t-body: 1.0625rem;
+  --t-small: 0.9375rem;
   --t-meta: 0.75rem; /* mono, tracked, uppercase */
   --t-micro: 0.6875rem;
 
-  --lh-poster: 0.83;
+  --lh-poster: 0.84;
   --lh-display: 0.94;
   --lh-heading: 1.06;
   --lh-body: 1.6;
@@ -83,26 +86,26 @@
   --s-2: 0.5rem;
   --s-3: 0.75rem;
   --s-4: 1rem;
-  --s-5: 1.4rem;
-  --s-6: 1.9rem;
-  --s-7: 2.4rem;
-  --s-8: 3.1rem;
+  --s-5: 1.5rem;
+  --s-6: 2rem;
+  --s-7: 2.5rem;
+  --s-8: 3rem;
   --s-9: 4rem;
-  --s-10: 5.2rem;
-  --s-11: 6.6rem;
-  --s-12: 8.4rem;
+  --s-10: 5rem;
+  --s-11: 6.5rem;
+  --s-12: 8rem;
 
   /* Vertical rhythm between movements. The page breathes on this, and the
      three sizes are what stop every section feeling identically weighted. */
-  --section-y-sm: clamp(2.4rem, 4vw, 3.4rem);
-  --section-y: clamp(3.4rem, 6vw, 6rem);
-  --section-y-lg: clamp(4.6rem, 8.5vw, 8.5rem);
+  --section-y-sm: clamp(2.5rem, 4vw, 3.5rem);
+  --section-y: clamp(3.75rem, 7vw, 7rem);
+  --section-y-lg: clamp(5rem, 10vw, 9.5rem);
 
   /* --- GRID ------------------------------------------------------------ */
-  --measure: 1180px; /* standard content width */
-  --measure-wide: 1440px; /* editorial spreads */
-  --measure-text: 62ch; /* reading column */
-  --gutter: clamp(1.15rem, 3.6vw, 2.75rem);
+  --measure: 1280px; /* standard content width */
+  --measure-wide: 1520px; /* editorial spreads */
+  --measure-text: 64ch; /* reading column */
+  --gutter: clamp(1.25rem, 4vw, 3rem);
 
   /* --- BORDERS & SURFACES ---------------------------------------------- */
   --border-hair: 1px;

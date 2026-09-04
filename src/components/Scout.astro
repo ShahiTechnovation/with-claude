@@ -1,0 +1,171 @@
+---
+/**
+ * THE SCOUT — the site's one piece of character.
+ *
+ * A survey instrument standing in the coordinate field: a tripod, a hooded
+ * head with a brim, and two eyes. It is drawn in the same language as the rest
+ * of the cartography — 1px strokes, no fill but the paper behind its face — so
+ * it reads as a figure *in* the atlas rather than as a mascot parked on top of
+ * one. The site's own glyph is a survey station; this is what would be
+ * standing next to it.
+ *
+ * What it does, and deliberately all it does:
+ *
+ *   · its eyes follow the pointer
+ *   · it leans, very slightly, toward whatever has its attention
+ *   · it brightens and puts out a sightline when something is close
+ *   · it looks at the city you are hovering, and at a handful of marked
+ *     targets elsewhere on the page
+ *   · it goes back to rest when you stop moving
+ *
+ * There is no idle loop. A scout that fidgets on an empty page is decoration;
+ * one that is still until you arrive is an observer. Everything here is
+ * driven by `src/scripts/scout.ts` and every bit of it is off on a coarse
+ * pointer and under `prefers-reduced-motion`.
+ *
+ * Coordinates are plate units, so it scales with the map it lives on. The
+ * origin is the centre of the head: the sightline rotates about it, and the
+ * lean pivots at the foot of the tripod below it.
+ */
+interface Props {
+  /** Plate coordinates. Defaults sit in open water, clear of every city. */
+  x?: number;
+  y?: number;
+  variant?: 'atlas' | 'ghost';
+}
+
+const { x = 545, y = 596, variant = 'atlas' } = Astro.props;
+---
+
+<g
+  class:list={['scout', `scout-${variant}`]}
+  data-scout
+  transform={`translate(${x} ${y})`}
+  aria-hidden="true"
+>
+  {/* Measured for the pointer maths. Never painted. */}
+  <circle class="scout-anchor" data-scout-anchor r="10" fill="none"></circle>
+
+  {
+    /* The sightline. Rotates about the head, and is only drawn when the scout
+      has fixed on something. */
+  }
+  <g class="scout-rotor" data-scout-sight>
+    <path class="scout-sight" d="M21 0h21"></path>
+    <path class="scout-sight scout-sight-tip" d="M45 -3.6v7.2"></path>
+  </g>
+
+  {
+    /* Everything that leans. The pivot is the foot of the tripod, so the lean
+      reads as the whole instrument turning rather than as a head tilt. */
+  }
+  <g class="scout-lean" data-scout-lean>
+    {
+      /* A tripod, because the thing standing in the field on this site is an
+        instrument. Three legs and a head, not a body and a face. */
+    }
+    <path class="scout-legs" d="M0 11.5V26.5M-0.5 12.5L-9.5 26.5M0.5 12.5L9.5 26.5"></path>
+    <circle class="scout-hood" r="13"></circle>
+    {/* High enough to read as the brim of a cap rather than a mouth. */}
+    <path class="scout-brim" d="M-17 -4.6H17"></path>
+    <g class="scout-eyes" data-scout-eyes>
+      <circle class="scout-eye" cx="-4.9" cy="3.6" r="2.2"></circle>
+      <circle class="scout-eye" cx="4.9" cy="3.6" r="2.2"></circle>
+    </g>
+  </g>
+</g>
+
+<style>
+  /* Resting opacity is low on purpose: at rest the scout should read as one
+     more piece of map furniture, no louder than the scale bar. */
+  .scout {
+    opacity: 0.62;
+    transition: opacity var(--dur-2) var(--ease-out);
+  }
+
+  .scout.is-alert {
+    opacity: 0.9;
+  }
+
+  .scout-anchor {
+    pointer-events: none;
+  }
+
+  .scout-hood {
+    fill: var(--paper);
+    stroke: var(--ink-3);
+    stroke-width: 1.2;
+  }
+
+  .scout-brim,
+  .scout-legs {
+    stroke: var(--ink-3);
+    stroke-width: 1.2;
+    stroke-linecap: round;
+    fill: none;
+  }
+
+  .scout-eye {
+    fill: var(--ink-3);
+    transition:
+      fill var(--dur-2) var(--ease-out),
+      r var(--dur-2) var(--ease-out);
+  }
+
+  /* Attention is a half-shade of pupil and a hood that warms. Nothing here
+     is allowed to be the brightest thing on the plate. */
+  .scout.is-alert .scout-eye {
+    fill: var(--ink-2);
+    r: 2.6;
+  }
+
+  .scout.is-alert .scout-hood {
+    stroke: color-mix(in srgb, var(--clay) 62%, var(--ink-3));
+  }
+
+  /* The sightline is reserved for a fixed target — a city, or a marked
+     control. Hovering nearby is not enough to earn it. */
+  .scout-sight {
+    stroke: var(--clay);
+    stroke-width: 1;
+    stroke-linecap: round;
+    fill: none;
+    opacity: 0;
+    transition: opacity var(--dur-2) var(--ease-out);
+  }
+
+  .scout.is-fixed .scout-sight {
+    opacity: 0.55;
+  }
+
+  .scout.is-fixed .scout-sight-tip {
+    opacity: 0.3;
+  }
+
+  /* The hero's copy is quieter still — it sits behind the headline. */
+  .scout-ghost {
+    opacity: 0.52;
+  }
+
+  .scout-ghost .scout-hood {
+    fill: color-mix(in srgb, var(--paper) 88%, transparent);
+    stroke: color-mix(in srgb, var(--ink) 42%, transparent);
+  }
+
+  .scout-ghost .scout-brim,
+  .scout-ghost .scout-legs {
+    stroke: color-mix(in srgb, var(--ink) 42%, transparent);
+  }
+
+  .scout-ghost.is-alert {
+    opacity: 0.78;
+  }
+
+  /* Without a hover-capable pointer there is no cursor to follow, and a
+     figure frozen mid-glance is worse than no figure. It goes. */
+  @media (hover: none), (pointer: coarse) {
+    .scout {
+      display: none;
+    }
+  }
+</style>

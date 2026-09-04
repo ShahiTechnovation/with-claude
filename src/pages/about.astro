@@ -1,0 +1,499 @@
+---
+import Base from '@/layouts/Base.astro';
+import Section from '@/components/Section.astro';
+import PageIntro from '@/components/PageIntro.astro';
+import { cities, nationalSignal, official, publicAmbassadors, site, stewardship } from '@/data';
+import { CITY_STATE_LABEL, CITY_STATE_NOTE, CITY_STATE_ORDER } from '@/lib/city';
+import { titles, trail } from '@/lib/seo';
+
+/**
+ * HOW THE RECORD WORKS — the trust page.
+ *
+ * `/community` answers "who runs what". This page answers "why should I
+ * believe any of this", which is a different question and needs a different
+ * page: verification, moderation, how a self-reported number is labelled,
+ * and — the part most community sites never write down — what happens when
+ * something here turns out to be wrong.
+ *
+ * It deliberately does not restate the governance model. It links to it. The
+ * fastest way to make a trust page untrustworthy is to have two versions of
+ * the same rules drifting apart on two URLs.
+ */
+const signal = nationalSignal();
+const crumbs = trail({ name: 'How the record works', href: '/about' });
+
+const description =
+  'How WITH CLAUDE verifies events, approves builders, moderates projects, labels self-reported numbers, derives city states, and handles corrections.';
+
+/** Each entity, and the single thing that has to be true for it to be published. */
+const gates = [
+  {
+    entity: 'Events',
+    test: 'A real date, a real venue and a host we can name.',
+    detail:
+      'An event is an Ambassador-led Claude Community event only when its host resolves to a published Ambassador record. There is no flag for it. Everything else is community activity and is labelled as such.',
+    href: '/events',
+  },
+  {
+    entity: 'Ambassadors',
+    test: 'A record of how the status was confirmed.',
+    detail:
+      'Ambassador status is granted by Anthropic and never by this site. Every entry carries how it was verified — if we cannot say how we know, there is no entry.',
+    href: '/community#ambassador',
+  },
+  {
+    entity: 'Builders',
+    test: 'A submission, then a human review.',
+    detail:
+      'Anyone building with Claude in India can submit an entry, and being in the index confers nothing. Submissions start unpublished and a person moves them, so nothing self-publishes.',
+    href: '/builders',
+  },
+  {
+    entity: 'Projects',
+    test: 'A named maker and something we can look at.',
+    detail:
+      'The archive stays empty rather than filling with things nobody can check. A project needs a person behind it, a city, and how Claude was actually used.',
+    href: '/projects',
+  },
+  {
+    entity: 'Use cases and guides',
+    test: 'A named author with a reason they would know.',
+    detail:
+      'Nothing in the knowledge library is written by the site. Every entry carries a byline and a credential, and a guide carries the date it was last checked.',
+    href: '/use-cases',
+  },
+];
+
+const isNot = [
+  'An Anthropic property, programme, or endorsement.',
+  'A way to become a Claude Community Ambassador — that is Anthropic’s programme, and it is linked below.',
+  'A chapter directory. No city here can be claimed, started, or bought.',
+  'A startup funnel. Nothing on this site is for sale and there is no pitch behind it.',
+];
+---
+
+<Base
+  title="How the record works"
+  seoTitle={titles.about()}
+  description={description}
+  active="/about"
+  breadcrumbs={crumbs}
+>
+  <PageIntro eyebrow="Trust" title="How the record works." stamp="Volunteer-run">
+    <p>
+      This site is a public record of what people in India are doing with Claude. A record is only
+      worth keeping if it says where each fact came from and what happens when one turns out to be
+      wrong. That is this page.
+    </p>
+  </PageIntro>
+
+  <Section id="what" tone="sunk" labelledby="what-heading">
+    <div class="two">
+      <div>
+        <p class="eyebrow">What this is</p>
+        <h2 id="what-heading" class="two-title">An independent community record.</h2>
+        <p class="prose">{site.descriptor}</p>
+        <p class="prose">
+          It is run by volunteers, it is free, and everything on it comes from the community it
+          documents. Who organises what is set out in <a href="/community">who runs what</a>.
+        </p>
+      </div>
+
+      <div>
+        <h3 class="label isnot-head">What it is not</h3>
+        <ul class="isnot">
+          {isNot.map((line) => <li>{line}</li>)}
+        </ul>
+        <a
+          class="btn btn-quiet isnot-cta"
+          href={official.ambassadorProgramUrl}
+          target="_blank"
+          rel="noopener"
+        >
+          <span>Anthropic’s Ambassador programme</span>
+          <span class="arrow" aria-hidden="true">↗</span>
+        </a>
+      </div>
+    </div>
+  </Section>
+
+  <Section id="gates" labelledby="gates-heading">
+    <div class="section-head">
+      <p class="eyebrow">Verification</p>
+      <h2 id="gates-heading">What has to be true before something appears.</h2>
+      <p class="prose">
+        Every kind of record has one test it has to pass. They are deliberately narrow, and they are
+        the reason several archives on this site are still empty.
+      </p>
+    </div>
+
+    <ul class="gates">
+      {
+        gates.map((gate) => (
+          <li class="gate">
+            <div class="gate-head">
+              <h3 class="gate-entity">
+                <a href={gate.href}>{gate.entity}</a>
+              </h3>
+              <p class="gate-test">{gate.test}</p>
+            </div>
+            <p class="gate-detail">{gate.detail}</p>
+          </li>
+        ))
+      }
+    </ul>
+  </Section>
+
+  <Section id="numbers" tone="night" labelledby="numbers-heading">
+    <div class="section-head">
+      <p class="eyebrow">Numbers</p>
+      <h2 id="numbers-heading">Counted, or reported.</h2>
+    </div>
+
+    <div class="two">
+      <div>
+        <h3 class="label numbers-head">Counted</h3>
+        <p class="numbers-body">
+          Every figure on this site that is not explicitly attributed is counted from the record
+          itself — {signal.eventsHeld} events held, {signal.citiesPlotted} cities plotted,
+          {' '}{signal.builders} people in the index. Add a record and the number moves. There is no headline
+          figure anyone can type.
+        </p>
+      </div>
+      <div>
+        <h3 class="label numbers-head">Reported</h3>
+        <p class="numbers-body">
+          Community-reported figures — attendance, prototypes shipped — are kept out of those counts
+          entirely and always render with the source they came from. They are somebody's account of
+          their own event, and they are labelled as exactly that.
+        </p>
+      </div>
+    </div>
+  </Section>
+
+  <Section id="cities" labelledby="cities-heading">
+    <div class="section-head">
+      <p class="eyebrow">Cities</p>
+      <h2 id="cities-heading">A dot is not a chapter.</h2>
+      <p class="prose">
+        A city's state is derived from verified records, never authored. All {cities.length} cities on
+        the atlas are in one of four states, and no city is ever presented as available to claim.
+      </p>
+    </div>
+
+    <ul class="states">
+      {
+        CITY_STATE_ORDER.map((state) => (
+          <li class="state">
+            <span class:list={['chip', `chip-${state}`]}>{CITY_STATE_LABEL[state]}</span>
+            <span class="state-note">{CITY_STATE_NOTE[state]}</span>
+          </li>
+        ))
+      }
+    </ul>
+  </Section>
+
+  <Section id="corrections" tone="sunk" labelledby="corrections-heading">
+    <div class="two">
+      <div>
+        <p class="eyebrow">Corrections</p>
+        <h2 id="corrections-heading" class="two-title">If something here is wrong.</h2>
+        <p class="prose">
+          Tell us and it gets fixed. This is a record about real people, so being correctable
+          matters more than being complete.
+        </p>
+        <a
+          class="btn btn-clay corrections-cta"
+          href={stewardship.corrections.url}
+          target="_blank"
+          rel="noopener"
+        >
+          <span>{`Send a correction on ${stewardship.corrections.label}`}</span>
+          <span class="arrow" aria-hidden="true">↗</span>
+        </a>
+      </div>
+
+      <ol class="steps">
+        {
+          stewardship.correctionSteps.map((step, i) => (
+            <li class="step">
+              <span class="step-num">{String(i + 1).padStart(2, '0')}</span>
+              <span>{step}</span>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+  </Section>
+
+  <Section id="who" labelledby="who-heading">
+    <div class="section-head">
+      <p class="eyebrow">Stewardship</p>
+      <h2 id="who-heading">Who keeps this.</h2>
+      <p class="prose">
+        Volunteers, working with the communities that run the rooms. Organisations are named with
+        what they actually do; nobody is listed as a maintainer who has not asked to be.
+      </p>
+    </div>
+
+    <ul class="stewards">
+      {
+        stewardship.maintainers.map((maintainer) => (
+          <li class="steward">
+            <span class="steward-name">
+              {maintainer.url ? (
+                <a href={maintainer.url} target="_blank" rel="noopener">
+                  {maintainer.name}
+                </a>
+              ) : (
+                maintainer.name
+              )}
+            </span>
+            <span class="steward-role">{maintainer.role}</span>
+          </li>
+        ))
+      }
+      {
+        publicAmbassadors.map((ambassador) => (
+          <li class="steward">
+            <span class="steward-name">{ambassador.name}</span>
+            <span class="steward-role">{`${ambassador.title} — ${ambassador.verifiedVia}`}</span>
+          </li>
+        ))
+      }
+    </ul>
+
+    <p class="affiliation">{site.affiliation}</p>
+  </Section>
+</Base>
+
+<style>
+  .two {
+    display: grid;
+    gap: var(--s-8);
+  }
+
+  .two-title {
+    margin-top: var(--s-3);
+    font-size: var(--t-h2);
+    font-weight: 600;
+    line-height: var(--lh-heading);
+    letter-spacing: var(--track-display);
+  }
+
+  .two .prose {
+    margin-top: var(--s-4);
+  }
+
+  .isnot-head {
+    display: block;
+    color: var(--ink-3);
+    padding-bottom: var(--s-3);
+    border-bottom: var(--border-hair) solid var(--rule);
+  }
+
+  .isnot {
+    list-style: none;
+    padding: 0;
+    margin: var(--s-4) 0 0;
+  }
+
+  .isnot li {
+    position: relative;
+    padding-left: var(--s-5);
+    padding-block: var(--s-3);
+    border-bottom: var(--border-hair) solid var(--rule);
+    color: var(--ink-2);
+  }
+
+  .isnot li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 1.35em;
+    width: 9px;
+    height: var(--border-hair);
+    background: var(--rule-strong);
+  }
+
+  .isnot-cta {
+    margin-top: var(--s-5);
+  }
+
+  /* ---- gates ---- */
+
+  .gates {
+    list-style: none;
+    padding: 0;
+    margin: var(--s-8) 0 0;
+    border-top: var(--border-heavy) solid var(--ink);
+  }
+
+  .gate {
+    display: grid;
+    gap: var(--s-3) var(--s-7);
+    padding-block: var(--s-6);
+    border-bottom: var(--border-hair) solid var(--rule);
+  }
+
+  .gate-entity {
+    font-family: var(--font-display);
+    font-size: var(--t-h3);
+    font-weight: 600;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    letter-spacing: -0.022em;
+  }
+
+  .gate-entity a {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: var(--border-hair) solid var(--rule-strong);
+  }
+
+  .gate-entity a:hover,
+  .gate-entity a:focus-visible {
+    border-bottom-color: var(--clay-deep);
+  }
+
+  .gate-test {
+    margin-top: var(--s-2);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--clay-deep);
+    max-width: 34ch;
+  }
+
+  .gate-detail {
+    max-width: 58ch;
+    color: var(--ink-2);
+  }
+
+  /* ---- numbers ---- */
+
+  .numbers-head {
+    display: block;
+    color: var(--on-night-2);
+    padding-bottom: var(--s-3);
+    border-bottom: var(--border-hair) solid var(--rule-night);
+  }
+
+  .numbers-body {
+    margin-top: var(--s-4);
+    max-width: 50ch;
+    font-size: var(--t-lead);
+  }
+
+  /* ---- city states ---- */
+
+  .states {
+    list-style: none;
+    padding: 0;
+    margin: var(--s-7) 0 0;
+    border-top: var(--border-hair) solid var(--rule);
+  }
+
+  .state {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--s-4);
+    padding-block: var(--s-4);
+    border-bottom: var(--border-hair) solid var(--rule);
+  }
+
+  .state-note {
+    color: var(--ink-2);
+    max-width: 58ch;
+  }
+
+  /* ---- corrections ---- */
+
+  .corrections-cta {
+    margin-top: var(--s-6);
+  }
+
+  .steps {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    counter-reset: step;
+  }
+
+  .step {
+    display: flex;
+    gap: var(--s-4);
+    padding-block: var(--s-4);
+    border-bottom: var(--border-hair) solid var(--rule);
+    color: var(--ink-2);
+  }
+
+  .step-num {
+    flex: none;
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    color: var(--clay-deep);
+    padding-top: 0.28em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---- stewards ---- */
+
+  .stewards {
+    list-style: none;
+    padding: 0;
+    margin: var(--s-7) 0 0;
+    border-top: var(--border-hair) solid var(--rule);
+  }
+
+  .steward {
+    display: grid;
+    gap: var(--s-2);
+    padding-block: var(--s-5);
+    border-bottom: var(--border-hair) solid var(--rule);
+  }
+
+  .steward-name {
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+    font-weight: 600;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    letter-spacing: -0.02em;
+  }
+
+  .steward-role {
+    font-size: var(--t-small);
+    color: var(--ink-3);
+    max-width: 62ch;
+  }
+
+  .affiliation {
+    margin-top: var(--s-8);
+    padding-top: var(--s-5);
+    border-top: var(--border-hair) solid var(--rule);
+    max-width: 70ch;
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    line-height: 1.8;
+    color: var(--ink-3);
+  }
+
+  @media (min-width: 60rem) {
+    .two {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: var(--s-10);
+      align-items: start;
+    }
+
+    .gate {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+      align-items: baseline;
+    }
+  }
+</style>

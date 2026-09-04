@@ -1,0 +1,354 @@
+---
+import Base from '@/layouts/Base.astro';
+import Section from '@/components/Section.astro';
+import PageIntro from '@/components/PageIntro.astro';
+import {
+  authorName,
+  authorOf,
+  builderBySlug,
+  eventBySlug,
+  projectBySlug,
+  publicGuides,
+  site,
+  useCaseBySlug,
+} from '@/data';
+import type { Guide } from '@/data';
+import { formatDate } from '@/lib/datetime';
+import { asset } from '@/lib/images';
+import { articleSchema, titles, trail } from '@/lib/seo';
+
+/**
+ * One guide.
+ *
+ * Authorship is not a footer here — it sits directly under the title, with the
+ * credential and the date it was last checked, because those three facts are
+ * what separates this from the generic version of the same article. A guide
+ * whose author cannot be named should not be published, so there is no
+ * anonymous branch in this template.
+ *
+ * Generates nothing today. `guides.ts` is empty on purpose.
+ */
+export function getStaticPaths() {
+  return publicGuides.map((guide) => ({ params: { slug: guide.slug }, props: { guide } }));
+}
+
+interface Props {
+  guide: Guide;
+}
+
+const { guide } = Astro.props;
+
+const author = authorOf(guide);
+const byline = authorName(guide);
+const cover = asset(guide.image);
+const url = `${site.url}/guides/${guide.slug}`;
+
+const related = {
+  builders: (guide.builderSlugs ?? []).map((slug) => builderBySlug.get(slug)).filter(Boolean),
+  projects: (guide.projectSlugs ?? []).map((slug) => projectBySlug.get(slug)).filter(Boolean),
+  events: (guide.eventSlugs ?? []).map((slug) => eventBySlug.get(slug)).filter(Boolean),
+  useCases: (guide.useCaseSlugs ?? []).map((slug) => useCaseBySlug.get(slug)).filter(Boolean),
+};
+const hasRelated = Object.values(related).some((list) => list.length > 0);
+
+const crumbs = trail(
+  { name: 'Guides', href: '/guides' },
+  { name: guide.title, href: `/guides/${guide.slug}` },
+);
+
+const schema = [
+  articleSchema(
+    {
+      headline: guide.title,
+      description: guide.standfirst,
+      published: guide.published,
+      modified: guide.modified,
+      authorName: byline,
+      authorUrl: author ? `${site.url}/builders/${author.slug}` : undefined,
+      image: cover ? new URL(cover.src, site.url).href : undefined,
+      sources: guide.sources,
+    },
+    url,
+  ),
+];
+---
+
+<Base
+  title={guide.title}
+  seoTitle={titles.guide(guide.title)}
+  description={guide.standfirst}
+  active="/guides"
+  breadcrumbs={crumbs}
+  schema={schema}
+>
+  <PageIntro
+    eyebrow="Guide"
+    title={guide.title}
+    stamp={guide.readingMinutes ? `${guide.readingMinutes} min read` : undefined}
+  >
+    <p>{guide.standfirst}</p>
+  </PageIntro>
+
+  <Section id="authority" size="sm">
+    <div class="authority">
+      <div>
+        <p class="label authority-label">Written by</p>
+        <p class="authority-name">
+          {author ? <a href={`/builders/${author.slug}`}>{byline}</a> : byline}
+        </p>
+        <p class="authority-credential">{guide.author.credential}</p>
+      </div>
+      <dl class="authority-dates">
+        <div>
+          <dt class="label">Published</dt>
+          <dd><time datetime={guide.published}>{formatDate(guide.published)}</time></dd>
+        </div>
+        {
+          guide.modified && (
+            <div>
+              <dt class="label">Last checked</dt>
+              <dd>
+                <time datetime={guide.modified}>{formatDate(guide.modified)}</time>
+              </dd>
+            </div>
+          )
+        }
+      </dl>
+    </div>
+    <p class="question">{guide.question}</p>
+  </Section>
+
+  {
+    guide.body && guide.body.length > 0 && (
+      <Section id="body" labelledby="body-heading">
+        <h2 class="visually-hidden" id="body-heading">
+          {guide.title}
+        </h2>
+        <article class="body">
+          {guide.body.map((block) => (
+            <section class="block">
+              {block.heading && <h3 class="block-heading">{block.heading}</h3>}
+              {block.paragraphs.map((paragraph) => (
+                <p>{paragraph}</p>
+              ))}
+            </section>
+          ))}
+        </article>
+      </Section>
+    )
+  }
+
+  {
+    (hasRelated || guide.sources?.length) && (
+      <Section id="connected" tone="sunk" labelledby="connected-heading">
+        <div class="section-head">
+          <p class="eyebrow">Connected</p>
+          <h2 id="connected-heading">What this touches.</h2>
+        </div>
+
+        {hasRelated && (
+          <div class="links">
+            {related.useCases.map((useCase) => (
+              <a class="link-card" href={`/use-cases/${useCase!.slug}`}>
+                <span class="label">Use case</span>
+                <span class="link-card-title">{useCase!.title}</span>
+              </a>
+            ))}
+            {related.projects.map((project) => (
+              <a class="link-card" href={`/projects/${project!.slug}`}>
+                <span class="label">Project</span>
+                <span class="link-card-title">{project!.title}</span>
+              </a>
+            ))}
+            {related.events.map((event) => (
+              <a class="link-card" href={`/events/${event!.slug}`}>
+                <span class="label">Event</span>
+                <span class="link-card-title">{event!.title}</span>
+              </a>
+            ))}
+            {related.builders.map((builder) => (
+              <a class="link-card" href={`/builders/${builder!.slug}`}>
+                <span class="label">Builder</span>
+                <span class="link-card-title">{builder!.name}</span>
+              </a>
+            ))}
+          </div>
+        )}
+
+        {guide.sources && guide.sources.length > 0 && (
+          <div class="sources">
+            <h3 class="label">Sources</h3>
+            <ul class="sources-list">
+              {guide.sources.map((source) => (
+                <li>
+                  {source.url ? <a href={source.url}>{source.label}</a> : source.label}
+                  {source.retrieved && (
+                    <span class="source-date">Checked {formatDate(source.retrieved)}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </Section>
+    )
+  }
+</Base>
+
+<style>
+  .authority {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: var(--s-6) var(--s-9);
+    padding-bottom: var(--s-5);
+    border-bottom: var(--border-hair) solid var(--rule);
+  }
+
+  .authority-label {
+    color: var(--ink-3);
+  }
+
+  .authority-name {
+    margin-top: var(--s-2);
+    font-family: var(--font-display);
+    font-size: 1.4rem;
+    font-weight: 600;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    letter-spacing: -0.02em;
+  }
+
+  .authority-name a {
+    color: inherit;
+  }
+
+  .authority-credential {
+    margin-top: var(--s-2);
+    max-width: 46ch;
+    font-size: var(--t-small);
+    color: var(--ink-3);
+  }
+
+  .authority-dates {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-6);
+  }
+
+  .authority-dates dt {
+    color: var(--ink-3);
+  }
+
+  .authority-dates dd {
+    margin-top: var(--s-2);
+    font-size: var(--t-small);
+  }
+
+  .question {
+    margin-top: var(--s-6);
+    max-width: 48ch;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: var(--t-h3);
+    line-height: 1.35;
+    letter-spacing: -0.02em;
+    color: var(--clay-deep);
+  }
+
+  /* ---- body ---- */
+
+  .body {
+    max-width: var(--measure-text);
+  }
+
+  .block + .block {
+    margin-top: var(--s-8);
+  }
+
+  .block-heading {
+    font-size: var(--t-h3);
+    font-weight: 600;
+    line-height: var(--lh-heading);
+    letter-spacing: -0.022em;
+    margin-bottom: var(--s-4);
+  }
+
+  .block p {
+    font-size: var(--t-lead);
+    line-height: var(--lh-body);
+    color: var(--ink-2);
+  }
+
+  .block p + p {
+    margin-top: var(--s-4);
+  }
+
+  /* ---- connected ---- */
+
+  .links {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+    gap: var(--s-4);
+    margin-top: var(--s-7);
+  }
+
+  .link-card {
+    display: grid;
+    gap: var(--s-2);
+    padding: var(--s-5);
+    border: var(--border-hair) solid var(--rule-strong);
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    color: inherit;
+    transition: border-color var(--dur-1) var(--ease-out);
+  }
+
+  .link-card:hover,
+  .link-card:focus-visible {
+    border-color: var(--ink);
+  }
+
+  .link-card .label {
+    color: var(--ink-3);
+  }
+
+  .link-card-title {
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-weight: 600;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    letter-spacing: -0.018em;
+  }
+
+  .sources {
+    margin-top: var(--s-8);
+    padding-top: var(--s-5);
+    border-top: var(--border-hair) solid var(--rule);
+  }
+
+  .sources .label {
+    color: var(--ink-3);
+  }
+
+  .sources-list {
+    list-style: none;
+    padding: 0;
+    margin: var(--s-4) 0 0;
+    font-size: var(--t-small);
+  }
+
+  .sources-list li {
+    padding-block: var(--s-2);
+  }
+
+  .source-date {
+    margin-left: var(--s-3);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    color: var(--ink-3);
+  }
+</style>

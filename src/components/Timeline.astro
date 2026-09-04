@@ -1,0 +1,238 @@
+---
+import { cityName, timeline } from '@/data';
+import type { SignalKind } from '@/data';
+import { formatDate } from '@/lib/datetime';
+
+/**
+ * THE RECORD — community memory, by month.
+ *
+ * Reads forward in time, because that is what a record is: it starts where
+ * the community started and ends at what is next. Everything on it is
+ * generated from a dated record, so a quiet month is genuinely a quiet month
+ * and nobody had to write a single line of this.
+ *
+ * The one visual distinction that matters is between what has happened and
+ * what has not. Held entries get a filled mark; scheduled ones get an open
+ * ring — the same form-before-colour rule the atlas runs on, so the two read
+ * apart in monochrome.
+ */
+interface Props {
+  /** Trim to the most recent months. Omit for the whole record. */
+  limit?: number;
+  citySlug?: string;
+}
+
+const { limit, citySlug } = Astro.props;
+
+let months = timeline();
+if (citySlug) {
+  months = months
+    .map((month) => ({ ...month, entries: month.entries.filter((e) => e.citySlug === citySlug) }))
+    .filter((month) => month.entries.length > 0);
+}
+if (limit) months = months.slice(-limit);
+
+/** What each kind of entry is called on the rail. */
+const KIND_LABEL: Record<SignalKind, string> = {
+  'event-scheduled': 'Event',
+  'event-held': 'Event',
+  'ambassador-verified': 'Ambassador',
+  'builder-published': 'Builder',
+  'project-published': 'Project',
+  'story-published': 'Story',
+  'use-case-published': 'Use case',
+  'guide-published': 'Guide',
+};
+
+const total = months.reduce((sum, month) => sum + month.entries.length, 0);
+---
+
+{
+  months.length === 0 ? (
+    <p class="record-empty">Nothing on the record yet.</p>
+  ) : (
+    <div class="record">
+      <ol class="record-months">
+        {months.map((month) => (
+          <li class="month" id={`m-${month.key}`}>
+            <div class="month-mark">
+              <span class="month-name">{month.month}</span>
+              {month.opensYear && <span class="month-year">{month.year}</span>}
+            </div>
+
+            <ul class="month-entries">
+              {month.entries.map((entry) => (
+                <li class:list={['entry', { 'is-ahead': entry.ahead }]}>
+                  <span class="entry-mark" aria-hidden="true" />
+                  <div class="entry-body">
+                    <p class="entry-meta">
+                      <span class="entry-kind">{KIND_LABEL[entry.kind]}</span>
+                      {entry.citySlug && <span>{cityName(entry.citySlug)}</span>}
+                      <time datetime={entry.date}>{formatDate(entry.date)}</time>
+                    </p>
+                    <p class="entry-subject">
+                      {entry.href ? <a href={entry.href}>{entry.subject}</a> : entry.subject}
+                      <span class="entry-action">{entry.action}</span>
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ol>
+
+      <p class="record-count">
+        {`${String(total).padStart(2, '0')} entries across ${String(months.length).padStart(2, '0')} months`}
+      </p>
+    </div>
+  )
+}
+
+<style>
+  .record-empty {
+    color: var(--ink-3);
+  }
+
+  .record-months {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .month {
+    display: grid;
+    grid-template-columns: 7ch minmax(0, 1fr);
+    gap: var(--s-5);
+    padding-top: var(--s-6);
+    border-top: var(--border-hair) solid var(--rule);
+  }
+
+  .month + .month {
+    margin-top: var(--s-6);
+  }
+
+  .month-mark {
+    position: sticky;
+    top: var(--s-8);
+    align-self: start;
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .month-year {
+    display: block;
+    margin-top: var(--s-1);
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .month-entries {
+    list-style: none;
+    padding: 0 0 var(--s-5);
+    margin: 0;
+  }
+
+  .entry {
+    position: relative;
+    display: flex;
+    gap: var(--s-4);
+    padding-block: var(--s-4);
+  }
+
+  .entry + .entry {
+    border-top: var(--border-hair) solid var(--rule);
+  }
+
+  /* Held is a filled mark, scheduled is an open ring. Form, not colour, so
+     the distinction survives greyscale and colour blindness. */
+  .entry-mark {
+    flex: none;
+    width: 9px;
+    height: 9px;
+    margin-top: 0.45em;
+    border-radius: 50%;
+    background: var(--ink);
+  }
+
+  .entry.is-ahead .entry-mark {
+    background: none;
+    border: var(--border-rule) solid var(--clay-deep);
+  }
+
+  .entry-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-3);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .entry.is-ahead .entry-kind {
+    color: var(--clay-deep);
+  }
+
+  .entry-subject {
+    margin-top: var(--s-2);
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-weight: 600;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    line-height: var(--lh-heading);
+    letter-spacing: -0.018em;
+  }
+
+  .entry-subject a {
+    color: inherit;
+    text-decoration: none;
+    border-bottom: var(--border-hair) solid var(--rule-strong);
+    transition: border-color var(--dur-1) var(--ease-out);
+  }
+
+  .entry-subject a:hover,
+  .entry-subject a:focus-visible {
+    border-bottom-color: var(--clay-deep);
+  }
+
+  .entry-action {
+    display: block;
+    margin-top: var(--s-1);
+    font-family: var(--font-body);
+    font-size: var(--t-small);
+    font-weight: 400;
+    letter-spacing: 0;
+    color: var(--ink-3);
+  }
+
+  .record-count {
+    margin-top: var(--s-7);
+    padding-top: var(--s-4);
+    border-top: var(--border-hair) solid var(--rule);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  @media (max-width: 40rem) {
+    .month {
+      grid-template-columns: 1fr;
+      gap: var(--s-3);
+    }
+
+    .month-mark {
+      position: static;
+      display: flex;
+      gap: var(--s-2);
+    }
+  }
+</style>

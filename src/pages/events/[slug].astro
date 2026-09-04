@@ -9,11 +9,14 @@ import {
   cityName,
   eventsChronological,
   hostAmbassador,
+  guidesForEvent,
   projectsFromEvent,
   publicEvents,
   site,
+  coHostsOf,
   speakersOf,
   storiesForEvent,
+  useCasesForEvent,
 } from '@/data';
 import {
   dateParts,
@@ -25,6 +28,7 @@ import {
 } from '@/lib/datetime';
 import { formatCoords } from '@/lib/geo';
 import { asset, requireAsset } from '@/lib/images';
+import { titles, trail } from '@/lib/seo';
 import {
   formatName,
   isRegistrationOpen,
@@ -45,6 +49,7 @@ const lifecycle = lifecycleOf(event);
 const parts = dateParts(event.date);
 const city = cityBySlug.get(event.citySlug);
 const speakers = speakersOf(event);
+const coHosts = coHostsOf(event);
 const ambassador = hostAmbassador(event);
 const canRegister = isRegistrationOpen(event);
 const cover = asset(event.coverImage);
@@ -108,12 +113,33 @@ const schema = [
     ...(ambassador ? { performer: { '@type': 'Person', name: ambassador.name } } : {}),
   },
 ];
+
+// What this room produced in writing. Part of the event content flywheel:
+// one real event should be able to become a recap, a project and a workflow,
+// each with its own page and its own value.
+const practice = useCasesForEvent(event.slug);
+const eventGuides = guidesForEvent(event.slug);
+
+/**
+ * Home → Events → Bhopal → Claude Conversation.
+ *
+ * The city sits in the trail because it is a real page one level up in how
+ * people actually navigate: someone reading about an event in Pune wants
+ * Pune next, not the national archive.
+ */
+const crumbs = trail(
+  { name: 'Events', href: '/events' },
+  { name: cityName(event.citySlug), href: `/cities/${event.citySlug}` },
+  { name: event.title, href: `/events/${event.slug}` },
+);
 ---
 
 <Base
   title={`${event.title} · ${cityName(event.citySlug)}`}
+  seoTitle={titles.event(event.title, cityName(event.citySlug))}
   description={event.description ?? event.summary}
   active="/events"
+  breadcrumbs={crumbs}
   schema={schema}
 >
   <PageIntro
@@ -180,6 +206,21 @@ const schema = [
             <dt class="label">Entry</dt>
             <dd>{event.free ? 'Free · approval required' : 'Ticketed'}</dd>
           </div>
+          {
+            coHosts.length > 0 && (
+              <div>
+                <dt class="label">Co-hosted by</dt>
+                <dd>
+                  {coHosts.map((person, i) => (
+                    <>
+                      {i > 0 && ', '}
+                      <a href={`/builders/${person.slug}`}>{person.name}</a>
+                    </>
+                  ))}
+                </dd>
+              </div>
+            )
+          }
           {
             event.host.organisations && event.host.organisations.length > 0 && (
               <div>
@@ -261,6 +302,28 @@ const schema = [
                   <li>
                     <a href={`/stories/${story.slug}`}>{story.title}</a>
                     <span class="detail-sub">{story.standfirst}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )
+        }
+
+        {
+          (practice.length > 0 || eventGuides.length > 0) && (
+            <div class="detail-block">
+              <h3 class="label detail-block-head">Practice from this room</h3>
+              <ul class="detail-people">
+                {practice.map((useCase) => (
+                  <li>
+                    <a href={`/use-cases/${useCase.slug}`}>{useCase.title}</a>
+                    <span class="detail-sub">{useCase.summary}</span>
+                  </li>
+                ))}
+                {eventGuides.map((guide) => (
+                  <li>
+                    <a href={`/guides/${guide.slug}`}>{guide.title}</a>
+                    <span class="detail-sub">{guide.standfirst}</span>
                   </li>
                 ))}
               </ul>

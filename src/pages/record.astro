@@ -1,0 +1,77 @@
+---
+import Base from '@/layouts/Base.astro';
+import Section from '@/components/Section.astro';
+import PageIntro from '@/components/PageIntro.astro';
+import Timeline from '@/components/Timeline.astro';
+import { nationalSignal, timeline } from '@/data';
+import { titles, trail } from '@/lib/seo';
+
+/**
+ * THE RECORD.
+ *
+ * Community memory as a single page. It is the site's slowest-compounding
+ * asset and the one hardest for anybody else to copy: an events page can be
+ * rebuilt in a weekend, but three years of what actually happened, in order,
+ * cannot.
+ *
+ * Nothing on this page is authored. Every line is generated from a record
+ * that carries a real date, which is why there is no editorial voice here at
+ * all — the record speaks or it does not.
+ */
+const months = timeline();
+const signal = nationalSignal();
+const crumbs = trail({ name: 'The record', href: '/record' });
+
+const span =
+  months.length > 0
+    ? `${months[0].month} ${months[0].year} — ${months[months.length - 1].month} ${months[months.length - 1].year}`
+    : undefined;
+
+const description =
+  'Everything that has happened in the Claude community in India, by month — events held, events scheduled, people who joined the index, and what has been published.';
+---
+
+<Base
+  title="The record"
+  seoTitle={titles.record()}
+  description={description}
+  active="/record"
+  breadcrumbs={crumbs}
+>
+  <PageIntro
+    eyebrow="The record"
+    title="Everything, in order."
+    stamp={span}
+    facts={[
+      { label: 'Held', value: String(signal.eventsHeld).padStart(2, '0') },
+      { label: 'Scheduled', value: String(signal.eventsScheduled).padStart(2, '0') },
+      { label: 'Cities', value: String(signal.citiesPlotted).padStart(2, '0') },
+      { label: 'People', value: String(signal.builders).padStart(2, '0') },
+    ]}
+  >
+    <p>
+      Community memory. Every line is generated from a record carrying a real date — nothing on this
+      page was written, and a quiet month is a quiet month. A filled mark is something that
+      happened; an open one is still ahead.
+    </p>
+  </PageIntro>
+
+  <Section id="timeline" tone="sunk" size="lg" labelledby="timeline-heading">
+    <h2 class="visually-hidden" id="timeline-heading">The timeline</h2>
+    <Timeline />
+  </Section>
+
+  <Section id="how" size="sm">
+    <p class="note">
+      How records get here — and how a mistake gets fixed — is set out in
+      <a href="/about">how the record works</a>.
+    </p>
+  </Section>
+</Base>
+
+<style>
+  .note {
+    max-width: 62ch;
+    color: var(--ink-2);
+  }
+</style>

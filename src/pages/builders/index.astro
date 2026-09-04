@@ -1,4 +1,5 @@
 ---
+import { titles, trail } from '@/lib/seo';
 import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
 import PageIntro from '@/components/PageIntro.astro';
@@ -10,8 +11,10 @@ import { publicAmbassadors, publicBuilders, site } from '@/data';
 
 <Base
   title="Builders"
+  seoTitle={titles.builders()}
   description="The people building with Claude in India. An open index — anyone building can add themselves."
   active="/builders"
+  breadcrumbs={trail({ name: 'Builders', href: '/builders' })}
 >
   <PageIntro
     eyebrow="Builders"

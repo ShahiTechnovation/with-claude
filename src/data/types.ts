@@ -122,6 +122,15 @@ export interface AgendaItem {
  */
 export interface EventHost {
   ambassadorSlug?: string;
+  /**
+   * People who ran the room alongside the Ambassador. Must resolve against
+   * `builders`, so a co-host credit always leads somewhere.
+   *
+   * Separate from `speakerSlugs`, which is who talked. Someone can do both,
+   * and several people here did — but hosting a room and presenting in one
+   * are different contributions and the record should not merge them.
+   */
+  builderSlugs?: string[];
   /** Organisations hosting, co-hosting, or lending the room. */
   organisations?: string[];
 }
@@ -351,7 +360,9 @@ export type SignalKind =
   | 'ambassador-verified'
   | 'builder-published'
   | 'project-published'
-  | 'story-published';
+  | 'story-published'
+  | 'use-case-published'
+  | 'guide-published';
 
 /**
  * One line in the community feed. Every item is built from a record with a
@@ -366,4 +377,176 @@ export interface SignalItem {
   action: string;
   citySlug?: string;
   href?: string;
+}
+
+// =========================================================================
+// AUTHORSHIP — who made this, and why they would know
+// =========================================================================
+
+/**
+ * The byline on anything the community writes.
+ *
+ * `builderSlug` is preferred: it resolves to a real profile and pulls the
+ * whole graph in behind the name. `credential` answers "why do they know
+ * this?" and is required, because an unattributed workflow is indistinguishable
+ * from a generated one — which is the exact thing this library exists not to be.
+ *
+ * Never write a credential you cannot point at. "Ran the Claude Code workshop
+ * in Bhopal, vol. 09" is a credential. "AI expert" is not.
+ */
+export interface Authorship {
+  /** Resolves against `builders`. Set this rather than a bare name where possible. */
+  builderSlug?: string;
+  /** Falls back to this when the author has no builder entry yet. */
+  name?: string;
+  /** Why this person is the one telling you. Required — no anonymous authority. */
+  credential: string;
+}
+
+/** An external fact leaned on. Cited so a reader can check it themselves. */
+export interface Source {
+  label: string;
+  url?: string;
+  /** When it was checked, for anything that can go stale. */
+  retrieved?: IsoDate;
+}
+
+// =========================================================================
+// USE CASES — Claude in practice
+// =========================================================================
+
+export type UseCaseCategory =
+  | 'claude-code'
+  | 'product'
+  | 'startups'
+  | 'research'
+  | 'design'
+  | 'education'
+  | 'operations'
+  | 'marketing'
+  | 'automation'
+  | 'agents'
+  | 'developer-workflows';
+
+/** One step of a real workflow, in the order it actually happened. */
+export interface WorkflowStep {
+  title: string;
+  detail: string;
+  /** Who did this step. The split is the whole point of the record. */
+  by: 'human' | 'claude' | 'both';
+}
+
+/**
+ * How one named person actually uses Claude.
+ *
+ * This is the site's knowledge library, and its value is entirely in the word
+ * *actually*. A use case is a first-hand account by an attributable person
+ * working on a real problem — not a listicle, not a tips post, and not a
+ * summary of documentation.
+ *
+ * Two fields carry the honesty of the whole entity:
+ *
+ *  · `claudeDid` / `humanDid` are separate and both required. A record that
+ *    cannot say what the person contributed is a product demo, not a workflow.
+ *  · `author.credential` says why they would know.
+ *
+ * The title test: "How a Bhopal builder uses Claude Code to prototype
+ * products" is a use case. "10 best Claude Code tips" is not, and does not
+ * belong in this file.
+ */
+export interface UseCase extends RecordBase {
+  title: string;
+  /** One sentence, used on cards and as the meta description. */
+  summary: string;
+  category: UseCaseCategory;
+  author: Authorship;
+  citySlug?: string;
+  date: IsoDate;
+  /** The real problem being solved. Not a hypothetical. */
+  problem: string;
+  /** The situation it was solved in — team, constraints, stakes. */
+  context: string;
+  /** The workflow, in order. */
+  workflow: WorkflowStep[];
+  /** What Claude did. Specific, not "helped". */
+  claudeDid: string[];
+  /** What the person did. Judgement, verification, the parts Claude got wrong. */
+  humanDid: string[];
+  /** Claude surfaces and other tooling used, e.g. `Claude Code`. */
+  tools: string[];
+  /** A prompt or artefact, only where the author has approved sharing it. */
+  artifacts?: { label: string; body: string }[];
+  /** What actually came out of it. Honest about limits. */
+  result: string;
+  image?: string;
+  projectSlug?: string;
+  eventSlug?: string;
+  sources?: Source[];
+}
+
+// =========================================================================
+// GUIDES — written by people who did the thing
+// =========================================================================
+
+/**
+ * A practical guide.
+ *
+ * A guide exists because a person has a real question, never because a
+ * keyword does. Every one carries an author with a credential, a modified
+ * date, and its sources — so a reader can weigh it, and so the page is
+ * something a search engine can attribute rather than a page of text.
+ */
+export interface Guide extends RecordBase {
+  title: string;
+  /** The question this answers, in the words someone would actually ask. */
+  question: string;
+  standfirst: string;
+  author: Authorship;
+  published: IsoDate;
+  /** Set whenever the body changes materially. Rendered, and in the JSON-LD. */
+  modified?: IsoDate;
+  readingMinutes?: number;
+  image?: string;
+  /** Body paragraphs and headings, in order. */
+  body?: { heading?: string; paragraphs: string[] }[];
+  sources?: Source[];
+  builderSlugs?: string[];
+  projectSlugs?: string[];
+  eventSlugs?: string[];
+  useCaseSlugs?: string[];
+}
+
+// =========================================================================
+// BUILD DROPS — architected, not built
+// =========================================================================
+
+/**
+ * A first-person publication about one thing someone shipped.
+ *
+ * Deliberately typed and deliberately unrouted. There is no `/drops` page and
+ * there should not be one until the community is producing these — a feed
+ * with three entries in it reads as an abandoned feed, and the project
+ * archive already carries the same facts with less ceremony.
+ *
+ * What this reserves is the *shape*, so the first real drop does not force a
+ * schema argument. A drop is a `Project` plus a narrative and a number.
+ */
+export interface BuildDrop extends RecordBase {
+  /** Sequential within the series. `41` renders as `BUILD DROP #041`. */
+  number: number;
+  title: string;
+  builderSlug: string;
+  citySlug: string;
+  date: IsoDate;
+  /** What I built. */
+  what: string;
+  /** The problem. */
+  problem: string;
+  /** The build. */
+  build: string;
+  /** How Claude helped — the same honesty rule as `UseCase`. */
+  claudeHelp: string;
+  demoUrl?: string;
+  repoUrl?: string;
+  projectSlug?: string;
 }

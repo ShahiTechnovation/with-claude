@@ -1,0 +1,157 @@
+---
+import { cityName, pastEvents, publicEvents, upcomingEvents } from '@/data';
+import { dateParts } from '@/lib/datetime';
+
+/**
+ * CLAUDE, IN THE WILD — the editorial fact block above the archive.
+ *
+ * Deliberately not a dashboard. Four counted figures, set as a masthead
+ * rather than as tiles, because the point is the sentence they make together:
+ * this many rooms, this recently, in this many places.
+ *
+ * Every number is counted from the record at build time. The span and the
+ * city list are derived too, so a new event in a new city changes this block
+ * without anybody editing it.
+ */
+const upcoming = upcomingEvents();
+const past = pastEvents();
+
+const citySlugs = [...new Set(publicEvents.map((event) => event.citySlug))];
+
+// Ordered by how much has actually happened there, so the list reads as a
+// ranking rather than as an alphabet.
+const cities = citySlugs
+  .map((slug) => ({
+    name: cityName(slug),
+    count: publicEvents.filter((event) => event.citySlug === slug).length,
+  }))
+  .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+
+const chronological = [...publicEvents].sort((a, b) => (a.date < b.date ? -1 : 1));
+const first = chronological[0];
+const last = chronological[chronological.length - 1];
+
+const span =
+  first && last
+    ? `${dateParts(first.date).monthDisplay} ${dateParts(first.date).year} — ${dateParts(last.date).monthDisplay} ${dateParts(last.date).year}`
+    : undefined;
+
+const figures = [
+  { value: publicEvents.length, label: 'Claude events' },
+  { value: upcoming.length, label: 'Upcoming' },
+  { value: past.length, label: 'Held' },
+  { value: cities.length, label: 'Cities' },
+];
+---
+
+<div class="wild">
+  <div class="wild-head">
+    <p class="eyebrow">The record</p>
+    <h2 id="wild-heading">Claude, in the wild.</h2>
+    <p class="wild-copy">
+      From community conversations and code workshops to builder-focused sessions and impact labs,
+      Claude is being explored, built with, and shared across India's growing builder community.
+    </p>
+  </div>
+
+  <div class="wild-figures">
+    <dl class="figures">
+      {
+        figures.map((figure) => (
+          <div class="figure">
+            <dd>{String(figure.value).padStart(2, '0')}</dd>
+            <dt>{figure.label}</dt>
+          </div>
+        ))
+      }
+    </dl>
+
+    <p class="wild-span">
+      {span && <span class="wild-span-dates">{span}</span>}
+      <span class="wild-span-cities">
+        {cities.map((city) => `${city.name} (${city.count})`).join(' · ')}
+      </span>
+    </p>
+  </div>
+</div>
+
+<style>
+  .wild {
+    display: grid;
+    gap: var(--s-8);
+  }
+
+  .wild-head h2 {
+    margin-top: var(--s-3);
+    font-size: var(--t-h2);
+    font-weight: 600;
+    line-height: var(--lh-heading);
+    letter-spacing: var(--track-display);
+  }
+
+  .wild-copy {
+    margin-top: var(--s-5);
+    max-width: 54ch;
+    font-size: var(--t-lead);
+    color: var(--ink-2);
+  }
+
+  .figures {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--s-6) var(--s-5);
+    padding-top: var(--s-5);
+    border-top: var(--border-heavy) solid var(--ink);
+  }
+
+  .figure dd {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(2.4rem, 5vw, 3.4rem);
+    font-weight: 600;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    line-height: 0.9;
+    letter-spacing: -0.04em;
+    font-variant-numeric: lining-nums tabular-nums;
+  }
+
+  .figure dt {
+    margin-top: var(--s-3);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .wild-span {
+    display: grid;
+    gap: var(--s-2);
+    margin-top: var(--s-6);
+    padding-top: var(--s-4);
+    border-top: var(--border-hair) solid var(--rule);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .wild-span-dates {
+    color: var(--ink-2);
+  }
+
+  @media (min-width: 60rem) {
+    .wild {
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+      gap: var(--s-10);
+      align-items: start;
+    }
+
+    .figures {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+</style>

@@ -488,6 +488,68 @@
   color: var(--ink-3);
 }
 
+/* --- Archival: a print you can pick up ----------------------------------
+   The photograph is treated as a physical object on a board. Under a cursor
+   it answers with what a held print actually does — it shifts a couple of
+   millimetres, catches the light at a slightly different angle, and drops its
+   shadow the other way. The numbers are deliberately small: 1.6 degrees, not
+   twelve. This is weight, not a card flip.
+
+   `--tilt-x` and `--tilt-y` run -1 to 1 and are set by the enhancement
+   bundle. Both default to zero, so with scripts off the plate is a plate. */
+.plate-archival {
+  --tilt-x: 0;
+  --tilt-y: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .plate-archival .plate {
+    transform: perspective(1200px) rotateY(calc(var(--tilt-x) * 1.6deg))
+      rotateX(calc(var(--tilt-y) * -1.2deg))
+      translate3d(calc(var(--tilt-x) * 3px), calc(var(--tilt-y) * 2px), 0);
+    transition:
+      transform 520ms var(--ease-out),
+      box-shadow 520ms var(--ease-out);
+  }
+
+  /* Under the pointer it tracks; released, it takes its time settling back. */
+  .plate-archival.is-held .plate {
+    transition-duration: 110ms;
+    box-shadow:
+      calc(var(--tilt-x) * -9px) calc(20px - var(--tilt-y) * 5px) 40px -26px rgb(22 20 14 / 0.55),
+      0 2px 5px -3px rgb(22 20 14 / 0.35);
+  }
+}
+
+/* The rest of the caption — the part a reader only wants once they have
+   stopped on the picture. Present in the DOM in every case, so a screen reader
+   always reads it; only hidden where a hover exists to bring it back, and the
+   reveal is wanted. With motion reduced, nothing is coming to uncover it, so
+   it simply stands. */
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .plate-aside {
+    opacity: 0;
+    transform: translateY(-2px);
+    transition:
+      opacity var(--dur-2) var(--ease-out),
+      transform var(--dur-2) var(--ease-out);
+  }
+
+  .plate-archival.is-held .plate-aside {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.plate-aside {
+  margin-top: var(--s-2);
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+  line-height: 1.6;
+  letter-spacing: 0.03em;
+  color: var(--ink-3);
+}
+
 /* =========================================================================
    SECTION HEADS
    The eyebrow is free text set by each section rather than a serial number,
@@ -627,4 +689,69 @@
   .socials {
     gap: var(--s-3) var(--s-6);
   }
+}
+
+/* =========================================================================
+   FILTER BAR
+   The archive filter island (`scripts/filters.ts`) is shared by the event,
+   project and use-case archives, and so is its class contract: `.filters`
+   wraps groups of `.filter` buttons and an optional `[data-filter-count]`.
+   The styles lived in two components and were about to live in a third, so
+   they belong here with the rest of the primitives.
+   ========================================================================= */
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-4) var(--s-6);
+  padding-bottom: var(--s-5);
+  margin-bottom: var(--s-5);
+  border-bottom: var(--border-hair) solid var(--rule);
+}
+
+.filter-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.filter-label {
+  color: var(--ink-3);
+  margin-right: var(--s-2);
+}
+
+.filter {
+  padding: 0.42rem 0.7rem;
+  border: var(--border-hair) solid var(--rule-strong);
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  transition:
+    background var(--dur-1) var(--ease-out),
+    border-color var(--dur-1) var(--ease-out),
+    color var(--dur-1) var(--ease-out);
+}
+
+.filter:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.filter.is-on {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+.filter-count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+  letter-spacing: var(--track-meta);
+  text-transform: uppercase;
+  color: var(--ink-3);
 }

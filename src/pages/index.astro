@@ -3,19 +3,21 @@ import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
 import Hero from '@/components/Hero.astro';
 import CommunitySignal from '@/components/CommunitySignal.astro';
+import SearchPrompt from '@/components/SearchPrompt.astro';
 import NextEvent from '@/components/NextEvent.astro';
 import CityAtlas from '@/components/CityAtlas.astro';
 import BuilderIndex from '@/components/BuilderIndex.astro';
 import ProjectArchive from '@/components/ProjectArchive.astro';
+import PracticeLibrary from '@/components/PracticeLibrary.astro';
 import StoryStrip from '@/components/StoryStrip.astro';
-import EventArchive from '@/components/EventArchive.astro';
-import CityIndex from '@/components/CityIndex.astro';
+import WithIndex from '@/components/WithIndex.astro';
 import Participation from '@/components/Participation.astro';
 import Manifesto from '@/components/Manifesto.astro';
 import { cityName, nationalSignal, nextEvent, site, upcomingEvents } from '@/data';
 import { formatDate, isoDateTime } from '@/lib/datetime';
 import { lifecycleOf } from '@/lib/status';
 import { inWordsCap } from '@/lib/words';
+import { titles } from '@/lib/seo';
 
 const next = nextEvent();
 const signal = nationalSignal();
@@ -72,21 +74,32 @@ const eventSchema = upcomingEvents().map((event) => ({
 }));
 ---
 
-<Base title={site.wordmark} description={description} active="/" schema={eventSchema}>
+<Base
+  title={site.wordmark}
+  seoTitle={titles.home()}
+  description={description}
+  active="/"
+  schema={eventSchema}
+>
   <!-- 01 — THE COVER ---------------------------------------------------- -->
   <Hero />
 
-  <!-- 02 — THE SIGNAL ---------------------------------------------------- -->
+  <!-- 02 — THE INDIA SIGNAL. What is actually happening? ------------------ -->
   <Section id="signal" tone="sunk" size="sm" labelledby="signal-heading">
     <CommunitySignal />
   </Section>
 
-  <!-- 03 — NEXT EVENT ---------------------------------------------------- -->
-  <Section id="next" labelledby="next-heading">
+  <!-- 03 — SEARCH. Find something specific. ------------------------------- -->
+  <Section id="search" labelledby="search-heading">
+    <SearchPrompt />
+  </Section>
+
+  <!-- 04 — NEXT EVENT. What can I join? ----------------------------------- -->
+  <Section id="next" tone="raised" labelledby="next-heading">
     <NextEvent />
   </Section>
 
-  <!-- 04 — DISCOVER INDIA. The page's first dark movement. ---------------- -->
+  <!-- 05 — THE ATLAS. Where is the activity? The first dark movement. ----- -->
   <Section id="atlas" tone="night" size="lg" labelledby="atlas-heading">
     <div class="atlas-head">
       <div class="section-head">
@@ -104,37 +117,37 @@ const eventSchema = upcomingEvents().map((event) => ({
     <CityAtlas />
   </Section>
 
-  <!-- 05 — WHO'S BUILDING ------------------------------------------------- -->
+  <!-- 06 — PEOPLE. Who is building? --------------------------------------- -->
   <Section id="builders" labelledby="builders-heading">
     <BuilderIndex limit={6} />
   </Section>
 
-  <!-- 06 — MADE WITH CLAUDE. The deepest ground on the page. -------------- -->
+  <!-- 07 — MADE WITH CLAUDE. What are they making? The deepest ground. ----- -->
   <Section id="projects" tone="deep" size="lg" labelledby="projects-heading">
-    <ProjectArchive />
+    <ProjectArchive limit={6} />
   </Section>
 
-  <!-- 07 — FROM THE COMMUNITY (full bleed) -------------------------------- -->
+  <!-- 08 — CLAUDE IN PRACTICE. How are people actually using it? ---------- -->
+  <Section id="practice" labelledby="practice-library-heading">
+    <PracticeLibrary limit={4} compact />
+  </Section>
+
+  <!-- 09 — FROM THE COMMUNITY (full bleed) -------------------------------- -->
   <Section id="stories" size="lg" bleed labelledby="stories-heading">
     <StoryStrip />
   </Section>
 
-  <!-- 08 — EVENTS ACROSS INDIA -------------------------------------------- -->
-  <Section id="events" tone="sunk" labelledby="events-heading">
-    <EventArchive limit={6} />
+  <!-- 10 — WITH. The name, stated as a system rather than as a logo. ------ -->
+  <Section id="with" tone="sunk" size="lg" labelledby="with-heading">
+    <WithIndex />
   </Section>
 
-  <!-- 09 — FIND YOUR CITY -------------------------------------------------- -->
-  <Section id="cities" labelledby="cities-heading">
-    <CityIndex compact />
-  </Section>
-
-  <!-- 10 — WAYS IN --------------------------------------------------------- -->
+  <!-- 11 — CONTRIBUTE ------------------------------------------------------ -->
   <Section id="join" tone="raised" labelledby="join-heading">
     <Participation />
   </Section>
 
-  <!-- 11 — THE CLOSE -------------------------------------------------------- -->
+  <!-- 12 — THE CLOSE -------------------------------------------------------- -->
   <Section id="record" tone="night" size="lg" labelledby="manifesto-heading">
     <Manifesto />
   </Section>

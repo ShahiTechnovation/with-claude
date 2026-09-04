@@ -112,6 +112,120 @@ function initNavToggle(): void {
   });
 }
 
+/**
+ * Archival plates.
+ *
+ * The photograph behaves like a print held between two fingers: it shifts a
+ * little, tilts a degree or so, and its shadow moves the other way. All of the
+ * displacement lives in two CSS custom properties, so the stylesheet owns how
+ * far a degree goes and this only reports where the pointer is.
+ *
+ * Fine pointers only. There is nothing here to feel through a fingertip, and
+ * a tilt that fires on tap would read as a bug.
+ */
+function initArchivalPlates(): void {
+  const plates = document.querySelectorAll<HTMLElement>('[data-archival]');
+  if (!plates.length) return;
+  if (prefersReducedMotion()) return;
+  if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+
+  const clamp = (n: number) => Math.min(Math.max(n, -1), 1);
+
+  plates.forEach((figure) => {
+    const surface = figure.querySelector<HTMLElement>('.plate');
+    if (!surface) return;
+
+    let frame = 0;
+    let last: PointerEvent | null = null;
+
+    const apply = () => {
+      frame = 0;
+      if (!last) return;
+      const box = surface.getBoundingClientRect();
+      if (!box.width || !box.height) return;
+      figure.style.setProperty(
+        '--tilt-x',
+        clamp(((last.clientX - box.left) / box.width) * 2 - 1).toFixed(3),
+      );
+      figure.style.setProperty(
+        '--tilt-y',
+        clamp(((last.clientY - box.top) / box.height) * 2 - 1).toFixed(3),
+      );
+    };
+
+    figure.addEventListener(
+      'pointermove',
+      (event) => {
+        if (event.pointerType === 'touch') return;
+        last = event;
+        figure.classList.add('is-held');
+        if (!frame) frame = requestAnimationFrame(apply);
+      },
+      { passive: true },
+    );
+
+    figure.addEventListener('pointerleave', () => {
+      if (frame) cancelAnimationFrame(frame);
+      frame = 0;
+      last = null;
+      figure.classList.remove('is-held');
+      figure.style.setProperty('--tilt-x', '0');
+      figure.style.setProperty('--tilt-y', '0');
+    });
+  });
+}
+
+/**
+ * WITH — the connection index.
+ *
+ * Each strand publishes what it is connected to. Only one preview is shown at
+ * a time and they are all server-rendered, so with scripts blocked the first
+ * strand's preview stands and every row is still an ordinary link.
+ *
+ * Hover drives it on a fine pointer; focus drives it everywhere, which is what
+ * makes the thing usable from a keyboard rather than merely non-broken.
+ */
+function initWithIndex(): void {
+  const roots = document.querySelectorAll<HTMLElement>('[data-with]');
+  if (!roots.length) return;
+
+  const canHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+
+  roots.forEach((root) => {
+    const links = root.querySelectorAll<HTMLElement>('[data-with-link]');
+    const previews = root.querySelectorAll<HTMLElement>('[data-with-preview]');
+    if (!links.length || !previews.length) return;
+
+    const show = (key: string) => {
+      links.forEach((link) => link.classList.toggle('is-active', link.dataset.withLink === key));
+      previews.forEach((panel) => {
+        const on = panel.dataset.withPreview === key;
+        panel.toggleAttribute('data-active', on);
+        panel.setAttribute('aria-hidden', String(!on));
+      });
+    };
+
+    const from = (event: Event): string | undefined =>
+      (event.target as Element | null)?.closest<HTMLElement>('[data-with-link]')?.dataset.withLink;
+
+    if (canHover) {
+      root.addEventListener(
+        'pointerover',
+        (event) => {
+          const key = from(event);
+          if (key) show(key);
+        },
+        { passive: true },
+      );
+    }
+
+    root.addEventListener('focusin', (event) => {
+      const key = from(event);
+      if (key) show(key);
+    });
+  });
+}
+
 function boot(): void {
   // Claims the document, cancelling the layout's un-hide safety net.
   document.documentElement.classList.add('enhanced');
@@ -119,6 +233,8 @@ function boot(): void {
   initMeridian();
   initMasthead();
   initNavToggle();
+  initArchivalPlates();
+  initWithIndex();
 }
 
 if (document.readyState === 'loading') {

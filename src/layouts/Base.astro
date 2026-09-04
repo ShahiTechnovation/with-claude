@@ -15,12 +15,22 @@ import frauncesUrl from '@fontsource-variable/fraunces/files/fraunces-latin-wonk
 import interUrl from '@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url';
 
 import Masthead from '@/components/Masthead.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
 import SiteFooter from '@/components/SiteFooter.astro';
 import { site } from '@/data';
+import { breadcrumbSchema, websiteSchema } from '@/lib/seo';
+import type { Crumb } from '@/lib/seo';
 
 interface Props {
   title: string;
   description: string;
+  /**
+   * The exact `<title>`, when a page needs one the suffix convention cannot
+   * express. Everything else keeps `Name · With Claude`.
+   */
+  seoTitle?: string;
+  /** Rendered as a real trail AND emitted as `BreadcrumbList`. */
+  breadcrumbs?: Crumb[];
   /** Route prefix for nav highlighting. */
   active?: string;
   /** Absolute or root-relative share image. */
@@ -34,6 +44,8 @@ interface Props {
 const {
   title,
   description,
+  seoTitle,
+  breadcrumbs = [],
   active = '/',
   image = '/og-card.jpg',
   schema = [],
@@ -42,7 +54,8 @@ const {
 
 const canonical = new URL(Astro.url.pathname, Astro.site ?? site.url).href;
 const ogImage = new URL(image, Astro.site ?? site.url).href;
-const fullTitle = title === site.wordmark ? `${site.wordmark} · India` : `${title} · With Claude`;
+const fullTitle =
+  seoTitle ?? (title === site.wordmark ? `${site.wordmark} · India` : `${title} · With Claude`);
 
 /**
  * The organisation node.
@@ -63,7 +76,14 @@ const organization = {
   areaServed: { '@type': 'Country', name: 'India' },
 };
 
-const graph = [organization, ...schema];
+// The site node carries the internal search endpoint, so it goes everywhere
+// rather than only on the homepage — `/discover` answers `?q=` on every route.
+const graph = [
+  organization,
+  websiteSchema(),
+  ...(breadcrumbs.length > 1 ? [breadcrumbSchema(breadcrumbs)] : []),
+  ...schema,
+];
 ---
 
 <!doctype html>
@@ -129,6 +149,7 @@ const graph = [organization, ...schema];
         <span class="meridian"></span>
       </span>
       <main id="main">
+        <Breadcrumbs crumbs={breadcrumbs} />
         <slot />
       </main>
     </div>
@@ -136,7 +157,10 @@ const graph = [organization, ...schema];
     <SiteFooter />
 
     <script>
+      import { inject } from '@vercel/analytics';
       import '@/scripts/enhance';
+
+      inject();
     </script>
   </body>
 </html>
