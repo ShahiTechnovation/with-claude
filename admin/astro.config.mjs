@@ -55,6 +55,63 @@ export default defineConfig({
   }),
 
   /**
+   * WHY THIS EXISTS: behind Vercel, `Astro.url` is built from the forwarded
+   * host, and Astro refuses to trust that header unless the host is named here.
+   *
+   * `NodeApp.createRequest()` resolves the request hostname as
+   *
+   *     validatedForwardedHost ?? validatedHost ?? 'localhost'
+   *
+   * and BOTH validators return undefined when `allowedDomains` is empty (see
+   * `astro/dist/core/app/validate-headers.js`). On Vercel the socket is not
+   * TLS-encrypted at the function — TLS terminates at the edge — and the real
+   * host arrives only in `X-Forwarded-Host`. With no allowlist that header is
+   * dropped, the hostname falls through to `localhost`, and `Astro.url.origin`
+   * becomes `http://localhost`.
+   *
+   * `security.checkOrigin` then compares the browser's real `Origin` against
+   * that bogus origin, they never match, and every form POST — including the
+   * sign-in form, which is a plain `<form>` by design — is answered 403
+   * "Cross-site POST form submissions are forbidden" by an internal middleware
+   * that runs BEFORE `src/middleware.ts` and before any route.
+   *
+   * THE FIX IS AN ALLOWLIST, NOT AN EXEMPTION. `checkOrigin` stays on. This
+   * only tells Astro which forwarded hosts are really ours, which is exactly
+   * what the option is for: it is the defence against host-header injection,
+   * so the patterns are kept narrow and explicit rather than `**`.
+   */
+  security: {
+    checkOrigin: true,
+    allowedDomains: [
+      /**
+       * Production. Exact host, so the real admin origin never depends on the
+       * wildcard below.
+       */
+      { protocol: 'https', hostname: 'admin.withclaude.in' },
+
+      /**
+       * Vercel preview and deployment URLs.
+       *
+       * `**.vercel.app` is deliberately this shape and not narrower: Astro's
+       * matcher (`@astrojs/internal-helpers/remote`) only honours a wildcard as
+       * a LEADING `*.` or `**.` label. A mid-string pattern such as
+       * `with-claude-admin-*.vercel.app` is not a wildcard to it at all — it
+       * degrades to an exact string compare and silently never matches, which
+       * would leave preview deployments still answering 403.
+       *
+       * The residual risk is small and bounded: `X-Forwarded-Host` is set by
+       * Vercel's edge, which overwrites any client-supplied value, so this is
+       * not attacker-controlled in this deployment. Even if it were, the only
+       * thing it moves is `Astro.url`; the session cookie is host-only, and
+       * `assertSameOrigin()` independently pins every state-changing POST to
+       * `BETTER_AUTH_URL`, which is a fixed value and not derived from the
+       * request. Production above does not rely on this entry.
+       */
+      { protocol: 'https', hostname: '**.vercel.app' },
+    ],
+  },
+
+  /**
    * Nothing here should ever be indexed, linked from a sitemap, or shared to a
    * social card. The middleware sets `X-Robots-Tag` on every authenticated
    * response; `public/robots.txt` covers the login page too.
