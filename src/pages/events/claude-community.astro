@@ -1,0 +1,733 @@
+---
+import { trail } from '@/lib/seo';
+import Base from '@/layouts/Base.astro';
+import Section from '@/components/Section.astro';
+import PageIntro from '@/components/PageIntro.astro';
+
+// Event Dataset Hardcoded
+const upcoming = [
+  {
+    title: 'Delhi | Claude Meetup',
+    date: 'SEP 05, 2026',
+    dateShort: 'SEP 05',
+    time: '11:00 AM',
+    city: 'Delhi',
+    venue: 'Paytm, Delhi',
+    host: 'Aniket Sahu',
+    status: 'Upcoming',
+    luma: 'https://luma.com/claude-44tv'
+  },
+  {
+    title: 'Bhopal | Claude Conversation',
+    date: 'SEP 12, 2026',
+    dateShort: 'SEP 12',
+    time: '06:00 PM',
+    city: 'Bhopal',
+    host: 'Aniket Sahu',
+    status: 'Upcoming',
+    luma: 'https://luma.com/claude-6khk'
+  },
+  {
+    title: 'Bhopal | Claude Impact Lab',
+    date: 'SEP 13, 2026',
+    dateShort: 'SEP 13',
+    time: '10:00 AM',
+    city: 'Bhopal',
+    host: 'Aniket Sahu',
+    status: 'Upcoming',
+    luma: 'https://luma.com/claude-r61u'
+  }
+];
+
+const past = [
+  { title: 'Bhopal | Claude Code Workshop', date: 'SEP 02', time: '04:00 PM', city: 'Bhopal', host: 'Aniket Sahu' },
+  { title: 'Bhopal | Claude for College Builders', date: 'AUG 27', time: '02:30 AM', city: 'Bhopal', host: 'Aniket Sahu' },
+  { title: 'Bhopal | Claude Code Impact Lab', date: 'AUG 23', time: '09:00 AM', city: 'Bhopal', venue: 'PaPaPet head office', host: 'Aniket Sahu, The Origin Guild & Builder Base' },
+  { title: 'Claude for Businesses', date: 'AUG 16', time: '05:30 PM', city: 'Bhopal', venue: 'Farzi Cafe, Bhopal', host: 'Aniket Sahu', luma: 'https://luma.com/claude-ssrl' },
+  { title: 'Indore | Claude Meetup', date: 'AUG 15', time: '05:30 PM', city: 'Indore', venue: 'Walkover', host: 'Aniket Sahu' },
+  { title: 'Bhopal | Claude Code Workshop', date: 'AUG 09', time: '05:30 PM', city: 'Bhopal', venue: 'BIBA', host: 'Aniket Sahu', luma: 'https://luma.com/claude-jy40' },
+  { title: 'Bhopal | Claude Code Workshop', date: 'AUG 05', time: '05:00 PM', city: 'Bhopal', venue: 'RICR — Raj Institute of Coding & Robotics', host: 'Aniket Sahu & Vishal Kumar', luma: 'https://luma.com/claude-7myk' },
+  { title: 'Bhopal | Getting Started with Claude & Claude Code', date: 'AUG 02', time: '05:00 PM', city: 'Bhopal', venue: 'BIBA', host: 'Aniket Sahu, The Origin Guild, Builder Base & Vishal Kumar', luma: 'https://luma.com/claude-9g93' },
+  { title: 'Bhopal | Claude Community Conversation', date: 'JUL 26', time: '06:00 PM', city: 'Bhopal', venue: 'Sheryians HQ', host: 'Aniket Sahu', luma: 'https://luma.com/claude-w1nu' },
+  { title: 'Bhopal | Claude Meetup', date: 'JUL 12', time: '04:30 PM', city: 'Bhopal', venue: 'Aanarchy', host: 'Aniket Sahu, The Origin Guild & Builder Base', luma: 'https://luma.com/claude-18gk' },
+  { title: 'Bhopal | Claude Code for Builders', date: 'MAR 01', time: '04:00 PM', city: 'Bhopal', host: 'Aniket Sahu, The Origin Guild & Vishal Kumar', luma: 'https://luma.com/hphplrbx' },
+];
+
+const cities = ['Delhi (1)', 'Bhopal (12)', 'Indore (1)'];
+const [lead, ...restUpcoming] = upcoming;
+---
+
+<Base
+  title="Claude Event History"
+  seoTitle="Aniket Sahu | Claude Event History"
+  description="From community conversations and code workshops to builder-focused sessions and impact labs, Claude is being explored, built with, and shared across India's growing builder community."
+  active="/events"
+  breadcrumbs={trail({ name: 'Events', href: '/events' }, { name: 'Claude Community History', href: '/events/claude-community' })}
+>
+  <PageIntro
+    eyebrow="Archive"
+    title="Aniket Sahu's Claude Event History."
+    stamp="14 events"
+    facts={[
+      { label: 'Held', value: '11' },
+      { label: 'Ahead', value: '03' },
+      { label: 'Cities', value: '03' },
+    ]}
+  >
+    <p>
+      From community conversations and code workshops to builder-focused sessions and impact labs, Claude is being explored, built with, and shared across India's growing builder community.
+    </p>
+  </PageIntro>
+
+  <Section id="wild" tone="sunk" labelledby="wild-heading">
+    <div class="wild">
+      <div class="wild-head">
+        <p class="eyebrow">The record</p>
+        <h2 id="wild-heading">Claude, in the wild.</h2>
+        <p class="wild-copy">
+          From community conversations and code workshops to builder-focused sessions and impact labs,
+          Claude is being explored, built with, and shared across India's growing builder community.
+        </p>
+      </div>
+
+      <div class="wild-figures">
+        <dl class="figures">
+          <div class="figure">
+            <dd>14</dd>
+            <dt>Claude events</dt>
+          </div>
+          <div class="figure">
+            <dd>03</dd>
+            <dt>Upcoming</dt>
+          </div>
+          <div class="figure">
+            <dd>11</dd>
+            <dt>Held</dt>
+          </div>
+          <div class="figure">
+            <dd>03</dd>
+            <dt>Cities</dt>
+          </div>
+        </dl>
+
+        <p class="wild-span">
+          <span class="wild-span-dates">MAR 2026 — SEP 2026</span>
+          <span class="wild-span-cities">
+            {cities.join(' · ')}
+          </span>
+        </p>
+      </div>
+    </div>
+  </Section>
+
+  <Section id="record" size="lg" labelledby="ahead-heading">
+    <section class="ahead" aria-labelledby="ahead-heading">
+      <div class="block-head">
+        <h2 class="label" id="ahead-heading">
+          Upcoming events
+        </h2>
+        <span class="coords">03</span>
+      </div>
+
+      <article class="lead">
+        <p class="lead-index">
+          <span class="lead-n">01</span>
+          <span class="pip pip-blue">
+            Upcoming
+          </span>
+        </p>
+
+        <h3 class="lead-title">
+          <span class="lead-city">{lead.city}</span>
+          <span class="lead-name">{lead.title}</span>
+        </h3>
+
+        <p class="lead-when">
+          {lead.date}
+          <span class="dot" aria-hidden="true">
+            ·
+          </span>
+          {lead.time}
+        </p>
+
+        {lead.venue && <p class="lead-venue">{lead.venue}</p>}
+
+        <p class="lead-hosts">{`Hosted by ${lead.host}`}</p>
+
+        <div class="lead-actions">
+          {lead.luma && (
+            <a
+              class="btn btn-clay"
+              href={lead.luma}
+              target="_blank"
+              rel="noopener"
+            >
+              <span>View on Luma</span>
+              <span class="arrow" aria-hidden="true">
+                ↗
+              </span>
+            </a>
+          )}
+        </div>
+      </article>
+
+      <ul class="next-list">
+        {restUpcoming.map((entry, index) => (
+          <li class="next-item">
+            <div class="next-row">
+              <span class="next-n">{String(index + 2).padStart(2, '0')}</span>
+
+              <span class="next-body">
+                <span class="next-title">
+                  <span class="next-city">{entry.city}</span>
+                  <span class="next-name">{entry.title}</span>
+                </span>
+                <span class="next-when">
+                  {entry.dateShort}
+                  <span class="dot" aria-hidden="true">
+                    ·
+                  </span>
+                  {entry.time}
+                </span>
+                {entry.venue && <span class="next-venue">{entry.venue}</span>}
+                <span class="next-hosts">{entry.host}</span>
+              </span>
+
+              <span class="pip pip-blue next-pip">
+                Upcoming
+              </span>
+            </div>
+
+            {entry.luma && (
+              <a
+                class="next-luma"
+                href={entry.luma}
+                target="_blank"
+                rel="noopener"
+              >
+                <span>View on Luma</span>
+                <span class="arrow" aria-hidden="true">
+                  ↗
+                </span>
+              </a>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <section class="archive" aria-labelledby="archive-heading">
+      <div class="block-head">
+        <h2 class="label" id="archive-heading">
+          The archive
+        </h2>
+        <span class="coords">11</span>
+      </div>
+
+      <div class="year">
+        <p class="year-mark" aria-hidden="true">
+          2026
+        </p>
+
+        <ul class="year-list">
+          {past.map((entry, index) => (
+            <li class="past-item">
+              <div class="past-row">
+                <span class="past-n">{String(index + 4).padStart(2, '0')}</span>
+
+                <span class="past-when">
+                  <span class="past-date">
+                    {entry.date}
+                  </span>
+                  <span class="past-time">{entry.time}</span>
+                </span>
+
+                <span class="past-body">
+                  <span class="past-title">
+                    <span class="past-city">{entry.city}</span>
+                    <span class="past-name">{entry.title}</span>
+                  </span>
+                  {entry.venue && <span class="past-venue">{entry.venue}</span>}
+                  <span class="past-hosts">{entry.host}</span>
+                </span>
+              </div>
+
+              {entry.luma && (
+                <a
+                  class="past-luma"
+                  href={entry.luma}
+                  target="_blank"
+                  rel="noopener"
+                >
+                  <span class="visually-hidden">{`View ${entry.title} on Luma`}</span>
+                  <span aria-hidden="true">↗</span>
+                </a>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  </Section>
+</Base>
+
+<style>
+  /* EventSignal Styles */
+  .wild {
+    display: grid;
+    gap: var(--s-8);
+  }
+
+  .wild-head h2 {
+    margin-top: var(--s-3);
+    font-size: var(--t-h2);
+    font-weight: 600;
+    line-height: var(--lh-heading);
+    letter-spacing: var(--track-display);
+  }
+
+  .wild-copy {
+    margin-top: var(--s-5);
+    max-width: 54ch;
+    font-size: var(--t-lead);
+    color: var(--ink-2);
+  }
+
+  .figures {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--s-6) var(--s-5);
+    padding-top: var(--s-5);
+    border-top: var(--border-heavy) solid var(--ink);
+  }
+
+  .figure dd {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(2.4rem, 5vw, 3.4rem);
+    font-weight: 600;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    line-height: 0.9;
+    letter-spacing: -0.04em;
+    font-variant-numeric: lining-nums tabular-nums;
+  }
+
+  .figure dt {
+    margin-top: var(--s-3);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .wild-span {
+    display: grid;
+    gap: var(--s-2);
+    margin-top: var(--s-6);
+    padding-top: var(--s-4);
+    border-top: var(--border-hair) solid var(--rule);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .wild-span-dates {
+    color: var(--ink-2);
+  }
+
+  @media (min-width: 60rem) {
+    .wild {
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+      gap: var(--s-10);
+      align-items: start;
+    }
+
+    .figures {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  /* EventRecord Styles */
+  .block-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--s-4);
+    padding-bottom: var(--s-4);
+    border-bottom: var(--border-heavy) solid var(--ink);
+  }
+
+  .block-head .label {
+    color: var(--ink);
+  }
+
+  .dot {
+    padding-inline: 0.5em;
+    color: var(--rule-strong);
+  }
+
+  .ahead {
+    margin-bottom: var(--s-11);
+  }
+
+  .lead {
+    padding-block: var(--s-8) var(--s-9);
+    border-bottom: var(--border-hair) solid var(--rule);
+  }
+
+  .lead-index {
+    display: flex;
+    align-items: center;
+    gap: var(--s-4);
+  }
+
+  .lead-n {
+    font-family: var(--font-mono);
+    font-size: var(--t-meta);
+    letter-spacing: var(--track-meta);
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .lead-title {
+    margin-top: var(--s-5);
+    max-width: 20ch;
+  }
+
+  .lead-city {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: var(--t-meta);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--clay-deep);
+    margin-bottom: var(--s-3);
+  }
+
+  .lead-name {
+    display: block;
+    font-size: clamp(2.1rem, 5.5vw, 4rem);
+    font-weight: 600;
+    line-height: 0.98;
+    letter-spacing: -0.035em;
+  }
+
+  .lead-when {
+    margin-top: var(--s-6);
+    font-family: var(--font-mono);
+    font-size: var(--t-meta);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink);
+  }
+
+  .lead-venue {
+    margin-top: var(--s-2);
+    font-family: var(--font-mono);
+    font-size: var(--t-meta);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .lead-hosts {
+    margin-top: var(--s-4);
+    font-size: var(--t-small);
+    color: var(--ink-3);
+  }
+
+  .lead-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-5);
+    margin-top: var(--s-7);
+  }
+
+  .next-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .next-item {
+    position: relative;
+    border-bottom: var(--border-hair) solid var(--rule);
+  }
+
+  .next-row {
+    display: grid;
+    grid-template-columns: 4ch minmax(0, 1fr) auto;
+    gap: var(--s-5);
+    align-items: baseline;
+    padding: var(--s-6) 0;
+    color: inherit;
+  }
+
+  .next-item:hover,
+  .next-item:focus-within {
+    background: var(--paper-raised);
+  }
+
+  .next-n {
+    font-family: var(--font-mono);
+    font-size: var(--t-meta);
+    letter-spacing: var(--track-meta);
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .next-body {
+    display: grid;
+    gap: var(--s-2);
+  }
+
+  .next-city {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--clay-deep);
+    margin-right: var(--s-3);
+  }
+
+  .next-name {
+    font-family: var(--font-display);
+    font-size: var(--t-h3);
+    font-weight: 600;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    letter-spacing: -0.022em;
+  }
+
+  .next-when,
+  .next-venue,
+  .next-hosts {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .next-when {
+    color: var(--ink-2);
+  }
+
+  .next-pip {
+    align-self: center;
+  }
+
+  .next-luma {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-2);
+    margin-bottom: var(--s-6);
+    padding: var(--s-2) var(--s-3);
+    margin-left: calc(4ch + var(--s-5));
+    border: var(--border-hair) solid var(--rule-strong);
+    border-radius: var(--radius-xs);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-2);
+    text-decoration: none;
+    transition:
+      border-color var(--dur-1) var(--ease-out),
+      color var(--dur-1) var(--ease-out);
+  }
+
+  .next-luma:hover,
+  .next-luma:focus-visible {
+    border-color: var(--ink);
+    color: var(--ink);
+  }
+
+  .year {
+    display: grid;
+    grid-template-columns: 7ch minmax(0, 1fr);
+    gap: var(--s-6);
+    padding-top: var(--s-6);
+  }
+
+  .year-mark {
+    position: sticky;
+    top: var(--s-9);
+    align-self: start;
+    font-family: var(--font-mono);
+    font-size: var(--t-meta);
+    letter-spacing: var(--track-meta);
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .year-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .past-item {
+    position: relative;
+    border-bottom: var(--border-hair) solid var(--rule);
+  }
+
+  .past-row {
+    display: grid;
+    grid-template-columns: 4ch 10ch minmax(0, 1fr) auto;
+    gap: var(--s-5);
+    align-items: baseline;
+    padding: var(--s-5) 0;
+    padding-right: var(--s-8);
+    color: inherit;
+  }
+
+  .past-item:hover,
+  .past-item:focus-within {
+    background: var(--paper-raised);
+  }
+
+  .past-n,
+  .past-when {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .past-date {
+    display: block;
+    color: var(--ink-2);
+  }
+
+  .past-time {
+    display: block;
+    margin-top: var(--s-1);
+  }
+
+  .past-body {
+    display: grid;
+    gap: var(--s-2);
+  }
+
+  .past-city {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-right: var(--s-3);
+  }
+
+  .past-name {
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+    font-weight: 600;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    letter-spacing: -0.02em;
+  }
+
+  .past-venue,
+  .past-hosts {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .past-luma {
+    position: absolute;
+    top: var(--s-5);
+    right: 0;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border: var(--border-hair) solid transparent;
+    border-radius: var(--radius-xs);
+    color: var(--ink-3);
+    text-decoration: none;
+    transition:
+      border-color var(--dur-1) var(--ease-out),
+      color var(--dur-1) var(--ease-out);
+  }
+
+  .past-luma:hover,
+  .past-luma:focus-visible {
+    border-color: var(--rule-strong);
+    color: var(--clay-deep);
+  }
+
+  @media (max-width: 60rem) {
+    .past-row {
+      grid-template-columns: 4ch 10ch minmax(0, 1fr);
+    }
+  }
+
+  @media (max-width: 44rem) {
+    .year {
+      grid-template-columns: 1fr;
+      gap: var(--s-3);
+    }
+
+    .year-mark {
+      position: static;
+    }
+
+    .next-row {
+      grid-template-columns: 4ch minmax(0, 1fr);
+    }
+
+    .next-pip {
+      grid-column: 2;
+      justify-self: start;
+    }
+
+    .past-row {
+      grid-template-columns: 4ch minmax(0, 1fr);
+      gap: var(--s-2) var(--s-4);
+      padding-right: var(--s-7);
+    }
+
+    .past-when {
+      grid-column: 2;
+      display: flex;
+      gap: var(--s-3);
+    }
+
+    .past-date,
+    .past-time {
+      display: inline;
+      margin-top: 0;
+    }
+
+    .past-body {
+      grid-column: 2;
+    }
+
+    .lead-actions {
+      gap: var(--s-4);
+    }
+
+    .lead-actions .btn {
+      width: 100%;
+      justify-content: center;
+    }
+
+    .next-luma {
+      margin-left: calc(4ch + var(--s-5));
+    }
+  }
+</style>

@@ -47,7 +47,7 @@ export const builders: Builder[] = [
     name: 'Vishal Kumar',
     citySlug: 'bhopal',
     role: 'Workshop lead',
-    roles: ['speaker'],
+    roles: ['speaker', 'host'],
     eventSlugs: ['claude-code-workshop'],
   },
 

@@ -245,7 +245,11 @@ export function eventsOf(builder: Builder): CommunityEvent[] {
   const declared = (builder.eventSlugs ?? [])
     .map((s) => eventBySlug.get(s))
     .filter((e): e is CommunityEvent => Boolean(e));
-  const credited = eventsChronological.filter((e) => e.speakerSlugs?.includes(builder.slug));
+  // Credited two ways — spoke in the room, or ran it. Both belong on a
+  // profile, and neither should need a second edit in `builders.ts`.
+  const credited = eventsChronological.filter(
+    (e) => e.speakerSlugs?.includes(builder.slug) || e.host.builderSlugs?.includes(builder.slug),
+  );
   return [...new Set([...declared, ...credited])].sort(byDateAsc);
 }
 
