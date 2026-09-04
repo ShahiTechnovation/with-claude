@@ -115,7 +115,24 @@ export function assertSameOrigin(request: Request): boolean {
   if (!expected) return false;
 
   try {
-    return new URL(candidate).origin === new URL(expected).origin;
+    const candidateOrigin = new URL(candidate).origin;
+    const expectedOrigin = new URL(expected).origin;
+
+    // Primary check: exact match against BETTER_AUTH_URL.
+    if (candidateOrigin === expectedOrigin) return true;
+
+    // Preview fallback: on Vercel Preview deployments the URL rotates with
+    // every push, so BETTER_AUTH_URL cannot be pre-set to it. We trust
+    // *.vercel.app origins on Preview only — production never enters this
+    // branch because VERCEL_ENV is "production" there.
+    if (
+      process.env.VERCEL_ENV === 'preview' &&
+      /^https:\/\/[a-z0-9-]+-builder3base-8480s-projects\.vercel\.app$/.test(candidateOrigin)
+    ) {
+      return true;
+    }
+
+    return false;
   } catch {
     return false;
   }
