@@ -14,6 +14,7 @@ const excluded = new Set(nonIndexablePaths().map((path) => `${path}/`));
 
 export default defineConfig({
   site: 'https://www.withclaude.in',
+  trailingSlash: 'always',
   integrations: [
     sitemap({
       filter: (page) => {

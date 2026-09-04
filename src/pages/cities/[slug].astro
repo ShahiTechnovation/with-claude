@@ -48,13 +48,31 @@ const crumbs = trail(
   { name: city.name, href: `/cities/${city.slug}` },
 );
 
-// Navigable always, indexable only once there is something in it. The rule
-// itself lives in `src/lib/indexable.ts` because the sitemap reads it too.
-const indexable = isCityIndexable(city);
-
 const description = live
   ? `The Claude community in ${city.name}, ${city.state}. ${signal.heldCount} events held${signal.next ? `, next on ${formatDate(signal.next.date)}` : ''}.`
   : `There is no verified Claude community activity in ${city.name} yet. Here is what is true, and what you can do about it.`;
+
+const schema = [
+  {
+    '@type': 'CollectionPage',
+    name: titles.city(city.name),
+    description,
+    url: `${site.url}/cities/${city.slug}`,
+    contentLocation: {
+      '@type': 'Place',
+      name: city.name,
+      geo: {
+        '@type': 'GeoCoordinates',
+        latitude: city.lat,
+        longitude: city.lon
+      }
+    }
+  }
+];
+
+// Navigable always, indexable only once there is something in it. The rule
+// itself lives in `src/lib/indexable.ts` because the sitemap reads it too.
+const indexable = isCityIndexable(city);
 ---
 
 <Base
@@ -64,14 +82,25 @@ const description = live
   active="/cities"
   breadcrumbs={crumbs}
   noindex={!indexable}
+  schema={schema}
 >
   <PageIntro
     eyebrow={`${city.state} · ${CITY_STATE_LABEL[signal.state]}`}
-    title={city.name}
+    title={live ? `Claude Community in ${city.name}` : city.name}
     stamp={formatCoords(city.lat, city.lon)}
     size="lg"
   >
-    <p>{city.blurb}</p>
+    {live ? (
+      <>
+        <p><strong>{city.name}</strong></p>
+        <p>The Claude community in {city.name}. {city.blurb}</p>
+        <p class="city-summary">
+          Tracking <a href="#events">{signal.heldCount} events</a>, <a href="#builders">{signal.builderCount} builders</a>, and <a href="#projects">{signal.projectCount} projects</a> on the record.
+        </p>
+      </>
+    ) : (
+      <p>{city.blurb}</p>
+    )}
   </PageIntro>
 
   <Section id="status" tone="sunk" labelledby="status-heading">
@@ -314,6 +343,18 @@ const description = live
 </Base>
 
 <style>
+  .city-summary {
+    margin-top: var(--s-4);
+    font-size: var(--t-small);
+    color: var(--ink-2);
+  }
+
+  .city-summary a {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
   .status {
     display: grid;
     gap: var(--s-8);

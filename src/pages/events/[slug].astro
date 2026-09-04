@@ -65,13 +65,10 @@ const position = eventsChronological.findIndex((e) => e.slug === event.slug);
 const previous = eventsChronological[position - 1];
 const upNext = eventsChronological[position + 1];
 
-/**
- * Structured data.
- *
- * The organiser is only named when the host resolves to a verified Ambassador.
- * Asserting an organiser in JSON-LD that the site cannot verify would put an
- * unverified claim into search results, where nobody can see the caveat.
- */
+const metaDescription = lifecycle === 'upcoming' && canRegister && event.registrationUrl
+  ? `Register for ${event.title}: ${event.description ?? event.summary}`
+  : (event.description ?? event.summary);
+
 const schema = [
   {
     '@type': 'Event',
@@ -110,7 +107,6 @@ const schema = [
         }
       : {}),
     organizer: { '@id': `${site.url}/#organization` },
-    ...(ambassador ? { performer: { '@type': 'Person', name: ambassador.name } } : {}),
   },
 ];
 
@@ -137,10 +133,12 @@ const crumbs = trail(
 <Base
   title={`${event.title} · ${cityName(event.citySlug)}`}
   seoTitle={titles.event(event.title, cityName(event.citySlug))}
-  description={event.description ?? event.summary}
+  description={metaDescription}
   active="/events"
   breadcrumbs={crumbs}
   schema={schema}
+  image={event.coverImage}
+  ogImageAlt={`Poster for ${event.title} in ${cityName(event.citySlug)}`}
 >
   <PageIntro
     eyebrow={`${cityName(event.citySlug)} · ${formatName(event.format)}${event.volume ? ` · vol. ${String(event.volume).padStart(2, '0')}` : ''}`}
@@ -148,6 +146,14 @@ const crumbs = trail(
     stamp={city ? formatCoords(city.lat, city.lon) : undefined}
   >
     <p>{event.description ?? event.summary}</p>
+    
+    <div class="intro-facts">
+      <p><strong>Date:</strong> <time datetime={isoDateTime(event.date, event.startTime)}>{formatDate(event.date)}</time></p>
+      <p><strong>Location:</strong> <a href={`/cities/${event.citySlug}`}>{cityName(event.citySlug)}</a></p>
+      {ambassador && (
+        <p><strong>Host:</strong> <a href={`/builders/${ambassador.builderSlug ?? ambassador.slug}`}>{ambassador.name}</a></p>
+      )}
+    </div>
   </PageIntro>
 
   <Section id="detail" tone="sunk" labelledby="detail-heading">
@@ -454,6 +460,25 @@ const crumbs = trail(
 </Base>
 
 <style>
+  .intro-facts {
+    margin-top: var(--s-6);
+    padding-top: var(--s-4);
+    border-top: var(--border-hair) solid var(--rule);
+    font-family: var(--font-mono);
+    font-size: var(--t-small);
+    color: var(--ink-2);
+  }
+
+  .intro-facts p + p {
+    margin-top: var(--s-2);
+  }
+
+  .intro-facts a {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
   .detail {
     display: grid;
     gap: var(--s-8);

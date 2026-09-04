@@ -73,11 +73,12 @@ const schema = [
 
 <Base
   title={useCase.title}
-  seoTitle={titles.useCase(useCase.title)}
+  seoTitle={titles.useCase(useCase.title, formatName(useCase.category))}
   description={useCase.summary}
   active="/use-cases"
   breadcrumbs={crumbs}
   schema={schema}
+  ogType="article"
 >
   <PageIntro
     eyebrow={formatName(useCase.category)}

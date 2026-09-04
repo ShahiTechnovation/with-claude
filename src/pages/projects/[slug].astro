@@ -99,12 +99,17 @@ const crumbs = trail(
           )
         }
 
-        {project.description && <p class="project-body">{project.description}</p>}
+        <h3 class="label usage-head">ABOUT THE PROJECT</h3>
+        {project.description ? (
+          <p class="project-body">{project.description}</p>
+        ) : (
+          <p class="project-body quiet-placeholder">Detailed project description not yet added.</p>
+        )}
 
         {
           project.claudeUsage && (
             <div class="usage">
-              <h3 class="label usage-head">How Claude was used</h3>
+              <h3 class="label usage-head">CLAUDE IN PRACTICE</h3>
               <p class="usage-body">{project.claudeUsage}</p>
             </div>
           )
@@ -146,6 +151,17 @@ const crumbs = trail(
 
       <aside class="project-side">
         <dl class="facts">
+          {
+            bornAt && (
+              <div>
+                <dt>Built at</dt>
+                <dd>
+                  <a href={`/events/${bornAt.slug}`}>{bornAt.title}</a>
+                  <span class="fact-sub">{formatDate(bornAt.date)}</span>
+                </dd>
+              </div>
+            )
+          }
           <div>
             <dt>Made by</dt>
             <dd>
@@ -176,17 +192,6 @@ const crumbs = trail(
             <dt>Category</dt>
             <dd>{formatName(project.category)}</dd>
           </div>
-          {
-            bornAt && (
-              <div>
-                <dt>Built at</dt>
-                <dd>
-                  <a href={`/events/${bornAt.slug}`}>{bornAt.title}</a>
-                  <span class="fact-sub">{formatDate(bornAt.date)}</span>
-                </dd>
-              </div>
-            )
-          }
           {
             /* Closes the project → practice edge: the write-up of how this
               was actually made, when one exists. */
@@ -233,6 +238,13 @@ const crumbs = trail(
     max-width: 62ch;
     font-size: var(--t-lead);
     color: var(--ink-2);
+  }
+
+  .quiet-placeholder {
+    font-family: var(--font-mono);
+    font-size: var(--t-small);
+    font-style: italic;
+    color: var(--ink-3);
   }
 
   .usage {

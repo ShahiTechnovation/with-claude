@@ -17,7 +17,7 @@ import interUrl from '@fontsource-variable/inter/files/inter-latin-wght-normal.w
 import Masthead from '@/components/Masthead.astro';
 import Breadcrumbs from '@/components/Breadcrumbs.astro';
 import SiteFooter from '@/components/SiteFooter.astro';
-import { site } from '@/data';
+import { site, socials } from '@/data';
 import { breadcrumbSchema, websiteSchema } from '@/lib/seo';
 import type { Crumb } from '@/lib/seo';
 
@@ -35,6 +35,10 @@ interface Props {
   active?: string;
   /** Absolute or root-relative share image. */
   image?: string;
+  /** Open Graph type, defaults to website. */
+  ogType?: 'website' | 'article';
+  /** Alt text for the Open Graph image. */
+  ogImageAlt?: string;
   /** Extra JSON-LD nodes to merge into the graph. */
   schema?: Record<string, unknown>[];
   /** Set on pages that should not be indexed. */
@@ -48,12 +52,15 @@ const {
   breadcrumbs = [],
   active = '/',
   image = '/og-card.jpg',
+  ogType = 'website',
+  ogImageAlt,
   schema = [],
   noindex = false,
 } = Astro.props;
 
-const canonical = new URL(Astro.url.pathname, Astro.site ?? site.url).href;
-const ogImage = new URL(image, Astro.site ?? site.url).href;
+const pathname = Astro.url.pathname.replace(/\/?$/, '/');
+const canonical = new URL(pathname, site.url).href;
+const ogImage = new URL(image, site.url).href;
 const fullTitle =
   seoTitle ?? (title === site.wordmark ? `${site.wordmark} · India` : `${title} · With Claude`);
 
@@ -70,10 +77,12 @@ const organization = {
   '@id': `${site.url}/#organization`,
   name: site.wordmark,
   alternateName: 'With Claude India',
-  url: site.url,
+  url: `${site.url}/`,
+  logo: `${site.url}/logo.png`,
   description: site.positioning,
   disambiguatingDescription: site.affiliation,
   areaServed: { '@type': 'Country', name: 'India' },
+  sameAs: socials.map((s) => s.url),
 };
 
 // The site node carries the internal search endpoint, so it goes everywhere
@@ -103,15 +112,17 @@ const graph = [
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="theme-color" content="#F3EFE7" />
 
-    <meta property="og:type" content="website" />
+    <meta property="og:type" content={ogType} />
     <meta property="og:site_name" content={site.wordmark} />
     <meta property="og:locale" content={site.locale} />
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
     <meta property="og:image" content={ogImage} />
-    <meta property="og:image:alt" content={`${site.wordmark} — ${site.manifesto}`} />
+    <meta property="og:image:alt" content={ogImageAlt ?? fullTitle} />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@Claude_In_" />
+    <meta name="twitter:creator" content="@Claude_In_" />
     <meta name="twitter:title" content={fullTitle} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={ogImage} />

@@ -18,7 +18,7 @@ import { publicAmbassadors, publicBuilders, site } from '@/data';
 >
   <PageIntro
     eyebrow="Builders"
-    title="Who’s building."
+    title="Claude Builders in India"
     stamp={`${String(publicBuilders.length).padStart(2, '0')} on the index`}
     facts={[
       { label: 'On the index', value: String(publicBuilders.length).padStart(2, '0') },
@@ -29,9 +29,9 @@ import { publicAmbassadors, publicBuilders, site } from '@/data';
       },
     ]}
   >
+    <p><strong>Who’s building.</strong></p>
     <p>
-      An open index of people building with Claude in India. Anyone can add themselves, entries are
-      reviewed before they appear, and being listed is not a role or an appointment.
+      Profiles of the people building with Claude in India. An open index where anyone can add themselves; entries are reviewed before they appear, and being listed is not a role or an appointment.
     </p>
     <p class="intro-note">{site.ambassadorNote}</p>
   </PageIntro>

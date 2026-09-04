@@ -25,7 +25,7 @@ const led = signals.filter((s) => s.state === 'ambassador-led');
 >
   <PageIntro
     eyebrow="Cities"
-    title="Find your city."
+    title="Claude Community Across Indian Cities"
     stamp={`${EXTENT.minLon}°E — ${EXTENT.maxLon}°E · ${EXTENT.minLat}°N — ${EXTENT.maxLat}°N`}
     size="lg"
     facts={[
@@ -34,7 +34,9 @@ const led = signals.filter((s) => s.state === 'ambassador-led');
       { label: 'With activity', value: String(live.length).padStart(2, '0') },
     ]}
   >
+    <p><strong>Find your city.</strong></p>
     <p>
+      Tracking Claude community activity, events, and builders across Indian cities.
       {`${inWordsCap(publicCities.length)} cities at their true coordinates. `}
       A city appears as Ambassador-led because a verified Claude Community Ambassador is hosting there
       — not because anyone claimed it. Everywhere else, the page says exactly what is true.

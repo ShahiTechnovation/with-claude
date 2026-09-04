@@ -19,7 +19,7 @@ const rooms = new Set(plates.map((p) => p.event.slug)).size;
 >
   <PageIntro
     eyebrow="Stories"
-    title="From the community."
+    title="Stories from the Claude Community"
     stamp={`${String(plates.length).padStart(2, '0')} plates`}
     facts={[
       { label: 'Photographs', value: String(plates.length).padStart(2, '0') },
@@ -27,9 +27,9 @@ const rooms = new Set(plates.map((p) => p.event.slug)).size;
       { label: 'Written', value: String(publicStories.length).padStart(2, '0') },
     ]}
   >
+    <p><strong>From the community.</strong></p>
     <p>
-      The record of the rooms, the builds and the people. Recaps, profiles, photo essays and lessons
-      — written by the people who were there.
+      The photographic record of the rooms and the people. We are currently seeking written editorial recaps, builder profiles, and stories from the Claude community to build out this archive.
     </p>
   </PageIntro>
 
