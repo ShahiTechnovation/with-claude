@@ -57,7 +57,7 @@ export async function sendMagicLinkEmail(message: MagicLinkMessage): Promise<Mag
       .filter(Boolean)
       .join(' and ');
 
-    if (process.env.NODE_ENV === 'production') {
+    if (process.env.NODE_ENV === 'production' && process.env.VERCEL_ENV !== 'preview') {
       // A deployed admin that cannot send a sign-in link is locked, not
       // degraded. Refuse rather than leave somebody staring at "check your
       // inbox" for a message that was never going to arrive.
