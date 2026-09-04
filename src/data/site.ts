@@ -5,8 +5,8 @@ export const site = {
   name: 'With Claude',
   /** The brand, as it is set. Used wherever the wordmark is typographic. */
   wordmark: 'WITH CLAUDE',
-  domain: 'withclaude.in',
-  url: 'https://withclaude.in',
+  domain: 'www.withclaude.in',
+  url: 'https://www.withclaude.in',
 
   /** The manifesto. One line, and it is the loudest thing on the site. */
   manifesto: 'India is building.',

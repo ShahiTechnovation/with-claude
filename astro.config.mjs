@@ -13,7 +13,7 @@ import { nonIndexablePaths } from './src/lib/indexable.ts';
 const excluded = new Set(nonIndexablePaths().map((path) => `${path}/`));
 
 export default defineConfig({
-  site: 'https://withclaude.in',
+  site: 'https://www.withclaude.in',
   integrations: [
     sitemap({
       filter: (page) => {
