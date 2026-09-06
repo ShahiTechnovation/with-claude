@@ -37,13 +37,28 @@ const db = pooledDb();
 
 // Anything that is not a uuid is a 404 rather than a database error.
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const submission = id && UUID.test(id) ? await getSubmission(db, id) : undefined;
+const valid = Boolean(id && UUID.test(id));
+
+/**
+ * The submission and its history, together.
+ *
+ * `historyOf` is keyed on the id from the URL, not on anything `getSubmission`
+ * returns, so the second read never needed the first to finish — it was one
+ * avoidable round trip on the screen a reviewer opens most often.
+ *
+ * Fetching the history for an id that turns out not to exist costs one query
+ * against an indexed column and returns nothing, which is cheaper than the
+ * wait it replaces. It leaks nothing: the 404 below is returned before either
+ * result is rendered, and this page is behind the middleware regardless.
+ */
+const [submission, history] = valid
+  ? await Promise.all([getSubmission(db, id!), historyOf(db, id!)])
+  : [undefined, []];
 
 if (!submission) {
   return new Response('No submission with that id.', { status: 404 });
 }
 
-const history = await historyOf(db, submission.id);
 const actions = availableActions(submission.status, user.role);
 
 /**
@@ -235,9 +250,8 @@ const ordered = ACTION_ORDER.filter((action) => actions.includes(action));
         </div>
 
         <p class="private-note">
-          Approving records that this belongs in the record. It does not put anything on the
-          website — creating the record and publishing it are two further steps, taken
-          deliberately.
+          Approving records that this belongs in the record. It does not put anything on the website
+          — creating the record and publishing it are two further steps, taken deliberately.
         </p>
       </section>
     )
@@ -251,9 +265,8 @@ const ordered = ACTION_ORDER.filter((action) => actions.includes(action));
         {promoted ? (
           <>
             <p>
-              This submission created a{' '}
-              <strong>{submission.entityType!.replace(/_/g, ' ')}</strong>. It is not published by
-              being created — it goes live from the{' '}
+              This submission created a <strong>{submission.entityType!.replace(/_/g, ' ')}</strong>
+              . It is not published by being created — it goes live from the{' '}
               <a href="/publish">publish queue</a>, deliberately.
             </p>
             <p class="private-note">
@@ -274,9 +287,9 @@ const ordered = ACTION_ORDER.filter((action) => actions.includes(action));
 
             <p class="private-note">
               This creates the {submission.kind.replace(/-/g, ' ')} from what was submitted, and
-              nothing more. Nothing is invented: if a field a record needs is missing, this
-              refuses and says which one. The result is <strong>approved</strong>, not published —
-              putting it on the website is a separate act, from the publish queue.
+              nothing more. Nothing is invented: if a field a record needs is missing, this refuses
+              and says which one. The result is <strong>approved</strong>, not published — putting
+              it on the website is a separate act, from the publish queue.
             </p>
           </>
         )}

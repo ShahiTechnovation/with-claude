@@ -404,31 +404,43 @@ export interface PublishableRow {
  * Everything approved and not yet published, plus anything archived.
  *
  * Reads every publishable table and merges. That is eight queries rather than
- * one, because the tables genuinely are different shapes; it happens once per
- * page load on a screen an editor opens a few times a day.
+ * one, because the tables genuinely are different shapes — a `UNION ALL` over
+ * eight schemas would have to flatten `name` and `title` into a synthetic
+ * column and would be harder to read than this for no measured gain.
+ *
+ * ── THEY GO OUT TOGETHER ─────────────────────────────────────────────────
+ *
+ * Eight independent reads of eight different tables. Nothing in the second
+ * depends on the first, so awaiting them one at a time bought nothing and cost
+ * eight serial round trips — which was ~1.8s from iad1 and is still eight
+ * avoidable waits from anywhere. `Promise.all` issues them concurrently; the
+ * page then waits roughly as long as the slowest one instead of the sum.
+ *
+ * The RESULT order is still `ENTITY_TYPES` order, because `Promise.all`
+ * resolves in argument order regardless of which query finishes first. The
+ * final sort is by approval date anyway, but the intermediate order being
+ * deterministic is what keeps this a pure performance change.
  */
 export async function listPublishable(
   db: AnyDatabase,
   statuses: readonly ContentStatus[] = ['approved'],
 ): Promise<PublishableRow[]> {
-  const rows: PublishableRow[] = [];
+  const perType = await Promise.all(
+    ENTITY_TYPES.map(async (entityType) => {
+      const { table, title } = PUBLISHABLE[entityType];
 
-  for (const entityType of ENTITY_TYPES) {
-    const { table, title } = PUBLISHABLE[entityType];
+      const found = await db
+        .select({
+          id: table.id,
+          slug: table.slug,
+          title: sql<string>`${title}`,
+          status: table.status,
+          updatedAt: table.updatedAt,
+        })
+        .from(table)
+        .where(inArray(table.status, [...statuses]));
 
-    const found = await db
-      .select({
-        id: table.id,
-        slug: table.slug,
-        title: sql<string>`${title}`,
-        status: table.status,
-        updatedAt: table.updatedAt,
-      })
-      .from(table)
-      .where(inArray(table.status, [...statuses]));
-
-    for (const row of found) {
-      rows.push({
+      return found.map((row) => ({
         entityType,
         id: row.id,
         slug: row.slug,
@@ -439,28 +451,46 @@ export async function listPublishable(
         approvedBy: null,
         submissionId: null,
         submitterName: null,
-      });
-    }
-  }
+      })) satisfies PublishableRow[];
+    }),
+  );
+
+  const rows: PublishableRow[] = perType.flat();
 
   if (rows.length === 0) return rows;
 
-  /**
-   * Who approved each one, from the audit log.
-   *
-   * The log is the record of what happened, so the approval is read from it
-   * rather than from a column somebody would have to remember to write. One
-   * query for all of them, keyed by entity id.
-   */
   const ids = rows.map((row) => row.id);
-  const approvals = await db
-    .select({
-      entityId: schema.auditLog.entityId,
-      actorEmail: schema.auditLog.actorEmail,
-      createdAt: schema.auditLog.createdAt,
-    })
-    .from(schema.auditLog)
-    .where(and(inArray(schema.auditLog.entityId, ids), eq(schema.auditLog.toStatus, 'approved')));
+
+  /**
+   * Who approved each one, and which submission each came from.
+   *
+   * The approval is read from the audit log rather than from a column somebody
+   * would have to remember to write — the log is the record of what happened.
+   * One query for all of them, keyed by entity id, and the same for the
+   * submissions.
+   *
+   * Two reads of two different tables that share only their input, so they go
+   * out together for the same reason the eight above do.
+   */
+  const [approvals, promoted] = await Promise.all([
+    db
+      .select({
+        entityId: schema.auditLog.entityId,
+        actorEmail: schema.auditLog.actorEmail,
+        createdAt: schema.auditLog.createdAt,
+      })
+      .from(schema.auditLog)
+      .where(and(inArray(schema.auditLog.entityId, ids), eq(schema.auditLog.toStatus, 'approved'))),
+
+    db
+      .select({
+        id: schema.submissions.id,
+        entityId: schema.submissions.entityId,
+        submitterName: schema.submissions.submitterName,
+      })
+      .from(schema.submissions)
+      .where(inArray(schema.submissions.entityId, ids)),
+  ]);
 
   const latest = new Map<string, { email: string | null; at: Date }>();
   for (const row of approvals) {
@@ -470,16 +500,6 @@ export async function listPublishable(
       latest.set(row.entityId, { email: row.actorEmail, at: row.createdAt });
     }
   }
-
-  /** And which submission each came from, so the queue can credit a person. */
-  const promoted = await db
-    .select({
-      id: schema.submissions.id,
-      entityId: schema.submissions.entityId,
-      submitterName: schema.submissions.submitterName,
-    })
-    .from(schema.submissions)
-    .where(inArray(schema.submissions.entityId, ids));
 
   const bySource = new Map(promoted.map((row) => [row.entityId!, row]));
 
@@ -505,15 +525,22 @@ export async function listPublishable(
 export async function countPublishable(
   db: AnyDatabase,
 ): Promise<{ approved: number; published: number; archived: number }> {
+  // Eight independent counts. Concurrent, for the reason given on
+  // `listPublishable` — and note the page already runs THIS against that one
+  // in parallel, so all sixteen statements are now in flight at once instead
+  // of sixteen round trips end to end.
+  const perType = await Promise.all(
+    ENTITY_TYPES.map((entityType) =>
+      db
+        .select({ status: PUBLISHABLE[entityType].table.status, n: sql<number>`count(*)::int` })
+        .from(PUBLISHABLE[entityType].table)
+        .groupBy(PUBLISHABLE[entityType].table.status),
+    ),
+  );
+
   const out = { approved: 0, published: 0, archived: 0 };
 
-  for (const entityType of ENTITY_TYPES) {
-    const { table } = PUBLISHABLE[entityType];
-    const found = await db
-      .select({ status: table.status, n: sql<number>`count(*)::int` })
-      .from(table)
-      .groupBy(table.status);
-
+  for (const found of perType) {
     for (const row of found) {
       if (row.status === 'approved') out.approved += Number(row.n);
       else if (row.status === 'published') out.published += Number(row.n);

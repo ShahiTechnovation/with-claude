@@ -218,6 +218,46 @@ describe('filters', () => {
     expect((await listSubmissions(db, { limit: 10_000 })).length).toBeLessThanOrEqual(200);
   });
 
+  /**
+   * `/submissions` pages with `LIMIT`/`OFFSET`, so the boundary between two
+   * pages is the one place a submission could silently disappear — an unstable
+   * sort, or an off-by-one, and somebody waiting three weeks is on neither
+   * page one nor page two. The queue's whole promise is that nothing waits
+   * unseen, so the boundary gets a test rather than a comment.
+   */
+  it('pages without dropping or repeating a submission', async () => {
+    // Distinct ages, so oldest-first is a total order with no ties to break.
+    for (let i = 0; i < 7; i += 1) await seed({ agoMs: (i + 1) * HOUR });
+
+    const all = await listSubmissions(db);
+    expect(all).toHaveLength(7);
+
+    const page1 = await listSubmissions(db, { limit: 3, offset: 0 });
+    const page2 = await listSubmissions(db, { limit: 3, offset: 3 });
+    const page3 = await listSubmissions(db, { limit: 3, offset: 6 });
+
+    expect(page1).toHaveLength(3);
+    expect(page2).toHaveLength(3);
+    expect(page3).toHaveLength(1);
+
+    const paged = [...page1, ...page2, ...page3].map((row) => row.id);
+
+    // Every submission appears exactly once...
+    expect(new Set(paged).size).toBe(7);
+    // ...and in the same order an unpaged read would have given.
+    expect(paged).toEqual(all.map((row) => row.id));
+  });
+
+  it('keeps oldest-first across a page boundary', async () => {
+    for (let i = 0; i < 4; i += 1) await seed({ agoMs: (i + 1) * HOUR });
+
+    const [first] = await listSubmissions(db, { limit: 2, offset: 0 });
+    const [third] = await listSubmissions(db, { limit: 2, offset: 2 });
+
+    // Page one holds the longest wait; page two is strictly newer.
+    expect(first.createdAt.getTime()).toBeLessThan(third.createdAt.getTime());
+  });
+
   it('counts each state for the filter chips', async () => {
     await seed({ status: 'pending' });
     await seed({ status: 'pending' });

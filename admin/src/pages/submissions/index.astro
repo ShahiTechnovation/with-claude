@@ -39,10 +39,53 @@ const statuses: readonly SubmissionStatus[] =
       ? [statusParam as SubmissionStatus]
       : OPEN_STATUSES;
 
-const [rows, counts] = await Promise.all([
-  listSubmissions(db, { statuses, kind: kindParam }),
+/**
+ * PAGINATION.
+ *
+ * Fifty to a page. Before this, the query was capped at 100 and the page had
+ * no way to ask for anything past it — so submission 101 was not slow to
+ * reach, it was unreachable. A few hundred arrive a year, so that was a
+ * deadline rather than a hypothetical.
+ *
+ * Offset, not cursor. At this scale the two perform identically — `OFFSET 50`
+ * over a table of a few hundred rows is not a scan worth avoiding — and offset
+ * is the one that lets somebody link a colleague to page three. The ordering
+ * is unchanged: OLDEST FIRST, so page one is still whoever has waited longest.
+ *
+ * One row more than a page is fetched, and the extra one is the only thing
+ * that decides whether there is a next page. That costs nothing and saves a
+ * `COUNT(*)` round trip that would otherwise run on every load.
+ */
+const PAGE_SIZE = 50;
+
+const pageParam = Number(Astro.url.searchParams.get('page') ?? '1');
+const page = Number.isFinite(pageParam) && pageParam >= 1 ? Math.floor(pageParam) : 1;
+
+const [fetched, counts] = await Promise.all([
+  listSubmissions(db, {
+    statuses,
+    kind: kindParam,
+    limit: PAGE_SIZE + 1,
+    offset: (page - 1) * PAGE_SIZE,
+  }),
   countByStatus(db),
 ]);
+
+const hasNext = fetched.length > PAGE_SIZE;
+const rows = hasNext ? fetched.slice(0, PAGE_SIZE) : fetched;
+
+/** Same filter, different page. Keeps `status` and `kind` where they are. */
+function pageHref(n: number): string {
+  const params = new URLSearchParams();
+  if (statusParam) params.set('status', statusParam);
+  if (kindParam) params.set('kind', kindParam);
+  if (n > 1) params.set('page', String(n));
+  const query = params.toString();
+  return query ? `/submissions?${query}` : '/submissions';
+}
+
+const firstIndex = (page - 1) * PAGE_SIZE + 1;
+const lastIndex = (page - 1) * PAGE_SIZE + rows.length;
 
 const now = new Date();
 const openTotal = OPEN_STATUSES.reduce((sum, s) => sum + counts[s], 0);
@@ -163,8 +206,50 @@ const formatted = new Intl.DateTimeFormat('en-GB', {
     )
   }
 
+  {
+    (page > 1 || hasNext) && (
+      <nav class="pager" aria-label="Pages">
+        {page > 1 ? (
+          <a rel="prev" href={pageHref(page - 1)}>
+            ← Newer
+          </a>
+        ) : (
+          <span aria-hidden="true" />
+        )}
+
+        <span class="pager-at">
+          {rows.length === 0 ? 'Nothing on this page' : `${firstIndex}–${lastIndex}`}
+        </span>
+
+        {hasNext ? (
+          <a rel="next" href={pageHref(page + 1)}>
+            Older →
+          </a>
+        ) : (
+          <span aria-hidden="true" />
+        )}
+      </nav>
+    )
+  }
+
   <p class="hint" style="margin-top: 1.5rem">
     Oldest first — the top of this list is whoever has been waiting longest. Email addresses are on
     the submission itself, never here.
   </p>
 </Admin>
+
+<style>
+  .pager {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+
+  .pager-at {
+    font-variant-numeric: tabular-nums;
+    font-size: var(--t-small);
+    color: var(--ink-3);
+  }
+</style>

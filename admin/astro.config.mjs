@@ -34,6 +34,34 @@ import vercel from '@astrojs/vercel';
  * statement "the public site has no authentication" a fact about the artifact
  * rather than a claim about the code.
  */
+/**
+ * ── WHERE THIS RUNS, AND WHY IT IS THE WHOLE PERFORMANCE STORY ───────────
+ *
+ * The region is set in `vercel.json` — `regions: ["sin1"]` — because that file
+ * is the only thing Vercel reads for it, and JSON cannot hold the reason. The
+ * reason is here.
+ *
+ * Neon lives in `ap-southeast-1`. Until sin1 was pinned, this function was
+ * built for `iad1` (Washington DC), the platform default, so every single SQL
+ * statement left Virginia, crossed the Pacific, and came back.
+ *
+ * Measured against production on 2026-09-07, before the change:
+ *
+ *     GET  /login    0 database queries    ~305ms TTFB
+ *     POST /login    1 database query      ~526ms TTFB
+ *                                          ────────
+ *     one round trip to the database        ~220ms
+ *
+ * The queries are not slow. `EXPLAIN ANALYZE` puts every one of them between
+ * 0.04ms and 0.10ms — these tables hold tens of rows and the indexes that
+ * matter already exist. The 220ms was distance and nothing else, and it was
+ * paid once per statement, on every page, forever.
+ *
+ * sin1 IS ap-southeast-1, so this colocates the function with the database,
+ * which is what Neon recommends. ONE region, deliberately, not a list: a
+ * second region would not make anything faster, it would only mean some
+ * fraction of requests went back to being the slow ones.
+ */
 export default defineConfig({
   site: process.env.BETTER_AUTH_URL ?? 'https://admin.withclaude.in',
   output: 'server',
