@@ -25,6 +25,7 @@ import {
   formatTimeRange,
   isoDateTime,
   relativeDay,
+  istInstant,
 } from '@/lib/datetime';
 import { formatCoords } from '@/lib/geo';
 import { asset, requireAsset } from '@/lib/images';
@@ -160,7 +161,14 @@ const crumbs = trail(
     <h2 id="detail-heading" class="visually-hidden">Details</h2>
     <div class:list={['detail', { 'has-aside': hasAside }]}>
       <div class="detail-main">
-        <div class="detail-status">
+        <div 
+          class="detail-status" 
+          data-event-end={
+            event.endTime 
+              ? isoDateTime(event.date, event.endTime) 
+              : new Date(istInstant(event.date, event.startTime).getTime() + 2 * 3600000).toISOString()
+          }
+        >
           <span class:list={['pip', `pip-${lifecycleTone(lifecycle)}`]}>
             {lifecycleLabel(lifecycle)}
           </span>
@@ -457,6 +465,34 @@ const crumbs = trail(
       }
     </nav>
   </Section>
+
+  <script>
+    // Progressive enhancement to handle stale CDN cache between event end and nightly cron
+    const statusEl = document.querySelector('.detail-status[data-event-end]');
+    const actionsEl = document.querySelector('.detail-actions');
+    
+    if (statusEl) {
+      const endStr = statusEl.getAttribute('data-event-end');
+      if (endStr && Date.now() >= new Date(endStr).getTime()) {
+        const pip = statusEl.querySelector('.pip');
+        if (pip && !pip.classList.contains('pip-archive')) {
+          pip.className = 'pip pip-archive';
+          pip.textContent = 'Past';
+          
+          if (actionsEl) {
+            const btn = actionsEl.querySelector('.btn');
+            if (btn && btn.tagName === 'A') {
+              const span = document.createElement('span');
+              span.className = 'btn btn-quiet';
+              span.setAttribute('aria-disabled', 'true');
+              span.textContent = 'Past';
+              btn.replaceWith(span);
+            }
+          }
+        }
+      }
+    }
+  </script>
 </Base>
 
 <style>
