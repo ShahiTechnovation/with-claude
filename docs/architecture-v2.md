@@ -596,8 +596,63 @@ looking:
    and profile validators must normalise and reject rather than store what was
    typed.
 
-**Phase 0 is therefore blocked on one owner decision** (see "Still outstanding"),
-and everything below step 2 waits on it.
+### E.0.1 — Resolved, 2026-09-09
+
+The owner decided both records, and the two decisions were carried out.
+
+**`prod-test-builderprod-test-builder` — archived, not deleted.** Taken down
+through `transitionContent()`, the same function the admin's Archive button
+calls, so it got the checks that path guarantees: role first, `published →
+archived` on the map, a required note, and the audit row and status change in
+one transaction. Its two existing audit entries survive and a third was added:
+
+```
+2026-09-06  promoted          null → approved
+2026-09-06  builder.published approved → published
+2026-09-09  builder.archived  published → archived
+```
+
+**`punit` — kept published, transcribed into `src/data/builders.ts` verbatim.**
+`claudeTools: ['Claude code']` and `links: [{ label: 'impure.me', url:
+'https://impure.me/' }]` are copied exactly as the database holds them. Neither
+was tidied: correcting them would make the sources disagree, which is the one
+thing the entry exists to prevent, and would edit somebody's description of
+their own work to smooth a comparison. No `owner_member_id` was inferred — the
+Privy claim flow is how that gets set, and a matching name is not proof (§6).
+
+**And one real defect the archive exposed, fixed in the reader.** Archiving the
+row did not remove it from the record set: `loadRecordSet()` reads `builders`
+past the publication predicate on purpose, so a `pending` builder's *name* can
+still appear as a credit. That exception was written for `pending` and was
+silently covering `archived` too — so an archived builder stayed loaded, their
+name could still resolve through `builderNamesOf()`, and the TypeScript source
+could never agree with the database again, because a takedown is not a thing a
+version-controlled file can represent.
+
+`publishing.ts` already promises the opposite: "the row stays, the audit trail
+stays, and the public reader simply stops selecting it." `source-db.ts` now
+excludes `WITHHELD_BUILDER_STATUS` from that one exception, which makes the
+promise true. **The equivalence suite was not touched** — the reader was wrong,
+not the test.
+
+`scripts/compare-builds.mjs` was also hardened. Pointed at `dist/client` rather
+than `dist` it found no HTML, every check passed trivially, and it printed
+"EQUIVALENT — routes, HTML and sitemap all match" under a line reading
+`ts=0 db=0`. It now exits 2 rather than claiming a pass it did not earn.
+
+**Verification, all green** (`npx tsx scripts/verify-phase0.mjs`):
+
+| Check | Result |
+| --- | --- |
+| Neon equivalence suite | **35/35 pass** (was 25/35) |
+| Full test suite | **539/539 pass** |
+| `DATA_SOURCE=ts` vs `db` build | 72 routes each, **72/72 byte-identical HTML**, 60 sitemap URLs each |
+| Builder rows | 69 `pending` + 3 `published` + 1 `archived` = 73; **72 reach the record set** |
+| Published public set | `aniket-sahu`, `vishal-kumar`, `punit` — identical in both sources, same order |
+| Projects / events / cities / ambassadors | 26 / 14 / 14 / 1 — unchanged |
+
+**Production `DATA_SOURCE` is deliberately still `ts`.** The flip is verified as
+safe but has not been taken; it is the owner's to make.
 
 ```
 0.  branch `v2-user-platform`; Neon branch `v2-preview` for the preview DB
@@ -686,9 +741,9 @@ and stay off the publish path (§49).
 - **Luma ToS:** unread → JSON-LD adapter built and shipped `enabled=false` (D.2).
 
 ### Still outstanding
-- **Blocking Phase 0:** decide what happens to the two Neon-only builder rows in
-  E.0 — `prod-test-builderprod-test-builder` and `punit`. Until then the flip
-  cannot be verified, and every dynamic route in v2 waits on the flip.
+- **Phase 0's remaining step:** set `DATA_SOURCE=db` on Preview, then Production.
+  The equivalence is verified (E.0.1); taking the flip is yours. Rollback stays
+  one environment variable.
 - Read Luma's ToS, then enable the `luma_jsonld` source row if it permits.
 - If you want the near-immediate tier for the official Claude Community calendar,
   that is a request to Anthropic for an API key.

@@ -152,7 +152,29 @@ if (!mapOnlyTs.length && !mapOnlyDb.length && tsMap.length > 0) {
 }
 
 // ── Verdict ─────────────────────────────────────────────────────────────
+//
+// A COMPARISON THAT COMPARED NOTHING IS NOT A PASS.
+//
+// `pages()` returns an empty map for a directory that does not exist, and
+// every check above is then trivially satisfied: no route is missing from the
+// other side, no page differs, and the verdict read "EQUIVALENT — routes, HTML
+// and sitemap all match." It printed `ts=0 db=0` immediately above it and said
+// so anyway.
+//
+// That is how this script gets pointed at `dist/client` instead of `dist` —
+// the argument it wants is the dist root, because it appends `client` itself —
+// and reports success having read no HTML at all. The failure is silent,
+// plausible, and in the one direction that matters: it says the database path
+// is verified when nothing was verified.
 console.log('');
+if (tsRoutes.length === 0 || dbRoutes.length === 0) {
+  console.log('NOT A COMPARISON — no pages were found.');
+  console.log(`  ts=${tsRoutes.length}  db=${dbRoutes.length}`);
+  console.log(`  Expected HTML under <dir>/client. Pass the dist ROOT, not dist/client:`);
+  console.log(`      node scripts/compare-builds.mjs dist-ts dist-db`);
+  process.exit(2);
+}
+
 if (problems.length === 0) {
   console.log('EQUIVALENT — routes, HTML and sitemap all match.');
   process.exit(0);
