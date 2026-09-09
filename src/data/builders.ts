@@ -50,6 +50,44 @@ export const builders: Builder[] = [
     roles: ['speaker', 'host'],
     eventSlugs: ['claude-code-workshop'],
   },
+  /**
+   * TRANSCRIBED FROM THE DATABASE, NOT AUTHORED HERE.
+   *
+   * Submitted through `/api/submit` on 2026-09-08, promoted and published by
+   * an editor the same day. It is the first record to arrive in Neon and not
+   * in this file, and it is copied back verbatim so the TypeScript rollback
+   * path and the database agree — which is the precondition for reading the
+   * site from PostgreSQL at all.
+   *
+   * ── TWO FIELDS THAT LOOK LIKE TYPOS AND ARE NOT MINE TO FIX ──────────────
+   *
+   * `claudeTools: ['Claude code']` — lower-case `c`, where every curated entry
+   * writes `Claude Code`. `links` — a bare `Impure.me` was typed, and the
+   * promotion path resolved it to `https://impure.me/`.
+   *
+   * Both are exactly what the database holds. Correcting either here would
+   * make the two sources disagree, which is the one thing this entry exists to
+   * prevent, and would edit somebody's own description of their own work to
+   * tidy a comparison. The right place to stop `Claude code` and `Claude Code`
+   * becoming two surfaces is validation at write time, before the row exists —
+   * see `docs/architecture-v2.md` §E.0, which this record is the reason for.
+   *
+   * `owner_member_id` is deliberately NOT set. Nobody has proved they are this
+   * person yet; the Privy claim flow is how that happens, and inferring it from
+   * a matching name is precisely what §6 forbids.
+   */
+  {
+    id: 'bld-punit',
+    slug: 'punit',
+    status: 'published',
+    name: 'Punit',
+    citySlug: 'delhi',
+    role: 'Web3 dev',
+    roles: [],
+    building: 'Bloopa.xyz',
+    claudeTools: ['Claude code'],
+    links: [{ label: 'impure.me', url: 'https://impure.me/' }],
+  },
 
   // ── Impact Lab project builders (pending — attribution only) ─────────
   // Source: Bhopal Claude Code Impact Lab submissions, 23 Aug 2026

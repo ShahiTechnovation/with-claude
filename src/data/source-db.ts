@@ -46,6 +46,26 @@
  * layer then admits it to precisely one surface. That is the same behaviour
  * the TypeScript source has always had.
  *
+ * ── AND WHY `archived` IS STILL EXCLUDED ─────────────────────────────────
+ *
+ * The exception is for `pending`, not for every non-public status, and
+ * `archived` is the one that must not ride along with it.
+ *
+ * The two states say opposite things. `pending` means nobody has reviewed this
+ * yet — the credit is real, it is simply unpublished, so withholding the name
+ * would be dropping a fact the record owes somebody. `archived` means a
+ * moderator took the record down, with a reason, in the audit log. A takedown
+ * whose subject keeps appearing in credits is not a takedown, and
+ * `publishing.ts` promises exactly the opposite of that: "the row stays, the
+ * audit trail stays, and the public reader simply stops selecting it."
+ *
+ * So the predicate here is what makes that promise true for builders. Without
+ * it an archived builder is loaded into the record set forever, which has two
+ * consequences and both are bugs: their name can still resolve as a credit
+ * through `builderNamesOf()`, and the TypeScript source can never agree with
+ * the database again, because a takedown is a thing a version-controlled file
+ * has no way to represent.
+ *
  * ── NO N+1 ───────────────────────────────────────────────────────────────
  *
  * Every table is read exactly once, whole, and the relationships are stitched
@@ -56,7 +76,7 @@
  * see `loadRecordSet()`. The visitor pays for none of it, because none of it
  * happens at request time.
  */
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, ne } from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import * as schema from '../../db/schema';
 import type { RecordSet } from './source';
@@ -90,6 +110,14 @@ export type ReadDatabase = PgDatabase<PgQueryResultHKT, typeof schema>;
  * rather than a copy of it that could be updated on its own.
  */
 export const PUBLIC_CONTENT_STATUS = 'published' as const;
+
+/**
+ * The one status withheld from the pending-builder exception.
+ *
+ * Named rather than inlined because it is a governance rule, not a filter: it
+ * is what makes an archived builder actually gone. See the file header.
+ */
+export const WITHHELD_BUILDER_STATUS = 'archived' as const;
 
 /** Statuses that are explicitly NOT public. Asserted in the tests. */
 export const NON_PUBLIC_CONTENT_STATUSES = [
@@ -224,10 +252,12 @@ export async function loadRecordSet(db: ReadDatabase): Promise<RecordSet> {
 
   // ── Wave 1 — entities and lookups ────────────────────────────────────
   //
-  // `builders` is the exception described in the file header: it is read
-  // whole, because a `pending` builder's NAME is still a credit the record
-  // owes them. Everything else is filtered to `published` in SQL, so an
-  // unpublished row never leaves the database at all.
+  // `builders` is the exception described in the file header: it is read past
+  // the `published` predicate, because a `pending` builder's NAME is still a
+  // credit the record owes them. `archived` is excluded even so — that is a
+  // takedown, and see the header for why the two are not the same. Everything
+  // else is filtered to `published` in SQL, so an unpublished row never leaves
+  // the database at all.
   const [
     cityRows,
     builderRows,
@@ -241,7 +271,7 @@ export async function loadRecordSet(db: ReadDatabase): Promise<RecordSet> {
     mediaRows,
   ] = await Promise.all([
     db.select().from(schema.cities).where(eq(schema.cities.status, published)),
-    db.select().from(schema.builders),
+    db.select().from(schema.builders).where(ne(schema.builders.status, WITHHELD_BUILDER_STATUS)),
     db.select().from(schema.ambassadors).where(eq(schema.ambassadors.status, published)),
     db.select().from(schema.events).where(eq(schema.events.status, published)),
     db.select().from(schema.projects).where(eq(schema.projects.status, published)),
