@@ -47,9 +47,24 @@ function publicClientDir(): string | undefined {
   return undefined;
 }
 
-// ── The public site has no authentication ───────────────────────────────
+// ── The public site does not share the admin's authentication ───────────
 
-describe('the public site has no authentication', () => {
+/**
+ * RENAMED IN PHASE A, BECAUSE THE OLD NAME BECAME FALSE.
+ *
+ * This block used to be called "the public site has no authentication", and
+ * that was true until members could sign in. Leaving the name would have been
+ * worse than leaving the tests: a suite that asserts something its title
+ * denies is a suite nobody trusts.
+ *
+ * The wall itself did not move. There are two identity systems and no bridge:
+ * better-auth and the `users` allowlist belong to the admin, Privy and
+ * `members` belong to the public site, and neither can mint or read the
+ * other's session. Every test below checks a consequence of that, and the ones
+ * that check for a session cookie, an auth library or a credential in the
+ * bundle are unchanged — because Privy adds none of those.
+ */
+describe("the public site does not share the admin's authentication", () => {
   it('imports no auth library anywhere in its source', () => {
     expect(PUBLIC_SOURCE.length).toBeGreaterThan(50);
 
@@ -99,21 +114,87 @@ describe('the public site has no authentication', () => {
     expect(existsSync('src/middleware/index.ts')).toBe(false);
   });
 
-  it('stays static, with only the two Phase 1 API routes rendered on demand', () => {
+  /**
+   * THE ARCHIVE IS STILL FILES, AND THE LIST IS STILL CLOSED.
+   *
+   * Phase A added on-demand routes, so this can no longer assert "only two".
+   * What it asserts instead is the property that actually mattered all along:
+   * the set of server-rendered routes is ENUMERATED, and nothing joins it by
+   * accident. A page that quietly became dynamic — a builder profile, a city,
+   * the homepage — fails here.
+   *
+   * Kept as an exact list rather than a pattern on purpose. A regex like
+   * `/^src\/pages\/(api|me)\//` would pass for a route nobody reviewed; this
+   * fails until somebody writes the path down.
+   */
+  it('renders on demand only the routes that are meant to', () => {
     const dynamic = filesUnder('src/pages', ['.astro', '.ts'])
       .filter((file) => /export\s+const\s+prerender\s*=\s*false/.test(readFileSync(file, 'utf8')))
       .map((f) => f.replace(/\\/g, '/'))
       .sort();
 
-    expect(dynamic).toEqual(['src/pages/api/cron/rebuild.ts', 'src/pages/api/submit.ts']);
+    expect(dynamic).toEqual(
+      [
+        // Phase 1 — the submission endpoint and the rebuild hook.
+        'src/pages/api/cron/rebuild.ts',
+        'src/pages/api/submit.ts',
+        // Phase A — the member API.
+        'src/pages/api/member/bootstrap.ts',
+        'src/pages/api/member/claim.ts',
+        'src/pages/api/member/me.ts',
+        'src/pages/api/member/profile.ts',
+        // Phase A — the authenticated account area.
+        'src/pages/me/index.astro',
+        'src/pages/me/profile/edit.astro',
+        'src/pages/me/profile/index.astro',
+        'src/pages/me/settings.astro',
+      ].sort(),
+    );
   });
 
-  it('never imports the pooled database client', () => {
-    // `db/pool.ts` opens a WebSocket connection for the admin's transactions.
-    // The public site uses `db/client.ts` and has no business with the other.
+  /**
+   * WHO MAY OPEN A TRANSACTION.
+   *
+   * `db/pool.ts` exists because `db/client.ts` speaks HTTP and HTTP cannot do
+   * BEGIN/COMMIT. Until Phase A the public site had nothing that needed one,
+   * so the honest rule was "never".
+   *
+   * It needs one now, for the same reason the admin does: publishing a profile
+   * writes an audit row and changes content, and those must commit together or
+   * not at all. So the rule becomes a boundary rather than a ban — server
+   * modules and API functions may; NOTHING IN THE RENDER PATH MAY, which is
+   * the half that keeps credentials out of the browser bundle.
+   */
+  it('opens a pooled connection only from server modules and API routes', () => {
     for (const file of PUBLIC_SOURCE) {
       const text = readFileSync(file, 'utf8');
-      expect(text, `${file} imports db/pool`).not.toMatch(/db\/pool|pooledDb/);
+      if (!/db\/pool|pooledDb/.test(text)) continue;
+
+      const posix = file.split(/[\\/]/).join('/');
+      const allowed = posix.startsWith('src/server/') || posix.startsWith('src/pages/api/');
+
+      expect(allowed, `${file} opens a pooled database connection`).toBe(true);
+    }
+  });
+
+  /**
+   * And the pages that need a connection RECEIVE one rather than importing it.
+   *
+   * `/me/*` is server-rendered and does query the database, so the previous
+   * test alone would have allowed it to import `db/pool` directly. This is the
+   * line that stops that: a page — dynamic or not — never names a database
+   * module, so there is exactly one place a connection is opened for a page
+   * and exactly one place to look when asking whether a page can query.
+   */
+  it('keeps every page out of the database modules entirely', () => {
+    const pages = filesUnder('src/pages', ['.astro']);
+    expect(pages.length).toBeGreaterThan(10);
+
+    for (const file of pages) {
+      const text = readFileSync(file, 'utf8');
+      expect(text, `${file} imports a database module`).not.toMatch(
+        /from '(@\/|\.\.?\/)+(\.\.\/)?db\/(client|pool|schema)'/,
+      );
     }
   });
 });

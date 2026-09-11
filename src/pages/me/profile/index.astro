@@ -1,0 +1,89 @@
+---
+/**
+ * /me/profile — what the public sees, from the member's side.
+ *
+ * A short summary and a link, rather than a second rendering of the builder
+ * page. Two templates showing "your profile" would drift, and the honest
+ * answer to "what does mine look like?" is the real page.
+ */
+import Base from '@/layouts/Base.astro';
+import Section from '@/components/Section.astro';
+import PageIntro from '@/components/PageIntro.astro';
+import { guardPage, privateHeaders } from '@/server/http/page-guard';
+import { ownedBuilder } from '@/server/members/publish';
+
+export const prerender = false;
+
+privateHeaders(Astro);
+
+const guard = await guardPage(Astro);
+if (!guard.ok) return guard.redirect;
+
+const { member, profile, db } = guard;
+const builder = await ownedBuilder(member, db);
+---
+
+<Base title="Your public profile" description="Your public profile." active="/me" noindex>
+  <PageIntro eyebrow="Profile" title="What is public" size="md">
+    {
+      builder ? (
+        <p>
+          Your page is <a href={`/builders/${builder.slug}/`}>/builders/{builder.slug}</a>.
+        </p>
+      ) : (
+        <p>You have not published a profile yet.</p>
+      )
+    }
+  </PageIntro>
+
+  <Section id="summary" labelledby="summary-heading">
+    <h2 id="summary-heading">Summary</h2>
+    <dl class="settings-list">
+      <dt>Name</dt>
+      <dd>{profile.displayName ?? '—'}</dd>
+      <dt>Headline</dt>
+      <dd>{profile.headline ?? '—'}</dd>
+      <dt>Role</dt>
+      <dd>{profile.primaryRole ?? '—'}</dd>
+      <dt>Website</dt>
+      <dd>{profile.website ?? '—'}</dd>
+      <dt>Visibility</dt>
+      <dd>{profile.visibility}</dd>
+    </dl>
+
+    {
+      builder && builder.source === 'legacy' && (
+        <p class="profile-claimed">
+          This record was written before you claimed it. Its name, roles and event credits stay as
+          the archive recorded them — you can edit your bio, role, links and city.
+        </p>
+      )
+    }
+
+    <p><a href="/me/profile/edit/">Edit passport</a></p>
+  </Section>
+</Base>
+
+<style>
+  .settings-list {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.5rem 2rem;
+    margin: 1.5rem 0;
+  }
+  .settings-list dt {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    opacity: 0.7;
+  }
+  .settings-list dd {
+    margin: 0;
+  }
+  .profile-claimed {
+    border-left: 2px solid var(--rule);
+    padding-left: 1rem;
+    opacity: 0.85;
+  }
+</style>

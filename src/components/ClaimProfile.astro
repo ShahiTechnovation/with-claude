@@ -1,0 +1,91 @@
+---
+/**
+ * "Is this you?" — the claim control on a public builder page.
+ *
+ * ── WHY THIS RENDERS THE SAME FOR EVERYONE ───────────────────────────────
+ *
+ * `/builders/[slug]` is prerendered and sits on a CDN, so the page cannot know
+ * who is reading it — that is what makes it cacheable and it is worth keeping.
+ * So the control is rendered identically for every visitor and the browser
+ * decides what to do when it is pressed:
+ *
+ *   signed in     → POST the claim, show the answer in place
+ *   not signed in → go to /join and come back
+ *
+ * The alternative, making 72 archive pages server-rendered so each could show
+ * a personalised button, would cost the whole static architecture to save one
+ * redirect.
+ *
+ * ── WHY IT IS ONLY SHOWN ON UNCLAIMED RECORDS ────────────────────────────
+ *
+ * `owned` comes from the build's own dataset, so a record somebody already
+ * owns simply does not render this. That is a display decision, not a security
+ * one — the endpoint refuses a claim on an owned record regardless, because a
+ * stale CDN page must never be the thing standing between somebody and another
+ * person's profile.
+ */
+interface Props {
+  slug: string;
+  name: string;
+  /** True when this record already has an owner. Then nothing renders. */
+  owned?: boolean;
+}
+
+const { slug, name, owned = false } = Astro.props;
+---
+
+{
+  !owned && (
+    <div class="claim" data-claim data-claim-slug={slug}>
+      <p class="claim-question">
+        Is this you, {name}?
+      </p>
+      <p class="claim-detail">
+        Claim this profile to keep it up to date. If your GitHub or LinkedIn is already on the
+        record, it links straight away; otherwise a person checks it.
+      </p>
+      <button type="button" class="claim-button" data-claim-button>Claim this profile</button>
+      <p class="claim-status" data-claim-status role="status" aria-live="polite" />
+    </div>
+  )
+}
+
+<style>
+  .claim {
+    border: 1px solid var(--rule);
+    padding: 1.25rem 1.5rem;
+    margin: 2.5rem 0;
+  }
+  .claim-question {
+    font-weight: 500;
+    margin: 0 0 0.35rem;
+  }
+  .claim-detail {
+    margin: 0 0 1rem;
+    opacity: 0.8;
+    font-size: 0.95rem;
+  }
+  .claim-button {
+    font: inherit;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--ink);
+    background: transparent;
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .claim-button:hover {
+    background: var(--ink);
+    color: var(--paper);
+  }
+  .claim-status:empty {
+    display: none;
+  }
+  .claim-status {
+    margin: 1rem 0 0;
+    font-size: 0.95rem;
+  }
+</style>

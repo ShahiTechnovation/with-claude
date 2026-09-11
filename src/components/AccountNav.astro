@@ -1,0 +1,77 @@
+---
+/**
+ * The masthead's account slot.
+ *
+ * Rendered ANONYMOUS, always, on every page — including for a signed-in
+ * visitor. That is not an oversight; it is what lets these pages stay on a
+ * CDN. A shared cache cannot hold a page that names the person looking at it,
+ * so the cacheable answer is the only one the server gives, and
+ * `src/scripts/account.ts` upgrades it in the browser for the minority who
+ * are signed in.
+ *
+ * The consequence worth stating: with JavaScript off, a signed-in visitor sees
+ * "Join WITH CLAUDE". Clicking it takes them to `/join`, which recognises the
+ * existing session and sends them onward. Nothing is broken, only unpersonalised.
+ */
+---
+
+<div class="account-slot" data-account data-account-state="anonymous">
+  <a class="account-join" href="/join/">Join<span class="account-join-full"> WITH CLAUDE</span></a>
+</div>
+
+<style>
+  .account-slot {
+    display: flex;
+    align-items: center;
+    min-height: 2rem;
+  }
+
+  .account-join,
+  :global(.account-link) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5ch;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-decoration: none;
+    color: var(--ink);
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    padding: 0.35rem 0.8rem;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+  }
+
+  .account-join:hover,
+  :global(.account-link:hover) {
+    border-color: var(--ink);
+    background: var(--paper-2, transparent);
+  }
+
+  /* On a narrow masthead the row is already tight; keep the word, drop the rest. */
+  @media (max-width: 40rem) {
+    .account-join-full {
+      display: none;
+    }
+  }
+
+  :global(.account-badge) {
+    display: inline-grid;
+    place-items: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 50%;
+    background: var(--ink);
+    color: var(--paper);
+    font-size: 0.55rem;
+    letter-spacing: 0;
+  }
+
+  :global(.account-name) {
+    max-width: 12ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+</style>

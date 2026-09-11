@@ -138,7 +138,32 @@ describe('database credentials stay server-side', () => {
 });
 
 describe('private submission fields stay private', () => {
-  const PRIVATE_COLUMNS = ['submitter_email', 'submitterEmail', 'ip_hash', 'ipHash', 'user_agent'];
+  /**
+   * Names that could only come from this schema.
+   *
+   * `submitter_email` and `ip_hash` are ours; nothing else in the world is
+   * called that, so finding one anywhere in the built output means our code
+   * put it there. These are swept across every built file, unchanged.
+   */
+  const DISTINCTIVE_COLUMNS = ['submitter_email', 'submitterEmail', 'ip_hash', 'ipHash'];
+
+  /**
+   * `user_agent` is the odd one out, and Phase A is what revealed it.
+   *
+   * It is a generic HTTP concept, not a name we invented, and it appears
+   * legitimately inside third-party code — Privy's SDK sends a user agent with
+   * its own telemetry, so `_astro/core.*.js` contains the string with no
+   * connection to this database at all. Sweeping it across every vendor chunk
+   * turns a real guarantee into a test that fails for the wrong reason, and a
+   * test that fails for the wrong reason gets deleted by whoever is in a hurry.
+   *
+   * So it is still checked where a leak would actually reach a reader — the
+   * rendered HTML and the sitemap — and no longer used as evidence inside
+   * bundled dependencies. The distinctive names above still cover the case
+   * that matters: our own code naming our own private columns in a browser
+   * script.
+   */
+  const GENERIC_COLUMNS = ['user_agent', 'userAgent'];
 
   it('renders no private column name into any built page', () => {
     const dir = existingClientDir();
@@ -146,7 +171,22 @@ describe('private submission fields stay private', () => {
 
     for (const file of filesUnder(dir!, ['.html', '.js', '.xml'])) {
       const text = readFileSync(file, 'utf8');
-      for (const column of PRIVATE_COLUMNS) {
+      for (const column of DISTINCTIVE_COLUMNS) {
+        expect(text.includes(column), `${file} mentions ${column}`).toBe(false);
+      }
+    }
+  });
+
+  it('renders no generic private field name into rendered output', () => {
+    const dir = existingClientDir();
+    expect(dir).toBeDefined();
+
+    const rendered = filesUnder(dir!, ['.html', '.xml']);
+    expect(rendered.length).toBeGreaterThan(60);
+
+    for (const file of rendered) {
+      const text = readFileSync(file, 'utf8');
+      for (const column of GENERIC_COLUMNS) {
         expect(text.includes(column), `${file} mentions ${column}`).toBe(false);
       }
     }
@@ -181,15 +221,33 @@ describe('private submission fields stay private', () => {
 });
 
 describe('the site stays static', () => {
-  it('marks only the API routes as server-rendered', () => {
-    const dynamic = filesUnder('src/pages', ['.astro', '.ts']).filter((file) =>
-      /export\s+const\s+prerender\s*=\s*false/.test(readFileSync(file, 'utf8')),
-    );
+  /**
+   * EVERY PUBLIC PAGE IS STILL A FILE.
+   *
+   * Phase A made the account area server-rendered, so the old assertion —
+   * only the two API routes are dynamic — is no longer the truth. The claim
+   * worth defending is narrower and more useful: nothing a VISITOR reads is
+   * rendered on demand. The archive, the builders, the projects, the events,
+   * the cities, the homepage: all files on a CDN, exactly as before.
+   *
+   * So this asserts by exclusion. Anything dynamic must be an API endpoint or
+   * under `/me` (which requires a session and is `no-store`). The exact list
+   * lives in `tests/admin-isolation.test.ts`; here the question is only
+   * "did a public page stop being static?"
+   */
+  it('renders no public page on demand', () => {
+    const dynamic = filesUnder('src/pages', ['.astro', '.ts'])
+      .filter((file) => /export\s+const\s+prerender\s*=\s*false/.test(readFileSync(file, 'utf8')))
+      .map((f) => f.replace(/\\/g, '/'));
 
-    expect(dynamic.map((f) => f.replace(/\\/g, '/')).sort()).toEqual([
-      'src/pages/api/cron/rebuild.ts',
-      'src/pages/api/submit.ts',
-    ]);
+    // There is at least one, or this test has stopped looking at anything.
+    expect(dynamic.length).toBeGreaterThan(0);
+
+    for (const route of dynamic) {
+      const isApi = route.startsWith('src/pages/api/');
+      const isAccount = route.startsWith('src/pages/me/');
+      expect(isApi || isAccount, `${route} is a public page rendered on demand`).toBe(true);
+    }
   });
 
   it('builds every public page as a file', () => {

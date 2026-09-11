@@ -16,6 +16,7 @@
 import 'dotenv/config';
 import { defineConfig } from 'astro/config';
 import sitemap from '@astrojs/sitemap';
+import react from '@astrojs/react';
 import vercel from '@astrojs/vercel';
 
 import { nonIndexablePaths } from './src/lib/indexable.ts';
@@ -46,7 +47,64 @@ export default defineConfig({
    */
   output: 'static',
   adapter: vercel({ maxDuration: 15 }),
+
+  /**
+   * WHICH FORWARDED HOSTS ASTRO MAY BELIEVE.
+   *
+   * Behind Vercel, TLS terminates at the edge and the real hostname reaches
+   * the function only in `X-Forwarded-Host`. Astro refuses to trust that
+   * header unless the host is named here: `NodeApp.createRequest()` resolves
+   * the hostname as `validatedForwardedHost ?? validatedHost ?? 'localhost'`,
+   * and both validators return undefined when `allowedDomains` is empty.
+   *
+   * With no allowlist, `Astro.url.origin` inside a deployed function is
+   * therefore `http://localhost` — not the site's real origin. That did not
+   * matter while the only server route was `/api/submit`, which takes JSON and
+   * checks nothing about its origin. It matters now: Phase A's member
+   * endpoints compare the browser's `Origin` against the origin they were
+   * served on, and that comparison is worthless if the served origin is
+   * always `localhost`.
+   *
+   * `admin/astro.config.mjs` carries the long-form version of this argument,
+   * which it earned by answering 403 to its own sign-in form.
+   *
+   * NOTE ON `checkOrigin`: left at its default rather than set here. It only
+   * guards form-encoded bodies, every Phase A mutation takes JSON, and so the
+   * real protection is `src/server/http/origin.ts`, called explicitly by each
+   * route. This block exists to make that check able to see the truth.
+   */
+  security: {
+    allowedDomains: [
+      // Production. Exact hosts, so the real origins never depend on a wildcard.
+      { protocol: 'https', hostname: 'www.withclaude.in' },
+      { protocol: 'https', hostname: 'withclaude.in' },
+
+      /**
+       * Vercel preview and deployment URLs.
+       *
+       * `**.vercel.app` is deliberately this shape and not narrower: Astro's
+       * matcher only honours a wildcard as a LEADING `*.` or `**.` label, so a
+       * mid-string pattern like `with-claude-*.vercel.app` is not a wildcard to
+       * it at all — it degrades to an exact string compare and silently never
+       * matches. The residual breadth is narrowed again by
+       * `isTrustedOrigin()`, which does anchor on the project name.
+       */
+      { protocol: 'https', hostname: '**.vercel.app' },
+    ],
+  },
   integrations: [
+    /**
+     * React is here for exactly one component: Privy's login UI, which is a
+     * React component and has no vanilla equivalent.
+     *
+     * Adding the integration does NOT put React on the site. Astro ships a
+     * framework only to pages that actually mount an island, and the only
+     * island is `SignIn.tsx` on `/join` and `/me/*`. The 72 archive pages
+     * carry no React, and the auth-aware masthead on them is
+     * `src/scripts/account.ts` — about a kilobyte of plain TypeScript —
+     * precisely so that it stays that way.
+     */
+    react(),
     sitemap({
       filter: (page) => {
         const path = new URL(page).pathname;

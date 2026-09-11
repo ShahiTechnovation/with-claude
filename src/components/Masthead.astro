@@ -3,6 +3,7 @@ import Wordmark from './Wordmark.astro';
 import { cityName, nextEvent, site } from '@/data';
 import { dateParts } from '@/lib/datetime';
 import { lifecycleOf, lifecycleTone } from '@/lib/status';
+import AccountNav from '@/components/AccountNav.astro';
 
 interface Props {
   /** Route prefix of the current page, e.g. `/events`. */
@@ -71,6 +72,8 @@ const nextTone = next ? lifecycleTone(lifecycleOf(next)) : undefined;
       </span>
       <span class="nav-search-label">Search</span>
     </a>
+
+    <AccountNav />
 
     {
       next && nextParts && (

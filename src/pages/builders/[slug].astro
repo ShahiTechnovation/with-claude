@@ -19,6 +19,7 @@ import { formatDate } from '@/lib/datetime';
 import { asset } from '@/lib/images';
 import { formatName, lifecycleLabel, lifecycleOf, lifecycleTone } from '@/lib/status';
 import { profileSchema, titles, trail } from '@/lib/seo';
+import ClaimProfile from '@/components/ClaimProfile.astro';
 
 export const getStaticPaths = (() =>
   publicBuilders.map((builder) => ({
@@ -27,6 +28,16 @@ export const getStaticPaths = (() =>
   }))) satisfies GetStaticPaths;
 
 const { builder } = Astro.props;
+
+/**
+ * Whether this record already has an owner.
+ *
+ * Read from the build's dataset, so it is a display decision only — the claim
+ * endpoint refuses an owned record regardless of what a cached page shows.
+ * `ownerMemberId` is absent from the TypeScript source, so a `ts` build simply
+ * treats every record as claimable and the server still says no.
+ */
+const owned = Boolean((builder as { ownerMemberId?: string | null }).ownerMemberId);
 
 const ambassador = ambassadorForBuilder(builder);
 const events = eventsOf(builder);
@@ -267,6 +278,10 @@ const schema = profileSchema(
         }
       </aside>
     </div>
+  </Section>
+
+  <Section id="claim" size="sm">
+    <ClaimProfile slug={builder.slug} name={builder.name} owned={owned} />
   </Section>
 
   <Section id="back" size="sm">

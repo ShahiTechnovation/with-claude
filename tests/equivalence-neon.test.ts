@@ -1,5 +1,12 @@
 /**
- * TS vs REAL NEON EQUIVALENCE.
+ * THE LEGACY RECORD, STILL INTACT IN REAL NEON.
+ *
+ * Renamed in Phase A. This was "TS vs real Neon equivalence" and it was the
+ * Phase 0 migration gate; it now checks that the record the repository knows
+ * about is still in the live database, field for field, with the selector
+ * layer deriving identical answers from it. Full bidirectional equivalence
+ * moved to `tests/equivalence.test.ts`, which controls both sides. The reason
+ * is in `beforeAll`.
  *
  * The sibling of `tests/equivalence.test.ts`, which runs the identical
  * comparison against PGlite for speed and hermeticity in ordinary CI. This
@@ -103,8 +110,93 @@ beforeAll(async () => {
 
   // The record already imported by `npm run db:import` — read as-is, not
   // re-seeded, so this compares against exactly what a real build would see.
-  fromDb = await loadRecordSet(db as never);
+  const live = await loadRecordSet(db as never);
   fromTs = tsRecordSet();
+
+  /**
+   * ── WHY THE LIVE RECORD IS NARROWED TO THE LEGACY ONE ──────────────────
+   *
+   * This suite was the Phase 0 migration gate: it proved PostgreSQL could
+   * reproduce `src/data/*.ts` exactly, which is what made flipping
+   * `DATA_SOURCE=db` safe. It did that by asserting the two record sets are
+   * EQUAL, in both directions.
+   *
+   * That premise expired the moment the product changed. Production reads the
+   * database, members publish their own profiles, and editors promote real
+   * submissions — so Neon now legitimately holds records the TypeScript files
+   * do not, and §59 is explicit that new content must NOT be written back into
+   * them. Bidirectional equality could only stay true if nobody ever published
+   * anything again.
+   *
+   * So the comparison narrows rather than dies. `fromDb` becomes the LEGACY
+   * record as the database now holds it, and every assertion below keeps its
+   * exact force on exactly the rows both sources are supposed to agree about:
+   *
+   *     is every record the repository knows about still in the database,
+   *     field for field, and does the selector layer still derive identical
+   *     answers from it?
+   *
+   * That is a regression guard with a long life — it catches an importer bug,
+   * an accidental mass edit, a column silently changing meaning — and it stays
+   * true as the community grows.
+   *
+   * WHAT IS NO LONGER CHECKED HERE, AND WHERE IT STILL IS. Full bidirectional
+   * equality, including newly published content, lives in
+   * `tests/equivalence.test.ts`. That suite imports the TypeScript record into
+   * a fresh PGlite database and compares, so it controls both sides and proves
+   * the reader and the importer agree completely. It is unchanged, and it is
+   * where the real equivalence proof now lives.
+   *
+   * Filtering is applied to EVERY entity array, not just builders. Legacy
+   * records only reference legacy records, so the narrowed set is
+   * self-consistent; if that ever stopped being true the comparison would fail
+   * loudly on the dangling reference, which is the correct outcome.
+   */
+  const legacySlugs: Record<string, Set<string>> = {};
+  for (const key of RECORD_KEYS) {
+    legacySlugs[key] = new Set(fromTs[key].map((record) => record.slug));
+  }
+
+  /**
+   * Narrowed key by key rather than through `Object.fromEntries`, which
+   * collapses the eight distinct record types into one union and needs a cast
+   * to get back out. Written out, each array keeps its own type and the eight
+   * entities stay visible — `RECORD_KEYS` is what guarantees none is missed.
+   */
+  const narrow = <K extends keyof RecordSet>(key: K): RecordSet[K] =>
+    live[key].filter((record) => legacySlugs[key].has(record.slug)) as RecordSet[K];
+
+  fromDb = {
+    ambassadors: narrow('ambassadors'),
+    builders: narrow('builders'),
+    cities: narrow('cities'),
+    events: narrow('events'),
+    guides: narrow('guides'),
+    projects: narrow('projects'),
+    stories: narrow('stories'),
+    useCases: narrow('useCases'),
+  };
+
+  /**
+   * The narrowing must not be able to hide a missing record.
+   *
+   * If the database lost a legacy row, filtering would quietly produce a
+   * smaller set on both sides of some comparisons. So the counts are asserted
+   * here, before anything else runs: every record the repository knows about
+   * must be present.
+   */
+  for (const key of RECORD_KEYS) {
+    if (fromDb[key].length !== fromTs[key].length) {
+      const missing = fromTs[key]
+        .map((r) => r.slug)
+        .filter((slug) => !fromDb[key].some((r) => r.slug === slug));
+      throw new Error(
+        `Neon is missing ${missing.length} legacy ${key}: ${missing.join(', ')}. ` +
+          `The repository record is the rollback snapshot; a row disappearing from the ` +
+          `database is a real regression, not a test that needs updating.`,
+      );
+    }
+  }
 
   if (fromDb.cities.length === 0) {
     throw new Error(

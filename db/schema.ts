@@ -178,6 +178,47 @@ export const mediaKind = pgEnum('media_kind', ['photo', 'cover', 'portrait', 'lo
 /** Reviewer capability. Not an auth system — Phase 2 owns that. */
 export const userRole = pgEnum('user_role', ['viewer', 'reviewer', 'editor', 'admin']);
 
+// ── Phase A — public members ────────────────────────────────────────────
+//
+// Declared up here with the other enums rather than beside their tables,
+// because `builders` uses `content_source` and a pgEnum is an eagerly
+// evaluated const. The tables themselves live further down, under PHASE A.
+
+/**
+ * A member is suspended or deleted as a STATE, never by removing the row.
+ * `deleted` disconnects the identity and hides the profile; it does not orphan
+ * whatever they published.
+ */
+export const memberStatus = pgEnum('member_status', ['active', 'suspended', 'deleted']);
+
+/**
+ * `unlisted` is not private. It means not promoted and not indexed — the page
+ * still answers to anybody holding the URL. A genuinely private profile would
+ * require every public reader to become status-aware, and Phase A does not
+ * need an access-control system.
+ */
+export const profileVisibility = pgEnum('profile_visibility', ['public', 'unlisted']);
+
+/**
+ * How a claim was proven.
+ *
+ * READ THE ABSENCE. There is no `name_match`, no `city_match`, no
+ * `similarity`. Resemblance is not proof of identity, and the way to stop it
+ * being used as proof by some future well-meaning change is for the value not
+ * to exist.
+ */
+export const claimProofType = pgEnum('claim_proof_type', [
+  'github_identity',
+  'linkedin_identity',
+  'email_identity',
+  'moderator_review',
+]);
+
+export const claimStatus = pgEnum('claim_status', ['pending', 'approved', 'rejected', 'cancelled']);
+
+/** Where a record came from. Decides which publish path may touch it. */
+export const contentSource = pgEnum('content_source', ['legacy', 'user']);
+
 // =========================================================================
 // PEOPLE WHO REVIEW
 // =========================================================================
@@ -476,6 +517,25 @@ export const builders = pgTable(
     imagePath: text('image_path'),
     status: contentStatus('status').notNull().default('draft'),
     featured: boolean('featured').notNull().default(false),
+
+    /**
+     * The member who has PROVEN they are this person. Phase A.
+     *
+     * Nullable, and staying that way: all 72 imported builders keep NULL,
+     * which is exactly what "unclaimed" means. It is set by a resolved
+     * `profile_claims` row and by nothing else — never inferred from a
+     * matching name, which is why `claim_proof_type` has no `name_match`.
+     */
+    ownerMemberId: uuid('owner_member_id').references(() => members.id, { onDelete: 'set null' }),
+
+    /**
+     * `legacy` for everything the importer created, `user` for everything a
+     * member creates. This is what lets a member self-publish their own row
+     * while the curated archive keeps going through the editorial state
+     * machine — two publish paths that cannot reach each other's records.
+     */
+    source: contentSource('source').notNull().default('legacy'),
+
     createdAt: timestamp('created_at', { withTimezone: true }),
     updatedAt: timestamp('updated_at', { withTimezone: true }),
   },
@@ -491,6 +551,7 @@ export const builders = pgTable(
     check('builders_roles_exclude_ambassador', sql`NOT (${table.roles} @> ARRAY['ambassador'])`),
     index('builders_city_idx').on(table.cityId),
     index('builders_status_idx').on(table.status),
+    index('builders_owner_idx').on(table.ownerMemberId),
   ],
 );
 
@@ -1167,6 +1228,212 @@ export const cityInterest = pgTable(
 );
 
 // =========================================================================
+// PHASE A — PUBLIC MEMBERS (Privy identity)
+// =========================================================================
+
+/**
+ * A public member of WITH CLAUDE.
+ *
+ * DELIBERATELY NOT `users`. That table is the editorial allowlist, which has
+ * no sign-up on purpose; this one is open to anybody with a Privy account. One
+ * table for both would mean the table deciding who may archive a record is
+ * also the table the internet can insert into.
+ *
+ * NOTHING HERE IS A CREDENTIAL. `privyUserId` is the Privy DID and the only
+ * value shared with the authentication provider. There is no access token, no
+ * refresh token and no session column, so there is nothing in this table to
+ * leak — the server verifies a token in memory per request and keeps only the
+ * subject.
+ */
+export const members = pgTable(
+  'members',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    /** The Privy DID, e.g. `did:privy:…`. The join to the identity provider. */
+    privyUserId: text('privy_user_id').notNull().unique(),
+    status: memberStatus('status').notNull().default('active'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    /** Advanced coarsely on authenticated requests. Not an activity log. */
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
+  },
+  (table) => [index('members_privy_user_idx').on(table.privyUserId)],
+);
+
+/**
+ * What a member edits. NOT what the public reads.
+ *
+ * The published profile lives in `builders`, and one whitelist function
+ * projects this row into it. That indirection is what makes the user-owned /
+ * source-owned split a mechanism rather than a promise: a projection can only
+ * write the columns it names, so editing a bio cannot reach `name`, `roles`,
+ * an ambassador link or a historical event credit — on a profile the member
+ * created OR one they claimed.
+ *
+ * It also means the prerendered pages and the search index keep reading
+ * exactly the table they already read, which is why Phase A changes nothing
+ * about `RecordSet`.
+ */
+export const memberProfiles = pgTable(
+  'member_profiles',
+  {
+    memberId: uuid('member_id')
+      .primaryKey()
+      .references(() => members.id, { onDelete: 'cascade' }),
+
+    /** The handle, and the public URL: `/builders/<username>`. Lower-case. */
+    username: text('username').notNull().unique(),
+
+    displayName: text('display_name'),
+    firstName: text('first_name'),
+    lastName: text('last_name'),
+    headline: text('headline'),
+    bio: text('bio'),
+
+    /**
+     * The atlas city, when they are in one. Nullable, with `country` beside
+     * it, because `cities` is a curated fourteen and somebody in a fifteenth
+     * city must still get a profile. NOTHING HERE CREATES A CITY: city state
+     * is derived from verified ambassador and event records, so an
+     * auto-created city would be an auto-created chapter.
+     */
+    cityId: uuid('city_id').references(() => cities.id, { onDelete: 'set null' }),
+    country: text('country'),
+
+    website: text('website'),
+
+    /** Phase B. The shape is settled; there is no upload path yet. */
+    avatarMediaId: uuid('avatar_media_id').references(() => media.id, { onDelete: 'set null' }),
+
+    /** What they do. Not a trust signal — see `builders.roles`' CHECK. */
+    primaryRole: text('primary_role'),
+
+    claudeSince: text('claude_since'),
+
+    /** Opt-in, off by default. Signing in with an email does not publish it. */
+    publicEmail: boolean('public_email').notNull().default(false),
+
+    visibility: profileVisibility('visibility').notNull().default('public'),
+
+    /** Null until published. A shell exists from first login; that is not publication. */
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    /** Lower-case, 3–30, no leading separator. Enforced here, not only in a form. */
+    check('member_profiles_username_shape', sql`${table.username} ~ '^[a-z0-9][a-z0-9_-]{2,29}$'`),
+    index('member_profiles_username_idx').on(table.username),
+    index('member_profiles_city_idx').on(table.cityId),
+  ],
+);
+
+/**
+ * The handles nobody may take.
+ *
+ * A table rather than a constant, because it has to be enforced by the same
+ * thing that enforces uniqueness — inside the transaction that inserts the
+ * username. A route-level check is bypassed by the next route somebody writes.
+ */
+export const reservedUsernames = pgTable('reserved_usernames', {
+  username: text('username').primaryKey(),
+  reason: text('reason').notNull(),
+});
+
+/**
+ * A linked account Privy vouches for, recorded after it has been used.
+ *
+ * The authoritative read for a claim is a freshly verified identity token —
+ * this table is the record of WHAT MATCHED, so a resolved claim can still be
+ * explained months later when the member has since unlinked the account.
+ *
+ * `(provider, providerSubject)` is unique across all members: one GitHub
+ * account cannot be the proof behind two different people.
+ */
+export const memberIdentities = pgTable(
+  'member_identities',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    memberId: uuid('member_id')
+      .notNull()
+      .references(() => members.id, { onDelete: 'cascade' }),
+    provider: text('provider').notNull(),
+    /** The provider's own stable id for the account. */
+    providerSubject: text('provider_subject').notNull(),
+    username: text('username'),
+    displayName: text('display_name'),
+    profileUrl: text('profile_url'),
+    verifiedAt: timestamp('verified_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('member_identities_provider_subject_unique').on(
+      table.provider,
+      table.providerSubject,
+    ),
+    index('member_identities_member_idx').on(table.memberId),
+  ],
+);
+
+/**
+ * Somebody asserting that an existing builder record is them.
+ *
+ * `proofValueHash` is a HASH AND NEVER THE VALUE. The email proof compares an
+ * authenticated address against a private legacy contact address; storing
+ * either would turn this into a store of other people's email addresses, for
+ * no product benefit — nothing reads the value back, only the fact that two
+ * things matched.
+ *
+ * `resolvedBy` references the ADMIN `users` table. A moderator acting is the
+ * one thing that legitimately crosses between the two identity systems, and
+ * it records an action rather than linking two identities.
+ */
+export const profileClaims = pgTable(
+  'profile_claims',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    memberId: uuid('member_id')
+      .notNull()
+      .references(() => members.id, { onDelete: 'cascade' }),
+    builderId: uuid('builder_id')
+      .notNull()
+      .references(() => builders.id, { onDelete: 'cascade' }),
+    proofType: claimProofType('proof_type').notNull(),
+    /** A hash. Never the proven value. */
+    proofValueHash: text('proof_value_hash'),
+    status: claimStatus('status').notNull().default('pending'),
+    note: text('note'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+    /** The moderator, when a human resolved it. Null for a deterministic match. */
+    resolvedBy: uuid('resolved_by').references(() => users.id, { onDelete: 'set null' }),
+  },
+  (table) => [
+    index('profile_claims_member_idx').on(table.memberId),
+    index('profile_claims_builder_idx').on(table.builderId),
+    index('profile_claims_status_idx').on(table.status),
+
+    /**
+     * ONE APPROVED CLAIM PER BUILDER, EVER.
+     *
+     * This is what makes "nobody attaches themselves to another person" a
+     * property of the database rather than a rule a route remembers. Two
+     * members racing for the same builder both pass any application check; the
+     * second to COMMIT hits this index and loses.
+     */
+    uniqueIndex('profile_claims_one_owner')
+      .on(table.builderId)
+      .where(sql`${table.status} = 'approved'`),
+
+    /** One OPEN claim per member per builder — no resubmitting in a loop. */
+    uniqueIndex('profile_claims_one_open_per_member')
+      .on(table.memberId, table.builderId)
+      .where(sql`${table.status} = 'pending'`),
+  ],
+);
+
+// =========================================================================
 // AUDIT LOG — append-only
 // =========================================================================
 
@@ -1188,6 +1455,28 @@ export const auditLog = pgTable(
     actorId: uuid('actor_id').references(() => users.id, { onDelete: 'set null' }),
     /** Kept alongside the id so the entry survives the account being removed. */
     actorEmail: text('actor_email'),
+    /**
+     * The MEMBER who acted, when a member did. Phase A.
+     *
+     * A member publishing their own profile needs somewhere to be logged that
+     * does not pretend a moderator did it. Exactly one of `actorId` and this
+     * is set on any given entry. The append-only trigger from 0001 still
+     * applies, so this adds an actor and not a way to rewrite history.
+     *
+     * ── `ON DELETE SET NULL` CAN NEVER ACTUALLY FIRE ──────────────────────
+     *
+     * And that is the correct outcome, so it is written down rather than
+     * fixed. Nulling this column is an UPDATE, and 0001's trigger refuses
+     * every UPDATE on this table — so a member who has ever acted CANNOT be
+     * hard-deleted; the DELETE fails on the cascade.
+     *
+     * Which is exactly what §12 asks for. A member is retired by setting
+     * `members.status = 'deleted'`, never by removing the row, and this makes
+     * the database enforce that rather than trusting everyone to remember it.
+     * `actorId` above carries the same clause and the same consequence for
+     * admin accounts.
+     */
+    actorMemberId: uuid('actor_member_id').references(() => members.id, { onDelete: 'set null' }),
     /** e.g. `submission.approved`, `builder.published`, `ambassador.verified`. */
     action: text('action').notNull(),
     entityType: text('entity_type').notNull(),

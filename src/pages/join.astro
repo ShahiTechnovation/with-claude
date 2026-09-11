@@ -6,7 +6,29 @@ import JoinFlow from '@/components/JoinFlow.astro';
 import Participation from '@/components/Participation.astro';
 import SubmitPanel from '@/components/SubmitPanel.astro';
 import { site } from '@/data';
+import SignIn from '@/components/react/SignIn';
 import { trail } from '@/lib/seo';
+
+/**
+ * The Privy app id is the ONE value the browser is allowed to have, and the
+ * `PUBLIC_` prefix is what makes that explicit — Astro inlines it into the
+ * bundle, which is correct for an app id and would be catastrophic for the
+ * secret or the verification key. `db/env.ts`'s `assertNoPublicSecrets()`
+ * refuses to start if a server credential is ever given this prefix.
+ *
+ * When it is unset the page still renders, and says so, instead of mounting a
+ * login button that cannot work.
+ */
+const privyAppId = import.meta.env.PUBLIC_PRIVY_APP_ID as string | undefined;
+
+/**
+ * Only the methods the dashboard actually has configured. §3: showing a
+ * provider Privy is not set up for produces a button that fails when pressed.
+ */
+const loginMethods = (import.meta.env.PUBLIC_PRIVY_LOGIN_METHODS as string | undefined)
+  ?.split(',')
+  .map((method) => method.trim())
+  .filter(Boolean);
 ---
 
 <Base
@@ -17,10 +39,41 @@ import { trail } from '@/lib/seo';
 >
   <PageIntro eyebrow="Join" title="Come and build with us." size="lg">
     <p>
-      There is no membership and nothing to sign up for. There is a room to turn up to, an index to
-      be in, and an archive that wants what you made.
+      There is a room to turn up to, an index to be in, and an archive that wants what you made.
+      Making a profile takes a minute and needs nobody's permission.
     </p>
   </PageIntro>
+
+  <Section id="passport" labelledby="passport-heading">
+    <h2 id="passport-heading" class="passport-heading">Build your Builder Passport</h2>
+    <p class="passport-lede">
+      Sign in and you get a page of your own on this site: what you are building, which city you
+      are in, which parts of Claude you actually use. You publish it yourself — there is no queue
+      and nobody approves it.
+    </p>
+    <p class="passport-note">
+      Already in the index? Open your profile and claim it — if your GitHub or LinkedIn is on the
+      record, it links straight away.
+    </p>
+
+    {
+      privyAppId ? (
+        /**
+         * `client:only="react"` — the ONLY island on the public site.
+         *
+         * `client:only` rather than `client:load` because Privy's provider
+         * reads browser storage on mount and has no meaningful server render;
+         * asking Astro to prerender it would produce markup that is thrown
+         * away a moment later.
+         */
+        <SignIn client:only="react" appId={privyAppId} loginMethods={loginMethods} next="/me/" />
+      ) : (
+        <p class="passport-unconfigured">
+          Sign-in is not configured on this deployment yet. Everything below still works.
+        </p>
+      )
+    }
+  </Section>
 
   <Section id="flow" tone="sunk" labelledby="flow-heading">
     <JoinFlow />

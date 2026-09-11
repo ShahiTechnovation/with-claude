@@ -1,0 +1,77 @@
+---
+/**
+ * /me/settings — account state and the things that are not the passport.
+ *
+ * Deliberately small. Phase A owns identity and the passport; account deletion
+ * and data export are §62 and belong with the moderation and content-lifecycle
+ * work rather than being half-built here, so this says what is coming rather
+ * than shipping a Delete button that only removes some of it.
+ */
+import Base from '@/layouts/Base.astro';
+import Section from '@/components/Section.astro';
+import PageIntro from '@/components/PageIntro.astro';
+import { guardPage, privateHeaders } from '@/server/http/page-guard';
+
+export const prerender = false;
+
+privateHeaders(Astro);
+
+const guard = await guardPage(Astro);
+if (!guard.ok) return guard.redirect;
+
+const { member, profile } = guard;
+---
+
+<Base title="Settings" description="Your WITH CLAUDE account settings." active="/me" noindex>
+  <PageIntro eyebrow="Settings" title="Account" size="md">
+    <p>Your sign-in is handled by Privy. WITH CLAUDE stores your profile, not your credentials.</p>
+  </PageIntro>
+
+  <Section id="account" labelledby="account-heading">
+    <h2 id="account-heading">Account</h2>
+    <dl class="settings-list">
+      <dt>Status</dt>
+      <dd>{member.status}</dd>
+      <dt>Username</dt>
+      <dd>{profile.username}</dd>
+      <dt>Profile</dt>
+      <dd>{profile.publishedAt ? 'Published' : 'Not published yet'}</dd>
+      <dt>Visibility</dt>
+      <dd>{profile.visibility}</dd>
+    </dl>
+    <p><a href="/me/profile/edit/">Change these in your passport</a></p>
+  </Section>
+
+  <Section id="data" tone="sunk" labelledby="data-heading">
+    <h2 id="data-heading">Your data</h2>
+    <p>
+      Exporting your profile and closing your account are not built yet. When they are, closing an
+      account will disconnect your sign-in and remove your profile without silently deleting things
+      other people are credited on — which is why it is not a one-line feature and not shipped
+      half-finished.
+    </p>
+    <p>
+      Until then, email <a href="mailto:hello@withclaude.in">hello@withclaude.in</a> and a person
+      will do it.
+    </p>
+  </Section>
+</Base>
+
+<style>
+  .settings-list {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.5rem 2rem;
+    margin: 1.5rem 0;
+  }
+  .settings-list dt {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    opacity: 0.7;
+  }
+  .settings-list dd {
+    margin: 0;
+  }
+</style>
