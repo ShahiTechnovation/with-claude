@@ -17,6 +17,9 @@
  * through /join, which recognises the existing session and returns.
  */
 
+/** Trailing slash deliberate — see `src/data/forms.ts`. */
+const CLAIM_ENDPOINT = '/api/member/claim/';
+
 interface ClaimResponse {
   status?: 'approved' | 'pending';
   message?: string;
@@ -47,7 +50,7 @@ export function claim(): void {
     button.disabled = true;
     status.textContent = 'Checking…';
 
-    void fetch('/api/member/claim', {
+    void fetch(CLAIM_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'same-origin',

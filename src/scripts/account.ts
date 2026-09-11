@@ -29,6 +29,14 @@
  * markup is the fallback rather than a placeholder.
  */
 
+/**
+ * The trailing slash is deliberate, for the reason `src/data/forms.ts`
+ * records for `/api/submit/`: `trailingSlash: 'always'` means Vercel answers
+ * the slashless form with a 308, and paying for a redirect to reach a URL we
+ * already know is careless.
+ */
+const MEMBER_ENDPOINT = '/api/member/me/';
+
 interface MemberSummary {
   status: string;
   profile: {
@@ -105,7 +113,7 @@ export function account(): void {
   // A masthead must never be the reason a page feels slow.
   const timeout = window.setTimeout(() => controller.abort(), 4000);
 
-  fetch('/api/member/me', {
+  fetch(MEMBER_ENDPOINT, {
     credentials: 'same-origin',
     headers: { Accept: 'application/json' },
     signal: controller.signal,

@@ -27,6 +27,9 @@
 import { PrivyProvider, usePrivy } from '@privy-io/react-auth';
 import { useCallback, useEffect, useState } from 'react';
 
+/** Trailing slash deliberate — see `src/data/forms.ts`. */
+const BOOTSTRAP_ENDPOINT = '/api/member/bootstrap/';
+
 /** Where to go once there is a member row. Passed in by the page. */
 interface Props {
   appId: string;
@@ -54,7 +57,7 @@ function Inner({ next = '/me/' }: { next?: string }) {
     setMessage(null);
     try {
       const token = await getAccessToken();
-      const response = await fetch('/api/member/bootstrap', {
+      const response = await fetch(BOOTSTRAP_ENDPOINT, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

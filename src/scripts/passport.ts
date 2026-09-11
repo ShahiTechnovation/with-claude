@@ -22,6 +22,13 @@
  * and the security properties would be identical.
  */
 
+/**
+ * Trailing slash deliberate. A 308 preserves the method and body, but this is
+ * a write path and it must not depend on that redirect never being downgraded
+ * to a 301, which would drop the body silently — see `src/data/forms.ts`.
+ */
+const PROFILE_ENDPOINT = '/api/member/profile/';
+
 interface FieldError {
   error?: string;
   field?: string;
@@ -86,7 +93,7 @@ async function save(form: HTMLFormElement, publish: boolean): Promise<void> {
   clearFieldErrors(form);
   setStatus(form, 'Saving…', 'busy');
 
-  const response = await fetch('/api/member/profile', {
+  const response = await fetch(PROFILE_ENDPOINT, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'same-origin',
@@ -107,7 +114,7 @@ async function save(form: HTMLFormElement, publish: boolean): Promise<void> {
 
   setStatus(form, 'Publishing…', 'busy');
 
-  const published = await fetch('/api/member/profile', {
+  const published = await fetch(PROFILE_ENDPOINT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'same-origin',
