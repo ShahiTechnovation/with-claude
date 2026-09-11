@@ -18,12 +18,60 @@
 import { PrivyProvider, usePrivy } from '@privy-io/react-auth';
 import { useState, useRef, useEffect, useCallback } from 'react';
 
+/** Trailing slash deliberate — see `src/data/forms.ts`. */
+const BOOTSTRAP_ENDPOINT = '/api/member/bootstrap/';
+
+/**
+ * Bootstrap is one write per login (see `api/member/bootstrap.ts`), not a
+ * read. This island remounts on every page (`client:only`), so a session
+ * flag stops it from re-provisioning on every navigation once it has run.
+ */
+const BOOTSTRAPPED_KEY = 'wc_bootstrapped';
+const NUDGE_DISMISSED_KEY = 'wc_nudge_dismissed';
+
 function Inner() {
-  const { ready, authenticated, user, logout } = usePrivy();
+  const { ready, authenticated, user, login, logout, getAccessToken } = usePrivy();
   const [open, setOpen] = useState(false);
+  const [needsUsername, setNeedsUsername] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  /** Provision the member row once per session, on the first authenticated page. */
+  useEffect(() => {
+    if (!ready || !authenticated) return;
+    if (sessionStorage.getItem(BOOTSTRAPPED_KEY)) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = await getAccessToken();
+        const response = await fetch(BOOTSTRAP_ENDPOINT, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          credentials: 'same-origin',
+        });
+        if (!response.ok || cancelled) return;
+        sessionStorage.setItem(BOOTSTRAPPED_KEY, '1');
+        const body = (await response.json()) as { profile?: { needsUsername?: boolean } };
+        if (body.profile?.needsUsername && !sessionStorage.getItem(NUDGE_DISMISSED_KEY)) {
+          setNeedsUsername(true);
+        }
+      } catch {
+        // Silent — the next page that mounts this island tries again.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, authenticated, getAccessToken]);
+
+  const dismissNudge = useCallback(() => {
+    sessionStorage.setItem(NUDGE_DISMISSED_KEY, '1');
+    setNeedsUsername(false);
+  }, []);
 
   /** Close on outside click */
   useEffect(() => {
@@ -96,9 +144,9 @@ function Inner() {
   if (!authenticated) {
     return (
       <div className="account-slot" data-account-state="anonymous">
-        <a className="account-join" href="/join/">
+        <button type="button" className="account-join" onClick={() => login()}>
           Join WITH CLAUDE
-        </a>
+        </button>
       </div>
     );
   }
@@ -108,8 +156,18 @@ function Inner() {
       className="account-slot"
       data-account-state="signed-in"
       ref={containerRef}
-      style={{ position: 'relative' }}
+      style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
     >
+      {needsUsername && (
+        <div className="account-nudge">
+          <a href="/me/profile/edit/" onClick={dismissNudge}>
+            Complete profile
+          </a>
+          <button type="button" aria-label="Dismiss" onClick={dismissNudge}>
+            ×
+          </button>
+        </div>
+      )}
       <button
         ref={triggerRef}
         className="account-link"

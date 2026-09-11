@@ -101,11 +101,6 @@ const nav = [
         </li>
       </ul>
     </nav>
-
-    <!-- Auth-aware drawer footer: the AccountMenu island renders here on mobile -->
-    <div class="nav-drawer-auth" id="nav-drawer-auth">
-      <a href="/join" class="nav-drawer-join">Join WITH CLAUDE</a>
-    </div>
   </div>
 </header>
 
@@ -354,32 +349,6 @@ const nav = [
       letter-spacing: var(--track-meta);
       color: var(--ink-3);
     }
-
-    /* Auth footer in the drawer */
-    .nav-drawer-auth {
-      margin-top: var(--s-7);
-    }
-
-    .nav-drawer-join {
-      display: inline-flex;
-      align-items: center;
-      font-family: var(--font-mono);
-      font-size: var(--t-meta);
-      font-weight: 500;
-      letter-spacing: var(--track-meta);
-      text-transform: uppercase;
-      text-decoration: none;
-      color: var(--paper);
-      background: var(--ink);
-      padding: var(--s-3) var(--s-5);
-      border: none;
-      transition: background var(--dur-2) var(--ease-out);
-    }
-
-    .nav-drawer-join:hover,
-    .nav-drawer-join:focus-visible {
-      background: var(--clay-deep);
-    }
   }
 
   /* On short viewports the drawer must not trap content off-screen. */
@@ -396,7 +365,9 @@ const nav = [
    * Masthead behaviours:
    * 1. Condensed header on scroll.
    * 2. Mobile drawer toggle with Escape key and aria-hidden.
-   * 3. Update drawer auth area if AccountMenu signals authenticated state.
+   *
+   * The account control (AccountNav) lives in the top bar, not the drawer,
+   * and stays visible at every width — no separate mobile auth affordance.
    */
   const masthead = document.querySelector('[data-masthead]') as HTMLElement | null;
   const toggle = document.querySelector('[data-nav-toggle]') as HTMLButtonElement | null;
