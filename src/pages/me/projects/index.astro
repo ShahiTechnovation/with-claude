@@ -1,0 +1,135 @@
+---
+import Base from '@/layouts/Base.astro';
+import PageIntro from '@/components/PageIntro.astro';
+import Section from '@/components/Section.astro';
+import { getMemberProjects, getIdentityFromRequest } from '@/server/me/queries';
+
+export const prerender = false;
+
+const identity = await getIdentityFromRequest(Astro.request);
+
+if (!identity.ok) {
+  return Astro.redirect('/join');
+}
+
+const member = identity.member;
+
+const uniqueProjects = await getMemberProjects(member.id);
+---
+
+<Base title="My Projects" description="Manage your published projects on WITH CLAUDE.">
+  <PageIntro eyebrow="Builder Passport" title="My Projects" size="md">
+    <p>Manage the projects you have contributed to the community.</p>
+  </PageIntro>
+
+  <Section id="projects" labelledby="projects-heading" tone="sunk">
+    <header class="section-header">
+      <h2 id="projects-heading">Your Projects</h2>
+      <a href="/me/projects/new" class="button">Create Project</a>
+    </header>
+
+    <div class="projects-list">
+      {uniqueProjects.length === 0 ? (
+        <div class="empty-state">
+          <p>You haven't added any projects yet.</p>
+        </div>
+      ) : (
+        <ul role="list" class="grid">
+          {uniqueProjects.map((project) => (
+            <li class="project-card">
+              <h3 class="project-title">{project.title}</h3>
+              <div class="project-meta">
+                <span class="badge" data-status={project.publicationStatus}>{project.publicationStatus}</span>
+                <span class="category">{project.category}</span>
+              </div>
+              <div class="project-actions">
+                <a href={`/me/projects/${project.id}/edit`}>Edit</a>
+                {project.publicationStatus === 'published' && project.moderationState === 'clean' && (
+                  <a href={`/projects/${project.slug}`} target="_blank">View Live</a>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  </Section>
+</Base>
+
+<style>
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--s-6);
+  }
+  .button {
+    display: inline-block;
+    padding: var(--s-2) var(--s-4);
+    background: var(--ink);
+    color: var(--paper);
+    text-decoration: none;
+    font-weight: 500;
+  }
+  .empty-state {
+    padding: var(--s-8) var(--s-4);
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    text-align: center;
+    color: var(--ink-2);
+  }
+  .grid {
+    display: grid;
+    gap: var(--s-4);
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    list-style: none;
+    padding: 0;
+  }
+  .project-card {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    padding: var(--s-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-3);
+  }
+  .project-title {
+    font-size: var(--f-h4);
+    margin: 0;
+  }
+  .project-meta {
+    display: flex;
+    gap: var(--s-2);
+    align-items: center;
+    font-size: var(--f-sm);
+  }
+  .badge {
+    padding: 2px 6px;
+    background: var(--rule);
+    font-weight: 500;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+  }
+  .badge[data-status="published"] {
+    background: #e6f4ea;
+    color: #1e8e3e;
+  }
+  .badge[data-status="draft"] {
+    background: #f1f3f4;
+    color: #5f6368;
+  }
+  .category {
+    color: var(--ink-2);
+    text-transform: capitalize;
+  }
+  .project-actions {
+    margin-top: auto;
+    display: flex;
+    gap: var(--s-3);
+    font-size: var(--f-sm);
+  }
+  .project-actions a {
+    color: var(--ink);
+    text-decoration: underline;
+  }
+</style>

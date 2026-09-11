@@ -1,0 +1,24 @@
+---
+import Base from '@/layouts/Base.astro';
+import PageIntro from '@/components/PageIntro.astro';
+import Section from '@/components/Section.astro';
+import { getIdentityFromRequest } from '@/server/me/queries';
+import ProjectEditor from '@/components/react/ProjectEditor.tsx';
+
+export const prerender = false;
+
+const identity = await getIdentityFromRequest(Astro.request);
+
+if (!identity.ok) {
+  return Astro.redirect('/join');
+}
+---
+
+<Base title="New Project" description="Create a new project.">
+  <PageIntro eyebrow="Builder Passport" title="New Project" size="md" />
+
+  <Section id="editor" labelledby="editor-heading" tone="sunk">
+    <h2 id="editor-heading" class="sr-only">Project Editor</h2>
+    <ProjectEditor client:only="react" />
+  </Section>
+</Base>

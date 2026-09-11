@@ -76,7 +76,7 @@
  * see `loadRecordSet()`. The visitor pays for none of it, because none of it
  * happens at request time.
  */
-import { eq, inArray, ne } from 'drizzle-orm';
+import { and, eq, inArray, ne } from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import * as schema from '../../db/schema';
 import type { RecordSet } from './source';
@@ -274,7 +274,7 @@ export async function loadRecordSet(db: ReadDatabase): Promise<RecordSet> {
     db.select().from(schema.builders).where(ne(schema.builders.status, WITHHELD_BUILDER_STATUS)),
     db.select().from(schema.ambassadors).where(eq(schema.ambassadors.status, published)),
     db.select().from(schema.events).where(eq(schema.events.status, published)),
-    db.select().from(schema.projects).where(eq(schema.projects.status, published)),
+    db.select().from(schema.projects).where(and(eq(schema.projects.publicationStatus, 'published'), eq(schema.projects.moderationState, 'clean'))),
     db.select().from(schema.stories).where(eq(schema.stories.status, published)),
     db.select().from(schema.useCases).where(eq(schema.useCases.status, published)),
     db.select().from(schema.guides).where(eq(schema.guides.status, published)),
@@ -562,7 +562,7 @@ export async function loadRecordSet(db: ReadDatabase): Promise<RecordSet> {
     const photos = (photosByEvent.get(row.id) ?? [])
       .map((photo) => {
         const asset = mediaById.get(photo.mediaId);
-        return asset ? ({ src: asset.path, alt: asset.alt } satisfies EventPhoto) : undefined;
+        return asset && asset.path ? ({ src: asset.path, alt: asset.alt } satisfies EventPhoto) : undefined;
       })
       .filter((photo): photo is EventPhoto => Boolean(photo));
 

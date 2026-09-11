@@ -13,13 +13,12 @@
  * "Join WITH CLAUDE". Clicking it takes them to `/join`, which recognises the
  * existing session and sends them onward. Nothing is broken, only unpersonalised.
  */
+import AccountMenu from '@/components/react/AccountMenu';
 ---
 
-<div class="account-slot" data-account data-account-state="anonymous">
-  <a class="account-join" href="/join/">Join<span class="account-join-full"> WITH CLAUDE</span></a>
-</div>
+<AccountMenu appId={import.meta.env.PUBLIC_PRIVY_APP_ID} client:only="react" />
 
-<style>
+<style is:global>
   .account-slot {
     display: flex;
     align-items: center;
@@ -27,7 +26,7 @@
   }
 
   .account-join,
-  :global(.account-link) {
+  .account-link {
     display: inline-flex;
     align-items: center;
     gap: 0.5ch;
@@ -40,23 +39,26 @@
     border: 1px solid var(--rule);
     border-radius: 999px;
     padding: 0.35rem 0.8rem;
+    background: transparent;
+    cursor: pointer;
     transition: border-color 0.2s ease, background-color 0.2s ease;
   }
 
   .account-join:hover,
-  :global(.account-link:hover) {
+  .account-link:hover,
+  .account-link[aria-expanded="true"] {
     border-color: var(--ink);
     background: var(--paper-2, transparent);
   }
 
   /* On a narrow masthead the row is already tight; keep the word, drop the rest. */
   @media (max-width: 40rem) {
-    .account-join-full {
+    .account-join-full, .account-name {
       display: none;
     }
   }
 
-  :global(.account-badge) {
+  .account-badge {
     display: inline-grid;
     place-items: center;
     width: 1.25rem;
@@ -68,10 +70,47 @@
     letter-spacing: 0;
   }
 
-  :global(.account-name) {
+  .account-name {
     max-width: 12ch;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .account-menu-dropdown {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    right: 0;
+    width: 10rem;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-sm, 4px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+    padding: 0.5rem 0;
+    z-index: 100;
+  }
+
+  .account-menu-dropdown a,
+  .account-menu-dropdown button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.4rem 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--ink);
+    text-decoration: none;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .account-menu-dropdown a:hover,
+  .account-menu-dropdown button:hover {
+    background: var(--paper-2, #f5f5f5);
   }
 </style>

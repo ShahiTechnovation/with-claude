@@ -20,14 +20,26 @@ import { asset } from '@/lib/images';
 import { formatName, lifecycleLabel, lifecycleOf, lifecycleTone } from '@/lib/status';
 import { profileSchema, titles, trail } from '@/lib/seo';
 import ClaimProfile from '@/components/ClaimProfile.astro';
+import { getBuilderRow } from '@/server/directory';
+import { ReportModal } from '@/components/react/ReportModal';
 
-export const getStaticPaths = (() =>
-  publicBuilders.map((builder) => ({
-    params: { slug: builder.slug },
-    props: { builder },
-  }))) satisfies GetStaticPaths;
+export const prerender = false;
 
-const { builder } = Astro.props;
+const { slug } = Astro.params;
+if (!slug) return Astro.redirect('/404');
+
+const builderRow = await getBuilderRow(slug);
+
+if (!builderRow) return Astro.redirect('/404');
+
+const isAvailable = builderRow.moderationState === 'clean' || builderRow.moderationState === 'reported';
+
+// We must construct a 'builder' object matching what the page expects.
+// Fortunately, the publicBuilders array in src/data constructs this from the DB in Phase A/B.
+// We can just find it in publicBuilders for now, since it includes DB builders.
+// BUT we must override the moderation state logic.
+const builder = publicBuilders.find(b => b.slug === slug);
+if (!builder) return Astro.redirect('/404');
 
 /**
  * Whether this record already has an owner.
@@ -100,189 +112,201 @@ const schema = profileSchema(
   breadcrumbs={crumbs}
   schema={schema}
 >
-  <PageIntro
-    eyebrow={`${cityName(builder.citySlug)} · ${builder.role}`}
-    title={builder.name}
-    size="lg"
-    stamp={ambassador ? ambassador.title : undefined}
-  >
-    {builder.bio && <p>{builder.bio}</p>}
-    {builder.building && <p>{builder.building}</p>}
-  </PageIntro>
+  {isAvailable ? (
+    <>
+      <PageIntro
+        eyebrow={`${cityName(builder.citySlug)} · ${builder.role}`}
+        title={builder.name}
+        size="lg"
+        stamp={ambassador ? ambassador.title : undefined}
+      >
+        {builder.bio && <p>{builder.bio}</p>}
+        {builder.building && <p>{builder.building}</p>}
+      </PageIntro>
 
-  <Section id="record" tone="sunk" labelledby="record-heading">
-    <h2 id="record-heading" class="visually-hidden">{`${builder.name} on the record`}</h2>
+      <Section id="record" tone="sunk" labelledby="record-heading">
+        <h2 id="record-heading" class="visually-hidden">{`${builder.name} on the record`}</h2>
 
-    <div class="profile">
-      <div class="profile-main">
-        <div class="roles">
-          {ambassador ? <span class="chip chip-verified">{ambassador.title}</span> : null}
-          {
-            builder.roles
-              .filter((role) => role !== 'ambassador')
-              .map((role) => <span class="chip chip-role">{formatName(role)}</span>)
-          }
+        <div class="profile">
+          <div class="profile-main">
+            <div class="roles">
+              {ambassador ? <span class="chip chip-verified">{ambassador.title}</span> : null}
+              {
+                builder.roles
+                  .filter((role) => role !== 'ambassador')
+                  .map((role) => <span class="chip chip-role">{formatName(role)}</span>)
+              }
+            </div>
+
+            {
+              ambassador && (
+                <p class="amb-source">
+                  {ambassador.verifiedVia}. Ambassadors are appointed by Anthropic — this site records
+                  the status, it does not grant it.
+                </p>
+              )
+            }
+
+            {
+              allEvents.length > 0 && (
+                <div class="block">
+                  <h3 class="label block-head">Events</h3>
+                  <ul class="list">
+                    {allEvents.map((event) => (
+                      <li>
+                        <a href={`/events/${event.slug}`}>
+                          <span class="list-title">{event.title}</span>
+                          <span class="list-meta">
+                            {`${formatDate(event.date)} · ${cityName(event.citySlug)}`}
+                          </span>
+                          <span class:list={['pip', `pip-${lifecycleTone(lifecycleOf(event))}`]}>
+                            {lifecycleLabel(lifecycleOf(event))}
+                          </span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )
+            }
+
+            <div class="block">
+              <h3 class="label block-head">Projects</h3>
+              {
+                projects.length > 0 ? (
+                  <ul class="list">
+                    {projects.map((project) => (
+                      <li>
+                        <a href={`/projects/${project.slug}`}>
+                          <span class="list-title">{project.title}</span>
+                          <span class="list-meta">{project.summary}</span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p class="block-empty">
+                    Nothing from {builder.name} is in the archive yet.{' '}
+                    <a href="/join#build">Submissions are open.</a>
+                  </p>
+                )
+              }
+            </div>
+
+            {
+              /* The practice half of the graph: what this person has written up.
+                Rendered only when it exists — an empty "Practice" heading on
+                every profile would be a promise the library cannot keep yet. */
+            }
+            {
+              (written.length > 0 || guides.length > 0) && (
+                <div class="block">
+                  <h3 class="label block-head">Practice</h3>
+                  <ul class="list">
+                    {written.map((useCase) => (
+                      <li>
+                        <a href={`/use-cases/${useCase.slug}`}>
+                          <span class="list-title">{useCase.title}</span>
+                          <span class="list-meta">{useCase.summary}</span>
+                        </a>
+                      </li>
+                    ))}
+                    {guides.map((guide) => (
+                      <li>
+                        <a href={`/guides/${guide.slug}`}>
+                          <span class="list-title">{guide.title}</span>
+                          <span class="list-meta">{guide.standfirst}</span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )
+            }
+
+            {
+              builder.claudeTools && builder.claudeTools.length > 0 && (
+                <div class="block">
+                  <h3 class="label block-head">Works with</h3>
+                  <p class="tools">{builder.claudeTools.join(' · ')}</p>
+                </div>
+              )
+            }
+          </div>
+
+          <aside class="profile-side">
+            {
+              portrait && (
+                <div class="plate plate-framed portrait">
+                  <Image
+                    src={portrait}
+                    alt={builder.name}
+                    widths={[320, 640]}
+                    sizes="(max-width: 61.99em) 60vw, 280px"
+                    loading="eager"
+                    decoding="async"
+                  />
+                </div>
+              )
+            }
+
+            <dl class="facts">
+              <div>
+                <dt>City</dt>
+                <dd><a href={`/cities/${builder.citySlug}`}>{cityName(builder.citySlug)}</a></dd>
+              </div>
+              <div>
+                <dt>Events</dt>
+                <dd>{String(allEvents.length).padStart(2, '0')}</dd>
+              </div>
+              <div>
+                <dt>Projects</dt>
+                <dd>{String(projects.length).padStart(2, '0')}</dd>
+              </div>
+            </dl>
+
+            {
+              builder.links && builder.links.length > 0 && (
+                <div class="links">
+                  <h3 class="label block-head">Elsewhere</h3>
+                  <ul>
+                    {builder.links.map((link) => (
+                      <li>
+                        <a href={link.url} target="_blank" rel="noopener">
+                          {link.label}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )
+            }
+
+            {
+              missing.length > 0 && (
+                <p class="thin">
+                  This entry is missing {missing.join(', ')}. If it is yours,{' '}
+                  <a href="/join#contribute">send the rest</a> and it will be filled in.
+                </p>
+              )
+            }
+
+            <div class="mt-8 pt-6 border-t border-neutral-100">
+              <ReportModal client:load entityType="builder" entityId={builderRow.id} />
+            </div>
+          </aside>
         </div>
+      </Section>
 
-        {
-          ambassador && (
-            <p class="amb-source">
-              {ambassador.verifiedVia}. Ambassadors are appointed by Anthropic — this site records
-              the status, it does not grant it.
-            </p>
-          )
-        }
-
-        {
-          allEvents.length > 0 && (
-            <div class="block">
-              <h3 class="label block-head">Events</h3>
-              <ul class="list">
-                {allEvents.map((event) => (
-                  <li>
-                    <a href={`/events/${event.slug}`}>
-                      <span class="list-title">{event.title}</span>
-                      <span class="list-meta">
-                        {`${formatDate(event.date)} · ${cityName(event.citySlug)}`}
-                      </span>
-                      <span class:list={['pip', `pip-${lifecycleTone(lifecycleOf(event))}`]}>
-                        {lifecycleLabel(lifecycleOf(event))}
-                      </span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )
-        }
-
-        <div class="block">
-          <h3 class="label block-head">Projects</h3>
-          {
-            projects.length > 0 ? (
-              <ul class="list">
-                {projects.map((project) => (
-                  <li>
-                    <a href={`/projects/${project.slug}`}>
-                      <span class="list-title">{project.title}</span>
-                      <span class="list-meta">{project.summary}</span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p class="block-empty">
-                Nothing from {builder.name} is in the archive yet.{' '}
-                <a href="/join#build">Submissions are open.</a>
-              </p>
-            )
-          }
-        </div>
-
-        {
-          /* The practice half of the graph: what this person has written up.
-            Rendered only when it exists — an empty "Practice" heading on
-            every profile would be a promise the library cannot keep yet. */
-        }
-        {
-          (written.length > 0 || guides.length > 0) && (
-            <div class="block">
-              <h3 class="label block-head">Practice</h3>
-              <ul class="list">
-                {written.map((useCase) => (
-                  <li>
-                    <a href={`/use-cases/${useCase.slug}`}>
-                      <span class="list-title">{useCase.title}</span>
-                      <span class="list-meta">{useCase.summary}</span>
-                    </a>
-                  </li>
-                ))}
-                {guides.map((guide) => (
-                  <li>
-                    <a href={`/guides/${guide.slug}`}>
-                      <span class="list-title">{guide.title}</span>
-                      <span class="list-meta">{guide.standfirst}</span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )
-        }
-
-        {
-          builder.claudeTools && builder.claudeTools.length > 0 && (
-            <div class="block">
-              <h3 class="label block-head">Works with</h3>
-              <p class="tools">{builder.claudeTools.join(' · ')}</p>
-            </div>
-          )
-        }
-      </div>
-
-      <aside class="profile-side">
-        {
-          portrait && (
-            <div class="plate plate-framed portrait">
-              <Image
-                src={portrait}
-                alt={builder.name}
-                widths={[320, 640]}
-                sizes="(max-width: 61.99em) 60vw, 280px"
-                loading="eager"
-                decoding="async"
-              />
-            </div>
-          )
-        }
-
-        <dl class="facts">
-          <div>
-            <dt>City</dt>
-            <dd><a href={`/cities/${builder.citySlug}`}>{cityName(builder.citySlug)}</a></dd>
-          </div>
-          <div>
-            <dt>Events</dt>
-            <dd>{String(allEvents.length).padStart(2, '0')}</dd>
-          </div>
-          <div>
-            <dt>Projects</dt>
-            <dd>{String(projects.length).padStart(2, '0')}</dd>
-          </div>
-        </dl>
-
-        {
-          builder.links && builder.links.length > 0 && (
-            <div class="links">
-              <h3 class="label block-head">Elsewhere</h3>
-              <ul>
-                {builder.links.map((link) => (
-                  <li>
-                    <a href={link.url} target="_blank" rel="noopener">
-                      {link.label}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )
-        }
-
-        {
-          missing.length > 0 && (
-            <p class="thin">
-              This entry is missing {missing.join(', ')}. If it is yours,{' '}
-              <a href="/join#contribute">send the rest</a> and it will be filled in.
-            </p>
-          )
-        }
-      </aside>
-    </div>
-  </Section>
-
-  <Section id="claim" size="sm">
-    <ClaimProfile slug={builder.slug} name={builder.name} owned={owned} />
-  </Section>
+      <Section id="claim" size="sm">
+        <ClaimProfile slug={builder.slug} name={builder.name} owned={owned} />
+      </Section>
+    </>
+  ) : (
+    <PageIntro eyebrow="Unavailable" title="Profile Unavailable" size="lg">
+      <p>This profile is currently unavailable.</p>
+    </PageIntro>
+  )}
 
   <Section id="back" size="sm">
     <a class="link-arrow" href="/builders">

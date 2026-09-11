@@ -6,6 +6,40 @@ import PageIntro from '@/components/PageIntro.astro';
 import ProjectArchive from '@/components/ProjectArchive.astro';
 import SubmitPanel from '@/components/SubmitPanel.astro';
 import { publicProjects } from '@/data';
+
+import { getPublicProjects } from '@/server/directory';
+
+export const prerender = false;
+
+const { projectRows, allBuilderRows, allBuilders, allCities } = await getPublicProjects();
+
+const builderMap = new Map(allBuilders.map(b => [b.id, b.slug]));
+const cityMap = new Map(allCities.map(c => [c.id, c.slug]));
+const projectBuildersMap = new Map();
+allBuilderRows.forEach(row => {
+  if (!projectBuildersMap.has(row.projectId)) projectBuildersMap.set(row.projectId, []);
+  projectBuildersMap.get(row.projectId).push(builderMap.get(row.builderId));
+});
+
+const projects = projectRows.map(projectRow => ({
+  id: projectRow.id,
+  title: projectRow.title,
+  slug: projectRow.slug,
+  summary: projectRow.summary,
+  description: projectRow.description,
+  url: projectRow.url,
+  repoUrl: projectRow.repoUrl,
+  videoUrl: projectRow.videoUrl,
+  image: projectRow.imagePath,
+  claudeUsage: projectRow.claudeUsage,
+  builtAtEventSlug: undefined, // eventBySlug not strictly needed for archive cards
+  citySlug: projectRow.cityId ? cityMap.get(projectRow.cityId) : '',
+  category: projectRow.category,
+  tags: projectRow.tags,
+  builderSlugs: (projectBuildersMap.get(projectRow.id) || []).filter(Boolean),
+}));
+
+Astro.response.headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=86400');
 ---
 
 <Base
@@ -18,7 +52,7 @@ import { publicProjects } from '@/data';
   <PageIntro
     eyebrow="Projects"
     title="Projects Built With Claude"
-    stamp={`${String(publicProjects.length).padStart(2, '0')} archived`}
+    stamp={`${String(projects.length).padStart(2, '0')} archived`}
   >
     <p><strong>Made with Claude.</strong></p>
     <p>
@@ -27,7 +61,7 @@ import { publicProjects } from '@/data';
   </PageIntro>
 
   <Section id="archive" tone="deep" size="lg" labelledby="projects-heading">
-    <ProjectArchive heading="The archive" eyebrow="Archive" filters />
+    <ProjectArchive projects={projects as any} heading="The archive" eyebrow="Archive" filters />
   </Section>
 
   <Section id="submit" labelledby="build-heading">

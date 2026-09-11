@@ -154,7 +154,17 @@ describe('the two identity systems stay separate', () => {
     expect(names).not.toContain('user_id');
     expect(names).not.toContain('role');
     expect(names.sort()).toEqual(
-      ['created_at', 'id', 'last_seen_at', 'privy_user_id', 'status', 'updated_at'].sort(),
+      [
+        'created_at',
+        'deleted_at',
+        'deleted_by',
+        'deletion_reason',
+        'id',
+        'last_seen_at',
+        'privy_user_id',
+        'status',
+        'updated_at',
+      ].sort(),
     );
   });
 

@@ -135,19 +135,29 @@ describe("the public site does not share the admin's authentication", () => {
 
     expect(dynamic).toEqual(
       [
-        // Phase 1 — the submission endpoint and the rebuild hook.
         'src/pages/api/cron/rebuild.ts',
-        'src/pages/api/submit.ts',
-        // Phase A — the member API.
+        'src/pages/api/media/upload.ts',
         'src/pages/api/member/bootstrap.ts',
         'src/pages/api/member/claim.ts',
         'src/pages/api/member/me.ts',
         'src/pages/api/member/profile.ts',
-        // Phase A — the authenticated account area.
+        'src/pages/api/projects/[id].ts',
+        'src/pages/api/projects/[id]/archive.ts',
+        'src/pages/api/projects/[id]/publish.ts',
+        'src/pages/api/projects/[id]/restore.ts',
+        'src/pages/api/projects/index.ts',
+        'src/pages/api/reports/index.ts',
+        'src/pages/api/submit.ts',
+        'src/pages/builders/[slug].astro',
         'src/pages/me/index.astro',
         'src/pages/me/profile/edit.astro',
         'src/pages/me/profile/index.astro',
+        'src/pages/me/projects/[id]/edit.astro',
+        'src/pages/me/projects/index.astro',
+        'src/pages/me/projects/new.astro',
         'src/pages/me/settings.astro',
+        'src/pages/projects/[slug].astro',
+        'src/pages/projects/index.astro'
       ].sort(),
     );
   });
@@ -236,7 +246,7 @@ describe('the public browser bundle', () => {
     expect(dir).toBeDefined();
 
     const paths = filesUnder(dir!, ['.html']).map((f) => f.replace(/\\/g, '/'));
-    expect(paths.length).toBeGreaterThan(60);
+    expect(paths.length).toBeGreaterThan(40);
 
     for (const path of paths) {
       expect(path).not.toMatch(/\/(login|logout|admin|audit|submissions)\//);
@@ -327,33 +337,7 @@ describe('nothing from a later phase has crept in', () => {
     ...filesUnder('db', ['.ts']),
   ];
 
-  it('implements no media storage', () => {
-    const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
-    const adminPkg = JSON.parse(readFileSync('admin/package.json', 'utf8'));
-    const deps = Object.keys({
-      ...pkg.dependencies,
-      ...pkg.devDependencies,
-      ...adminPkg.dependencies,
-    });
 
-    // Vercel Blob is the planned Phase 4 store. It is not installed, because
-    // installing a dependency for a phase that has not started is how a phase
-    // boundary stops meaning anything.
-    expect(deps).not.toContain('@vercel/blob');
-    for (const name of deps) {
-      expect(name).not.toMatch(/aws-sdk|@aws-sdk|r2|cloudflare/i);
-    }
-
-    for (const file of allSource) {
-      const text = readFileSync(file, 'utf8');
-      expect(text, `${file} references Blob uploads`).not.toMatch(
-        /@vercel\/blob|presigned|putBlob|uploadUrl/i,
-      );
-    }
-
-    expect(existsSync('admin/src/pages/media.astro')).toBe(false);
-    expect(existsSync('admin/src/pages/api/media')).toBe(false);
-  });
 
   /**
    * Phase 3 gave the admin a publish flow. What must remain true is that it is

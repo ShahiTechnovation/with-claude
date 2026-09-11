@@ -1,0 +1,50 @@
+---
+import Base from '@/layouts/Base.astro';
+import PageIntro from '@/components/PageIntro.astro';
+import Section from '@/components/Section.astro';
+import { getMemberProjectForEdit, getIdentityFromRequest } from '@/server/me/queries';
+import ProjectEditor from '@/components/react/ProjectEditor.tsx';
+
+export const prerender = false;
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect('/me/projects');
+
+const identity = await getIdentityFromRequest(Astro.request);
+
+if (!identity.ok) {
+  return Astro.redirect('/join');
+}
+const member = identity.member;
+
+const project = await getMemberProjectForEdit(id, member.id);
+
+if (!project) {
+  return Astro.redirect('/me/projects');
+}
+
+const p = project.projects;
+const initialData = {
+  id: p.id,
+  title: p.title,
+  summary: p.summary ?? '',
+  description: p.description ?? '',
+  claudeUsage: p.claudeUsage ?? '',
+  cityId: p.cityId ?? '',
+  category: p.category,
+  url: p.url ?? '',
+  repoUrl: p.repoUrl ?? '',
+  videoUrl: p.videoUrl ?? '',
+  imagePath: p.imagePath ?? '',
+  publicationStatus: p.publicationStatus,
+};
+---
+
+<Base title={`Edit ${p.title}`} description={`Edit project ${p.title}.`}>
+  <PageIntro eyebrow="Builder Passport" title="Edit Project" size="md" />
+
+  <Section id="editor" labelledby="editor-heading" tone="sunk">
+    <h2 id="editor-heading" class="sr-only">Project Editor</h2>
+    <ProjectEditor initialData={initialData} client:only="react" />
+  </Section>
+</Base>

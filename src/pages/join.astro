@@ -4,7 +4,6 @@ import Section from '@/components/Section.astro';
 import PageIntro from '@/components/PageIntro.astro';
 import JoinFlow from '@/components/JoinFlow.astro';
 import Participation from '@/components/Participation.astro';
-import SubmitPanel from '@/components/SubmitPanel.astro';
 import { site } from '@/data';
 import SignIn from '@/components/react/SignIn';
 import { trail } from '@/lib/seo';
@@ -66,7 +65,7 @@ const loginMethods = (import.meta.env.PUBLIC_PRIVY_LOGIN_METHODS as string | und
          * asking Astro to prerender it would produce markup that is thrown
          * away a moment later.
          */
-        <SignIn client:only="react" appId={privyAppId} loginMethods={loginMethods} next="/me/" />
+        <SignIn client:only="react" appId={privyAppId} loginMethods={loginMethods} next="/me/profile/edit" />
       ) : (
         <p class="passport-unconfigured">
           Sign-in is not configured on this deployment yet. Everything below still works.
@@ -83,26 +82,18 @@ const loginMethods = (import.meta.env.PUBLIC_PRIVY_LOGIN_METHODS as string | und
     <Participation />
   </Section>
 
-  <Section id="contribute-panel" tone="sunk" labelledby="contribute-heading">
-    <SubmitPanel formId="contribute" />
-  </Section>
 
-  <Section id="build-panel" labelledby="build-heading">
-    <SubmitPanel formId="build" />
-  </Section>
-
-  <Section id="practice-panel" tone="sunk" labelledby="practice-heading">
-    <SubmitPanel formId="practice" />
-  </Section>
-
-  <Section id="city-panel" labelledby="city-heading">
-    <SubmitPanel formId="city" />
-  </Section>
 
   <Section id="note" size="sm">
     <p class="note">{site.affiliation}</p>
   </Section>
 </Base>
+
+<script>
+  if (document.cookie.includes('privy-token=')) {
+    window.location.href = '/me/profile/edit';
+  }
+</script>
 
 <style>
   .note {

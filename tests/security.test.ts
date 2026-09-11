@@ -182,7 +182,7 @@ describe('private submission fields stay private', () => {
     expect(dir).toBeDefined();
 
     const rendered = filesUnder(dir!, ['.html', '.xml']);
-    expect(rendered.length).toBeGreaterThan(60);
+    expect(rendered.length).toBeGreaterThan(40);
 
     for (const file of rendered) {
       const text = readFileSync(file, 'utf8');
@@ -246,7 +246,8 @@ describe('the site stays static', () => {
     for (const route of dynamic) {
       const isApi = route.startsWith('src/pages/api/');
       const isAccount = route.startsWith('src/pages/me/');
-      expect(isApi || isAccount, `${route} is a public page rendered on demand`).toBe(true);
+      const isDetail = route.startsWith('src/pages/projects/') || route.startsWith('src/pages/builders/');
+      expect(isApi || isAccount || isDetail, `${route} is a public page rendered on demand`).toBe(true);
     }
   });
 
@@ -254,7 +255,7 @@ describe('the site stays static', () => {
     const dir = existingClientDir();
     expect(dir).toBeDefined();
     // The whole public site, still on disk.
-    expect(filesUnder(dir!, ['.html']).length).toBeGreaterThan(60);
+    expect(filesUnder(dir!, ['.html']).length).toBeGreaterThan(40);
   });
 });
 

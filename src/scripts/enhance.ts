@@ -5,7 +5,6 @@
  * complete, readable and navigable. Nothing is hidden waiting for JS.
  */
 
-import { account } from './account';
 import { claim } from './claim';
 
 const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -238,11 +237,6 @@ function boot(): void {
   initNavToggle();
   initArchivalPlates();
   initWithIndex();
-  // Phase A. Upgrades the masthead's anonymous "Join" slot in place for a
-  // signed-in visitor, and makes no request at all for anybody else — see
-  // `account.ts`. Additive like everything else here: blocked, the page keeps
-  // the anonymous markup it was served with.
-  account();
   // The claim control, on builder pages that have one. No-op elsewhere.
   claim();
 }

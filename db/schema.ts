@@ -108,6 +108,18 @@ export const projectCategory = pgEnum('project_category', [
   'startup',
 ]);
 
+export const publicationStatus = pgEnum('publication_status', ['draft', 'published', 'archived', 'deleted']);
+export const moderationState = pgEnum('moderation_state', ['clean', 'reported', 'restricted', 'archived', 'removed']);
+export const projectMemberRole = pgEnum('project_member_role', ['collaborator', 'contributor']);
+export const mediaStatus = pgEnum('media_status', ['staged', 'published', 'deleted']);
+
+export const reportReason = pgEnum('report_reason', [
+  'spam', 'impersonation', 'harassment', 'misleading', 'stolen_work',
+  'unsafe_link', 'inappropriate_content', 'copyright', 'duplicate', 'privacy', 'other'
+]);
+export const reportStatus = pgEnum('report_status', ['open', 'triaged', 'investigating', 'resolved', 'dismissed']);
+export const reportSeverity = pgEnum('report_severity', ['low', 'medium', 'high', 'critical']);
+
 export const storyKind = pgEnum('story_kind', [
   'recap',
   'profile',
@@ -378,13 +390,26 @@ export const organizations = pgTable('organizations', {
  */
 export const media = pgTable('media', {
   id: uuid('id').primaryKey().defaultRandom(),
+  ownerMemberId: uuid('owner_member_id').references(() => members.id, { onDelete: 'set null' }),
+  blobUrl: text('blob_url'),
+  pathname: text('pathname'),
+  mimeType: text('mime_type'),
+  sizeBytes: integer('size_bytes'),
   /** Path relative to `src/assets`, e.g. `events/vol02-1.jpg`. */
-  path: text('path').notNull().unique(),
+  path: text('path').unique(),
   alt: text('alt').notNull(),
+  caption: text('caption'),
+  credit: text('credit'),
+  consent: boolean('consent').notNull().default(false),
+  status: mediaStatus('status').notNull().default('published'),
   kind: mediaKind('kind').notNull().default('other'),
   width: integer('width'),
   height: integer('height'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  deletedBy: uuid('deleted_by').references(() => users.id, { onDelete: 'set null' }),
+  deletionReason: text('deletion_reason'),
 });
 
 // =========================================================================
@@ -536,8 +561,12 @@ export const builders = pgTable(
      */
     source: contentSource('source').notNull().default('legacy'),
 
+    moderationState: moderationState('moderation_state').notNull().default('clean'),
     createdAt: timestamp('created_at', { withTimezone: true }),
     updatedAt: timestamp('updated_at', { withTimezone: true }),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    deletedBy: uuid('deleted_by').references(() => users.id, { onDelete: 'set null' }),
+    deletionReason: text('deletion_reason'),
   },
   (table) => [
     /**
@@ -797,6 +826,7 @@ export const projects = pgTable(
   'projects',
   {
     id: uuid('id').primaryKey().defaultRandom(),
+    ownerMemberId: uuid('owner_member_id').references(() => members.id, { onDelete: 'restrict' }),
     slug: text('slug').notNull().unique(),
     title: text('title').notNull(),
     cityId: uuid('city_id')
@@ -837,12 +867,19 @@ export const projects = pgTable(
      * for any project without a position — see `src/data/source-db.ts`.
      */
     position: smallint('position'),
+    publicationStatus: publicationStatus('publication_status').notNull().default('draft'),
+    moderationState: moderationState('moderation_state').notNull().default('clean'),
     status: contentStatus('status').notNull().default('draft'),
     featured: boolean('featured').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }),
     updatedAt: timestamp('updated_at', { withTimezone: true }),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    deletedBy: uuid('deleted_by').references(() => users.id, { onDelete: 'set null' }),
+    deletionReason: text('deletion_reason'),
   },
   (table) => [
+    index('projects_publication_idx').on(table.publicationStatus),
+    index('projects_moderation_idx').on(table.moderationState),
     index('projects_city_idx').on(table.cityId),
     index('projects_event_idx').on(table.builtAtEventId),
     index('projects_status_idx').on(table.status),
@@ -861,6 +898,22 @@ export const projectBuilders = pgTable(
     position: smallint('position').notNull().default(0),
   },
   (table) => [primaryKey({ columns: [table.projectId, table.builderId] })],
+);
+
+export const projectMembers = pgTable(
+  'project_members',
+  {
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    memberId: uuid('member_id')
+      .notNull()
+      .references(() => members.id, { onDelete: 'cascade' }),
+    role: projectMemberRole('role').notNull().default('collaborator'),
+    position: smallint('position').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.projectId, table.memberId] })],
 );
 
 // =========================================================================
@@ -1256,6 +1309,9 @@ export const members = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     /** Advanced coarsely on authenticated requests. Not an activity log. */
     lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    deletedBy: uuid('deleted_by').references(() => users.id, { onDelete: 'set null' }),
+    deletionReason: text('deletion_reason'),
   },
   (table) => [index('members_privy_user_idx').on(table.privyUserId)],
 );
@@ -1434,6 +1490,41 @@ export const profileClaims = pgTable(
 );
 
 // =========================================================================
+// REPORTS
+// =========================================================================
+
+export const reports = pgTable(
+  'reports',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    reporterMemberId: uuid('reporter_member_id')
+      .notNull()
+      .references(() => members.id, { onDelete: 'restrict' }),
+    entityType: text('entity_type').notNull(),
+    entityId: uuid('entity_id').notNull(),
+    reason: reportReason('reason').notNull(),
+    details: text('details'),
+    severity: reportSeverity('severity').notNull().default('low'),
+    status: reportStatus('status').notNull().default('open'),
+    assignedModeratorId: uuid('assigned_moderator_id').references(() => users.id, { onDelete: 'set null' }),
+    resolution: text('resolution'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('reports_status_severity_created_idx').on(table.status, table.severity, table.createdAt),
+    index('reports_entity_idx').on(table.entityType, table.entityId),
+    index('reports_reporter_idx').on(table.reporterMemberId),
+    index('reports_moderator_idx').on(table.assignedModeratorId),
+    // Prevent duplicate open reports from the same member against the same entity
+    uniqueIndex('reports_unique_open')
+      .on(table.reporterMemberId, table.entityType, table.entityId)
+      .where(sql`${table.status} = 'open'`),
+  ]
+);
+
+// =========================================================================
 // AUDIT LOG — append-only
 // =========================================================================
 
@@ -1549,10 +1640,17 @@ export const eventsRelations = relations(events, ({ one, many }) => ({
 }));
 
 export const projectsRelations = relations(projects, ({ one, many }) => ({
+  owner: one(members, { fields: [projects.ownerMemberId], references: [members.id] }),
   city: one(cities, { fields: [projects.cityId], references: [cities.id] }),
   builtAtEvent: one(events, { fields: [projects.builtAtEventId], references: [events.id] }),
   image: one(media, { fields: [projects.imageId], references: [media.id] }),
   builders: many(projectBuilders),
+  members: many(projectMembers),
+}));
+
+export const projectMembersRelations = relations(projectMembers, ({ one }) => ({
+  project: one(projects, { fields: [projectMembers.projectId], references: [projects.id] }),
+  member: one(members, { fields: [projectMembers.memberId], references: [members.id] }),
 }));
 
 export const useCasesRelations = relations(useCases, ({ one, many }) => ({

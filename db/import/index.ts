@@ -327,7 +327,7 @@ export async function importRecords(
           set: { alt: photo.alt, kind: 'photo' },
         })
         .returning({ id: schema.media.id, path: schema.media.path });
-      mediaIdByPath.set(row.path, row.id);
+      mediaIdByPath.set(row.path as string, row.id);
     }
     if (event.coverImage) mediaSkippedForMissingAlt += 1;
   }
@@ -784,13 +784,13 @@ export async function importRecords(
       imagePath: project.image ?? null,
       claudeUsage: project.claudeUsage ?? null,
       builtAtEventId,
-      // This project's index in the authored array — see the column's
-      // comment in `db/schema.ts` for why this exists at all.
       position: index,
+      publicationStatus: (status === 'published' || featured) ? 'published' : 'draft',
+      moderationState: 'clean',
       status,
       featured,
       createdAt,
-    };
+    } as const;
 
     const [row] = await db
       .insert(schema.projects)

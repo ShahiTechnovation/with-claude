@@ -24,6 +24,8 @@ interface Props {
   eyebrow?: string;
   /** Show the filter bar. Only meaningful on the full archive page. */
   filters?: boolean;
+  /** Explicitly provided projects, bypassing the static dataset. */
+  projects?: import('@/data').Project[];
 }
 
 const {
@@ -34,9 +36,10 @@ const {
   heading = 'Made with Claude',
   eyebrow = 'Projects',
   filters = false,
+  projects,
 } = Astro.props;
 
-let scoped = publicProjects;
+let scoped = projects ?? publicProjects;
 if (citySlug) scoped = scoped.filter((p) => p.citySlug === citySlug);
 if (builderSlug) scoped = scoped.filter((p) => p.builderSlugs.includes(builderSlug));
 

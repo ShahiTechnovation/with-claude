@@ -72,7 +72,7 @@ const currentCitySlug = await citySlugFor(profile.cityId, db);
         <legend>Who you are</legend>
 
         <label for="username">
-          Username
+          Username <span class="req" aria-hidden="true">*</span>
           <small
             >Your address on the site: <code>/builders/&lt;username&gt;</code>. Lowercase letters,
             numbers, hyphens and underscores.</small
@@ -87,18 +87,19 @@ const currentCitySlug = await citySlugFor(profile.cityId, db);
           pattern="[a-z0-9][a-z0-9_-]{2,29}"
           value={needsUsername ? '' : profile.username}
           placeholder={needsUsername ? 'choose-a-handle' : undefined}
-          required={needsUsername}
+          required
           autocomplete="username"
         />
         <p class="field-error" data-field-error="username"></p>
 
-        <label for="displayName">Name<small>How you want to be listed.</small></label>
+        <label for="displayName">Name <span class="req" aria-hidden="true">*</span><small>How you want to be listed.</small></label>
         <input
           id="displayName"
           name="displayName"
           type="text"
           maxlength="80"
           value={profile.displayName ?? ''}
+          required
           autocomplete="name"
         />
         <p class="field-error" data-field-error="displayName"></p>
@@ -117,8 +118,8 @@ const currentCitySlug = await citySlugFor(profile.cityId, db);
       <fieldset>
         <legend>Where you are</legend>
 
-        <label for="citySlug">City<small>From the atlas. Leave blank if yours is not listed.</small></label>
-        <select id="citySlug" name="citySlug">
+        <label for="citySlug">City <span class="req" aria-hidden="true">*</span><small>From the atlas.</small></label>
+        <select id="citySlug" name="citySlug" required>
           <option value="">—</option>
           {
             cities.map((city) => (
@@ -137,8 +138,8 @@ const currentCitySlug = await citySlugFor(profile.cityId, db);
       <fieldset>
         <legend>What you do</legend>
 
-        <label for="primaryRole">Role</label>
-        <select id="primaryRole" name="primaryRole">
+        <label for="primaryRole">Role <span class="req" aria-hidden="true">*</span></label>
+        <select id="primaryRole" name="primaryRole" required>
           <option value="">—</option>
           {
             SELECTABLE_ROLES.map((role) => (
@@ -234,6 +235,9 @@ const currentCitySlug = await citySlugFor(profile.cityId, db);
     display: block;
     margin: 1.25rem 0 0.35rem;
     font-weight: 500;
+  }
+  .passport-form label .req {
+    color: var(--clay-deep, #d97706);
   }
   .passport-form label small {
     display: block;

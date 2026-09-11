@@ -18,26 +18,49 @@ import { asset } from '@/lib/images';
 import { formatName } from '@/lib/status';
 import { titles, trail } from '@/lib/seo';
 
-/**
- * A project page.
- *
- * The archive is empty today, so this route generates nothing — which is
- * correct. The page exists so that the first real submission has somewhere
- * complete to land, and so the event → project → person loop closes the moment
- * there is a project to close it with.
- */
-export const getStaticPaths = (() =>
-  publicProjects.map((project) => ({
-    params: { slug: project.slug },
-    props: { project },
-  }))) satisfies GetStaticPaths;
+import { getProjectData } from '@/server/directory';
+import { ReportModal } from '@/components/react/ReportModal';
 
-const { project } = Astro.props;
+export const prerender = false;
 
-const makers = builderNamesOf(project);
-const publicMakers = buildersOf(project);
+const { slug } = Astro.params;
+if (!slug) return Astro.redirect('/404');
+
+const data = await getProjectData(slug);
+if (!data) return Astro.redirect('/404');
+
+const { projectRow, builderSlugs, citySlug } = data;
+if (projectRow.publicationStatus !== 'published') return Astro.redirect('/404');
+
+const isAvailable = projectRow.moderationState === 'clean' || projectRow.moderationState === 'reported';
+
+
+// Construct the project object matching what the page expects
+const project = {
+  id: projectRow.id,
+  title: projectRow.title,
+  slug: projectRow.slug,
+  summary: projectRow.summary,
+  description: projectRow.description,
+  url: projectRow.url,
+  repoUrl: projectRow.repoUrl,
+  videoUrl: projectRow.videoUrl,
+  image: projectRow.imagePath,
+  claudeUsage: projectRow.claudeUsage,
+  builtAtEventSlug: projectRow.builtAtEventId ? eventBySlug.get(projectRow.builtAtEventId)?.slug : undefined,
+  citySlug,
+  category: projectRow.category,
+  tags: projectRow.tags,
+  builderSlugs,
+};
+
+// Vercel ISR Cache Control
+Astro.response.headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=86400');
+
+const makers = builderNamesOf(project as any);
+const publicMakers = buildersOf(project as any);
 const bornAt = project.builtAtEventSlug ? eventBySlug.get(project.builtAtEventSlug) : undefined;
-const image = asset(project.image);
+const image = asset(project.image || undefined);
 
 const schema = [
   {
@@ -71,13 +94,15 @@ const crumbs = trail(
   image={image ? undefined : '/og-card.jpg'}
   schema={schema}
 >
-  <PageIntro
-    eyebrow={`${formatName(project.category)} · ${cityName(project.citySlug)}`}
-    title={project.title}
-    size="lg"
-  >
-    <p>{project.summary}</p>
-  </PageIntro>
+  {isAvailable ? (
+    <>
+      <PageIntro
+        eyebrow={`${formatName(project.category)} · ${cityName(project.citySlug)}`}
+        title={project.title}
+        size="lg"
+      >
+        <p>{project.summary}</p>
+      </PageIntro>
 
   <Section id="detail" tone="sunk" labelledby="detail-heading">
     <h2 id="detail-heading" class="visually-hidden">About {project.title}</h2>
@@ -211,6 +236,10 @@ const crumbs = trail(
         </dl>
 
         {project.tags && project.tags.length > 0 && <p class="tags">{project.tags.join(' · ')}</p>}
+        
+        <div class="mt-8 pt-6 border-t border-neutral-100">
+          <ReportModal client:load entityType="project" entityId={project.id} />
+        </div>
       </aside>
     </div>
   </Section>
@@ -221,6 +250,12 @@ const crumbs = trail(
       <span class="arrow" aria-hidden="true">→</span>
     </a>
   </Section>
+  </>
+  ) : (
+    <PageIntro eyebrow="Unavailable" title="Project Unavailable" size="lg">
+      <p>This project is currently unavailable.</p>
+    </PageIntro>
+  )}
 </Base>
 
 <style>

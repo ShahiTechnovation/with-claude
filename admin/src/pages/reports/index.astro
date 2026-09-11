@@ -1,0 +1,137 @@
+---
+import Admin from '@/layouts/Admin.astro';
+import { pooledDb } from '@db/pool';
+import * as dbSchema from '@db/schema';
+import { eq, desc, sql, inArray } from 'drizzle-orm';
+
+export const prerender = false;
+
+const db = pooledDb();
+const PAGE_SIZE = 50;
+
+const pageParam = Number(Astro.url.searchParams.get('page') ?? '1');
+const page = Number.isFinite(pageParam) && pageParam >= 1 ? Math.floor(pageParam) : 1;
+const offset = (page - 1) * PAGE_SIZE;
+
+const statusParam = Astro.url.searchParams.get('status') || 'open';
+const severityParam = Astro.url.searchParams.get('severity');
+
+const conditions = [];
+
+if (statusParam && statusParam !== 'all') {
+  conditions.push(eq(dbSchema.reports.status, statusParam as any));
+}
+if (severityParam) {
+  const severities = severityParam.split(',');
+  conditions.push(inArray(dbSchema.reports.severity, severities as any));
+}
+
+const whereClause = conditions.length > 0 
+  ? sql.join(conditions.map(c => sql`${c}`), sql` AND `)
+  : undefined;
+
+const reports = await db
+  .select()
+  .from(dbSchema.reports)
+  .where(whereClause)
+  .orderBy(desc(dbSchema.reports.createdAt))
+  .limit(PAGE_SIZE + 1)
+  .offset(offset);
+
+const hasNext = reports.length > PAGE_SIZE;
+const rows = hasNext ? reports.slice(0, PAGE_SIZE) : reports;
+
+function formatAge(date: Date) {
+  const diff = Date.now() - date.getTime();
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  if (days === 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  return `${days}d ago`;
+}
+---
+
+<Admin title="Reports Queue" active="/reports">
+  <div class="space-y-6">
+    <header class="flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight text-neutral-900">Reports Queue</h1>
+        <p class="text-neutral-500 mt-1">Review and action community reports.</p>
+      </div>
+      <div class="flex gap-2">
+        <a href="/reports?status=open" class={`px-3 py-1.5 text-sm font-medium rounded-md ${statusParam === 'open' ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}>Open</a>
+        <a href="/reports?status=resolved" class={`px-3 py-1.5 text-sm font-medium rounded-md ${statusParam === 'resolved' ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}>Resolved</a>
+        <a href="/reports?status=all" class={`px-3 py-1.5 text-sm font-medium rounded-md ${statusParam === 'all' ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}>All</a>
+      </div>
+    </header>
+
+    <div class="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+      <table class="min-w-full divide-y divide-neutral-200 text-sm">
+        <thead class="bg-neutral-50">
+          <tr>
+            <th class="px-4 py-3 text-left font-medium text-neutral-500">Entity</th>
+            <th class="px-4 py-3 text-left font-medium text-neutral-500">Reason</th>
+            <th class="px-4 py-3 text-left font-medium text-neutral-500">Severity</th>
+            <th class="px-4 py-3 text-left font-medium text-neutral-500">Status</th>
+            <th class="px-4 py-3 text-right font-medium text-neutral-500">Age</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-neutral-200 bg-white">
+          {rows.length > 0 ? (
+            rows.map((report) => (
+              <tr class="hover:bg-neutral-50 cursor-pointer" onclick={`window.location.href='/reports/${report.id}'`}>
+                <td class="px-4 py-3 whitespace-nowrap font-medium text-neutral-900">
+                  {report.entityType} <span class="text-xs font-normal text-neutral-400">({report.entityId.slice(0,8)}…)</span>
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap text-neutral-600">{report.reason}</td>
+                <td class="px-4 py-3 whitespace-nowrap">
+                  <span class={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                    report.severity === 'critical' ? 'bg-red-100 text-red-800' :
+                    report.severity === 'high' ? 'bg-orange-100 text-orange-800' :
+                    report.severity === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-neutral-100 text-neutral-800'
+                  }`}>
+                    {report.severity}
+                  </span>
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">
+                  <span class={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                    report.status === 'open' ? 'bg-blue-100 text-blue-800' :
+                    report.status === 'resolved' ? 'bg-green-100 text-green-800' :
+                    'bg-neutral-100 text-neutral-800'
+                  }`}>
+                    {report.status}
+                  </span>
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap text-right text-neutral-500">
+                  {formatAge(report.createdAt)}
+                </td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colspan="5" class="px-4 py-8 text-center text-neutral-500 italic">No reports found matching these filters.</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+      
+      {(page > 1 || hasNext) && (
+        <div class="px-4 py-3 border-t border-neutral-200 flex items-center justify-between bg-neutral-50">
+          <a
+            href={`/reports?status=${statusParam}&page=${page - 1}`}
+            class={`text-sm font-medium ${page <= 1 ? 'pointer-events-none text-neutral-400' : 'text-black hover:underline'}`}
+          >
+            &larr; Previous
+          </a>
+          <span class="text-sm text-neutral-500">Page {page}</span>
+          <a
+            href={`/reports?status=${statusParam}&page=${page + 1}`}
+            class={`text-sm font-medium ${!hasNext ? 'pointer-events-none text-neutral-400' : 'text-black hover:underline'}`}
+          >
+            Next &rarr;
+          </a>
+        </div>
+      )}
+    </div>
+  </div>
+</Admin>

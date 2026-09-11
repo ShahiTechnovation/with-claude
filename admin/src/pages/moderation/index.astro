@@ -1,0 +1,173 @@
+---
+import Admin from '@/layouts/Admin.astro';
+import { pooledDb } from '@db/pool';
+import * as dbSchema from '@db/schema';
+import { eq, inArray, desc, sql } from 'drizzle-orm';
+
+export const prerender = false;
+
+const db = pooledDb();
+
+// 1. Critical/High severity open reports
+const criticalReports = await db
+  .select()
+  .from(dbSchema.reports)
+  .where(
+    sql`${dbSchema.reports.status} = 'open' AND ${dbSchema.reports.severity} IN ('high', 'critical')`
+  )
+  .orderBy(desc(dbSchema.reports.createdAt))
+  .limit(10);
+
+// 2. Open reports (general queue)
+const openReports = await db
+  .select()
+  .from(dbSchema.reports)
+  .where(eq(dbSchema.reports.status, 'open'))
+  .orderBy(desc(dbSchema.reports.createdAt))
+  .limit(10);
+
+// 3. Recently restricted projects (as an example of recently restricted content)
+const restrictedProjects = await db
+  .select({ id: dbSchema.projects.id, title: dbSchema.projects.title, slug: dbSchema.projects.slug, updatedAt: dbSchema.projects.updatedAt })
+  .from(dbSchema.projects)
+  .where(eq(dbSchema.projects.moderationState, 'restricted'))
+  .orderBy(desc(dbSchema.projects.updatedAt))
+  .limit(5);
+
+const restrictedBuilders = await db
+  .select({ id: dbSchema.builders.id, name: dbSchema.builders.name, slug: dbSchema.builders.slug, updatedAt: dbSchema.builders.updatedAt })
+  .from(dbSchema.builders)
+  .where(eq(dbSchema.builders.moderationState, 'restricted'))
+  .orderBy(desc(dbSchema.builders.updatedAt))
+  .limit(5);
+
+function formatAge(date: Date) {
+  const diff = Date.now() - date.getTime();
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  if (days === 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  return `${days}d ago`;
+}
+---
+
+<Admin title="Moderation Dashboard" active="/moderation">
+  <div class="space-y-12">
+    <header>
+      <h1 class="text-2xl font-bold tracking-tight text-neutral-900">Moderation Queue</h1>
+      <p class="text-neutral-500 mt-1">
+        Review reports and manage restricted content.
+      </p>
+    </header>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+      
+      <!-- Critical / High Reports -->
+      <section>
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold text-neutral-900 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-red-500"></span>
+            Critical & High Priority
+          </h2>
+          <a href="/reports?severity=critical,high" class="text-sm font-medium text-black hover:underline">View all</a>
+        </div>
+        
+        {criticalReports.length > 0 ? (
+          <ul class="divide-y divide-neutral-100 border-y border-neutral-100">
+            {criticalReports.map((report) => (
+              <li class="py-3">
+                <a href={`/reports/${report.id}`} class="block hover:bg-neutral-50 -mx-2 px-2 rounded">
+                  <div class="flex items-center justify-between">
+                    <span class="font-medium text-sm text-neutral-900">{report.entityType}</span>
+                    <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-red-50 text-red-700">{report.severity}</span>
+                  </div>
+                  <div class="flex items-center justify-between mt-1">
+                    <span class="text-sm text-neutral-500">{report.reason}</span>
+                    <span class="text-xs text-neutral-400">{formatAge(report.createdAt)}</span>
+                  </div>
+                </a>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div class="p-6 border border-dashed border-neutral-200 rounded-lg text-center">
+            <p class="text-sm text-neutral-500">No critical reports open.</p>
+          </div>
+        )}
+      </section>
+
+      <!-- All Open Reports -->
+      <section>
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold text-neutral-900 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+            Recent Open Reports
+          </h2>
+          <a href="/reports" class="text-sm font-medium text-black hover:underline">View all</a>
+        </div>
+        
+        {openReports.length > 0 ? (
+          <ul class="divide-y divide-neutral-100 border-y border-neutral-100">
+            {openReports.map((report) => (
+              <li class="py-3">
+                <a href={`/reports/${report.id}`} class="block hover:bg-neutral-50 -mx-2 px-2 rounded">
+                  <div class="flex items-center justify-between">
+                    <span class="font-medium text-sm text-neutral-900">{report.entityType}</span>
+                    <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">{report.status}</span>
+                  </div>
+                  <div class="flex items-center justify-between mt-1">
+                    <span class="text-sm text-neutral-500">{report.reason}</span>
+                    <span class="text-xs text-neutral-400">{formatAge(report.createdAt)}</span>
+                  </div>
+                </a>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div class="p-6 border border-dashed border-neutral-200 rounded-lg text-center">
+            <p class="text-sm text-neutral-500">Inbox zero.</p>
+          </div>
+        )}
+      </section>
+
+    </div>
+
+    <!-- Restricted Content -->
+    <section>
+      <h2 class="text-lg font-semibold text-neutral-900 mb-4">Recently Restricted Content</h2>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div>
+          <h3 class="text-sm font-medium text-neutral-500 mb-3 uppercase tracking-wider">Projects</h3>
+          {restrictedProjects.length > 0 ? (
+            <ul class="divide-y divide-neutral-100 border-y border-neutral-100">
+              {restrictedProjects.map((p) => (
+                <li class="py-3 flex items-center justify-between">
+                  <span class="text-sm font-medium text-neutral-900">{p.title}</span>
+                  <span class="text-xs text-neutral-400">{formatAge(p.updatedAt ?? new Date())}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p class="text-sm text-neutral-500 italic">None</p>
+          )}
+        </div>
+        
+        <div>
+          <h3 class="text-sm font-medium text-neutral-500 mb-3 uppercase tracking-wider">Builders</h3>
+          {restrictedBuilders.length > 0 ? (
+            <ul class="divide-y divide-neutral-100 border-y border-neutral-100">
+              {restrictedBuilders.map((b) => (
+                <li class="py-3 flex items-center justify-between">
+                  <span class="text-sm font-medium text-neutral-900">{b.name}</span>
+                  <span class="text-xs text-neutral-400">{formatAge(b.updatedAt ?? new Date())}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p class="text-sm text-neutral-500 italic">None</p>
+          )}
+        </div>
+      </div>
+    </section>
+  </div>
+</Admin>

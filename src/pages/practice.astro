@@ -1,0 +1,55 @@
+---
+import Base from '@/layouts/Base.astro';
+import PageIntro from '@/components/PageIntro.astro';
+import Section from '@/components/Section.astro';
+import SignIn from '@/components/react/SignIn.tsx';
+
+const appId = import.meta.env.PUBLIC_PRIVY_APP_ID;
+---
+
+<Base
+  title="Share a Practice"
+  description="Share a Claude practice with the community."
+>
+  <PageIntro eyebrow="Contribute" title="Share a Practice" size="md">
+    <p>
+      Found a prompting technique or workflow that consistently delivers? Share it. 
+      Practices are attributed to your Builder Passport.
+    </p>
+  </PageIntro>
+
+  <Section id="auth" labelledby="auth-heading" tone="sunk">
+    <h2 id="auth-heading" class="sr-only">Sign In</h2>
+    <div class="auth-panel">
+      <p>
+        The story and practice creation flow is coming soon. For now, create your 
+        Builder Passport so your profile is ready.
+      </p>
+      <div class="auth-action">
+        <SignIn appId={appId} client:only="react" next="/me" />
+      </div>
+    </div>
+  </Section>
+</Base>
+
+<script>
+  if (document.cookie.includes('privy-token=')) {
+    window.location.href = '/me';
+  }
+</script>
+
+<style>
+  .auth-panel {
+    max-width: 32rem;
+    padding: var(--s-6);
+    background: var(--paper);
+    border: 1px solid var(--rule);
+  }
+  .auth-panel p {
+    margin-bottom: var(--s-5);
+    color: var(--ink-2);
+  }
+  .auth-action {
+    display: flex;
+  }
+</style>

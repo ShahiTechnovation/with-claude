@@ -16,7 +16,7 @@ import '@/styles/admin.css';
 interface Props {
   title: string;
   /** Nav item to mark current. */
-  active?: 'submissions' | 'publish' | 'audit';
+  active?: 'submissions' | 'publish' | 'audit' | '/moderation' | '/reports';
   /** Chrome is dropped on the login page — there is nobody to show yet. */
   bare?: boolean;
 }
@@ -40,11 +40,17 @@ const user = Astro.locals.user;
     {
       !bare && user && (
         <header class="masthead">
-          <a class="wordmark" href="/submissions">
+          <a class="wordmark" href="/moderation">
             WITH CLAUDE <span>admin</span>
           </a>
 
           <nav aria-label="Sections">
+            <a href="/moderation" aria-current={active === '/moderation' ? 'page' : undefined}>
+              Moderation
+            </a>
+            <a href="/reports" aria-current={active === '/reports' ? 'page' : undefined}>
+              Reports
+            </a>
             <a href="/submissions" aria-current={active === 'submissions' ? 'page' : undefined}>
               Submissions
             </a>
