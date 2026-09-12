@@ -3,13 +3,13 @@
  * The masthead's account slot.
  *
  * Rendered ANONYMOUS by the server — every page stays CDN-cacheable. The
- * AccountMenu React island upgrades it in the browser for signed-in visitors.
+ * PrivyRoot island upgrades it in the browser for signed-in visitors.
  *
  * With JS off: the fallback is the static "Join WITH CLAUDE" link rendered
  * server-side by AccountMenu (it returns a stable placeholder during Privy
  * hydration to prevent layout shift).
  */
-import AccountMenu from '@/components/react/AccountMenu';
+import PrivyRoot from '@/components/react/PrivyRoot';
 
 const appId = import.meta.env.PUBLIC_PRIVY_APP_ID as string | undefined;
 const loginMethods = (import.meta.env.PUBLIC_PRIVY_LOGIN_METHODS as string | undefined)
@@ -18,15 +18,19 @@ const loginMethods = (import.meta.env.PUBLIC_PRIVY_LOGIN_METHODS as string | und
   .filter(Boolean);
 ---
 
-{
-  appId ? (
-    <AccountMenu appId={appId} loginMethods={loginMethods} client:only="react" />
-  ) : (
-    <div class="account-slot" data-account-state="anonymous">
-      <a class="account-join" href="/join/">Join WITH CLAUDE</a>
-    </div>
-  )
-}
+<!--
+  Static baseline for no-JS and the moment before hydration. `PrivyRoot` — the
+  ONE PrivyProvider on the site, see that file — portals into this node by id
+  once it mounts, upgrading it for signed-in visitors. `js-hydrate-hide` marks
+  content PrivyRoot removes on mount, since a portal target is a node React
+  never rendered and so never clears on its own — without the marker, the
+  static fallback and the live button would both stay in the DOM at once.
+-->
+<div id="account-slot-root" class="account-slot" data-account-state="anonymous">
+  <a class="account-join js-hydrate-hide" href="/join/">Join WITH CLAUDE</a>
+</div>
+
+{appId && <PrivyRoot appId={appId} loginMethods={loginMethods} client:only="react" />}
 
 <style is:global>
   .account-slot {

@@ -98,11 +98,14 @@ export default defineConfig({
      * React component and has no vanilla equivalent.
      *
      * Adding the integration does NOT put React on the site. Astro ships a
-     * framework only to pages that actually mount an island, and the only
-     * island is `SignIn.tsx` on `/join` and `/me/*`. The 72 archive pages
-     * carry no React, and the auth-aware masthead on them is
-     * `src/scripts/account.ts` — about a kilobyte of plain TypeScript —
-     * precisely so that it stays that way.
+     * framework only to pages that actually mount an island, and there is
+     * exactly one island on the whole site: `PrivyRoot`, mounted once from
+     * `AccountNav.astro` (itself included once by `Masthead.astro`). It
+     * portals both the masthead account control and, on `/join`, `/practice`,
+     * `/city` and `/submit`, that page's own sign-in CTA into their own DOM
+     * nodes — one `PrivyProvider`, several visual slots. A second provider
+     * instance on the same page is not a lighter-weight alternative to this;
+     * it is the exact bug this island exists to avoid (see `PrivyRoot.tsx`).
      */
     react(),
     sitemap({

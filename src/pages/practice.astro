@@ -2,9 +2,6 @@
 import Base from '@/layouts/Base.astro';
 import PageIntro from '@/components/PageIntro.astro';
 import Section from '@/components/Section.astro';
-import SignIn from '@/components/react/SignIn.tsx';
-
-const appId = import.meta.env.PUBLIC_PRIVY_APP_ID;
 ---
 
 <Base
@@ -26,7 +23,10 @@ const appId = import.meta.env.PUBLIC_PRIVY_APP_ID;
         Builder Passport so your profile is ready.
       </p>
       <div class="auth-action">
-        <SignIn appId={appId} client:only="react" next="/me" />
+        <!-- PrivyRoot (mounted once, sitewide) portals its login button here. -->
+        <div id="join-cta-root" data-next="/me">
+          <p class="signin-status js-hydrate-hide">Checking…</p>
+        </div>
       </div>
     </div>
   </Section>
