@@ -35,6 +35,7 @@ import { and, eq } from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import { z } from 'zod';
 import * as schema from '../../../db/schema';
+import { SELECTABLE_ROLES } from '../../lib/roles';
 import type { Member } from '../auth/member';
 import { checkUsernameAvailable } from './username';
 
@@ -79,20 +80,15 @@ export type UserOwnedField = (typeof USER_OWNED_FIELDS)[number];
  * three times over: it is absent here, `PROTECTED_ROLE_WORDS` catches it in
  * free text, and `builders.roles` carries a CHECK that makes the database
  * refuse the row outright.
+ *
+ * Re-exported from `src/lib/roles.ts` rather than declared here, so
+ * `ProfileEditor.tsx` can render a `<select>` offering exactly what this
+ * validator accepts. It used to be declared only here, the client rendered a
+ * free-text `<input>` for the same field, and every profile starts with
+ * `primaryRole: null` — so the form's default empty string failed this enum
+ * on every single save.
  */
-export const SELECTABLE_ROLES = [
-  'Founder',
-  'Developer',
-  'Designer',
-  'Researcher',
-  'Student',
-  'Creator',
-  'Product',
-  'Marketer',
-  'Operator',
-  'Investor',
-  'Educator',
-] as const;
+export { SELECTABLE_ROLES };
 
 /**
  * Words that may not appear in any member-supplied role, headline or display

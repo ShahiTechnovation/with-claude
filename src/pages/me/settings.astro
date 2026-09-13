@@ -2,7 +2,6 @@
 import { guardPage, privateHeaders } from '@/server/http/page-guard';
 import AuthRequired from '@/components/AuthRequired.astro';
 import Base from '@/layouts/Base.astro';
-import SignOutButton from '@/components/react/SignOutButton';
 
 export const prerender = false;
 
@@ -40,7 +39,15 @@ if (guard.ok) privateHeaders(Astro);
       <section class="account-section danger-zone">
         <h2>Sign out</h2>
         <div class="actions">
-          <SignOutButton client:only="react" />
+          {/*
+            Portaled by `PrivyRoot`'s `SignOutSlot`, the same way the
+            masthead's account control and the sign-in CTA are placed on
+            other pages — one `PrivyProvider`, several visual slots. This
+            used to be its own separate `<SignOutButton client:only="react">`
+            island with no provider ancestor, so `logout()` there threw
+            every time and the button did nothing. See `PrivyRoot.tsx`.
+          */}
+          <div id="signout-slot-root" />
         </div>
       </section>
     </main>

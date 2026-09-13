@@ -1,13 +1,39 @@
 import { useState } from 'react';
-import { usePrivy } from '@privy-io/react-auth';
+import { describeAccountError } from '@/lib/account-fetch';
 
 interface ReportModalProps {
   entityType: 'builder' | 'project' | 'media';
   entityId: string;
 }
 
+/**
+ * `ReportModal` is mounted with `client:load` directly on `/builders/[slug]`
+ * and `/projects/[slug]` — its own React root, not inside the site's one
+ * `PrivyProvider` (see `src/lib/account-fetch.ts` for the full explanation).
+ *
+ * Two consequences, both real bugs, neither previously caught:
+ *
+ * 1. `authenticated` reads the SDK's default context value, which is
+ *    HARD-CODED `false`. So the "Report" button's own gate —
+ *    `if (!authenticated) login()` — ran on every single click, for every
+ *    visitor, signed in or not.
+ * 2. `login()` on that same default context THROWS synchronously
+ *    ("You need to wrap your application with the <PrivyProvider>…"), and
+ *    nothing here caught it. So clicking "Report" did nothing visible, for
+ *    everyone, always — the exact silent-failure signature this session
+ *    already found in `SignOutButton`.
+ *
+ * These pages are public and unauthenticated visitors are expected, so the
+ * fix does not try to make `authenticated` correct client-side (that would
+ * need the SSR page itself to peek at the session cookie and pass the
+ * result down, which is a larger change for a modal that already has a
+ * server it can just ask). Instead: always let "Report" open the form, and
+ * let the ACTUAL POST — which the server already authenticates from the
+ * `privy-token` cookie a same-origin request carries automatically — be the
+ * one honest answer to "is this person signed in". A 401 there means
+ * genuinely not signed in, and is shown as such rather than swallowed.
+ */
 export function ReportModal({ entityType, entityId }: ReportModalProps) {
-  const { authenticated, login } = usePrivy();
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -28,13 +54,7 @@ export function ReportModal({ entityType, entityId }: ReportModalProps) {
   if (!isOpen) {
     return (
       <button
-        onClick={() => {
-          if (!authenticated) {
-            login();
-          } else {
-            setIsOpen(true);
-          }
-        }}
+        onClick={() => setIsOpen(true)}
         className="text-sm text-neutral-400 hover:text-neutral-700 underline decoration-neutral-300 underline-offset-4"
         title="Report this content"
       >
@@ -45,20 +65,26 @@ export function ReportModal({ entityType, entityId }: ReportModalProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!authenticated) return;
     setIsSubmitting(true);
     setError(null);
 
     try {
-      const res = await fetch('/api/reports', {
+      // Same-origin, so the browser sends the `privy-token` cookie
+      // automatically — no Authorization header needed. Trailing slash to
+      // avoid a redirect (`trailingSlash: 'always'`, `astro.config.mjs`).
+      const res = await fetch('/api/reports/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ entityType, entityId, reason, details }),
+        credentials: 'same-origin',
       });
 
-      const body = await res.json();
       if (!res.ok) {
-        throw new Error(body.error || 'Failed to submit report');
+        // 401 here is the real, honest "not signed in" — the one this
+        // component previously never reached, because the broken client-side
+        // `authenticated` check intercepted every click before the form even
+        // opened.
+        throw new Error(await describeAccountError(res));
       }
 
       setSuccess(true);

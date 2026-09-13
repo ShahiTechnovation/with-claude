@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { upload } from '@vercel/blob/client';
 import { usePrivy } from '@privy-io/react-auth';
+import { accountFetch, describeAccountError } from '@/lib/account-fetch';
 
 interface InitialData {
   id?: string;
@@ -40,11 +41,33 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Init
   const [message, setMessage] = useState('');
   const [file, setFile] = useState<File | null>(null);
 
-  const authHeaders = async () => {
-    const token = await getAccessToken();
-    if (!token) throw new Error('Please sign in again.');
-    return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
-  };
+  /**
+   * A mutation to this project's own API, via `accountFetch`.
+   *
+   * This used to build its own `Authorization` header with a local
+   * `authHeaders()` helper that called `await getAccessToken()` directly and
+   * threw if it came back falsy. It never got that far: `ProjectEditor` is
+   * mounted as its own island (`client:only="react"`, outside the site's one
+   * `PrivyProvider` — see `src/lib/account-fetch.ts`), so `getAccessToken`
+   * THROWS synchronously every time it is called here, with the message
+   * "You need to wrap your application with the <PrivyProvider>…". That
+   * throw propagated straight out of `authHeaders()`, past every call site,
+   * into `catch (err: any) { setError(err.message) }` — so every save,
+   * publish, archive and restore showed that raw SDK internal-error string
+   * to the person using the site.
+   *
+   * URLs also now carry the trailing slash every other route on this site
+   * uses (`trailingSlash: 'always'` in `astro.config.mjs`); without it each
+   * of these was a needless 308 redirect that a browser's `fetch()` does
+   * follow correctly, but there is no reason to pay for a hop that costs
+   * nothing to avoid.
+   */
+  const mutate = (path: string, init: RequestInit) =>
+    accountFetch(
+      path,
+      { ...init, headers: { 'Content-Type': 'application/json', ...init.headers } },
+      getAccessToken,
+    );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -57,7 +80,7 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Init
 
     try {
       let currentId = id;
-      
+
       // Upload file if selected
       let finalImagePath = formData.imagePath;
       if (file) {
@@ -66,7 +89,7 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Init
           handleUploadUrl: '/api/media/upload',
         });
         finalImagePath = newBlob.url;
-        setFormData(prev => ({ ...prev, imagePath: finalImagePath }));
+        setFormData((prev) => ({ ...prev, imagePath: finalImagePath }));
       }
 
       const payload = {
@@ -76,50 +99,34 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Init
 
       if (!currentId) {
         // Create draft
-        const res = await fetch('/api/projects', {
-          method: 'POST',
-          headers: await authHeaders(),
-          body: JSON.stringify(payload),
-        });
+        const res = await mutate('/api/projects/', { method: 'POST', body: JSON.stringify(payload) });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed to create project');
+        if (!res.ok) throw new Error(data.error || (await describeAccountError(res)));
         currentId = data.id;
         setId(data.id);
-        window.history.replaceState({}, '', `/me/projects/${data.id}/edit`);
+        window.history.replaceState({}, '', `/me/projects/${data.id}/edit/`);
       } else {
         // Update existing
-        const res = await fetch(`/api/projects/${currentId}`, {
-          method: 'PUT',
-          headers: await authHeaders(),
-          body: JSON.stringify(payload),
-        });
+        const res = await mutate(`/api/projects/${currentId}/`, { method: 'PUT', body: JSON.stringify(payload) });
         if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.error || 'Failed to update project');
+          const data = await res.json().catch(() => null);
+          throw new Error(data?.error || (await describeAccountError(res)));
         }
       }
 
       if (publish && status !== 'published') {
-        const res = await fetch(`/api/projects/${currentId}/publish`, {
-          method: 'POST',
-          headers: await authHeaders(),
-          body: '{}',
-        });
+        const res = await mutate(`/api/projects/${currentId}/publish/`, { method: 'POST', body: '{}' });
         if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.error || 'Failed to publish project');
+          const data = await res.json().catch(() => null);
+          throw new Error(data?.error || (await describeAccountError(res)));
         }
         setStatus('published');
         setMessage('Project published successfully!');
       } else if (!publish && status === 'published') {
-        const res = await fetch(`/api/projects/${currentId}/archive`, {
-          method: 'POST',
-          headers: await authHeaders(),
-          body: '{}',
-        });
+        const res = await mutate(`/api/projects/${currentId}/archive/`, { method: 'POST', body: '{}' });
         if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.error || 'Failed to unpublish project');
+          const data = await res.json().catch(() => null);
+          throw new Error(data?.error || (await describeAccountError(res)));
         }
         setStatus('archived');
         setMessage('Project archived.');
@@ -138,12 +145,8 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Init
     setLoading(true);
     setError('');
     try {
-      const response = await fetch(`/api/projects/${id}/restore`, {
-        method: 'POST',
-        headers: await authHeaders(),
-        body: '{}',
-      });
-      if (!response.ok) throw new Error('Failed to restore project');
+      const response = await mutate(`/api/projects/${id}/restore/`, { method: 'POST', body: '{}' });
+      if (!response.ok) throw new Error(await describeAccountError(response));
       setStatus('draft');
       setMessage('Project restored to drafts.');
     } catch (err: any) {

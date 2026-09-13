@@ -3,11 +3,32 @@ import { guardPage, privateHeaders } from '@/server/http/page-guard';
 import AuthRequired from '@/components/AuthRequired.astro';
 import Base from '@/layouts/Base.astro';
 import ProfileEditor from '@/components/react/ProfileEditor';
+import { citySlugFor } from '@/server/members/profile';
 
 export const prerender = false;
 
 const guard = await guardPage(Astro);
-if (guard.ok) privateHeaders(Astro);
+let citySlug = '';
+
+if (guard.ok) {
+  privateHeaders(Astro);
+  /**
+   * `ProfileRow` has `cityId`, not `citySlug` — this page used to pass
+   * `guard.profile` straight through to `ProfileEditor`, whose state
+   * initializer read a `citySlug` field that never existed on that object.
+   * The city dropdown silently opened blank, and saving without touching it
+   * sent `citySlug: ''`, which the server correctly reads as "clear the
+   * city" — a real member's city would be wiped on every save that didn't
+   * happen to re-select it.
+   *
+   * `citySlugFor()` is the same resolver `/me/profile` (the read-only page)
+   * already uses for the same field. One helper, one answer, imported here
+   * instead of duplicated.
+   */
+  if (guard.profile.cityId) {
+    citySlug = await citySlugFor(guard.profile.cityId, guard.db);
+  }
+}
 ---
 
 {!guard.ok ? (
@@ -18,7 +39,20 @@ if (guard.ok) privateHeaders(Astro);
   <Base title="Edit Profile" description="Edit your profile." active="/me" noindex>
     <main class="account-page">
       <h1>Edit Profile</h1>
-      <ProfileEditor profile={guard.profile} client:only="react" />
+      <ProfileEditor
+        profile={{
+          username: guard.profile.username,
+          displayName: guard.profile.displayName,
+          citySlug,
+          primaryRole: guard.profile.primaryRole,
+          headline: guard.profile.headline,
+          bio: guard.profile.bio,
+          claudeSince: guard.profile.claudeSince,
+          website: guard.profile.website,
+          visibility: guard.profile.visibility,
+        }}
+        client:only="react"
+      />
     </main>
   </Base>
 )}

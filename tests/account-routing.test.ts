@@ -121,3 +121,129 @@ describe('account routing', () => {
     expect(root).toContain('server-unavailable');
   });
 });
+
+/**
+ * THE PROFILE SAVE REGRESSION.
+ *
+ * Production symptom: clicking "Save changes" on `/me/profile/edit` always
+ * showed "Network error while saving.", for every account, every time. Root
+ * cause: `ProfileEditor` (and `ProjectEditor`, and the now-deleted
+ * `SignOutButton`) are mounted with `client:only="react"` — their own React
+ * root, not a descendant of `PrivyRoot`'s one `<PrivyProvider>`. `usePrivy()`
+ * there returns the SDK's DEFAULT context value, whose `getAccessToken` is
+ * `() => { throw Error("You need to wrap your application with the
+ * <PrivyProvider>…") }`. That throw was caught by `ProfileEditor`'s own
+ * try/catch and reported as a generic network failure — no request was ever
+ * sent.
+ *
+ * These assertions read source rather than mounting React (this repo has no
+ * DOM test environment — see `vitest.config.ts`), which is the same approach
+ * already used for every other guard-contract test in this file. What they
+ * lock in is that the FIX stays in place: `getAccessToken()` is never called
+ * unguarded again, and the two structural mismatches uncovered alongside it
+ * — a missing `citySlug` resolution and a free-text field validated as a
+ * closed enum — do not silently return.
+ */
+describe('the profile save regression', () => {
+  it('routes every mutation through accountFetch rather than calling getAccessToken() inline', () => {
+    for (const file of [
+      'src/components/react/ProfileEditor.tsx',
+      'src/components/react/ProjectEditor.tsx',
+    ]) {
+      // Code only — strip block comments first, so a historical explanation
+      // of the OLD bug (which necessarily quotes the broken call) cannot
+      // make this assertion pass or fail on prose rather than on code.
+      const code = source(file).replace(/\/\*[\s\S]*?\*\//g, '');
+
+      // The call must go through the shared helper, not be inlined again —
+      // a second inlined copy of the same mistake is exactly how this
+      // regressed the first time (`ProfileEditor` and `ProjectEditor` each
+      // had their own copy of "call getAccessToken, build headers").
+      expect(code, `${file} must route auth through accountFetch`).toContain('accountFetch');
+      expect(code, `${file} must not call getAccessToken() directly`).not.toContain(
+        'await getAccessToken()',
+      );
+    }
+  });
+
+  it('accountFetch swallows a missing-provider throw rather than surfacing it as a network error', () => {
+    const code = source('src/lib/account-fetch.ts');
+    expect(code).toContain('export async function accountFetch');
+    // The try/catch around getAccessToken() must not rethrow or return early —
+    // it has to fall through to the fetch, relying on the cookie instead.
+    const body = code.slice(code.indexOf('export async function accountFetch'));
+    const tryIndex = body.indexOf('try {');
+    const catchIndex = body.indexOf('} catch');
+    const fetchIndex = body.indexOf('return fetch(');
+    expect(tryIndex).toBeGreaterThan(-1);
+    expect(catchIndex).toBeGreaterThan(tryIndex);
+    expect(fetchIndex).toBeGreaterThan(catchIndex);
+  });
+
+  it('resolves citySlug server-side before handing the profile to the editor', () => {
+    /**
+     * The second bug: `edit.astro` used to pass `guard.profile` (a
+     * `ProfileRow`, which has `cityId`, not `citySlug`) straight into
+     * `ProfileEditor`, whose state initializer read a `citySlug` field that
+     * never existed on that object. The dropdown opened blank regardless of
+     * the member's real city, and saving without re-selecting it sent
+     * `citySlug: ''` — which the server correctly reads as "clear the
+     * city" — silently wiping a real city on an unrelated save.
+     */
+    const page = source('src/pages/me/profile/edit.astro');
+    expect(page).toContain('citySlugFor(guard.profile.cityId, guard.db)');
+    // Passed into the `profile` object literal as the shorthand `citySlug,`
+    // — not the JSX attribute form, since it is a key inside that object
+    // rather than a top-level prop of `<ProfileEditor>`.
+    expect(page).toMatch(/profile=\{\{[^}]*\bcitySlug,/);
+    // Must not pass the raw row straight through — that is the exact
+    // mismatch this test exists to catch.
+    expect(page).not.toContain('profile={guard.profile}');
+  });
+
+  it('"What you do" is validated against the same list on both sides', () => {
+    /**
+     * The third bug: the field was a free-text `<input>` on the client while
+     * `profilePatchSchema` validated it against a closed enum server-side.
+     * Every profile starts with `primaryRole: null`, the form defaulted
+     * that to `''`, and `''` is not a member of the enum — so the very
+     * first save from any new member failed validation, every time.
+     */
+    const editor = source('src/components/react/ProfileEditor.tsx');
+    const server = source('src/server/members/profile.ts');
+    expect(editor).toContain("import { SELECTABLE_ROLES } from '@/lib/roles'");
+    // The regression, exactly: a free-text input bound to this field.
+    expect(editor).not.toContain('<input value={form.primaryRole}');
+    // The fix: a select over the same enum the server validates against.
+    expect(editor).toContain('<select value={form.primaryRole}');
+    expect(editor).toContain('SELECTABLE_ROLES.map');
+    // The server re-exports the same module rather than declaring a second list.
+    expect(server).toContain("from '../../lib/roles'");
+  });
+
+  it('omits, rather than empties, the two fields that cannot be an empty string', () => {
+    const editor = source('src/components/react/ProfileEditor.tsx');
+    expect(editor).toContain("if (body.primaryRole === '') delete body.primaryRole");
+    expect(editor).toContain("if (body.website === '') delete body.website");
+  });
+
+  it('the settings sign-out button is a real, working slot, not an unwrapped island', () => {
+    /**
+     * The fourth instance of the same root cause: a `SignOutButton` island,
+     * also mounted with `client:only="react"` outside the provider, whose
+     * `logout()` threw the identical "wrap your application" error on every
+     * click — uncaught, so nothing visible happened at all. It has been
+     * replaced with a portal into the ONE real provider, the same pattern
+     * `AccountSlot` and `JoinCta` already used.
+     */
+    expect(() => source('src/components/react/SignOutButton.tsx')).toThrow();
+    // Comments are allowed to explain the history; code must not import or
+    // render the deleted island.
+    const settings = source('src/pages/me/settings.astro').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
+    expect(settings).not.toContain('SignOutButton');
+    expect(settings).toContain('id="signout-slot-root"');
+    const root = source('src/components/react/PrivyRoot.tsx');
+    expect(root).toContain('function SignOutSlot()');
+    expect(root).toContain("getElementById('signout-slot-root')");
+  });
+});

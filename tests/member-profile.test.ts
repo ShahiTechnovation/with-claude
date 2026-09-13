@@ -121,6 +121,60 @@ describe('the patch schema refuses what it is not given', () => {
     expect(profilePatchSchema.safeParse({ primaryRole: 'Ambassador' }).success).toBe(false);
     expect(profilePatchSchema.safeParse({ primaryRole: 'Developer' }).success).toBe(true);
   });
+
+  /**
+   * THE REGRESSION THIS FILE EXISTS FOR.
+   *
+   * `ProfileEditor.tsx` used to render "What you do" as a free-text
+   * `<input>` while this schema validated it against a closed enum. Every
+   * profile starts with `primaryRole: null`, the form defaulted that to
+   * `''`, and the WHOLE form state — every field, always — was sent on
+   * every save. So `primaryRole: ''` was on every single PATCH from a member
+   * who had not yet set a role, i.e. every new member, and it failed here,
+   * every time. Confirmed against the real production account before the
+   * fix: `member_profiles.primary_role IS NULL`.
+   *
+   * The fix moved "What you do" to a `<select>` sourced from
+   * `SELECTABLE_ROLES` and made `ProfileEditor.save()` OMIT the key rather
+   * than send an empty string when nothing is chosen — `.optional()` means
+   * the key may be absent, which is what an unmade choice should mean. This
+   * asserts the schema side of that: an empty string is still refused
+   * (nothing here weakens the validation), and an ABSENT key is fine.
+   */
+  it('refuses an empty primaryRole rather than treating it as "not set"', () => {
+    expect(profilePatchSchema.safeParse({ primaryRole: '' }).success).toBe(false);
+    expect(profilePatchSchema.safeParse({ bio: 'hello' }).success).toBe(true);
+  });
+
+  /**
+   * The second field the same bug hit. `website: httpsUrl.optional()` calls
+   * `new URL(value)`, which throws on `''` just as readily as on
+   * `'not a url'` — `.optional()` still only means the key may be absent.
+   * Every profile also starts with `website: null`, so this failed on the
+   * same every-save-from-a-new-member path as `primaryRole` above.
+   */
+  it('refuses an empty website rather than treating it as "not set"', () => {
+    expect(profilePatchSchema.safeParse({ website: '' }).success).toBe(false);
+  });
+
+  /**
+   * ONE LIST, NOT TWO.
+   *
+   * `SELECTABLE_ROLES` used to be declared only in this server module, and
+   * the client rendered a free-text input for the same field — two
+   * definitions of "what you do", one of them not even a list. Now
+   * `src/lib/roles.ts` is the only declaration and this file re-exports it,
+   * so this schema and `ProfileEditor.tsx`'s `<select>` cannot drift apart:
+   * a role the dropdown offers is, by construction, a role this validator
+   * accepts.
+   */
+  it('validates against exactly the shared SELECTABLE_ROLES list, no more and no less', async () => {
+    const { SELECTABLE_ROLES: sharedRoles } = await import('../src/lib/roles');
+    for (const role of sharedRoles) {
+      expect(profilePatchSchema.safeParse({ primaryRole: role }).success, role).toBe(true);
+    }
+    expect(profilePatchSchema.safeParse({ primaryRole: 'NotARealRole' }).success).toBe(false);
+  });
 });
 
 // =========================================================================

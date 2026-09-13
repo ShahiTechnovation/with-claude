@@ -313,6 +313,41 @@ function JoinCta({ bootstrap }: { bootstrap: BootstrapState }) {
   return createPortal(content, target);
 }
 
+/**
+ * The settings page's "Sign out" button, portaled into `#signout-slot-root`.
+ *
+ * `/me/settings` used to mount its own separate `<SignOutButton
+ * client:only="react" />` island for this — a second, independent React
+ * root with no ancestor `<PrivyProvider>`, so `usePrivy().logout` there was
+ * the SDK's default stub, which THROWS "You need to wrap your application
+ * with the <PrivyProvider>…" the moment it is called. Nothing caught it, so
+ * clicking the button did nothing visible; the actual sign-out never ran and
+ * the session cookie was never cleared.
+ *
+ * The masthead's own Account dropdown (`AccountSlot` above) already has a
+ * WORKING "Sign out" — it is rendered inside this same component, which is
+ * the site's one real provider. This slot is that same working action,
+ * placed on the settings page the same way `AccountSlot` and `JoinCta` place
+ * theirs: one provider, another portaled visual slot. No second provider, no
+ * new session mechanism — the exact pattern this file already documents.
+ */
+function SignOutSlot() {
+  const { logout } = usePrivy();
+  const target = document.getElementById('signout-slot-root');
+  if (!target) return null;
+
+  return createPortal(
+    <button
+      type="button"
+      className="btn-secondary"
+      onClick={() => void logout().then(() => window.location.assign('/'))}
+    >
+      Sign out
+    </button>,
+    target,
+  );
+}
+
 function Inner() {
   /**
    * A portal target is a DOM node React never rendered, so React never
@@ -333,6 +368,7 @@ function Inner() {
     <>
       <AccountSlot bootstrap={bootstrap} />
       <JoinCta bootstrap={bootstrap} />
+      <SignOutSlot />
     </>
   );
 }
