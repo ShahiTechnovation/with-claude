@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { upload } from '@vercel/blob/client';
+import { usePrivy } from '@privy-io/react-auth';
 
 interface InitialData {
   id?: string;
@@ -17,6 +18,7 @@ interface InitialData {
 }
 
 export default function ProjectEditor({ initialData = {} }: { initialData?: InitialData }) {
+  const { getAccessToken } = usePrivy();
   const [formData, setFormData] = useState({
     title: initialData.title || '',
     summary: initialData.summary || '',
@@ -37,6 +39,12 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Init
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [file, setFile] = useState<File | null>(null);
+
+  const authHeaders = async () => {
+    const token = await getAccessToken();
+    if (!token) throw new Error('Please sign in again.');
+    return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -70,7 +78,7 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Init
         // Create draft
         const res = await fetch('/api/projects', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: await authHeaders(),
           body: JSON.stringify(payload),
         });
         const data = await res.json();
@@ -82,7 +90,7 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Init
         // Update existing
         const res = await fetch(`/api/projects/${currentId}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: await authHeaders(),
           body: JSON.stringify(payload),
         });
         if (!res.ok) {
@@ -94,6 +102,8 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Init
       if (publish && status !== 'published') {
         const res = await fetch(`/api/projects/${currentId}/publish`, {
           method: 'POST',
+          headers: await authHeaders(),
+          body: '{}',
         });
         if (!res.ok) {
           const data = await res.json();
@@ -104,16 +114,38 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Init
       } else if (!publish && status === 'published') {
         const res = await fetch(`/api/projects/${currentId}/archive`, {
           method: 'POST',
+          headers: await authHeaders(),
+          body: '{}',
         });
         if (!res.ok) {
           const data = await res.json();
           throw new Error(data.error || 'Failed to unpublish project');
         }
-        setStatus('draft');
-        setMessage('Project reverted to draft.');
+        setStatus('archived');
+        setMessage('Project archived.');
       } else {
         setMessage('Project saved as draft.');
       }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const restoreDraft = async () => {
+    if (!id) return;
+    setLoading(true);
+    setError('');
+    try {
+      const response = await fetch(`/api/projects/${id}/restore`, {
+        method: 'POST',
+        headers: await authHeaders(),
+        body: '{}',
+      });
+      if (!response.ok) throw new Error('Failed to restore project');
+      setStatus('draft');
+      setMessage('Project restored to drafts.');
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -191,9 +223,7 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Init
       )}
 
       <div className="editor-actions">
-        <button type="button" className="btn-secondary" onClick={() => handleSave(false)} disabled={loading}>
-          {status === 'published' ? 'Unpublish to Draft' : 'Save Draft'}
-        </button>
+        {status === 'archived' ? <button type="button" className="btn-secondary" onClick={restoreDraft} disabled={loading}>Restore draft</button> : <button type="button" className="btn-secondary" onClick={() => handleSave(false)} disabled={loading}>{status === 'published' ? 'Archive project' : 'Save draft'}</button>}
         <button type="button" className="btn-primary" onClick={() => handleSave(true)} disabled={loading}>
           {status === 'published' ? 'Update Published Project' : 'Publish Project'}
         </button>

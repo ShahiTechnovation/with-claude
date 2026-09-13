@@ -9,12 +9,12 @@
  *
  * The page is on a CDN and cannot know who is reading it, so the button is
  * rendered the same for everybody. Pressing it while signed out sends the
- * visitor to /join with a `next` pointing back here, so they land where they
- * started rather than on an account page wondering what happened to the claim.
+ * visitor to their authenticated profile route, where the sitewide Privy gate
+ * opens the sign-in modal without routing through a second onboarding page.
  *
  * The signed-out case is detected the same cheap way the account menu uses:
  * Privy's readable session marker. A false negative just means a redirect
- * through /join, which recognises the existing session and returns.
+ * through the authenticated profile route, which verifies the session.
  */
 
 /** Trailing slash deliberate — see `src/data/forms.ts`. */
@@ -42,8 +42,7 @@ export function claim(): void {
 
   button.addEventListener('click', () => {
     if (!signedIn()) {
-      const next = encodeURIComponent(window.location.pathname);
-      window.location.assign(`/join/?next=${next}`);
+      window.location.assign('/me/profile/');
       return;
     }
 

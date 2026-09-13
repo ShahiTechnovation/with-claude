@@ -1,112 +1,117 @@
 ---
-/**
- * /me — the account home.
- *
- * SSR, private, no client JavaScript. See `src/server/http/page-guard.ts`.
- */
-import Base from '@/layouts/Base.astro';
-import Section from '@/components/Section.astro';
-import PageIntro from '@/components/PageIntro.astro';
 import { guardPage, privateHeaders } from '@/server/http/page-guard';
-import { ownedBuilder } from '@/server/members/publish';
-import { claimsFor } from '@/server/members/claims';
-import { isPlaceholderUsername } from '@/server/members/username';
-import { missingForPublish } from '@/server/members/publish';
+import AuthRequired from '@/components/AuthRequired.astro';
+import Base from '@/layouts/Base.astro';
+import { getMemberProjects } from '@/server/members/projects';
 
 export const prerender = false;
 
-privateHeaders(Astro);
-
 const guard = await guardPage(Astro);
-if (!guard.ok) return guard.redirect;
 
-const { member, profile, db } = guard;
-const builder = await ownedBuilder(member, db);
-const claims = await claimsFor(member.id, db);
+let published = 0;
+let drafts = 0;
 
-const needsUsername = isPlaceholderUsername(profile.username);
-const missing = missingForPublish(profile);
-const displayName = profile.displayName?.trim() || (needsUsername ? 'your passport' : profile.username);
+if (guard.ok) {
+  privateHeaders(Astro);
+  const allProjects = await getMemberProjects(guard.member.id, guard.db);
+  published = allProjects.filter((p: any) => p.publicationStatus === 'published').length;
+  drafts = allProjects.filter((p: any) => p.publicationStatus === 'draft').length;
+}
 ---
 
-<Base title="Your account" description="Your WITH CLAUDE account." active="/me" noindex>
-  <PageIntro eyebrow="Account" title={`Hello, ${displayName}.`} size="md">
-    {
-      needsUsername ? (
-        <p>Your passport is not finished. Choose a username and you have a page of your own.</p>
-      ) : builder ? (
-        <p>
-          Your public page is <a href={`/builders/${builder.slug}/`}>/builders/{builder.slug}</a>.
+{!guard.ok ? (
+  <Base title="Sign in" description="Sign in to continue" noindex>
+    <AuthRequired reason={guard.reason} />
+  </Base>
+) : (
+  <Base title="Your Account" description="Your WITH CLAUDE account." active="/me" noindex>
+    <main class="account-page">
+      <h1>Your account</h1>
+
+      <section class="account-section">
+        <h2>Your profile</h2>
+        <p class="summary">
+          <strong>{guard.profile.displayName ?? 'Not added'}</strong> &middot; @{guard.profile.username} &middot; {guard.profile.primaryRole ?? 'Role not added'}
         </p>
-      ) : (
-        <p>Your passport is saved but not published yet.</p>
-      )
-    }
-  </PageIntro>
+        <div class="actions">
+          <a href="/me/profile/" class="btn-secondary">View profile</a>
+          <a href="/me/profile/edit/" class="btn-secondary">Edit profile</a>
+        </div>
+      </section>
 
-  <Section id="passport" labelledby="passport-heading">
-    <h2 id="passport-heading">Builder Passport</h2>
-
-    {
-      missing.length > 0 ? (
-        <p class="me-missing">
-          Still needed before you can publish: {missing.join(', ')}.
+      <section class="account-section">
+        <h2>Your projects</h2>
+        <p class="summary">
+          {published} published &middot; {drafts} drafts
         </p>
-      ) : profile.publishedAt ? (
-        <p class="me-ok">Published. Edits go live when the site next rebuilds.</p>
-      ) : (
-        <p class="me-ok">Ready to publish.</p>
-      )
-    }
+        <div class="actions">
+          <a href="/me/projects/" class="btn-secondary">View projects</a>
+          <a href="/me/projects/new/" class="btn-secondary">Add a project</a>
+        </div>
+      </section>
 
-    <p class="me-actions">
-      <a href="/me/profile/edit/">Edit passport</a>
-      {profile.publishedAt && <a href="/me/profile/">View what is public</a>}
-      <a href="/me/settings/">Settings</a>
-    </p>
-  </Section>
-
-  {
-    claims.length > 0 && (
-      <Section id="claims" tone="sunk" labelledby="claims-heading">
-        <h2 id="claims-heading">Profile claims</h2>
-        <ul class="me-claims">
-          {claims.map((claim) => (
-            <li>
-              <a href={`/builders/${claim.slug}/`}>{claim.name}</a>
-              {' — '}
-              <span class="me-claim-status">{claim.status}</span>
-              {claim.status === 'pending' && (
-                <span class="me-claim-note"> · a person will look at this</span>
-              )}
-            </li>
-          ))}
-        </ul>
-      </Section>
-    )
-  }
-</Base>
+      <section class="account-section">
+        <h2>Settings</h2>
+        <div class="actions">
+          <a href="/me/settings/" class="btn-secondary">Settings</a>
+        </div>
+      </section>
+    </main>
+  </Base>
+)}
 
 <style>
-  .me-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1.5rem;
-    margin-top: 1.5rem;
+  .account-page {
+    width: min(100% - 2rem, 42rem);
+    margin: 4rem auto;
+    font-family: var(--font-sans);
   }
-  .me-missing {
-    color: var(--ink-2, inherit);
+  .account-page h1 {
+    font-family: var(--font-display);
+    font-size: 2.5rem;
+    font-weight: 500;
+    margin-bottom: 3rem;
   }
-  .me-claims {
-    list-style: none;
-    padding: 0;
-    display: grid;
-    gap: 0.5rem;
+  .account-section {
+    margin-bottom: 3rem;
+    padding-bottom: 3rem;
+    border-bottom: 1px solid var(--rule);
   }
-  .me-claim-status {
+  .account-section:last-child {
+    border-bottom: none;
+  }
+  .account-section h2 {
+    font-size: 0.9rem;
     font-family: var(--font-mono);
-    font-size: 0.75rem;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.05em;
+    color: var(--ink-2);
+    margin-bottom: 1rem;
+  }
+  .summary {
+    font-size: 1.1rem;
+    margin-bottom: 1.5rem;
+  }
+  .actions {
+    display: flex;
+    gap: 1rem;
+  }
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    text-decoration: none;
+    color: var(--ink);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    transition: all var(--dur-1) var(--ease-out);
+  }
+  .btn-secondary:hover {
+    border-color: var(--ink);
+    background: var(--shade-1);
   }
 </style>

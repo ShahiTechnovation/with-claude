@@ -33,7 +33,7 @@
 import { eq, sql } from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import * as schema from '../../../db/schema';
-import { verifyRequest, type AuthFailure } from './privy';
+import { authTrace, verifyRequest, type AuthFailure } from './privy';
 
 type AnyDatabase = PgDatabase<PgQueryResultHKT, typeof schema>;
 
@@ -87,7 +87,10 @@ export function statusFor(reason: MemberFailure): 401 | 403 | 409 | 503 {
  */
 export async function requireMember(request: Request, db: AnyDatabase): Promise<MemberResult> {
   const identity = await verifyRequest(request);
-  if (!identity.ok) return { ok: false, reason: identity.reason };
+  if (!identity.ok) {
+    authTrace('member', { result: 'not-reached' });
+    return { ok: false, reason: identity.reason };
+  }
 
   const [row] = await db
     .select({
@@ -98,6 +101,7 @@ export async function requireMember(request: Request, db: AnyDatabase): Promise<
     .from(schema.members)
     .where(eq(schema.members.privyUserId, identity.privyUserId));
 
+  authTrace('member', { result: row ? 'found' : 'missing' });
   if (!row) return { ok: false, reason: 'no-member' };
   if (row.status === 'suspended') return { ok: false, reason: 'suspended' };
   if (row.status === 'deleted') return { ok: false, reason: 'deleted' };

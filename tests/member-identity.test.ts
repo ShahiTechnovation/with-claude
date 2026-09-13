@@ -117,10 +117,30 @@ describe('reading a token off a request', () => {
 
 // =========================================================================
 describe('configuration', () => {
-  it('is null when either half is missing, so a route can answer 503', () => {
-    expect(privyConfig({ PRIVY_APP_ID: 'app' } as NodeJS.ProcessEnv)).toBeNull();
+  it('is null without an app id, so a route can answer 503', () => {
     expect(privyConfig({ PRIVY_VERIFICATION_KEY: 'key' } as NodeJS.ProcessEnv)).toBeNull();
     expect(privyConfig({} as NodeJS.ProcessEnv)).toBeNull();
+  });
+
+  /**
+   * A MISSING VERIFICATION KEY IS NO LONGER A REFUSAL.
+   *
+   * This assertion used to be the opposite, and that is what took the whole
+   * account area down: `PRIVY_VERIFICATION_KEY` was declared-but-empty in
+   * Preview and absent in Production, so `privyConfig()` returned null and
+   * every authenticated request answered 503 `not-configured` — including for
+   * users holding perfectly valid tokens.
+   *
+   * The key is optional because `verificationKeyFor()` falls back to the app's
+   * published JWKS, which the installed SDK accepts as a `verification_key`
+   * directly. The app id is still required: without it there is no audience to
+   * check and no JWKS to fetch.
+   */
+  it('is configured with only an app id, resolving the key from JWKS', () => {
+    const config = privyConfig({ PRIVY_APP_ID: 'app' } as NodeJS.ProcessEnv);
+    expect(config).not.toBeNull();
+    expect(config?.appId).toBe('app');
+    expect(config?.verificationKey).toBeUndefined();
   });
 
   it('reads only server variables, never the PUBLIC_ copy', () => {

@@ -37,7 +37,7 @@ export interface SubmissionField {
 
 export interface SubmissionForm {
   id: string;
-  /** Anchor on /join. */
+  /** Legacy form identifier retained for server-side validation. */
   anchor: string;
   eyebrow: string;
   title: string;

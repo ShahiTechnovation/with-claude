@@ -433,3 +433,11 @@ export async function citySlugFor(
     .where(eq(schema.cities.id, cityId));
   return row?.slug ?? '';
 }
+
+export async function getBuilderSlug(memberId: string, db: AnyDatabase): Promise<string | null> {
+  const [row] = await db
+    .select({ slug: schema.builders.slug })
+    .from(schema.builders)
+    .where(eq(schema.builders.ownerMemberId, memberId));
+  return row?.slug ?? null;
+}

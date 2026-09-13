@@ -1,0 +1,167 @@
+---
+/**
+ * Server-safe shell for an account URL whose verified session is absent or
+ * whose server-side verification has a specific problem.
+ *
+ * ── REASON MAP ───────────────────────────────────────────────────────────
+ *
+ *   unauthenticated       → "Sign in to continue" + Privy CTA
+ *                           (PrivyRoot portals the login button into #join-cta-root)
+ *
+ *   server-not-configured → "Sign-in is temporarily unavailable."
+ *                           No Privy CTA — the user cannot fix a missing key.
+ *                           #join-cta-root is NOT emitted so PrivyRoot does
+ *                           not try to portal into it.
+ *
+ *   no-member             → "Finishing account setup…"
+ *                           User is verified but bootstrap has not committed yet.
+ *                           JoinCta will detect the 409 and trigger bootstrap.
+ *
+ *   member-unavailable    → "This account is not available."
+ *                           No action CTA — suspensions are resolved by support.
+ *
+ *   profile-required      → "Finishing account setup…"
+ *                           Same recovery as no-member.
+ *
+ * ── SECURITY NOTE ────────────────────────────────────────────────────────
+ *
+ * None of the reasons expose internal detail to the browser. The reason code
+ * itself is not emitted into the HTML. `data-next` emits the server's pathname,
+ * not anything accepted from the client, so the post-login redirect cannot
+ * become an open redirect.
+ */
+import type { PageGuardFailureReason } from '@/server/http/page-guard';
+
+interface Props {
+  reason?: PageGuardFailureReason;
+  next?: string;
+}
+
+const { reason = 'unauthenticated', next = Astro.url.pathname } = Astro.props;
+
+/**
+ * Safe user-facing text per reason.
+ * Internal codes must not leak; these strings are chosen to inform without
+ * exposing configuration state or token details.
+ */
+const headings: Record<PageGuardFailureReason, string> = {
+  unauthenticated:       'Sign in to continue',
+  'server-not-configured': 'Sign-in temporarily unavailable',
+  'no-member':           'Setting up your account',
+  'member-unavailable':  'Account not available',
+  'profile-required':    'Setting up your account',
+};
+
+const subtext: Record<PageGuardFailureReason, string | null> = {
+  unauthenticated:       null,
+  'server-not-configured': 'Sign-in is temporarily unavailable. Please try again shortly.',
+  'no-member':           'Your account is being set up. This should only take a moment.',
+  'member-unavailable':  'This account is not available. Contact support if you think this is an error.',
+  'profile-required':    'Your account is being set up. This should only take a moment.',
+};
+
+const showCta = reason === 'unauthenticated' || reason === 'no-member' || reason === 'profile-required';
+---
+
+<div class="auth-required">
+  <h1>{headings[reason]}</h1>
+
+  {subtext[reason] && (
+    <p class="auth-subtext">{subtext[reason]}</p>
+  )}
+
+  {showCta && (
+    <div id="join-cta-root" data-next={next} aria-live="polite">
+      <p class="signin-status js-hydrate-hide">Preparing secure sign-in…</p>
+    </div>
+  )}
+
+  <noscript><p>Please enable JavaScript to sign in to your account.</p></noscript>
+</div>
+
+<style>
+  .auth-required {
+    width: min(100% - 2rem, 32rem);
+    margin: 6rem auto;
+    padding: 3rem 2rem;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    text-align: center;
+  }
+
+  .auth-required h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 4vw, 2.5rem);
+    font-weight: 500;
+    margin-bottom: 1.5rem;
+    color: var(--ink);
+  }
+
+  .auth-subtext {
+    font-size: 1rem;
+    color: var(--ink-2);
+    margin-bottom: 2rem;
+    line-height: 1.6;
+  }
+
+  .auth-required :global(.signin-button) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.8rem 1.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    text-decoration: none;
+    color: var(--paper);
+    background: var(--ink);
+    border: 1px solid var(--ink);
+    border-radius: 2px;
+    cursor: pointer;
+    transition: background var(--dur-1) var(--ease-out);
+  }
+
+  .auth-required :global(.signin-button:hover),
+  .auth-required :global(.signin-button:focus-visible) {
+    background: var(--clay-deep, #92400e);
+    border-color: var(--clay-deep, #92400e);
+  }
+
+  .auth-required :global(.signin-status) {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--ink-2);
+    margin-top: 1rem;
+  }
+
+  .auth-required :global(.signin-secondary) {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    margin-top: 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    background: none;
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    cursor: pointer;
+    color: var(--ink-2);
+    transition: border-color var(--dur-1) var(--ease-out);
+  }
+
+  .auth-required :global(.signin-secondary:hover) {
+    border-color: var(--ink);
+    color: var(--ink);
+  }
+
+  .auth-required :global(.signin-failed) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
+</style>

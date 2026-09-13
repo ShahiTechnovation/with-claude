@@ -16,3 +16,12 @@ admin/.astro/
 admin/.env
 admin/.vercel
 scratch-*
+
+# Every local env file, not just `.env`.
+#
+# `vercel env pull` writes `.env.<target>.local` — `.env.preview.local` was
+# sitting untracked-but-committable with live database and Privy credentials
+# in it. The glob is deliberately broad: the next `vercel env pull` should
+# not depend on somebody remembering to add a line here.
+.env.*
+!.env.example

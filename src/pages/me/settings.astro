@@ -1,77 +1,109 @@
 ---
-/**
- * /me/settings — account state and the things that are not the passport.
- *
- * Deliberately small. Phase A owns identity and the passport; account deletion
- * and data export are §62 and belong with the moderation and content-lifecycle
- * work rather than being half-built here, so this says what is coming rather
- * than shipping a Delete button that only removes some of it.
- */
-import Base from '@/layouts/Base.astro';
-import Section from '@/components/Section.astro';
-import PageIntro from '@/components/PageIntro.astro';
 import { guardPage, privateHeaders } from '@/server/http/page-guard';
+import AuthRequired from '@/components/AuthRequired.astro';
+import Base from '@/layouts/Base.astro';
+import SignOutButton from '@/components/react/SignOutButton';
 
 export const prerender = false;
 
-privateHeaders(Astro);
-
 const guard = await guardPage(Astro);
-if (!guard.ok) return guard.redirect;
-
-const { member, profile } = guard;
+if (guard.ok) privateHeaders(Astro);
 ---
 
-<Base title="Settings" description="Your WITH CLAUDE account settings." active="/me" noindex>
-  <PageIntro eyebrow="Settings" title="Account" size="md">
-    <p>Your sign-in is handled by Privy. WITH CLAUDE stores your profile, not your credentials.</p>
-  </PageIntro>
+{!guard.ok ? (
+  <Base title="Sign in" description="Sign in to continue" noindex>
+    <AuthRequired reason={guard.reason} />
+  </Base>
+) : (
+  <Base title="Settings" description="Manage your settings." active="/me" noindex>
+    <main class="account-page">
+      <h1>Settings</h1>
 
-  <Section id="account" labelledby="account-heading">
-    <h2 id="account-heading">Account</h2>
-    <dl class="settings-list">
-      <dt>Status</dt>
-      <dd>{member.status}</dd>
-      <dt>Username</dt>
-      <dd>{profile.username}</dd>
-      <dt>Profile</dt>
-      <dd>{profile.publishedAt ? 'Published' : 'Not published yet'}</dd>
-      <dt>Visibility</dt>
-      <dd>{profile.visibility}</dd>
-    </dl>
-    <p><a href="/me/profile/edit/">Change these in your passport</a></p>
-  </Section>
+      <section class="account-section">
+        <h2>Account</h2>
+        <p class="summary">@{guard.profile.username}</p>
+      </section>
 
-  <Section id="data" tone="sunk" labelledby="data-heading">
-    <h2 id="data-heading">Your data</h2>
-    <p>
-      Exporting your profile and closing your account are not built yet. When they are, closing an
-      account will disconnect your sign-in and remove your profile without silently deleting things
-      other people are credited on — which is why it is not a one-line feature and not shipped
-      half-finished.
-    </p>
-    <p>
-      Until then, email <a href="mailto:hello@withclaude.in">hello@withclaude.in</a> and a person
-      will do it.
-    </p>
-  </Section>
-</Base>
+      <section class="account-section">
+        <h2>Profile</h2>
+        <p class="summary">Visibility: <strong>{guard.profile.visibility}</strong></p>
+        <div class="actions">
+          <a href="/me/profile/edit/" class="btn-secondary">Edit profile</a>
+        </div>
+      </section>
+
+      <section class="account-section">
+        <h2>Authentication</h2>
+        <p class="summary">Connected sign-in methods are managed securely by Privy.</p>
+      </section>
+
+      <section class="account-section danger-zone">
+        <h2>Sign out</h2>
+        <div class="actions">
+          <SignOutButton client:only="react" />
+        </div>
+      </section>
+    </main>
+  </Base>
+)}
 
 <style>
-  .settings-list {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 0.5rem 2rem;
-    margin: 1.5rem 0;
+  .account-page {
+    width: min(100% - 2rem, 42rem);
+    margin: 4rem auto;
+    font-family: var(--font-sans);
   }
-  .settings-list dt {
+  .account-page h1 {
+    font-family: var(--font-display);
+    font-size: 2.5rem;
+    font-weight: 500;
+    margin-bottom: 3rem;
+  }
+  .account-section {
+    margin-bottom: 3rem;
+    padding-bottom: 3rem;
+    border-bottom: 1px solid var(--rule);
+  }
+  .account-section:last-child {
+    border-bottom: none;
+  }
+  .account-section h2 {
+    font-size: 0.9rem;
     font-family: var(--font-mono);
-    font-size: 0.75rem;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    opacity: 0.7;
+    letter-spacing: 0.05em;
+    color: var(--ink-2);
+    margin-bottom: 1rem;
   }
-  .settings-list dd {
-    margin: 0;
+  .summary {
+    font-size: 1.1rem;
+    margin-bottom: 1.5rem;
+  }
+  .actions {
+    display: flex;
+    gap: 1rem;
+  }
+  .danger-zone h2 {
+    color: var(--clay, #b45309);
+  }
+  .account-page :global(.btn-secondary) {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    text-decoration: none;
+    color: var(--ink);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    background: transparent;
+    cursor: pointer;
+    transition: all var(--dur-1) var(--ease-out);
+  }
+  .account-page :global(.btn-secondary:hover) {
+    border-color: var(--ink);
+    background: var(--shade-1);
   }
 </style>

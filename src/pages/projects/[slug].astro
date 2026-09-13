@@ -40,7 +40,14 @@ const project = {
   id: projectRow.id,
   title: projectRow.title,
   slug: projectRow.slug,
-  summary: projectRow.summary,
+  /**
+   * Nullable in the column, non-null by the time a project is published —
+   * `publishBlockers()` refuses to publish without it, and this page has
+   * already 404ed anything that is not published. The fallback exists so a row
+   * that reached `published` by some other route degrades to a title rather
+   * than printing `null` into a meta description.
+   */
+  summary: projectRow.summary ?? projectRow.title,
   description: projectRow.description,
   url: projectRow.url,
   repoUrl: projectRow.repoUrl,

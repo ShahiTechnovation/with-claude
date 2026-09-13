@@ -135,7 +135,9 @@ describe("the public site does not share the admin's authentication", () => {
 
     expect(dynamic).toEqual(
       [
+        'src/pages/api/cron/events-sync.ts',
         'src/pages/api/cron/rebuild.ts',
+        'src/pages/api/health.ts',
         'src/pages/api/media/upload.ts',
         'src/pages/api/member/bootstrap.ts',
         'src/pages/api/member/claim.ts',
@@ -148,6 +150,7 @@ describe("the public site does not share the admin's authentication", () => {
         'src/pages/api/projects/index.ts',
         'src/pages/api/reports/index.ts',
         'src/pages/api/submit.ts',
+        'src/pages/api/webhooks/luma.ts',
         'src/pages/builders/[slug].astro',
         'src/pages/me/index.astro',
         'src/pages/me/profile/edit.astro',
@@ -157,7 +160,8 @@ describe("the public site does not share the admin's authentication", () => {
         'src/pages/me/projects/new.astro',
         'src/pages/me/settings.astro',
         'src/pages/projects/[slug].astro',
-        'src/pages/projects/index.astro'
+        'src/pages/projects/index.astro',
+        'src/pages/sitemap.xml.ts'
       ].sort(),
     );
   });
@@ -175,15 +179,40 @@ describe("the public site does not share the admin's authentication", () => {
    * modules and API functions may; NOTHING IN THE RENDER PATH MAY, which is
    * the half that keeps credentials out of the browser bundle.
    */
-  it('opens a pooled connection only from server modules and API routes', () => {
+  /**
+   * ── THE RULE IS ABOUT PRERENDERING, NOT ABOUT DIRECTORIES ──────────────
+   *
+   * This used to allow `src/server/**` and `src/pages/api/**` by path, which
+   * worked for as long as every database-backed route happened to live under
+   * `api/`. `/sitemap.xml` does not and cannot: crawlers look for it at the
+   * site root, and `robots.txt` points there.
+   *
+   * The property that actually matters was never the directory. It is that a
+   * PRERENDERED page must not query the database — that is what would put a
+   * connection in the static build and a credential near the browser bundle.
+   * A route carrying `prerender = false` is a serverless function that happens
+   * to be addressed by a URL, and it is no more part of the render path than
+   * `/api/submit` is.
+   *
+   * So the check now reads the declaration instead of guessing from the path.
+   * It is STRICTER, not looser: a page that quietly starts querying Neon while
+   * remaining prerendered still fails, and now so does one under `api/` that
+   * forgets `prerender = false`, which the old path rule waved through.
+   */
+  it('opens a pooled connection only from server modules and non-prerendered routes', () => {
     for (const file of PUBLIC_SOURCE) {
       const text = readFileSync(file, 'utf8');
       if (!/db\/pool|pooledDb/.test(text)) continue;
 
       const posix = file.split(/[\\/]/).join('/');
-      const allowed = posix.startsWith('src/server/') || posix.startsWith('src/pages/api/');
+      const isServerModule = posix.startsWith('src/server/');
+      const isOnDemandRoute =
+        posix.startsWith('src/pages/') && /export\s+const\s+prerender\s*=\s*false/.test(text);
 
-      expect(allowed, `${file} opens a pooled database connection`).toBe(true);
+      expect(
+        isServerModule || isOnDemandRoute,
+        `${file} opens a pooled database connection but is prerendered`,
+      ).toBe(true);
     }
   });
 
@@ -421,28 +450,31 @@ describe('nothing from a later phase has crept in', () => {
         /**
          * Two kinds of file may reach the database, and neither is rendered:
          *
-         *   · a serverless function under `src/pages/api/`, which must declare
-         *     `prerender = false` — `/api/submit` is the only one
-         *   · a server module under `src/server/`, which those functions call
+         *   · a ROUTE THAT IS NOT PRERENDERED, anywhere under `src/pages/`.
+         *     `/api/*`, `/me/*`, `/projects/[slug]`, `/sitemap.xml` — the
+         *     directory is irrelevant, the `prerender = false` is the point.
+         *   · a server module under `src/server/`, which those routes call.
          *
-         * Anything else — a page, a component, a layout, a browser script — is
-         * in the render path, and a query from there is exactly what the
-         * prebuild exists to prevent.
+         * Anything else — a prerendered page, a component, a layout, a browser
+         * script — is in the render path, and a query from there is exactly
+         * what the prebuild exists to prevent.
+         *
+         * Listing the permitted DIRECTORIES was the earlier version of this,
+         * and it had to grow a clause every time a database-backed route
+         * appeared somewhere new (`api/`, then `me/`, then the root for
+         * `/sitemap.xml`, which has to live at the site root because that is
+         * where crawlers and `robots.txt` look for it). Reading the
+         * declaration instead is both shorter and stricter.
          */
         const posix = file.split(/[\\/]/).join('/');
         const isServerModule = posix.startsWith('src/server/');
-        const isApiRoute = posix.startsWith('src/pages/api/');
+        const isRoute = posix.startsWith('src/pages/');
+        const isOnDemand = /export\s+const\s+prerender\s*=\s*false/.test(text);
 
         expect(
-          isServerModule || isApiRoute,
+          isServerModule || (isRoute && isOnDemand),
           `${file} reaches the database from the render path`,
         ).toBe(true);
-
-        if (isApiRoute) {
-          expect(text, `${file} reaches the database but is prerendered`).toMatch(
-            /export const prerender = false/,
-          );
-        }
       }
     }
 

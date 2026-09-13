@@ -654,7 +654,37 @@ export async function loadRecordSet(db: ReadDatabase): Promise<RecordSet> {
     return a.slug.localeCompare(b.slug);
   });
 
-  const projects: Project[] = orderedProjectRows.map((row) =>
+  const projects: Project[] = orderedProjectRows
+    /**
+     * A PUBLISHED PROJECT MUST HAVE A CITY AND A SUMMARY. THIS IS THE BACKSTOP.
+     *
+     * Migration 0010 made `projects.city_id` and `projects.summary` nullable so
+     * that a member could SAVE an incomplete draft — before that, every member
+     * project creation failed at the database. Completeness moved to the
+     * publish boundary, where `publishBlockers()` in
+     * `src/server/members/projects.ts` refuses to publish without both.
+     *
+     * That gate is the enforcement. This filter is the second line, because
+     * `Project.citySlug` and `Project.summary` in `src/data/types.ts` are
+     * REQUIRED strings that the prerendered project and city pages dereference
+     * without a null check — so a row that reached `published` by some other
+     * route (a hand-run SQL update, a future admin action) would not look
+     * untidy, it would render `undefined` into a URL.
+     *
+     * Skipped rather than thrown: one malformed row should not fail the build
+     * for all 27 projects. Skipped rather than defaulted, because a project
+     * silently filed under the wrong city is worse than one that is absent and
+     * logged.
+     */
+    .filter((row) => {
+      if (row.cityId && row.summary?.trim()) return true;
+      console.warn(
+        `[source-db] project "${row.slug}" is published but incomplete ` +
+          `(${!row.cityId ? 'no city' : 'no summary'}); omitted from the public record.`,
+      );
+      return false;
+    })
+    .map((row) =>
     compact({
       id: row.id,
       slug: row.slug,
@@ -667,8 +697,9 @@ export async function loadRecordSet(db: ReadDatabase): Promise<RecordSet> {
         (r) => r.builderId,
         builderSlug,
       ),
-      citySlug: citySlug.get(row.cityId) ?? '',
-      summary: row.summary,
+      // Both non-null by the filter above.
+      citySlug: citySlug.get(row.cityId!) ?? '',
+      summary: row.summary!,
       description: row.description ?? undefined,
       category: row.category,
       url: row.url ?? undefined,

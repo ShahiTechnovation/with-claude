@@ -1,135 +1,179 @@
 ---
+import { guardPage, privateHeaders } from '@/server/http/page-guard';
+import AuthRequired from '@/components/AuthRequired.astro';
 import Base from '@/layouts/Base.astro';
-import PageIntro from '@/components/PageIntro.astro';
-import Section from '@/components/Section.astro';
-import { getMemberProjects, getIdentityFromRequest } from '@/server/me/queries';
+import { getMemberProjects } from '@/server/members/projects';
 
 export const prerender = false;
 
-const identity = await getIdentityFromRequest(Astro.request);
+const guard = await guardPage(Astro);
+let allProjects: any[] = [];
 
-if (!identity.ok) {
-  return Astro.redirect('/join');
+if (guard.ok) {
+  privateHeaders(Astro);
+  allProjects = await getMemberProjects(guard.member.id, guard.db);
 }
 
-const member = identity.member;
-
-const uniqueProjects = await getMemberProjects(member.id);
+const list = (status: string) => allProjects.filter((p) => p.publicationStatus === status);
+const statuses = ['published', 'draft', 'archived'] as const;
 ---
 
-<Base title="My Projects" description="Manage your published projects on WITH CLAUDE.">
-  <PageIntro eyebrow="Builder Passport" title="My Projects" size="md">
-    <p>Manage the projects you have contributed to the community.</p>
-  </PageIntro>
+{!guard.ok ? (
+  <Base title="Sign in" description="Sign in to continue" noindex>
+    <AuthRequired reason={guard.reason} />
+  </Base>
+) : (
+  <Base title="Your Projects" description="Manage your projects." active="/me" noindex>
+    <main class="account-page">
+      <div class="page-header">
+        <h1>Your Projects</h1>
+        <a href="/me/projects/new/" class="btn-primary">Add a project</a>
+      </div>
 
-  <Section id="projects" labelledby="projects-heading" tone="sunk">
-    <header class="section-header">
-      <h2 id="projects-heading">Your Projects</h2>
-      <a href="/me/projects/new" class="button">Create Project</a>
-    </header>
-
-    <div class="projects-list">
-      {uniqueProjects.length === 0 ? (
-        <div class="empty-state">
-          <p>You haven't added any projects yet.</p>
-        </div>
-      ) : (
-        <ul role="list" class="grid">
-          {uniqueProjects.map((project) => (
-            <li class="project-card">
-              <h3 class="project-title">{project.title}</h3>
-              <div class="project-meta">
-                <span class="badge" data-status={project.publicationStatus}>{project.publicationStatus}</span>
-                <span class="category">{project.category}</span>
-              </div>
-              <div class="project-actions">
-                <a href={`/me/projects/${project.id}/edit`}>Edit</a>
-                {project.publicationStatus === 'published' && project.moderationState === 'clean' && (
-                  <a href={`/projects/${project.slug}`} target="_blank">View Live</a>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  </Section>
-</Base>
+      {statuses.map((status) => {
+        const items = list(status);
+        return (
+          <section class="account-section">
+            <h2>{status === 'draft' ? 'Drafts' : status[0].toUpperCase() + status.slice(1)}</h2>
+            {items.length > 0 ? (
+              <ul class="project-list">
+                {items.map(project => (
+                  <li class="project-item">
+                    <div class="project-info">
+                      <strong>{project.title}</strong>
+                      <span class="summary">{project.summary ?? 'No short description'}</span>
+                    </div>
+                    <div class="project-meta">
+                      <span class="status-badge">{project.publicationStatus}</span>
+                      <a href={`/me/projects/${project.id}/edit/`} class="btn-secondary">
+                        {status === 'draft' ? 'Continue draft' : 'Edit'}
+                      </a>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p class="empty-state">No {status} projects.</p>
+            )}
+          </section>
+        );
+      })}
+    </main>
+  </Base>
+)}
 
 <style>
-  .section-header {
+  .account-page {
+    width: min(100% - 2rem, 42rem);
+    margin: 4rem auto;
+    font-family: var(--font-sans);
+  }
+  .page-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: var(--s-6);
+    margin-bottom: 3rem;
   }
-  .button {
-    display: inline-block;
-    padding: var(--s-2) var(--s-4);
-    background: var(--ink);
-    color: var(--paper);
-    text-decoration: none;
+  .account-page h1 {
+    font-family: var(--font-display);
+    font-size: 2.5rem;
     font-weight: 500;
   }
-  .empty-state {
-    padding: var(--s-8) var(--s-4);
-    background: var(--paper);
-    border: 1px solid var(--rule);
-    text-align: center;
-    color: var(--ink-2);
+  .account-section {
+    margin-bottom: 3rem;
   }
-  .grid {
-    display: grid;
-    gap: var(--s-4);
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  .account-section h2 {
+    font-size: 0.9rem;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-2);
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 0.5rem;
+  }
+  .project-list {
     list-style: none;
     padding: 0;
+    margin: 0;
   }
-  .project-card {
-    background: var(--paper);
-    border: 1px solid var(--rule);
-    padding: var(--s-4);
+  .project-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem 0;
+    border-bottom: 1px dashed var(--rule);
+  }
+  .project-item:last-child {
+    border-bottom: none;
+  }
+  .project-info {
     display: flex;
     flex-direction: column;
-    gap: var(--s-3);
+    gap: 0.25rem;
   }
-  .project-title {
-    font-size: var(--f-h4);
-    margin: 0;
+  .project-info strong {
+    font-size: 1.1rem;
+  }
+  .summary {
+    color: var(--ink-2);
+    font-size: 0.95rem;
   }
   .project-meta {
     display: flex;
-    gap: var(--s-2);
     align-items: center;
-    font-size: var(--f-sm);
+    gap: 1rem;
   }
-  .badge {
-    padding: 2px 6px;
-    background: var(--rule);
-    font-weight: 500;
-    text-transform: uppercase;
+  .status-badge {
+    font-family: var(--font-mono);
     font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.2rem 0.5rem;
+    background: var(--wash);
+    border-radius: 2px;
   }
-  .badge[data-status="published"] {
-    background: #e6f4ea;
-    color: #1e8e3e;
-  }
-  .badge[data-status="draft"] {
-    background: #f1f3f4;
-    color: #5f6368;
-  }
-  .category {
+  .empty-state {
     color: var(--ink-2);
-    text-transform: capitalize;
+    font-style: italic;
+    padding: 1rem 0;
   }
-  .project-actions {
-    margin-top: auto;
-    display: flex;
-    gap: var(--s-3);
-    font-size: var(--f-sm);
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.75rem 1.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 500;
+    color: var(--paper);
+    background: var(--ink);
+    border: none;
+    border-radius: 2px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background var(--dur-1) var(--ease-out);
   }
-  .project-actions a {
+  .btn-primary:hover {
+    background: var(--clay-deep, #92400e);
+  }
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.4rem 0.8rem;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    text-decoration: none;
     color: var(--ink);
-    text-decoration: underline;
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    transition: all var(--dur-1) var(--ease-out);
+  }
+  .btn-secondary:hover {
+    border-color: var(--ink);
+    background: var(--shade-1);
   }
 </style>

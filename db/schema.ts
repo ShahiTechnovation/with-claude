@@ -34,6 +34,7 @@
  */
 import { relations, sql } from 'drizzle-orm';
 import {
+  bigint,
   boolean,
   check,
   date,
@@ -391,6 +392,18 @@ export const organizations = pgTable('organizations', {
 export const media = pgTable('media', {
   id: uuid('id').primaryKey().defaultRandom(),
   ownerMemberId: uuid('owner_member_id').references(() => members.id, { onDelete: 'set null' }),
+  /**
+   * The project this image was uploaded for, when it was uploaded for one.
+   *
+   * Nullable because most rows in this table have no project and never will:
+   * every curated event photo and city picture predates member uploads, and an
+   * avatar belongs to a member rather than a project.
+   *
+   * Cascades on delete — unlike every other foreign key here, which sets null.
+   * A media row whose only purpose was one project has no meaning once that
+   * project is gone, whereas an event photo outlives the event's editor.
+   */
+  projectId: uuid('project_id').references((): any => projects.id, { onDelete: 'cascade' }),
   blobUrl: text('blob_url'),
   pathname: text('pathname'),
   mimeType: text('mime_type'),
@@ -633,6 +646,161 @@ export const ambassadors = pgTable(
 );
 
 // =========================================================================
+// EVENT INGESTION
+// =========================================================================
+
+/**
+ * How a source is polled.
+ *
+ * `webhook` and `api` are only reachable for a calendar we administer and hold
+ * credentials for. The Claude Community calendar is neither: it exposes a
+ * public ICS feed and nothing else, so `ics` is what it actually runs on. The
+ * enum carries all four because the mode is a property of a source rather than
+ * of the code, and a source whose access changes should not need a migration.
+ */
+export const eventSyncMode = pgEnum('event_sync_mode', ['api', 'webhook', 'ics', 'manual']);
+
+/** The outcome of the last run, so health can be answered without re-running it. */
+export const eventSyncStatus = pgEnum('event_sync_status', ['never', 'ok', 'partial', 'failed']);
+
+/**
+ * What happened to one external event on the way in.
+ *
+ * `review` is the important one. §21 forbids both publishing an event we
+ * cannot confidently place in India and silently discarding it, which leaves
+ * exactly one option: keep it, say why, and show nobody until a human decides.
+ */
+export const eventRecordState = pgEnum('event_record_state', [
+  'pending',
+  'promoted',
+  'review',
+  'rejected',
+  'withdrawn',
+]);
+
+/**
+ * A configured external calendar.
+ *
+ * NOTHING HERE IS A CREDENTIAL. `feedUrl` is a public URL and `calendarId` is
+ * a public identifier; an API key, if one ever exists for a source, stays in
+ * the environment and is read per-request. A row in this table is safe to
+ * print in a health response, which is the whole reason the sync state lives
+ * here rather than in a log.
+ */
+export const eventSources = pgTable('event_sources', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  /** Stable handle used by code and cron, e.g. `luma:claudecommunity`. */
+  key: text('key').notNull().unique(),
+  provider: text('provider').notNull(),
+  label: text('label').notNull(),
+  syncMode: eventSyncMode('sync_mode').notNull(),
+  /**
+   * The provider's own calendar identifier.
+   *
+   * For Luma this is the `cal-…` api_id and NOT the public slug — the ICS
+   * endpoint answers 404 to the slug, which is the kind of fact that costs an
+   * afternoon if it is not written down.
+   */
+  calendarId: text('calendar_id'),
+  feedUrl: text('feed_url'),
+  enabled: boolean('enabled').notNull().default(true),
+  lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),
+  lastSyncStatus: eventSyncStatus('last_sync_status').notNull().default('never'),
+  /** A short, safe summary. Never a stack trace, never a URL with a secret. */
+  lastSyncMessage: text('last_sync_message'),
+  lastSeenCount: integer('last_seen_count'),
+  lastPromotedCount: integer('last_promoted_count'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Every external event ever seen, normalised — and NOT the public record.
+ *
+ * The staging table exists because `events` is the curated public record that
+ * the entire `RecordSet` reads, and its NOT NULLs (`cityId`, `venueName`,
+ * `summary`, `format`) are the reason the prerendered pages need no null
+ * checks. A feed cannot honour them. Rather than weaken the table that 71
+ * pages depend on, ingestion lands here and only confidently-placed events
+ * are promoted across.
+ *
+ * That also gives §21 somewhere to put the events it refuses to guess about,
+ * and §23 somewhere to notice that an event has stopped appearing.
+ */
+export const eventSourceRecords = pgTable(
+  'event_source_records',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    sourceId: uuid('source_id')
+      .notNull()
+      .references(() => eventSources.id, { onDelete: 'cascade' }),
+    /** For Luma ICS, the `UID` with `@events.lu.ma` stripped: `evt-…`. */
+    externalId: text('external_id').notNull(),
+
+    title: text('title').notNull(),
+    description: text('description'),
+    startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
+    endsAt: timestamp('ends_at', { withTimezone: true }),
+    timezone: text('timezone'),
+    locationRaw: text('location_raw'),
+    country: text('country'),
+    cityName: text('city_name'),
+    latitude: doublePrecision('latitude'),
+    longitude: doublePrecision('longitude'),
+    organizer: text('organizer'),
+    registrationUrl: text('registration_url'),
+    coverUrl: text('cover_url'),
+    /** The source's own revision counter, where it has one (ICS `SEQUENCE`). */
+    sequence: bigint('sequence', { mode: 'number' }),
+    /**
+     * The source's own cancellation signal, where it has one.
+     *
+     * The Claude Community ICS feed reports `TENTATIVE` on all 317 of its
+     * events, so for that feed this is not a usable signal and disappearance
+     * from the feed is the only real one. Recorded anyway, because a feed that
+     * starts telling the truth should be believed without a migration.
+     */
+    sourceStatus: text('source_status'),
+
+    state: eventRecordState('state').notNull().default('pending'),
+    /** A fixed code explaining `review`/`rejected`. Never free text from the feed. */
+    stateReason: text('state_reason'),
+    /** How confidently this was placed in India, 0–100. See `classifyIndia()`. */
+    indiaConfidence: smallint('india_confidence'),
+    eventId: uuid('event_id').references(() => events.id, { onDelete: 'set null' }),
+    cityId: uuid('city_id').references(() => cities.id, { onDelete: 'set null' }),
+
+    /**
+     * SHA-256 of the normalised payload.
+     *
+     * An equal hash means nothing changed and the upsert skips the write. That
+     * is what keeps a daily sync of 317 events from being 317 pointless
+     * UPDATEs, and it is also what makes `lastChangedAt` mean something.
+     */
+    rawHash: text('raw_hash').notNull(),
+
+    firstSeenAt: timestamp('first_seen_at', { withTimezone: true }).notNull().defaultNow(),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
+    lastChangedAt: timestamp('last_changed_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    /**
+     * THE IDEMPOTENCY KEY.
+     *
+     * §43 asks that every external ingestion be idempotent. This is where that
+     * is actually true: the constraint is in the database, so a sync that runs
+     * twice, or twice concurrently, cannot produce two rows for one Luma event
+     * no matter what the calling code forgets to check.
+     */
+    uniqueIndex('event_source_records_identity_unique').on(table.sourceId, table.externalId),
+    index('event_source_records_state_idx').on(table.state),
+    index('event_source_records_starts_idx').on(table.startsAt),
+  ],
+);
+
+// =========================================================================
 // EVENTS
 // =========================================================================
 
@@ -689,6 +857,33 @@ export const events = pgTable(
     featured: boolean('featured').notNull().default(false),
 
     /**
+     * ── WHERE THIS EVENT CAME FROM ──────────────────────────────────────
+     *
+     * Null on every hand-authored event, and that is load-bearing rather than
+     * incidental: `promote()` in `src/server/events/sync.ts` will only ever
+     * UPDATE a row whose `sourceId` matches the source it is syncing, so a
+     * curated event cannot be overwritten, restyled or cancelled by an
+     * external feed. The curated archive and the ingested calendar share a
+     * table and never share a row.
+     */
+    sourceId: uuid('source_id').references(() => eventSources.id, { onDelete: 'set null' }),
+    /** The provider's own id, e.g. a Luma `evt-…`. Unique per source. */
+    externalId: text('external_id'),
+    /** IANA zone from the source, when it names one. `date`/`startTime` stay local. */
+    timezone: text('timezone'),
+    lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),
+
+    /**
+     * The event is off.
+     *
+     * Set when the source says so, or when an event that used to be in the
+     * feed stops being in it. `/events/[slug]` checks this before printing a
+     * registration CTA, because §23 is precisely that a cancelled event must
+     * stop advertising a door that is not going to open.
+     */
+    canceledAt: timestamp('canceled_at', { withTimezone: true }),
+
+    /**
      * An event is the one entity whose creation date IS evidenced — by the
      * date it was held. The importer backfills it from `date` and nothing
      * else does.
@@ -698,6 +893,9 @@ export const events = pgTable(
   },
   (table) => [
     check('events_volume_positive', sql`${table.volume} IS NULL OR ${table.volume} > 0`),
+    uniqueIndex('events_source_external_unique')
+      .on(table.sourceId, table.externalId)
+      .where(sql`${table.sourceId} IS NOT NULL AND ${table.externalId} IS NOT NULL`),
     check(
       'events_end_after_start',
       sql`${table.endTime} IS NULL OR ${table.endTime} > ${table.startTime}`,
@@ -829,10 +1027,25 @@ export const projects = pgTable(
     ownerMemberId: uuid('owner_member_id').references(() => members.id, { onDelete: 'restrict' }),
     slug: text('slug').notNull().unique(),
     title: text('title').notNull(),
-    cityId: uuid('city_id')
-      .notNull()
-      .references(() => cities.id, { onDelete: 'restrict' }),
-    summary: text('summary').notNull(),
+
+    /**
+     * NULLABLE, AND ONLY FOR DRAFTS.
+     *
+     * Every curated project has a city and every PUBLISHED project must have
+     * one — `Project.citySlug` in `src/data/types.ts` is a required string and
+     * the prerendered pages dereference it without a null check. That
+     * invariant is kept by `assertPublishable()` in
+     * `src/server/members/projects.ts`, at the publish boundary.
+     *
+     * It is not kept by this column, because it cannot be: a member starting a
+     * draft has not chosen a city yet, and the previous NOT NULL meant
+     * `POST /api/projects` inserted NULL and failed at the database on every
+     * single member project creation. Requiring completeness to SAVE is the
+     * bug; requiring it to PUBLISH is the rule.
+     */
+    cityId: uuid('city_id').references(() => cities.id, { onDelete: 'restrict' }),
+    /** Nullable for the same reason as `cityId`, required by the same gate. */
+    summary: text('summary'),
     description: text('description'),
     category: projectCategory('category').notNull(),
     url: text('url'),

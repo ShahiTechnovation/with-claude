@@ -1,89 +1,137 @@
 ---
-/**
- * /me/profile — what the public sees, from the member's side.
- *
- * A short summary and a link, rather than a second rendering of the builder
- * page. Two templates showing "your profile" would drift, and the honest
- * answer to "what does mine look like?" is the real page.
- */
-import Base from '@/layouts/Base.astro';
-import Section from '@/components/Section.astro';
-import PageIntro from '@/components/PageIntro.astro';
 import { guardPage, privateHeaders } from '@/server/http/page-guard';
-import { ownedBuilder } from '@/server/members/publish';
+import AuthRequired from '@/components/AuthRequired.astro';
+import Base from '@/layouts/Base.astro';
+import { citySlugFor, getBuilderSlug } from '@/server/members/profile';
 
 export const prerender = false;
 
-privateHeaders(Astro);
-
 const guard = await guardPage(Astro);
-if (!guard.ok) return guard.redirect;
+let builderSlug: string | null = null;
+let citySlug: string = '';
 
-const { member, profile, db } = guard;
-const builder = await ownedBuilder(member, db);
+if (guard.ok) {
+  privateHeaders(Astro);
+  builderSlug = await getBuilderSlug(guard.member.id, guard.db);
+  if (guard.profile.cityId) {
+    citySlug = await citySlugFor(guard.profile.cityId, guard.db);
+  }
+}
 ---
 
-<Base title="Your public profile" description="Your public profile." active="/me" noindex>
-  <PageIntro eyebrow="Profile" title="What is public" size="md">
-    {
-      builder ? (
-        <p>
-          Your page is <a href={`/builders/${builder.slug}/`}>/builders/{builder.slug}</a>.
-        </p>
-      ) : (
-        <p>You have not published a profile yet.</p>
-      )
-    }
-  </PageIntro>
+{!guard.ok ? (
+  <Base title="Sign in" description="Sign in to continue" noindex>
+    <AuthRequired reason={guard.reason} />
+  </Base>
+) : (
+  <Base title="Your Builder Passport" description="View your profile." active="/me" noindex>
+    <main class="account-page">
+      <h1>Your Builder Passport</h1>
 
-  <Section id="summary" labelledby="summary-heading">
-    <h2 id="summary-heading">Summary</h2>
-    <dl class="settings-list">
-      <dt>Name</dt>
-      <dd>{profile.displayName ?? '—'}</dd>
-      <dt>Headline</dt>
-      <dd>{profile.headline ?? '—'}</dd>
-      <dt>Role</dt>
-      <dd>{profile.primaryRole ?? '—'}</dd>
-      <dt>Website</dt>
-      <dd>{profile.website ?? '—'}</dd>
-      <dt>Visibility</dt>
-      <dd>{profile.visibility}</dd>
-    </dl>
+      <dl class="profile-list">
+        <div class="list-item">
+          <dt>Name</dt>
+          <dd><strong>{guard.profile.displayName ?? 'Not added'}</strong> &middot; @{guard.profile.username}</dd>
+        </div>
+        <div class="list-item">
+          <dt>Headline</dt>
+          <dd>{guard.profile.headline ?? 'Not added'}</dd>
+        </div>
+        <div class="list-item">
+          <dt>City</dt>
+          <dd>{citySlug || 'Not added'}</dd>
+        </div>
+        <div class="list-item">
+          <dt>Role</dt>
+          <dd>{guard.profile.primaryRole ?? 'Not added'}</dd>
+        </div>
+        <div class="list-item">
+          <dt>Bio</dt>
+          <dd>{guard.profile.bio ?? 'Not added'}</dd>
+        </div>
+        <div class="list-item">
+          <dt>Claude tools</dt>
+          <dd>{guard.profile.claudeSince ?? 'Not added'}</dd>
+        </div>
+        <div class="list-item">
+          <dt>Links</dt>
+          <dd>{guard.profile.website ? <a href={guard.profile.website}>Website</a> : 'Not added'}</dd>
+        </div>
+        <div class="list-item">
+          <dt>Visibility</dt>
+          <dd>{guard.profile.visibility}</dd>
+        </div>
+      </dl>
 
-    {
-      builder && builder.source === 'legacy' && (
-        <p class="profile-claimed">
-          This record was written before you claimed it. Its name, roles and event credits stay as
-          the archive recorded them — you can edit your bio, role, links and city.
-        </p>
-      )
-    }
-
-    <p><a href="/me/profile/edit/">Edit passport</a></p>
-  </Section>
-</Base>
+      <div class="actions">
+        <a href="/me/profile/edit/" class="btn-secondary">Edit profile</a>
+        {builderSlug && (
+           <a href={`/builders/${builderSlug}/`} class="btn-secondary">View public profile</a>
+        )}
+      </div>
+    </main>
+  </Base>
+)}
 
 <style>
-  .settings-list {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 0.5rem 2rem;
-    margin: 1.5rem 0;
+  .account-page {
+    width: min(100% - 2rem, 42rem);
+    margin: 4rem auto;
+    font-family: var(--font-sans);
   }
-  .settings-list dt {
+  .account-page h1 {
+    font-family: var(--font-display);
+    font-size: 2.5rem;
+    font-weight: 500;
+    margin-bottom: 3rem;
+  }
+  .profile-list {
+    margin-bottom: 3rem;
+    border-top: 1px solid var(--rule);
+  }
+  .list-item {
+    display: flex;
+    padding: 1.5rem 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .list-item dt {
+    width: 25%;
     font-family: var(--font-mono);
-    font-size: 0.75rem;
+    font-size: 0.9rem;
+    color: var(--ink-2);
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    opacity: 0.7;
+    letter-spacing: 0.05em;
   }
-  .settings-list dd {
-    margin: 0;
+  .list-item dd {
+    width: 75%;
+    font-size: 1.1rem;
+    color: var(--ink);
   }
-  .profile-claimed {
-    border-left: 2px solid var(--rule);
-    padding-left: 1rem;
-    opacity: 0.85;
+  .list-item dd a {
+    color: var(--ink);
+    text-decoration: underline;
+  }
+  .actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+  }
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    text-decoration: none;
+    color: var(--ink);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    transition: all var(--dur-1) var(--ease-out);
+  }
+  .btn-secondary:hover {
+    border-color: var(--ink);
+    background: var(--shade-1);
   }
 </style>

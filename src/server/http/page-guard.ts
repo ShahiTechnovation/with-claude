@@ -13,15 +13,25 @@
  * way. Here the data is never put in the response at all unless the token
  * verified.
  *
- * ── THE THREE ANSWERS ────────────────────────────────────────────────────
+ * ── THE FIVE ANSWERS ─────────────────────────────────────────────────────
  *
- * anonymous        → redirect to /join
- * signed in, new   → redirect to the passport, because there is nothing to show
- * signed in, ready → render
+ * unauthenticated        → render the in-place Privy gate (no token / bad token)
+ * server-not-configured  → server credentials missing; 503-class, not the user's fault
+ * no-member              → Privy verified but bootstrap has not run yet
+ * member-unavailable     → suspended or deleted account
+ * authenticated          → render the requested page
  *
  * A redirect rather than a 401 page, because these are navigations by a person
  * rather than calls by a program, and "you need to sign in" is better
  * expressed by showing them the place to do it.
+ *
+ * ── WHY REASONS ARE SEPARATE ─────────────────────────────────────────────
+ *
+ * Collapsing every failure into 'authentication-required' caused the real
+ * symptom: a verified client showing a sign-in CTA because the server had no
+ * Privy credentials. Each reason below maps to a distinct UI state in
+ * AuthRequired — user-facing text is safe and generic; the reason code stays
+ * server-side for logging.
  */
 import type { AstroGlobal } from 'astro';
 import { pooledDb } from '../../../db/pool';
@@ -41,46 +51,76 @@ import { readProfile, type ProfileRow } from '../members/profile';
  * So exactly one module under `src/server/http/` opens the connection, and the
  * pages receive it. They import nothing from `db/`.
  */
+export type PageGuardFailureReason =
+  /** No token presented, or token did not verify. User should sign in. */
+  | 'unauthenticated'
+  /**
+   * Server-side Privy credentials (PRIVY_APP_ID / PRIVY_VERIFICATION_KEY) are
+   * absent or empty. This is a deployment configuration error, not the user's
+   * fault. Returns 503-class semantics; must never show a sign-in CTA.
+   */
+  | 'server-not-configured'
+  /**
+   * Privy identity verified, but no member row exists yet.
+   * Bootstrap (`POST /api/member/bootstrap`) has not run for this user.
+   */
+  | 'no-member'
+  /** Member row exists but is suspended or deleted. */
+  | 'member-unavailable'
+  /**
+   * Member exists but has no profile shell.
+   * Normally created by bootstrap; can occur if bootstrap partially failed.
+   */
+  | 'profile-required';
+
 export type PageGuard =
   | { ok: true; member: Member; profile: ProfileRow; db: ReturnType<typeof pooledDb> }
-  | { ok: false; redirect: Response };
+  | { ok: false; reason: PageGuardFailureReason };
 
 /**
- * Resolve the signed-in member for a page, or the redirect to send instead.
+ * Resolve the signed-in member for a page, or explain which step failed.
  *
- * `noProfileTo` lets the passport page opt out of the "you have no profile"
- * redirect, since that page IS where a profile gets made and bouncing it to
- * itself would loop.
+ * A missing identity is deliberately not an HTTP redirect. The page renders a
+ * tiny client-side Privy gate at the requested URL instead, so login can open
+ * in place and return the visitor to the exact account page they asked for.
+ * That keeps `/join` out of the authenticated routing path entirely.
+ *
+ * Each failure reason maps to a distinct UI state in `<AuthRequired />`:
+ *
+ *   unauthenticated       → "Sign in to continue" + Privy CTA
+ *   server-not-configured → "Sign-in temporarily unavailable" (no CTA)
+ *   no-member             → "Setting up your account…"
+ *   member-unavailable    → "This account is not available."
+ *   profile-required      → "Finishing account setup…"
  */
 export async function guardPage(
   astro: AstroGlobal,
-  options: { allowMissingProfile?: boolean } = {},
+  _options: { allowMissingProfile?: boolean } = {},
 ): Promise<PageGuard> {
   const db = pooledDb();
   const identity = await requireMember(astro.request, db);
 
   if (!identity.ok) {
-    /**
-     * Everything that is not an active member goes to /join, including a
-     * suspended one.
-     *
-     * Deliberately the same destination and the same wording for every
-     * reason. Distinguishing "no account" from "suspended" here would tell an
-     * unauthenticated caller which of the two a given session is, and §23 says
-     * not to expose moderation internals. A suspended member is told what is
-     * happening by a person, not by a redirect.
-     */
-    return { ok: false, redirect: astro.redirect('/join/', 302) };
+    // Map each auth failure reason to the appropriate page-guard reason,
+    // keeping 'not-configured' separate so the UI never asks an authenticated
+    // user to sign in when the server is simply misconfigured.
+    switch (identity.reason) {
+      case 'not-configured':
+        return { ok: false, reason: 'server-not-configured' };
+      case 'no-token':
+      case 'invalid-token':
+        return { ok: false, reason: 'unauthenticated' };
+      case 'no-member':
+        return { ok: false, reason: 'no-member' };
+      case 'suspended':
+      case 'deleted':
+        return { ok: false, reason: 'member-unavailable' };
+    }
   }
 
   const profile = await readProfile(identity.member.id, db);
 
-  if (!profile) {
-    if (options.allowMissingProfile) {
-      return { ok: false, redirect: astro.redirect('/join/', 302) };
-    }
-    return { ok: false, redirect: astro.redirect('/join/', 302) };
-  }
+  if (!profile) return { ok: false, reason: 'profile-required' };
 
   return { ok: true, member: identity.member, profile, db };
 }

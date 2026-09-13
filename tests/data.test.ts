@@ -484,7 +484,7 @@ describe('participation paths', () => {
     }
   });
 
-  it('every form is reachable from /join by its own anchor', () => {
+  it('keeps unique legacy-form identifiers for validation and compatibility', () => {
     for (const form of forms) {
       expect(form.anchor, `form ${form.id}`).toBeTruthy();
     }

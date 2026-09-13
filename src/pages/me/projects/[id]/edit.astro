@@ -1,50 +1,84 @@
 ---
+import { guardPage, privateHeaders } from '@/server/http/page-guard';
+import AuthRequired from '@/components/AuthRequired.astro';
 import Base from '@/layouts/Base.astro';
-import PageIntro from '@/components/PageIntro.astro';
-import Section from '@/components/Section.astro';
-import { getMemberProjectForEdit, getIdentityFromRequest } from '@/server/me/queries';
-import ProjectEditor from '@/components/react/ProjectEditor.tsx';
+import ProjectEditor from '@/components/react/ProjectEditor';
+import { getMemberProject } from '@/server/members/projects';
 
 export const prerender = false;
 
 const { id } = Astro.params;
-if (!id) return Astro.redirect('/me/projects');
+const guard = await guardPage(Astro);
+let project: any = null;
 
-const identity = await getIdentityFromRequest(Astro.request);
-
-if (!identity.ok) {
-  return Astro.redirect('/join');
+if (guard.ok && id) {
+  privateHeaders(Astro);
+  project = await getMemberProject(guard.member.id, id, guard.db);
 }
-const member = identity.member;
-
-const project = await getMemberProjectForEdit(id, member.id);
-
-if (!project) {
-  return Astro.redirect('/me/projects');
-}
-
-const p = project.projects;
-const initialData = {
-  id: p.id,
-  title: p.title,
-  summary: p.summary ?? '',
-  description: p.description ?? '',
-  claudeUsage: p.claudeUsage ?? '',
-  cityId: p.cityId ?? '',
-  category: p.category,
-  url: p.url ?? '',
-  repoUrl: p.repoUrl ?? '',
-  videoUrl: p.videoUrl ?? '',
-  imagePath: p.imagePath ?? '',
-  publicationStatus: p.publicationStatus,
-};
 ---
 
-<Base title={`Edit ${p.title}`} description={`Edit project ${p.title}.`}>
-  <PageIntro eyebrow="Builder Passport" title="Edit Project" size="md" />
+{!guard.ok ? (
+  <Base title="Sign in" description="Sign in to continue" noindex>
+    <AuthRequired reason={guard.reason} />
+  </Base>
+) : (
+  <Base title={project ? `Edit ${project.title}` : 'Project not found'} description="Edit your project." active="/me" noindex>
+    <main class="account-page">
+      {project ? (
+        <>
+          <h1>Edit {project.title}</h1>
+          <ProjectEditor initialData={project as any} client:only="react" />
+        </>
+      ) : (
+        <div class="empty-state">
+          <h1>Project not found</h1>
+          <p>This project doesn't exist or you don't have permission to edit it.</p>
+          <a href="/me/projects/" class="btn-secondary">Return to projects</a>
+        </div>
+      )}
+    </main>
+  </Base>
+)}
 
-  <Section id="editor" labelledby="editor-heading" tone="sunk">
-    <h2 id="editor-heading" class="sr-only">Project Editor</h2>
-    <ProjectEditor initialData={initialData} client:only="react" />
-  </Section>
-</Base>
+<style>
+  .account-page {
+    width: min(100% - 2rem, 42rem);
+    margin: 4rem auto;
+    font-family: var(--font-sans);
+  }
+  .account-page h1 {
+    font-family: var(--font-display);
+    font-size: 2.5rem;
+    font-weight: 500;
+    margin-bottom: 3rem;
+  }
+  .empty-state {
+    text-align: center;
+    padding: 3rem 0;
+  }
+  .empty-state h1 {
+    margin-bottom: 1rem;
+  }
+  .empty-state p {
+    color: var(--ink-2);
+    margin-bottom: 2rem;
+  }
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    text-decoration: none;
+    color: var(--ink);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    transition: all var(--dur-1) var(--ease-out);
+  }
+  .btn-secondary:hover {
+    border-color: var(--ink);
+    background: var(--shade-1);
+  }
+</style>

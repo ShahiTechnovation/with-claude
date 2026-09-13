@@ -187,7 +187,7 @@ const schema = profileSchema(
                 ) : (
                   <p class="block-empty">
                     Nothing from {builder.name} is in the archive yet.{' '}
-                    <a href="/join#build">Submissions are open.</a>
+                    <a href="/submit/">Submissions are open.</a>
                   </p>
                 )
               }
@@ -286,7 +286,7 @@ const schema = profileSchema(
               missing.length > 0 && (
                 <p class="thin">
                   This entry is missing {missing.join(', ')}. If it is yours,{' '}
-                  <a href="/join#contribute">send the rest</a> and it will be filled in.
+                  <a href="/me/profile/edit/">send the rest</a> and it will be filled in.
                 </p>
               )
             }

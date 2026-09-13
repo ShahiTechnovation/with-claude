@@ -26,6 +26,7 @@ import { readProfile } from '@/server/members/profile';
 import { ownedBuilder } from '@/server/members/publish';
 import { isPlaceholderUsername } from '@/server/members/username';
 import { claimsFor } from '@/server/members/claims';
+import { citySlugFor } from '@/server/members/profile';
 
 export const prerender = false;
 
@@ -44,6 +45,7 @@ export const GET: APIRoute = async ({ request }) => {
 
   const builder = await ownedBuilder(guard.member, db);
   const claims = await claimsFor(guard.member.id, db);
+  const citySlug = await citySlugFor(profile.cityId, db);
 
   return json(
     {
@@ -55,6 +57,7 @@ export const GET: APIRoute = async ({ request }) => {
         headline: profile.headline,
         bio: profile.bio,
         cityId: profile.cityId,
+        citySlug,
         country: profile.country,
         website: profile.website,
         primaryRole: profile.primaryRole,

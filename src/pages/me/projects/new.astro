@@ -1,24 +1,52 @@
 ---
+import { guardPage, privateHeaders } from '@/server/http/page-guard';
+import AuthRequired from '@/components/AuthRequired.astro';
 import Base from '@/layouts/Base.astro';
-import PageIntro from '@/components/PageIntro.astro';
-import Section from '@/components/Section.astro';
-import { getIdentityFromRequest } from '@/server/me/queries';
-import ProjectEditor from '@/components/react/ProjectEditor.tsx';
+import ProjectEditor from '@/components/react/ProjectEditor';
 
 export const prerender = false;
 
-const identity = await getIdentityFromRequest(Astro.request);
-
-if (!identity.ok) {
-  return Astro.redirect('/join');
-}
+const guard = await guardPage(Astro);
+if (guard.ok) privateHeaders(Astro);
 ---
 
-<Base title="New Project" description="Create a new project.">
-  <PageIntro eyebrow="Builder Passport" title="New Project" size="md" />
+{!guard.ok ? (
+  <Base title="Sign in" description="Sign in to continue" noindex>
+    <AuthRequired reason={guard.reason} />
+  </Base>
+) : (
+  <Base title="Add a project" description="Create a project." active="/me" noindex>
+    <main class="account-page">
+      <h1>Add a project</h1>
+      {guard.profile.cityId ? (
+        <ProjectEditor initialData={{ cityId: guard.profile.cityId }} client:only="react" />
+      ) : (
+        <p class="empty-state">
+          Add your city in <a href="/me/profile/edit/">your profile</a> first before publishing a project.
+        </p>
+      )}
+    </main>
+  </Base>
+)}
 
-  <Section id="editor" labelledby="editor-heading" tone="sunk">
-    <h2 id="editor-heading" class="sr-only">Project Editor</h2>
-    <ProjectEditor client:only="react" />
-  </Section>
-</Base>
+<style>
+  .account-page {
+    width: min(100% - 2rem, 42rem);
+    margin: 4rem auto;
+    font-family: var(--font-sans);
+  }
+  .account-page h1 {
+    font-family: var(--font-display);
+    font-size: 2.5rem;
+    font-weight: 500;
+    margin-bottom: 3rem;
+  }
+  .empty-state {
+    font-size: 1.1rem;
+    color: var(--ink-2);
+  }
+  .empty-state a {
+    color: var(--ink);
+    text-decoration: underline;
+  }
+</style>

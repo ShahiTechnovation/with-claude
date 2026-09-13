@@ -62,6 +62,46 @@ export function isCityIndexable(city: City): boolean {
   );
 }
 
+/**
+ * Route prefixes that are private by their nature, not by their content.
+ *
+ * ── THE BUG THIS FIXES ───────────────────────────────────────────────────
+ *
+ * Phase A added six account pages under `/me/`. Each one sets `noindex` and
+ * `Cache-Control: private, no-store` — and every one of them was still being
+ * listed in `sitemap-0.xml`, because the only exclusion rule this module had
+ * was about cities. So the site was simultaneously telling crawlers "do not
+ * index this" on the page and "here, index this" in the sitemap.
+ *
+ * `astro.config.mjs`'s own comment states the rule being broken: a sitemap
+ * that advertises pages marked `noindex` is a crawl-budget bill with no page
+ * behind it, so the two have to agree. §46 and §47 say the same thing.
+ *
+ * ── WHY A PREFIX AND NOT A LIST ──────────────────────────────────────────
+ *
+ * Because the six paths were not forgotten out of carelessness — they were
+ * forgotten because nothing connected adding an account page to updating a
+ * sitemap rule. A list of six would be forgotten again by the seventh page.
+ * A prefix covers `/me/anything` the moment it exists.
+ *
+ * This is deliberately NOT folded into `nonIndexablePaths()`. That function
+ * answers a question about the RECORD — which cities have enough in them to be
+ * worth finding — and the equivalence suite asserts it is identical across
+ * both data sources and empty for an empty dataset. Privacy is structural and
+ * has nothing to do with the record, so it gets its own predicate.
+ */
+export const PRIVATE_PATH_PREFIXES = ['/me/', '/api/'] as const;
+
+/**
+ * True when a path must never appear in the sitemap, whatever is in it.
+ *
+ * Takes the path with its trailing slash, as `@astrojs/sitemap` supplies it.
+ */
+export function isPrivatePath(path: string): boolean {
+  const normalised = path.endsWith('/') ? path : `${path}/`;
+  return PRIVATE_PATH_PREFIXES.some((prefix) => normalised.startsWith(prefix));
+}
+
 /** Root-relative paths the sitemap must leave out. */
 export function nonIndexablePaths(): string[] {
   return records()

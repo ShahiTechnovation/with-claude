@@ -23,20 +23,11 @@ import Section from '@/components/Section.astro';
         Builder Passport so your profile is ready.
       </p>
       <div class="auth-action">
-        <!-- PrivyRoot (mounted once, sitewide) portals its login button here. -->
-        <div id="join-cta-root" data-next="/me">
-          <p class="signin-status js-hydrate-hide">Checking…</p>
-        </div>
+        <a href="/me/" class="btn">Continue to Profile</a>
       </div>
     </div>
   </Section>
 </Base>
-
-<script>
-  if (document.cookie.includes('privy-token=')) {
-    window.location.href = '/me';
-  }
-</script>
 
 <style>
   .auth-panel {
@@ -51,5 +42,27 @@ import Section from '@/components/Section.astro';
   }
   .auth-action {
     display: flex;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    text-decoration: none;
+    color: var(--paper);
+    background: var(--ink);
+    border: 1px solid var(--ink);
+    border-radius: 2px;
+    cursor: pointer;
+    transition: background var(--dur-1) var(--ease-out);
+  }
+  .btn:hover, .btn:focus-visible {
+    background: var(--clay-deep, #92400e);
+    border-color: var(--clay-deep, #92400e);
   }
 </style>

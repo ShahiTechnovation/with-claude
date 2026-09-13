@@ -8,6 +8,7 @@ import {
   venueLabel,
 } from '@/data';
 import type { CommunityEvent } from '@/data';
+import { registrationLink } from '@/lib/attribution';
 import { dateParts, formatTime, isoDateTime } from '@/lib/datetime';
 import { formatName, lifecycleLabel, lifecycleOf, lifecycleTone } from '@/lib/status';
 
@@ -114,7 +115,7 @@ const years = [...new Set(archive.map((entry) => entry.parts.year))].sort((a, b)
           {lead.event.registrationUrl && (
             <a
               class="btn btn-clay"
-              href={lead.event.registrationUrl}
+              href={registrationLink(lead.event.registrationUrl)!}
               target="_blank"
               rel="noopener"
             >
@@ -167,7 +168,7 @@ const years = [...new Set(archive.map((entry) => entry.parts.year))].sort((a, b)
               {entry.event.registrationUrl && (
                 <a
                   class="next-luma"
-                  href={entry.event.registrationUrl}
+                  href={registrationLink(entry.event.registrationUrl)!}
                   target="_blank"
                   rel="noopener"
                 >
@@ -244,7 +245,7 @@ const years = [...new Set(archive.map((entry) => entry.parts.year))].sort((a, b)
                   {entry.event.registrationUrl && (
                     <a
                       class="past-luma"
-                      href={entry.event.registrationUrl}
+                      href={registrationLink(entry.event.registrationUrl)!}
                       target="_blank"
                       rel="noopener"
                     >

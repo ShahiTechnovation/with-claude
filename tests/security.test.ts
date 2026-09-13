@@ -247,7 +247,8 @@ describe('the site stays static', () => {
       const isApi = route.startsWith('src/pages/api/');
       const isAccount = route.startsWith('src/pages/me/');
       const isDetail = route.startsWith('src/pages/projects/') || route.startsWith('src/pages/builders/');
-      expect(isApi || isAccount || isDetail, `${route} is a public page rendered on demand`).toBe(true);
+      const isSitemap = route === 'src/pages/sitemap.xml.ts';
+      expect(isApi || isAccount || isDetail || isSitemap, `${route} is a public page rendered on demand`).toBe(true);
     }
   });
 

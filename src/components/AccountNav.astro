@@ -27,7 +27,7 @@ const loginMethods = (import.meta.env.PUBLIC_PRIVY_LOGIN_METHODS as string | und
   static fallback and the live button would both stay in the DOM at once.
 -->
 <div id="account-slot-root" class="account-slot" data-account-state="anonymous">
-  <a class="account-join js-hydrate-hide" href="/join/">Join WITH CLAUDE</a>
+  <a class="account-join js-hydrate-hide" href="/">Join WITH CLAUDE</a>
 </div>
 
 {appId && <PrivyRoot appId={appId} loginMethods={loginMethods} client:only="react" />}

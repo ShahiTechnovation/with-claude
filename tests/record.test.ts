@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { cities } from '../src/data/cities';
-import { isCityIndexable, nonIndexablePaths } from '../src/lib/indexable';
+import { isCityIndexable, isPrivatePath, nonIndexablePaths } from '../src/lib/indexable';
 
 /**
  * The record, and what gets to be a search result.
@@ -69,6 +69,40 @@ describe('indexability', () => {
   it('excludes nothing that is not a city', () => {
     for (const path of nonIndexablePaths()) {
       expect(path.startsWith('/cities/')).toBe(true);
+    }
+  });
+
+  /**
+   * THE SITEMAP AND `noindex` HAVE TO AGREE.
+   *
+   * All six `/me/*` pages set `noindex` and `Cache-Control: private, no-store`
+   * — and were listed in `sitemap-0.xml` regardless, because the only
+   * exclusion rule was about cities. The site was telling crawlers both
+   * "never index this" and "here, index this" about the same URL.
+   *
+   * Asserted on the PREFIX rather than on the six known paths, because the
+   * six were not forgotten through carelessness: nothing connected adding an
+   * account page to updating a sitemap rule. A test listing six paths would
+   * pass while the seventh page leaked.
+   */
+  it('keeps the account area and the API out of the sitemap', () => {
+    for (const path of [
+      '/me/',
+      '/me/profile/',
+      '/me/profile/edit/',
+      '/me/projects/',
+      '/me/projects/new/',
+      '/me/settings/',
+      '/me/some/page/nobody/has/written/yet/',
+      '/api/health/',
+    ]) {
+      expect(isPrivatePath(path), path).toBe(true);
+    }
+  });
+
+  it('does not treat a public route as private', () => {
+    for (const path of ['/', '/builders/', '/projects/', '/events/', '/cities/bhopal/', '/record/']) {
+      expect(isPrivatePath(path), path).toBe(false);
     }
   });
 });

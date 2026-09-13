@@ -1,5 +1,6 @@
 ---
 import { cityBySlug, cityName, communityChannel, hostAmbassador, upcomingEvents } from '@/data';
+import { registrationLink } from '@/lib/attribution';
 import { dateParts, formatTimeRange, isoDateTime, relativeDay } from '@/lib/datetime';
 import { formatCoords } from '@/lib/geo';
 import {
@@ -112,7 +113,7 @@ const organisations = featured?.host.organisations ?? [];
             {canRegister && featured.registrationUrl ? (
               <a
                 class="btn btn-clay"
-                href={featured.registrationUrl}
+                href={registrationLink(featured.registrationUrl)!}
                 target="_blank"
                 rel="noopener"
               >

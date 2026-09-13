@@ -27,6 +27,7 @@ import {
   relativeDay,
   istInstant,
 } from '@/lib/datetime';
+import { registrationLink } from '@/lib/attribution';
 import { formatCoords } from '@/lib/geo';
 import { asset, requireAsset } from '@/lib/images';
 import { titles, trail } from '@/lib/seo';
@@ -53,6 +54,14 @@ const speakers = speakersOf(event);
 const coHosts = coHostsOf(event);
 const ambassador = hostAmbassador(event);
 const canRegister = isRegistrationOpen(event);
+/**
+ * The registration href, with WITH CLAUDE attribution merged in. §26.
+ *
+ * The undecorated `event.registrationUrl` is still what goes into the JSON-LD
+ * below — see `registrationLink()` for why a structured-data offer URL should
+ * stay canonical.
+ */
+const registerHref = registrationLink(event.registrationUrl);
 const cover = asset(event.coverImage);
 const outputs = projectsFromEvent(event.slug);
 const recaps = storiesForEvent(event.slug);
@@ -353,7 +362,7 @@ const crumbs = trail(
                 Nothing from this room is in the archive yet. If you made something, it belongs on
                 the record.
               </p>
-              <a class="link-arrow" href="/join#build">
+              <a class="link-arrow" href="/submit/">
                 <span>Submit your build</span>
                 <span class="arrow" aria-hidden="true">
                   →
@@ -365,8 +374,8 @@ const crumbs = trail(
 
         <div class="detail-actions">
           {
-            canRegister && event.registrationUrl ? (
-              <a class="btn btn-clay" href={event.registrationUrl} target="_blank" rel="noopener">
+            canRegister && registerHref ? (
+              <a class="btn btn-clay" href={registerHref} target="_blank" rel="noopener">
                 <span>Register</span>
                 <span class="arrow" aria-hidden="true">
                   ↗

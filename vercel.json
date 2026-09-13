@@ -4,6 +4,10 @@
   "trailingSlash": true,
   "crons": [
     {
+      "path": "/api/cron/events-sync",
+      "schedule": "45 21 * * *"
+    },
+    {
       "path": "/api/cron/rebuild",
       "schedule": "30 22 * * *"
     }

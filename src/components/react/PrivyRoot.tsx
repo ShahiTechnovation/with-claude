@@ -36,7 +36,7 @@ const NUDGE_DISMISSED_KEY = 'wc_nudge_dismissed';
 type BootstrapState =
   | { status: 'idle' | 'running' }
   | { status: 'done'; needsUsername: boolean }
-  | { status: 'failed' };
+  | { status: 'failed'; kind: 'server-unavailable' | 'auth-error' };
 
 /**
  * Provision the member row exactly once per login, from exactly one place.
@@ -48,15 +48,17 @@ type BootstrapState =
  * effects racing in the same tick would both pass the check.
  */
 function useBootstrapOnce(): BootstrapState {
-  const { ready, authenticated, getAccessToken } = usePrivy();
+  const { ready, authenticated, user, getAccessToken } = usePrivy();
   const [state, setState] = useState<BootstrapState>({ status: 'idle' });
   const started = useRef(false);
 
   useEffect(() => {
     if (!ready || !authenticated || started.current) return;
 
-    if (sessionStorage.getItem(BOOTSTRAPPED_KEY)) {
-      setState({ status: 'done', needsUsername: sessionStorage.getItem(NEEDS_USERNAME_KEY) === '1' });
+    const memberKey = `${BOOTSTRAPPED_KEY}:${user?.id ?? 'unknown'}`;
+    const usernameKey = `${NEEDS_USERNAME_KEY}:${user?.id ?? 'unknown'}`;
+    if (sessionStorage.getItem(memberKey)) {
+      setState({ status: 'done', needsUsername: sessionStorage.getItem(usernameKey) === '1' });
       return;
     }
 
@@ -75,22 +77,26 @@ function useBootstrapOnce(): BootstrapState {
           credentials: 'same-origin',
         });
         if (!response.ok) {
-          setState({ status: 'failed' });
+          // 503 means the server has no Privy credentials configured — not a
+          // user error. Any other non-OK is a user-level auth failure.
+          const kind = response.status === 503 ? 'server-unavailable' : 'auth-error';
+          setState({ status: 'failed', kind });
           return;
         }
         const body = (await response.json()) as { profile?: { needsUsername?: boolean } };
         const needsUsername = Boolean(body.profile?.needsUsername);
-        sessionStorage.setItem(BOOTSTRAPPED_KEY, '1');
-        sessionStorage.setItem(NEEDS_USERNAME_KEY, needsUsername ? '1' : '0');
+        sessionStorage.setItem(memberKey, '1');
+        sessionStorage.setItem(usernameKey, needsUsername ? '1' : '0');
         setState({ status: 'done', needsUsername });
       } catch {
-        setState({ status: 'failed' });
+        setState({ status: 'failed', kind: 'auth-error' });
       }
     })();
-  }, [ready, authenticated, getAccessToken]);
+  }, [ready, authenticated, user?.id, getAccessToken]);
 
   return state;
 }
+
 
 /** The masthead's auth-aware slot, portaled into `#account-slot-root`. */
 function AccountSlot({ bootstrap }: { bootstrap: BootstrapState }) {
@@ -220,7 +226,7 @@ function AccountSlot({ bootstrap }: { bootstrap: BootstrapState }) {
             aria-label="Account"
             onKeyDown={handleDropdownKeyDown}
           >
-            <a href="/me/" role="menuitem">
+            <a href="/me/profile/" role="menuitem">
               Profile
             </a>
             <a href="/me/projects/" role="menuitem">
@@ -234,7 +240,7 @@ function AccountSlot({ bootstrap }: { bootstrap: BootstrapState }) {
               role="menuitem"
               onClick={() => {
                 setOpen(false);
-                void logout();
+                void logout().then(() => window.location.assign('/'));
               }}
             >
               Sign out
@@ -248,18 +254,22 @@ function AccountSlot({ bootstrap }: { bootstrap: BootstrapState }) {
   return createPortal(content, target);
 }
 
+function isValidNext(next: string) {
+  if (!next.startsWith('/')) return false;
+  if (next.startsWith('//')) return false;
+  return true;
+}
+
 /**
  * A page's own hero sign-in CTA, portaled into that page's `#join-cta-root`.
- *
- * Renders nothing on pages that do not have that node — `/join`, `/practice`,
- * `/city` and `/submit` are the only ones that do.
  */
 function JoinCta({ bootstrap }: { bootstrap: BootstrapState }) {
   const { ready, authenticated, login, logout } = usePrivy();
   const redirected = useRef(false);
 
   const target = document.getElementById('join-cta-root');
-  const next = target?.dataset.next ?? '/me/';
+  const rawNext = target?.dataset.next ?? '/me/';
+  const next = isValidNext(rawNext) ? rawNext : '/me/';
 
   useEffect(() => {
     if (!target || bootstrap.status !== 'done' || redirected.current) return;
@@ -276,20 +286,27 @@ function JoinCta({ bootstrap }: { bootstrap: BootstrapState }) {
   } else if (!authenticated) {
     content = (
       <button type="button" className="signin-button" onClick={() => login()}>
-        Join WITH CLAUDE
+        Continue with WITH CLAUDE
       </button>
     );
   } else if (bootstrap.status === 'failed') {
-    content = (
-      <div className="signin-failed">
-        <p className="signin-status">Something went wrong signing you in.</p>
-        <button type="button" className="signin-secondary" onClick={() => void logout()}>
-          Sign out
-        </button>
-      </div>
-    );
+    if (bootstrap.kind === 'server-unavailable') {
+      // Server credentials are missing — not the user's fault.
+      // Don't show "Something went wrong signing you in." which implies a user error.
+      content = (
+        <p className="signin-status">Sign-in is temporarily unavailable. Please try again shortly.</p>
+      );
+    } else {
+      content = (
+        <div className="signin-failed">
+          <p className="signin-status">Something went wrong signing you in.</p>
+          <button type="button" className="signin-secondary" onClick={() => void logout()}>
+            Sign out
+          </button>
+        </div>
+      );
+    }
   } else {
-    // 'idle' | 'running' | 'done' (the redirect above fires the instant it is 'done')
     content = <p className="signin-status">Setting up your account…</p>;
   }
 
@@ -326,11 +343,6 @@ interface Props {
 }
 
 export default function PrivyRoot({ appId, loginMethods }: Props) {
-  /**
-   * NO EMBEDDED WALLETS — a wallet is optional future functionality; creating
-   * one on every login would provision a financial instrument without
-   * explicit consent.
-   */
   return (
     <PrivyProvider
       appId={appId}

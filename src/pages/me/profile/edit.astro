@@ -1,286 +1,118 @@
 ---
-/**
- * /me/profile/edit — the Builder Passport.
- *
- * §5's nine steps, as one form rather than a nine-screen wizard. A wizard is
- * the right shape when each step depends on the last; here they do not, and
- * making somebody click Next eight times to change their bio would be worse
- * for the returning visitor, who is most of the traffic a form like this gets.
- * The fields are grouped and ordered the way the brief lists them.
- *
- * SSR and private. The only JavaScript is `src/scripts/passport.ts`, which
- * encodes the form as JSON — the markup is a real form with real labels and
- * degrades to one.
- */
-import Base from '@/layouts/Base.astro';
-import Section from '@/components/Section.astro';
-import PageIntro from '@/components/PageIntro.astro';
 import { guardPage, privateHeaders } from '@/server/http/page-guard';
-import { SELECTABLE_ROLES } from '@/server/members/profile';
-import { isPlaceholderUsername } from '@/server/members/username';
-import { publicCities } from '@/data';
-import { citySlugFor } from '@/server/members/profile';
+import AuthRequired from '@/components/AuthRequired.astro';
+import Base from '@/layouts/Base.astro';
+import ProfileEditor from '@/components/react/ProfileEditor';
 
 export const prerender = false;
 
-privateHeaders(Astro);
-
-const guard = await guardPage(Astro, { allowMissingProfile: true });
-if (!guard.ok) return guard.redirect;
-
-const { profile, db } = guard;
-const needsUsername = isPlaceholderUsername(profile.username);
-
-/**
- * The atlas, from the same selector every public page reads.
- *
- * A city must be one of these. NOTHING HERE CREATES A CITY: a city's community
- * state is derived from verified ambassador and event records, so a
- * self-service form that could add one would be a self-service form that
- * creates chapters.
- */
-const cities = publicCities;
-
-/**
- * The stored `city_id` is a uuid; the form speaks slugs. Resolved here rather
- * than in the browser so the select can pre-select the right option without
- * the page shipping a uuid-to-slug map.
- */
-const currentCitySlug = await citySlugFor(profile.cityId, db);
+const guard = await guardPage(Astro);
+if (guard.ok) privateHeaders(Astro);
 ---
 
-<Base
-  title="Your Builder Passport"
-  description="Your profile on WITH CLAUDE."
-  active="/me"
-  noindex
->
-  <PageIntro eyebrow="Passport" title="Your Builder Passport" size="md">
-    <p>
-      This is your page on WITH CLAUDE. You publish it yourself — nobody reviews it first. Keep it
-      short and true; a thin honest profile reads better than a padded one.
-    </p>
-  </PageIntro>
-
-  <Section id="passport" labelledby="passport-heading">
-    <h2 id="passport-heading" class="sr-only">Passport fields</h2>
-
-    <form data-passport class="passport-form" novalidate>
-      <p class="passport-status" data-passport-status aria-live="polite"></p>
-
-      <fieldset>
-        <legend>Who you are</legend>
-
-        <label for="username">
-          Username <span class="req" aria-hidden="true">*</span>
-          <small
-            >Your address on the site: <code>/builders/&lt;username&gt;</code>. Lowercase letters,
-            numbers, hyphens and underscores.</small
-          >
-        </label>
-        <input
-          id="username"
-          name="username"
-          type="text"
-          minlength="3"
-          maxlength="30"
-          pattern="[a-z0-9][a-z0-9_-]{2,29}"
-          value={needsUsername ? '' : profile.username}
-          placeholder={needsUsername ? 'choose-a-handle' : undefined}
-          required
-          autocomplete="username"
-        />
-        <p class="field-error" data-field-error="username"></p>
-
-        <label for="displayName">Name <span class="req" aria-hidden="true">*</span><small>How you want to be listed.</small></label>
-        <input
-          id="displayName"
-          name="displayName"
-          type="text"
-          maxlength="80"
-          value={profile.displayName ?? ''}
-          required
-          autocomplete="name"
-        />
-        <p class="field-error" data-field-error="displayName"></p>
-
-        <label for="headline">Headline<small>One line. What you do.</small></label>
-        <input
-          id="headline"
-          name="headline"
-          type="text"
-          maxlength="140"
-          value={profile.headline ?? ''}
-        />
-        <p class="field-error" data-field-error="headline"></p>
-      </fieldset>
-
-      <fieldset>
-        <legend>Where you are</legend>
-
-        <label for="citySlug">City <span class="req" aria-hidden="true">*</span><small>From the atlas.</small></label>
-        <select id="citySlug" name="citySlug" required>
-          <option value="">—</option>
-          {
-            cities.map((city) => (
-              <option value={city.slug} selected={currentCitySlug === city.slug}>
-                {city.name}
-              </option>
-            ))
-          }
-        </select>
-        <p class="field-error" data-field-error="citySlug"></p>
-
-        <label for="country">Country<small>If you are outside India.</small></label>
-        <input id="country" name="country" type="text" maxlength="60" value={profile.country ?? ''} />
-      </fieldset>
-
-      <fieldset>
-        <legend>What you do</legend>
-
-        <label for="primaryRole">Role <span class="req" aria-hidden="true">*</span></label>
-        <select id="primaryRole" name="primaryRole" required>
-          <option value="">—</option>
-          {
-            SELECTABLE_ROLES.map((role) => (
-              <option value={role} selected={profile.primaryRole === role}>
-                {role}
-              </option>
-            ))
-          }
-        </select>
-        <p class="field-note">
-          Ambassador, verified and official are not on this list. Those are granted with evidence,
-          not chosen.
-        </p>
-        <p class="field-error" data-field-error="primaryRole"></p>
-
-        <label for="bio">Bio<small>A short paragraph.</small></label>
-        <textarea id="bio" name="bio" rows="6" maxlength="2000">{profile.bio ?? ''}</textarea>
-        <p class="field-error" data-field-error="bio"></p>
-
-        <label for="claudeSince">Using Claude since<small>Optional.</small></label>
-        <input
-          id="claudeSince"
-          name="claudeSince"
-          type="text"
-          maxlength="40"
-          value={profile.claudeSince ?? ''}
-        />
-      </fieldset>
-
-      <fieldset>
-        <legend>Links</legend>
-
-        <label for="website">Website<small>Must start with https://</small></label>
-        <input
-          id="website"
-          name="website"
-          type="url"
-          maxlength="500"
-          value={profile.website ?? ''}
-          placeholder="https://"
-        />
-        <p class="field-error" data-field-error="website"></p>
-      </fieldset>
-
-      <fieldset>
-        <legend>Visibility</legend>
-
-        <label for="visibility">
-          Who can find this
-          <small>Unlisted keeps the page reachable by link but out of the index and sitemap.</small>
-        </label>
-        <select id="visibility" name="visibility">
-          <option value="public" selected={profile.visibility === 'public'}>Public</option>
-          <option value="unlisted" selected={profile.visibility === 'unlisted'}>Unlisted</option>
-        </select>
-      </fieldset>
-
-      <div class="passport-actions">
-        <button type="submit" name="action" value="save" class="passport-save">Save draft</button>
-        <button type="submit" name="action" value="publish" class="passport-publish">
-          Publish profile
-        </button>
-      </div>
-
-      <p class="passport-note">
-        Publishing writes your page immediately. It appears publicly when the site finishes
-        rebuilding, about a minute later.
-      </p>
-    </form>
-  </Section>
-</Base>
-
-<script>
-  import { passport } from '@/scripts/passport';
-  passport();
-</script>
+{!guard.ok ? (
+  <Base title="Sign in" description="Sign in to continue" noindex>
+    <AuthRequired reason={guard.reason} />
+  </Base>
+) : (
+  <Base title="Edit Profile" description="Edit your profile." active="/me" noindex>
+    <main class="account-page">
+      <h1>Edit Profile</h1>
+      <ProfileEditor profile={guard.profile} client:only="react" />
+    </main>
+  </Base>
+)}
 
 <style>
-  .passport-form fieldset {
-    border: 0;
-    border-top: 1px solid var(--rule);
-    padding: 1.5rem 0 0;
-    margin: 0 0 2rem;
+  .account-page {
+    width: min(100% - 2rem, 42rem);
+    margin: 4rem auto;
+    font-family: var(--font-sans);
   }
-  .passport-form legend {
-    font-family: var(--font-mono);
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    padding-right: 1ch;
-  }
-  .passport-form label {
-    display: block;
-    margin: 1.25rem 0 0.35rem;
+  .account-page h1 {
+    font-family: var(--font-display);
+    font-size: 2.5rem;
     font-weight: 500;
+    margin-bottom: 3rem;
   }
-  .passport-form label .req {
-    color: var(--clay-deep, #d97706);
+  
+  /* These global styles apply to the React ProfileEditor */
+  .account-page :global(.account-editor) {
+    margin-top: 2rem;
   }
-  .passport-form label small {
+  .account-page :global(.editor-grid) {
+    display: grid;
+    gap: 1.5rem;
+  }
+  .account-page :global(label) {
     display: block;
-    font-weight: 400;
-    opacity: 0.7;
   }
-  .passport-form input,
-  .passport-form select,
-  .passport-form textarea {
+  .account-page :global(label span) {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-2);
+    margin-bottom: 0.5rem;
+  }
+  .account-page :global(input),
+  .account-page :global(textarea),
+  .account-page :global(select) {
     width: 100%;
-    max-width: 34rem;
-    padding: 0.5rem 0.65rem;
+    padding: 0.75rem;
+    font-family: var(--font-sans);
+    font-size: 1rem;
     border: 1px solid var(--rule);
+    border-radius: 2px;
     background: var(--paper);
     color: var(--ink);
-    font: inherit;
   }
-  .field-error:empty {
-    display: none;
+  .account-page :global(input:focus),
+  .account-page :global(textarea:focus),
+  .account-page :global(select:focus) {
+    outline: none;
+    border-color: var(--ink);
   }
-  .field-error {
-    color: var(--warn, #a11);
-    font-size: 0.85rem;
-    margin: 0.35rem 0 0;
-  }
-  .field-note {
-    font-size: 0.85rem;
-    opacity: 0.7;
-  }
-  .passport-actions {
+  .account-page :global(.editor-actions) {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--rule);
     display: flex;
-    gap: 1rem;
-    flex-wrap: wrap;
+    align-items: center;
+    gap: 1.5rem;
   }
-  .passport-status:empty {
-    display: none;
+  .account-page :global(.btn-primary) {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.75rem 1.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 500;
+    color: var(--paper);
+    background: var(--ink);
+    border: none;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: background var(--dur-1) var(--ease-out);
   }
-  .passport-status {
-    padding: 0.6rem 0.8rem;
-    border-left: 2px solid var(--rule);
-    margin-bottom: 1.5rem;
+  .account-page :global(.btn-primary:hover:not(:disabled)) {
+    background: var(--clay-deep, #92400e);
   }
-  .passport-status[data-tone='error'] {
-    border-left-color: var(--warn, #a11);
+  .account-page :global(.btn-primary:disabled) {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .account-page :global(.editor-message) {
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+  }
+  .account-page :global(.editor-message.success) {
+    color: var(--clay, #b45309);
+  }
+  .account-page :global(.editor-message.error) {
+    color: red;
   }
 </style>

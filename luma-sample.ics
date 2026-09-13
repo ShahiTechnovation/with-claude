@@ -1,0 +1,4733 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Luma//Claude Community Events//EN
+X-WR-CALNAME:Claude Community Events
+X-WR-CALDESC:Luma Calendar
+REFRESH-INTERVAL;VALUE=DURATION:PT12H
+X-PUBLISHED-TTL:PT12H
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+BEGIN:VEVENT
+DTSTART:20250920T053000Z
+DTEND:20250920T090000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Xavier (최훈민)":MAILTO:calendar-invite@lu.ma
+UID:evt-InbBFqZw1yXzmWu@events.lu.ma
+SUMMARY:Claude Code Meetup Seoul
+DESCRIPTION:Get up-to-date information at: https://luma.com/houp1cbv\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Xavier (최훈민)
+LOCATION:https://luma.com/event/evt-InbBFqZw1yXzmWu
+GEO:37.516669336303664;127.02209424741227
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251009T161500Z
+DTEND:20251009T191500Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Nile Holmes":MAILTO:calendar-invite@lu.ma
+UID:evt-RPZwseE12orCSQ0@events.lu.ma
+SUMMARY:Claude Code Meetup Zurich
+DESCRIPTION:Get up-to-date information at: https://luma.com/claudecode-zur
+ ich\n\nAddress:\nBahnhofstrasse 75\nEntrance next to Massimo Dutti\nZüric
+ h, Zürich\nSwitzerland\n\nHosted by Nile Holmes
+LOCATION:Bahnhofstrasse 75, 8001 Zürich, Switzerland
+GEO:47.3749384;8.538244299999999
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251017T173000Z
+DTEND:20251017T213000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Hakkei Sekine":MAILTO:calendar-invite@lu.ma
+UID:evt-ggs1AJVugwG2jug@events.lu.ma
+SUMMARY:Claude Code Build Day Buenos Aires
+DESCRIPTION:Get up-to-date information at: https://luma.com/rh6y6y9p\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Hakkei Sekine
+LOCATION:https://luma.com/event/evt-ggs1AJVugwG2jug
+GEO:-34.5980458234718;-58.37362769889849
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251022T073000Z
+DTEND:20251022T103000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Austin Wilshire":MAILTO:calendar-invite@lu.ma
+UID:evt-Em388wVaYvCpvbf@events.lu.ma
+SUMMARY:Claude Code Meetup Brisbane
+DESCRIPTION:Get up-to-date information at: https://luma.com/ef0pvxwj\n\nAd
+ dress:\n108 Wickham St\nFortitude Valley, Queensland\nAustralia\n\nHosted 
+ by Austin Wilshire & 3 others
+LOCATION:108 Wickham St, Fortitude Valley QLD 4006, Australia
+GEO:-27.460188199999997;153.0314166
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251112T163000Z
+DTEND:20251112T203000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Karolina Szlenk":MAILTO:calendar-invite@lu.ma
+UID:evt-C2YrLpWxNaVkCA9@events.lu.ma
+SUMMARY:Claude Code Meetup Gdansk
+DESCRIPTION:Get up-to-date information at: https://luma.com/24ebcgd5\n\nAd
+ dress:\nJust Join IT\nGdańsk, Województwo pomorskie\nPoland\n\nHosted by
+  Karolina Szlenk & Bartek Rycharski
+LOCATION:Just Join IT, aleja Grunwaldzka 472f, 80-309 Gdańsk, Poland
+GEO:54.4027995;18.572069799999998
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251204T163000Z
+DTEND:20251204T190000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Stefano Amorelli":MAILTO:calendar-invite@lu.ma
+UID:evt-RWV2zI6jJ341Qsu@events.lu.ma
+SUMMARY:Claude Code Meetup Tallinn
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-code-ta
+ llinn\n\nAddress:\nCheck event page for more details.\n\nHosted by Stefano
+  Amorelli
+LOCATION:https://luma.com/event/evt-RWV2zI6jJ341Qsu
+GEO:59.43674132891353;24.746614217295996
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251206T180000Z
+DTEND:20251207T000000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Chad":MAILTO:calendar-invite@lu.ma
+UID:evt-iMIEht9kLtpfKq7@events.lu.ma
+SUMMARY:Claude Code Meetup San Diego
+DESCRIPTION:Get up-to-date information at: https://luma.com/claudecodecafe
+ \n\nAddress:\nCheck event page for more details.\n\nHosted by Chad, Dhruv 
+ Kanetkar & Liam D
+LOCATION:https://luma.com/event/evt-iMIEht9kLtpfKq7
+GEO:32.91913903831606;-117.23186872775851
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251208T173000Z
+DTEND:20251208T203000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Tesseracted Labs GmbH":MAILTO:calendar-invite@lu.ma
+UID:evt-CPbBF8O5MNfIyH3@events.lu.ma
+SUMMARY:Claude Code Meetup Munich
+DESCRIPTION:Get up-to-date information at: https://luma.com/bq375xcf\n\nAd
+ dress:\nNetlight Consulting GmbH\nFirst Floor\nMünchen, Bayern\nGermany\n
+ \nHosted by Tesseracted Labs GmbH
+LOCATION:Netlight Consulting GmbH, Prannerstraße 4, 80333 München, Germa
+ ny
+GEO:48.1412572;11.5734288
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251208T210000Z
+DTEND:20251209T003000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Luiz Couto":MAILTO:calendar-invite@lu.ma
+UID:evt-ULPe8eldD49KINz@events.lu.ma
+SUMMARY:Claude Code Meetup São Paulo
+DESCRIPTION:Get up-to-date information at: https://luma.com/bcnaze0r\n\nAd
+ dress:\nioasys São Paulo\nSão Paulo, São Paulo\nBrazil\n\nHosted by Lui
+ z Couto
+LOCATION:ioasys São Paulo, Av. Dr. Chucri Zaidan, 246 - 25º andar - Vila
+  Cordeiro, São Paulo - SP, 04570-000, Brazil
+GEO:-23.617111899999998;-46.6989156
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251209T150000Z
+DTEND:20251209T180000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Frederikke Nexø":MAILTO:calendar-invite@lu.ma
+UID:evt-MLyb5kjUqonD5b6@events.lu.ma
+SUMMARY:Claude Code Meetup Oslo
+DESCRIPTION:Get up-to-date information at: https://luma.com/wrkwaw71\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Frederikke Nexø &
+  Aleksander Stensby
+LOCATION:https://luma.com/event/evt-MLyb5kjUqonD5b6
+GEO:59.91249132383616;10.743686970282827
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251209T230000Z
+DTEND:20251210T020000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Saurabh Suri":MAILTO:calendar-invite@lu.ma
+UID:evt-rvjiYwDX7X8CHTD@events.lu.ma
+SUMMARY:Claude Code Meetup Toronto
+DESCRIPTION:Get up-to-date information at: https://luma.com/55lq8mzp\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Saurabh Suri & Rob
+ leh Jama
+LOCATION:https://luma.com/event/evt-rvjiYwDX7X8CHTD
+GEO:43.656672045169145;-79.35845704171822
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251210T173000Z
+DTEND:20251210T210000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Max Tatton-Brown":MAILTO:calendar-invite@lu.ma
+UID:evt-iETYy0ZR3syvCRM@events.lu.ma
+SUMMARY:Claude Code Meetup London
+DESCRIPTION:Get up-to-date information at: https://luma.com/4z45zkng\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Max Tatton-Brown &
+  Ash Prabaker
+LOCATION:https://luma.com/event/evt-iETYy0ZR3syvCRM
+GEO:51.52054860620135;-0.11248145713569983
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251210T220000Z
+DTEND:20251211T003000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Rishabh":MAILTO:calendar-invite@lu.ma
+UID:evt-8PumJqHWbuZMsxR@events.lu.ma
+SUMMARY:Claude Code Meetup Halifax
+DESCRIPTION:Get up-to-date information at: https://luma.com/hc36p3gs\n\nAd
+ dress:\nVolta\nHalifax, Nova Scotia\nCanada\n\nHosted by Rishabh & Jitaksh
+ i Sharma
+LOCATION:Volta, 1800 Argyle St Unit 801, Halifax, NS B3J 3N8, Canada
+GEO:44.6482111;-63.575598
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251210T230000Z
+DTEND:20251211T010000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Justin Elliott":MAILTO:calendar-invite@lu.ma
+UID:evt-Qi5VCXEJOVvRVc8@events.lu.ma
+SUMMARY:Claude Code Meetup Miami
+DESCRIPTION:Get up-to-date information at: https://luma.com/qdx7er6j\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Justin Elliott & T
+ he LAB Miami
+LOCATION:https://luma.com/event/evt-Qi5VCXEJOVvRVc8
+GEO:25.79956422452222;-80.20180344029801
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251211T100000Z
+DTEND:20251211T123000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="The Generative Beings":MAILTO:calendar-invite@lu.ma
+UID:evt-pze9DNsrRYC7gjz@events.lu.ma
+SUMMARY:Claude Code Meetup Singapore
+DESCRIPTION:Get up-to-date information at: https://luma.com/maxk88cv\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by The Generative Bei
+ ngs, Max Del Vita & SQ Collective
+LOCATION:https://luma.com/event/evt-pze9DNsrRYC7gjz
+GEO:1.2929442259116977;103.84060407057899
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251211T160000Z
+DTEND:20251211T200000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Fatih Guner":MAILTO:calendar-invite@lu.ma
+UID:evt-o5QRX17JQ4iLTcc@events.lu.ma
+SUMMARY:Claude Code Meetup Istanbul
+DESCRIPTION:Get up-to-date information at: https://luma.com/jmqm5rrs\n\nAd
+ dress:\nKomünite Space\nSarıyer, İstanbul\nTürkiye\n\nHosted by Fatih 
+ Guner & Komünite
+LOCATION:Komünite Space, Radisson Collection Hotel, Ayazağa, Azerbaycan 
+ Cd. No:3A, 34475 Sarıyer/İstanbul, Türkiye
+GEO:41.1085595;28.986573300000003
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251211T170000Z
+DTEND:20251211T200000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Alexio Cassani":MAILTO:calendar-invite@lu.ma
+UID:evt-YCV5vzN8PJ6XRYm@events.lu.ma
+SUMMARY:Claude Code Meetup Milan
+DESCRIPTION:Get up-to-date information at: https://luma.com/gh5si9om\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Alexio Cassani & M
+ atteo Siciliani
+LOCATION:https://luma.com/event/evt-YCV5vzN8PJ6XRYm
+GEO:45.45673615756275;9.197468723490314
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251211T180000Z
+DTEND:20251211T210000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Olivier Alterhq.com":MAILTO:calendar-invite@lu.ma
+UID:evt-fuX0EE80oKHAcME@events.lu.ma
+SUMMARY:Claude Code Meetup Paris
+DESCRIPTION:Get up-to-date information at: https://luma.com/qqzbdipt\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Olivier Alterhq.co
+ m
+LOCATION:https://luma.com/event/evt-fuX0EE80oKHAcME
+GEO:48.87331425210599;2.2897036103121673
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251211T180000Z
+DTEND:20251211T203000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Vincent Bruijn":MAILTO:calendar-invite@lu.ma
+UID:evt-lApTUjQIgnYfHV8@events.lu.ma
+SUMMARY:Claude Code Meetup Amsterdam
+DESCRIPTION:Get up-to-date information at: https://luma.com/c9x9se7c\n\nAd
+ dress:\nThe Social Hub Amsterdam City\nMeeting room 1\nAmsterdam, Noord-Ho
+ lland\nNetherlands\n\nHosted by Vincent Bruijn & Leo Metasch
+LOCATION:The Social Hub Amsterdam City, Wibautstraat 129, 1091 KR Amsterda
+ m, Netherlands
+GEO:52.3544832;4.9129341
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251212T100000Z
+DTEND:20251212T133000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Hazli Johar":MAILTO:calendar-invite@lu.ma
+UID:evt-K9JKmQcs7os7w2A@events.lu.ma
+SUMMARY:Claude Code Meetup Kuala Lumpur
+DESCRIPTION:Get up-to-date information at: https://luma.com/kstsb825\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Hazli Johar
+LOCATION:https://luma.com/event/evt-K9JKmQcs7os7w2A
+GEO:3.1542125149647395;101.66444924846314
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251212T200000Z
+DTEND:20251213T000000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Max Krueger":MAILTO:calendar-invite@lu.ma
+UID:evt-KStXIeNZQr8yq7Q@events.lu.ma
+SUMMARY:Claude Code Meetup San Diego
+DESCRIPTION:Get up-to-date information at: https://luma.com/8qwh1y9n\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Max Krueger
+LOCATION:https://luma.com/event/evt-KStXIeNZQr8yq7Q
+GEO:32.7141027867127;-117.17060279640803
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251213T100000Z
+DTEND:20251213T133000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Aleksei Petrov":MAILTO:calendar-invite@lu.ma
+UID:evt-HPv7p7ozIMbLlN1@events.lu.ma
+SUMMARY:Claude Code Meetup Podgorica
+DESCRIPTION:Get up-to-date information at: https://luma.com/yibpm4lo\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Aleksei Petrov
+LOCATION:https://luma.com/event/evt-HPv7p7ozIMbLlN1
+GEO:42.43569322144172;19.23018261442709
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251213T130000Z
+DTEND:20251213T210000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Felipe Aguirre Martinez":MAILTO:calendar-invite@lu.ma
+UID:evt-jbVDcEZ2dxW2xqJ@events.lu.ma
+SUMMARY:Claude Code Hackathon Medellín
+DESCRIPTION:Get up-to-date information at: https://luma.com/223de1tf\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Felipe Aguirre Mar
+ tinez
+LOCATION:https://luma.com/event/evt-jbVDcEZ2dxW2xqJ
+GEO:6.200476869505612;-75.57700552058257
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251214T063000Z
+DTEND:20251214T093000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Sumeet G Doshi":MAILTO:calendar-invite@lu.ma
+UID:evt-p6FVYKyaVklbqfG@events.lu.ma
+SUMMARY:Claude Code Meetup Mumbai
+DESCRIPTION:Get up-to-date information at: https://luma.com/mr89lbpv\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Sumeet G Doshi
+LOCATION:https://luma.com/event/evt-p6FVYKyaVklbqfG
+GEO:19.100491823720464;72.91691911323446
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251216T000000Z
+DTEND:20251216T023000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Daniel Green":MAILTO:calendar-invite@lu.ma
+UID:evt-fIPiXk0WjDTbMQE@events.lu.ma
+SUMMARY:Claude Code Meetup Kansas City
+DESCRIPTION:Get up-to-date information at: https://luma.com/ClaudeCodeKC\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by Daniel Green &
+  The AI Collective
+LOCATION:https://luma.com/event/evt-fIPiXk0WjDTbMQE
+GEO:39.10627255979976;-94.58788804065628
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251216T010000Z
+DTEND:20251216T030000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Alex Corren":MAILTO:calendar-invite@lu.ma
+UID:evt-qhwsBuMigE7Hynz@events.lu.ma
+SUMMARY:Claude Code Meetup Boulder
+DESCRIPTION:Get up-to-date information at: https://luma.com/z048knnh\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Alex Corren
+LOCATION:https://luma.com/event/evt-qhwsBuMigE7Hynz
+GEO:40.031075435856366;-105.25811714135807
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251216T010000Z
+DTEND:20251216T030000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Sahil D":MAILTO:calendar-invite@lu.ma
+UID:evt-dHf0LjGG7dHIbIm@events.lu.ma
+SUMMARY:Claude Code Meetup Phoenix
+DESCRIPTION:Get up-to-date information at: https://luma.com/bgs2wqib\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Sahil D
+LOCATION:https://luma.com/event/evt-dHf0LjGG7dHIbIm
+GEO:33.41209191315837;-111.91333506330476
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251216T063000Z
+DTEND:20251216T083000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Rye Smith":MAILTO:calendar-invite@lu.ma
+UID:evt-o5tFsxBx2MNFJdz@events.lu.ma
+SUMMARY:Claude Code Meetup Melbourne
+DESCRIPTION:Get up-to-date information at: https://luma.com/m7f22jdb\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Rye Smith & 3 othe
+ rs
+LOCATION:https://luma.com/event/evt-o5tFsxBx2MNFJdz
+GEO:-37.824543799400395;144.99329329586635
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251216T170000Z
+DTEND:20251216T200000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Mahir Isikli":MAILTO:calendar-invite@lu.ma
+UID:evt-gGKxpTh9sN9uO2q@events.lu.ma
+SUMMARY:Claude Code Meetup Berlin
+DESCRIPTION:Get up-to-date information at: https://luma.com/30b0t5ca\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Mahir Isikli & Mer
+ antix AI Campus
+LOCATION:https://luma.com/event/evt-gGKxpTh9sN9uO2q
+GEO:52.541746168203076;13.38445912225698
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251216T180000Z
+DTEND:20251216T210000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Kevin Collins":MAILTO:calendar-invite@lu.ma
+UID:evt-8vUdouZj9S4Okmr@events.lu.ma
+SUMMARY:Claude Code Meetup Dublin
+DESCRIPTION:Get up-to-date information at: https://luma.com/pt188jcp\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Kevin Collins
+LOCATION:https://luma.com/event/evt-8vUdouZj9S4Okmr
+GEO:53.3130322839108;-6.23709489679748
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251217T040000Z
+DTEND:20251217T070000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Adam Holt":MAILTO:calendar-invite@lu.ma
+UID:evt-mkJtS3A5CkDcUbC@events.lu.ma
+SUMMARY:Claude Code Meetup Auckland
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-code-au
+ ckland\n\nAddress:\nCheck event page for more details.\n\nHosted by Adam H
+ olt, Simon Conroy & Shiv
+LOCATION:https://luma.com/event/evt-mkJtS3A5CkDcUbC
+GEO:-36.847963197776295;174.75681547787187
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251217T100000Z
+DTEND:20251217T130000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Xavier (최훈민)":MAILTO:calendar-invite@lu.ma
+UID:evt-X2PKDguwFieLrYT@events.lu.ma
+SUMMARY:Claude Code Meetup Seoul
+DESCRIPTION:Get up-to-date information at: https://luma.com/bukeklzx\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Xavier (최훈민)
+LOCATION:https://luma.com/event/evt-X2PKDguwFieLrYT
+GEO:37.551568192310654;126.99861102690437
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251217T160000Z
+DTEND:20251217T200000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Peter Sandström":MAILTO:calendar-invite@lu.ma
+UID:evt-aSBwzlbvNkjGdCS@events.lu.ma
+SUMMARY:Claude Code Meetup Stockholm
+DESCRIPTION:Get up-to-date information at: https://luma.com/wo2xtc5b\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Peter Sandström &
+  5 others
+LOCATION:https://luma.com/event/evt-aSBwzlbvNkjGdCS
+GEO:59.31553919764253;18.070360723119993
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251217T160000Z
+DTEND:20251217T180000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Yavuz Alp Sencer Öztürk":MAILTO:calendar-invite@lu.ma
+UID:evt-95sL7EpoAzbGOPq@events.lu.ma
+SUMMARY:Claude Code Meetup Ankara
+DESCRIPTION:Get up-to-date information at: https://luma.com/4leadwb0\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Yavuz Alp Sencer 
+ Öztürk & 3 others
+LOCATION:https://luma.com/event/evt-95sL7EpoAzbGOPq
+GEO:39.91299188894314;32.80149443403524
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251217T173000Z
+DTEND:20251217T200000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Modulor":MAILTO:calendar-invite@lu.ma
+UID:evt-6xZjp0aAxpexLPQ@events.lu.ma
+SUMMARY:Claude Code Meetup Madrid
+DESCRIPTION:Get up-to-date information at: https://luma.com/0e6doazz\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Modulor
+LOCATION:https://luma.com/event/evt-6xZjp0aAxpexLPQ
+GEO:40.391039465794066;-3.700128295189292
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251217T230000Z
+DTEND:20251218T010000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Elizabeth Lin":MAILTO:calendar-invite@lu.ma
+UID:evt-rdlgeFRa15AMUkz@events.lu.ma
+SUMMARY:Claude Code Designers Meetup New York
+DESCRIPTION:Get up-to-date information at: https://luma.com/dggpy1ls\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Elizabeth Lin
+LOCATION:https://luma.com/event/evt-rdlgeFRa15AMUkz
+GEO:40.72538623837054;-73.99393201591923
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251218T000000Z
+DTEND:20251218T023000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Damon Bodine":MAILTO:calendar-invite@lu.ma
+UID:evt-egqv57PIc3BV9hx@events.lu.ma
+SUMMARY:Claude Code Meetup Austin
+DESCRIPTION:Get up-to-date information at: https://luma.com/yx3s6cnz\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Damon Bodine & Jas
+ on Desiderio
+LOCATION:https://luma.com/event/evt-egqv57PIc3BV9hx
+GEO:30.278685971240815;-97.72142221908216
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251218T120000Z
+DTEND:20251218T150000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="way":MAILTO:calendar-invite@lu.ma
+UID:evt-RzgVYa5Vpv2cjy7@events.lu.ma
+SUMMARY:Claude Code Meetup Bangkok
+DESCRIPTION:Get up-to-date information at: https://luma.com/3idvg9yn\n\nAd
+ dress:\nCleverse\nกรุงเทพมหานคร\nThailand\n\nHos
+ ted by way
+LOCATION:Cleverse, 44/1 Rungrojthanakul 16-storied building 13th Floor, 
+ ถ. รัชดาภิเษก แขวงห้วยขวาง 
+ เขตห้วยขวาง กรุงเทพมหานคร 
+ 10310, Thailand
+GEO:13.760181999999999;100.56696670000001
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251218T150000Z
+DTEND:20251218T170000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Héctor Tortosa":MAILTO:calendar-invite@lu.ma
+UID:evt-m13CJEC03kpOQeR@events.lu.ma
+SUMMARY:Claude Code Meetup Helsinki with Symposium AI
+DESCRIPTION:Get up-to-date information at: https://luma.com/3dgkyp8s\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Héctor Tortosa & 
+ Tuomas Lounamaa
+LOCATION:https://luma.com/event/evt-m13CJEC03kpOQeR
+GEO:60.16879316991918;24.923762998503772
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251218T170000Z
+DTEND:20251218T200000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Bence":MAILTO:calendar-invite@lu.ma
+UID:evt-1BkEa4fY9Y68os0@events.lu.ma
+SUMMARY:Claude Code Meetup Budapest
+DESCRIPTION:Get up-to-date information at: https://luma.com/2886csy7\n\nAd
+ dress:\nCreate26\nBudapest\nHungary\n\nHosted by Bence
+LOCATION:Create26, Budapest, Király u. 26, 1061 Hungary
+GEO:47.4995792;19.0587484
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251218T210000Z
+DTEND:20251219T000000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="João Lisboa":MAILTO:calendar-invite@lu.ma
+UID:evt-UyjrRsJMTJSxK4p@events.lu.ma
+SUMMARY:Claude Code Meetup Rio de Janeiro
+DESCRIPTION:Get up-to-date information at: https://luma.com/bstourzq\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by João Lisboa
+LOCATION:https://luma.com/event/evt-UyjrRsJMTJSxK4p
+GEO:-22.983298136070992;-43.226867759435606
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251219T013000Z
+DTEND:20251219T033000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="YK":MAILTO:calendar-invite@lu.ma
+UID:evt-By3NQj1JFMoDzHl@events.lu.ma
+SUMMARY:Claude Code Meetup Vancouver
+DESCRIPTION:Get up-to-date information at: https://luma.com/ccmv\n\nAddres
+ s:\nCheck event page for more details.\n\nHosted by YK & Northeastern Univ
+ ersity in Vancouver
+LOCATION:https://luma.com/event/evt-By3NQj1JFMoDzHl
+GEO:49.281496928872635;-123.11898108341977
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251219T170000Z
+DTEND:20251219T210000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Warsaw International":MAILTO:calendar-invite@lu.ma
+UID:evt-TVusiXdDrvoSWlJ@events.lu.ma
+SUMMARY:Claude Code Meetup Warsaw
+DESCRIPTION:Get up-to-date information at: https://luma.com/bwbby7uc\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Warsaw Internation
+ al
+LOCATION:https://luma.com/event/evt-TVusiXdDrvoSWlJ
+GEO:52.221407824905086;21.013582824239204
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251219T210000Z
+DTEND:20251220T000000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Julissa Rodriguez":MAILTO:calendar-invite@lu.ma
+UID:evt-PEX4mIqtgE46vuX@events.lu.ma
+SUMMARY:Claude Code Meetup Santiago
+DESCRIPTION:Get up-to-date information at: https://luma.com/w9ujt3vo\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Julissa Rodriguez
+LOCATION:https://luma.com/event/evt-PEX4mIqtgE46vuX
+GEO:-33.397002106254554;-70.57574183541172
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251220T030000Z
+DTEND:20251220T060000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Ian Borders":MAILTO:calendar-invite@lu.ma
+UID:evt-ZO9cQcIaO4jMlwD@events.lu.ma
+SUMMARY:Claude Code Meetup Chiang Mai
+DESCRIPTION:Get up-to-date information at: https://luma.com/lrskf8sh\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Ian Borders
+LOCATION:https://luma.com/event/evt-ZO9cQcIaO4jMlwD
+GEO:18.763216051218407;98.93774232360873
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251220T050000Z
+DTEND:20251220T070000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Shayryl Mae Sabal":MAILTO:calendar-invite@lu.ma
+UID:evt-fkc4NpcPCAb377z@events.lu.ma
+SUMMARY:Claude Code Meetup Cagayan de Oro
+DESCRIPTION:Get up-to-date information at: https://luma.com/t44e8zs2\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Shayryl Mae Sabal
+LOCATION:https://luma.com/event/evt-fkc4NpcPCAb377z
+GEO:8.475784698282755;124.64320285881587
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251220T120000Z
+DTEND:20251220T140000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Vivek Rp":MAILTO:calendar-invite@lu.ma
+UID:evt-tAkEnn3wiPljbd8@events.lu.ma
+SUMMARY:Claude Code Meetup Bengaluru
+DESCRIPTION:Get up-to-date information at: https://luma.com/claudecodebeng
+ aluru\n\nAddress:\nCheck event page for more details.\n\nHosted by Vivek R
+ p
+LOCATION:https://luma.com/event/evt-tAkEnn3wiPljbd8
+GEO:12.891073648330005;77.64012592613096
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251222T183000Z
+DTEND:20251222T210000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Vikram Pawar":MAILTO:calendar-invite@lu.ma
+UID:evt-5iYkrGwFI7WsOLZ@events.lu.ma
+SUMMARY:Claude Code Meetup Central London
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude.code.ce
+ ntral.london.1\n\nAddress:\nCheck event page for more details.\n\nHosted b
+ y Vikram Pawar
+LOCATION:https://luma.com/event/evt-5iYkrGwFI7WsOLZ
+GEO:51.52052080672409;-0.11199343283998126
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251223T153000Z
+DTEND:20251223T180000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Onat Vural":MAILTO:calendar-invite@lu.ma
+UID:evt-dczrK7p9LgG8Swy@events.lu.ma
+SUMMARY:Claude Code Meetup Istanbul
+DESCRIPTION:Get up-to-date information at: https://luma.com/xnxee3dl\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Onat Vural & Said 
+ Sürücü
+LOCATION:https://luma.com/event/evt-dczrK7p9LgG8Swy
+GEO:40.98947595906443;29.035857221734048
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251227T040000Z
+DTEND:20251227T070000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Kozo Nishida":MAILTO:calendar-invite@lu.ma
+UID:evt-zSsBeVqckCiTHs1@events.lu.ma
+SUMMARY:Claude Code Meetup Kobe
+DESCRIPTION:Get up-to-date information at: https://luma.com/aojfg45a\n\nAd
+ dress:\nコワーキングスペースDEP.\n神戸市中央区, Hyogo\nJap
+ an\n\nHosted by Kozo Nishida
+LOCATION:コワーキングスペースDEP., Japan, 〒650-0021 Hyogo, 神
+ 戸市中央区Chuo Ward, Sannomiyachō, 3-chōme−1−１６ 三星ビ
+ ル 4階南室
+GEO:34.6892783;135.1904644
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20251230T053000Z
+DTEND:20251230T083000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Natalie Lin":MAILTO:calendar-invite@lu.ma
+UID:evt-7w9iIJRGTpxPLbQ@events.lu.ma
+SUMMARY:Claude Code Meetup Taipei
+DESCRIPTION:Get up-to-date information at: https://luma.com/znau3s6w\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Natalie Lin
+LOCATION:https://luma.com/event/evt-7w9iIJRGTpxPLbQ
+GEO:25.013434061097563;121.54070394554446
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260115T063000Z
+DTEND:20260115T090000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Luma Event":MAILTO:calendar-invite@lu.ma
+UID:evt-eU8IO72rlgl3dkh@events.lu.ma
+SUMMARY:Claude Code Meetup Melbourne
+DESCRIPTION:Get up-to-date information at: https://luma.com/n2slj20w\n\nAd
+ dress:\nCheck event page for more details.
+LOCATION:https://luma.com/event/evt-eU8IO72rlgl3dkh
+GEO:-37.81851250114371;144.95436815990516
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260116T013000Z
+DTEND:20260116T040000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Claude Community":MAILTO:calendar-invite@lu.ma
+UID:evt-0EdCAiLd7MgPi86@events.lu.ma
+SUMMARY:Claude Code Meetup Seattle
+DESCRIPTION:Get up-to-date information at: https://luma.com/diibx7su\n\nAd
+ dress:\nthinkspace SEATTLE\nSeattle, Washington\nUnited States\n\nHosted b
+ y Claude Community & 4 others
+LOCATION:thinkspace SEATTLE, 1700 Westlake Ave N #200, Seattle, WA 98109, 
+ USA
+GEO:47.6343718;-122.3396589
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260117T053000Z
+DTEND:20260117T083000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Claude Community":MAILTO:calendar-invite@lu.ma
+UID:evt-WmRTxxaVAHAXfC2@events.lu.ma
+SUMMARY:Claude Code New Delhi: /init Meetup
+DESCRIPTION:Get up-to-date information at: https://luma.com/dyhdkwzz\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Claude Community &
+  3 others
+LOCATION:https://luma.com/event/evt-WmRTxxaVAHAXfC2
+GEO:28.545525293254368;77.27092114975156
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260121T150000Z
+DTEND:20260121T190000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Aleksander Stensby":MAILTO:calendar-invite@lu.ma
+UID:evt-5eajdyqvlF3TS5W@events.lu.ma
+SUMMARY:Claude Code Meetup Oslo
+DESCRIPTION:Get up-to-date information at: https://luma.com/5l3koz6b\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Aleksander Stensby
+  & Frederikke Nexø
+LOCATION:https://luma.com/event/evt-5eajdyqvlF3TS5W
+GEO:59.91267267182597;10.749123124081152
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260123T000000Z
+DTEND:20260123T020000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Justin Elliott":MAILTO:calendar-invite@lu.ma
+UID:evt-xOoVGYHlirLxCBK@events.lu.ma
+SUMMARY:Claude Code Meetup Miami
+DESCRIPTION:Get up-to-date information at: https://luma.com/woygulia\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Justin Elliott
+LOCATION:https://luma.com/event/evt-xOoVGYHlirLxCBK
+GEO:25.799453667328414;-80.20239876911462
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260123T100000Z
+DTEND:20260123T123000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Max Del Vita":MAILTO:calendar-invite@lu.ma
+UID:evt-LTyc0Vy6yA32FMg@events.lu.ma
+SUMMARY:Claude Code Meetup Singapore
+DESCRIPTION:Get up-to-date information at: https://luma.com/u5n99464\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Max Del Vita, Sami
+ r & William Liu
+LOCATION:https://luma.com/event/evt-LTyc0Vy6yA32FMg
+GEO:1.2843669955037007;103.85043399788628
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260124T000000Z
+DTEND:20260124T020000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Nikunj Kothari":MAILTO:calendar-invite@lu.ma
+UID:evt-UiNSCCUDRLK8mTD@events.lu.ma
+SUMMARY:Claude Code For Normies SF
+DESCRIPTION:Get up-to-date information at: https://luma.com/7w4n60z5\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Nikunj Kothari, Sa
+ ra Du & Michael Grinich
+LOCATION:https://luma.com/event/evt-UiNSCCUDRLK8mTD
+GEO:37.787015182904206;-122.4018990741501
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260124T110000Z
+DTEND:20260124T130000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Ammanulah Emmanuel":MAILTO:calendar-invite@lu.ma
+UID:evt-1mGmnYw7HFNgpyx@events.lu.ma
+SUMMARY:Claude Code Meetup Nairobi
+DESCRIPTION:Get up-to-date information at: https://luma.com/33igxbv5\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Ammanulah Emmanuel
+ , Peter Kibet & Robinson Muiru
+LOCATION:https://luma.com/event/evt-1mGmnYw7HFNgpyx
+GEO:-1.2854347376241273;36.789504247070866
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260126T170000Z
+DTEND:20260126T203000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="nion digital GmbH":MAILTO:calendar-invite@lu.ma
+UID:evt-6HQJdnQ5DwsKBUG@events.lu.ma
+SUMMARY:Claude Code Meetup Munich
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-code-mu
+ nich-meetup-2\n\nAddress:\nCheck event page for more details.\n\nHosted by
+  nion digital GmbH & 4 others
+LOCATION:https://luma.com/event/evt-6HQJdnQ5DwsKBUG
+GEO:48.11969537631057;11.548644940559578
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260128T073000Z
+DTEND:20260128T090000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Rye Smith":MAILTO:calendar-invite@lu.ma
+UID:evt-m7v3pDawJd7kPta@events.lu.ma
+SUMMARY:Claude Code Meetup Adelaide
+DESCRIPTION:Get up-to-date information at: https://luma.com/ioz4i04l\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Rye Smith & 4 othe
+ rs
+LOCATION:https://luma.com/event/evt-m7v3pDawJd7kPta
+GEO:-34.92292334515656;138.60794558636496
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260129T000000Z
+DTEND:20260129T020000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Damon Bodine":MAILTO:calendar-invite@lu.ma
+UID:evt-IEkwuLX0H8B4moP@events.lu.ma
+SUMMARY:Claude Code Meetup Austin
+DESCRIPTION:Get up-to-date information at: https://luma.com/dra4ou00\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Damon Bodine, Jaso
+ n Desiderio & Damon Bodine
+LOCATION:https://luma.com/event/evt-IEkwuLX0H8B4moP
+GEO:30.278201589824498;-97.72003352639851
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260129T170000Z
+DTEND:20260129T190000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Michael Whelehan":MAILTO:calendar-invite@lu.ma
+UID:evt-nUVugvzguP9WxFh@events.lu.ma
+SUMMARY:Claude Code Meetup Nuremberg
+DESCRIPTION:Get up-to-date information at: https://luma.com/rvx4zblo\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Michael Whelehan
+LOCATION:https://luma.com/event/evt-nUVugvzguP9WxFh
+GEO:49.450347512487;11.071356751239414
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260130T180000Z
+DTEND:20260130T210000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Kevin Collins":MAILTO:calendar-invite@lu.ma
+UID:evt-V8kZH1RwMGemMmb@events.lu.ma
+SUMMARY:Claude Code Meetup Dublin
+DESCRIPTION:Get up-to-date information at: https://luma.com/u1is54j1\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Kevin Collins
+LOCATION:https://luma.com/event/evt-V8kZH1RwMGemMmb
+GEO:53.311311297185114;-6.240508695520387
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260130T180000Z
+DTEND:20260130T210000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Olivier Alterhq.com":MAILTO:calendar-invite@lu.ma
+UID:evt-9SBGOud91LHVAsM@events.lu.ma
+SUMMARY:Claude Code London 02
+DESCRIPTION:Get up-to-date information at: https://luma.com/6ms3672h\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Olivier Alterhq.co
+ m
+LOCATION:https://luma.com/event/evt-9SBGOud91LHVAsM
+GEO:51.52446644740865;-0.08162370499361278
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260131T200000Z
+DTEND:20260201T000000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Blythe Easterly":MAILTO:calendar-invite@lu.ma
+UID:evt-FJXxWiCMqQZb15M@events.lu.ma
+SUMMARY:Claude Code Meetup Anchorage
+DESCRIPTION:Get up-to-date information at: https://luma.com/drsuy84u\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Blythe Easterly & 
+ 3 others
+LOCATION:https://luma.com/event/evt-FJXxWiCMqQZb15M
+GEO:61.19622194902523;-149.8772607928873
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260203T233000Z
+DTEND:20260204T030000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Claude Community":MAILTO:calendar-invite@lu.ma
+UID:evt-amLpY7F3gUMO55O@events.lu.ma
+SUMMARY:Claude Code Meetup Mexico City
+DESCRIPTION:Get up-to-date information at: https://luma.com/hi2pfrcy\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Claude Community &
+  3 others
+LOCATION:https://luma.com/event/evt-amLpY7F3gUMO55O
+GEO:19.373214937081425;-99.17898385133762
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260204T180000Z
+DTEND:20260204T210000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Olivier Alterhq.com":MAILTO:calendar-invite@lu.ma
+UID:evt-hC2xl1bR8A6Dt4b@events.lu.ma
+SUMMARY:Claude Code Paris 02
+DESCRIPTION:Get up-to-date information at: https://luma.com/zdk7lr94\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Olivier Alterhq.co
+ m & 4 others
+LOCATION:https://luma.com/event/evt-hC2xl1bR8A6Dt4b
+GEO:48.86221054753457;2.3548360598846445
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260204T230000Z
+DTEND:20260205T020000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Saurabh Suri":MAILTO:calendar-invite@lu.ma
+UID:evt-YrqBEn01WjGStPF@events.lu.ma
+SUMMARY:Claude Code Meetup Toronto
+DESCRIPTION:Get up-to-date information at: https://luma.com/claudecodetoro
+ nto\n\nAddress:\nCheck event page for more details.\n\nHosted by Saurabh S
+ uri & Robleh Jama
+LOCATION:https://luma.com/event/evt-YrqBEn01WjGStPF
+GEO:43.6461002477892;-79.39303369870849
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260205T070000Z
+DTEND:20260205T090000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Rye Smith":MAILTO:calendar-invite@lu.ma
+UID:evt-CKyn8xZOL49mgxS@events.lu.ma
+SUMMARY:Claude Code Meetup Sydney
+DESCRIPTION:Get up-to-date information at: https://luma.com/46s7c89w\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Rye Smith & 5 othe
+ rs
+LOCATION:https://luma.com/event/evt-CKyn8xZOL49mgxS
+GEO:-33.87949046178464;151.20417225251327
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260205T170000Z
+DTEND:20260205T200000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Alexio Cassani":MAILTO:calendar-invite@lu.ma
+UID:evt-1KvvwAfTJzVba78@events.lu.ma
+SUMMARY:Claude Code Meetup Milan
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude_code_me
+ etup_milano_2\n\nAddress:\nCheck event page for more details.\n\nHosted by
+  Alexio Cassani & Mattia Nanetti
+LOCATION:https://luma.com/event/evt-1KvvwAfTJzVba78
+GEO:45.44201688576118;9.209435672712617
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260207T050000Z
+DTEND:20260207T083000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Ian Borders":MAILTO:calendar-invite@lu.ma
+UID:evt-QeyvrECL5MnplAJ@events.lu.ma
+SUMMARY:Claude Code Meetup Chiang Mai
+DESCRIPTION:Get up-to-date information at: https://luma.com/zazm7510\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Ian Borders
+LOCATION:https://luma.com/event/evt-QeyvrECL5MnplAJ
+GEO:18.766373465804584;98.93872653464106
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260211T153000Z
+DTEND:20260211T180000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Aya Fabricius":MAILTO:calendar-invite@lu.ma
+UID:evt-GRHbyNFKlxMitNi@events.lu.ma
+SUMMARY:Claude Code Meetup Copenhagen
+DESCRIPTION:Get up-to-date information at: https://luma.com/7s5iruxh\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Aya Fabricius, Mes
+ h Matrikel1 & Dennis Green-Lieber
+LOCATION:https://luma.com/event/evt-GRHbyNFKlxMitNi
+GEO:55.679267514915225;12.579409099887094
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260211T160000Z
+DTEND:20260211T190000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Fatih Guner":MAILTO:calendar-invite@lu.ma
+UID:evt-ok1qGZWxRaVKHby@events.lu.ma
+SUMMARY:Claude Code Meetup Istanbul #2
+DESCRIPTION:Get up-to-date information at: https://luma.com/eo6ugz66\n\nAd
+ dress:\nKomünite Space\nSarıyer, İstanbul\nTürkiye\n\nHosted by Fatih 
+ Guner & Komünite
+LOCATION:Komünite Space, Radisson Collection Hotel, Ayazağa, Azerbaycan 
+ Cd. No:3A, 34475 Sarıyer/İstanbul, Türkiye
+GEO:41.1085595;28.986573300000003
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260211T163000Z
+DTEND:20260211T190000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Stefano Amorelli":MAILTO:calendar-invite@lu.ma
+UID:evt-82O9ufgUavxAyE8@events.lu.ma
+SUMMARY:Claude Code Meetup Tallinn #2
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-code-ta
+ llinn-2\n\nAddress:\nCheck event page for more details.\n\nHosted by Stefa
+ no Amorelli
+LOCATION:https://luma.com/event/evt-82O9ufgUavxAyE8
+GEO:59.43673142611794;24.74654208435065
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260211T180000Z
+DTEND:20260211T203000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Claude Community":MAILTO:calendar-invite@lu.ma
+UID:evt-A2Oe8jGD7tSATKB@events.lu.ma
+SUMMARY:Claude Code Curious #2
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-code-cu
+ rious-2\n\nAddress:\nCheck event page for more details.\n\nHosted by Claud
+ e Community, Max Tatton-Brown & Simon Dambe
+LOCATION:https://luma.com/event/evt-A2Oe8jGD7tSATKB
+GEO:51.533011247247835;-0.1294134850709481
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260212T160000Z
+DTEND:20260212T183000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Mona Helness":MAILTO:calendar-invite@lu.ma
+UID:evt-b03NxBiMOIMl3pO@events.lu.ma
+SUMMARY:Claude Code Meetup Trondheim
+DESCRIPTION:Get up-to-date information at: https://luma.com/23iuaf3r\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Mona Helness & Arn
+ stein Syltern
+LOCATION:https://luma.com/event/evt-b03NxBiMOIMl3pO
+GEO:63.4325545678074;10.398481584926124
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260212T180000Z
+DTEND:20260212T200000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Alexio Cassani":MAILTO:calendar-invite@lu.ma
+UID:evt-Y6oSWYaGeTKgJYB@events.lu.ma
+SUMMARY:Claude Code Meetup Cannes
+DESCRIPTION:Get up-to-date information at: https://luma.com/4dph754u\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Alexio Cassani
+LOCATION:https://luma.com/event/evt-Y6oSWYaGeTKgJYB
+GEO:43.55302547009223;7.016376505922324
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260212T233000Z
+DTEND:20260213T013000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Felipe Aguirre Martinez":MAILTO:calendar-invite@lu.ma
+UID:evt-EiiZCxru2Pgdbhk@events.lu.ma
+SUMMARY:Claude Code Meetup Bogotá
+DESCRIPTION:Get up-to-date information at: https://luma.com/3l1qg9x5\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Felipe Aguirre Mar
+ tinez
+LOCATION:https://luma.com/event/evt-EiiZCxru2Pgdbhk
+GEO:4.683029644539043;-74.04098839235792
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260213T020000Z
+DTEND:20260213T040000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Evan Grenda":MAILTO:calendar-invite@lu.ma
+UID:evt-gzRD0dKxEhaaV8h@events.lu.ma
+SUMMARY:Los Angeles | Claude Cowork Meetup
+DESCRIPTION:Get up-to-date information at: https://luma.com/3bcrhktq\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Evan Grenda & moss
+LOCATION:https://luma.com/event/evt-gzRD0dKxEhaaV8h
+GEO:33.991319417380986;-118.46658228394342
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260216T180000Z
+DTEND:20260216T203000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Vikram Pawar":MAILTO:calendar-invite@lu.ma
+UID:evt-ugNIxqAD0NJ5ULJ@events.lu.ma
+SUMMARY:Claude Code Central London #3
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude.code.ce
+ ntral.london.3\n\nAddress:\nCheck event page for more details.\n\nHosted b
+ y Vikram Pawar
+LOCATION:https://luma.com/event/evt-ugNIxqAD0NJ5ULJ
+GEO:51.52248787389503;-0.08210931958921977
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260218T010000Z
+DTEND:20260218T030000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Jake Colling":MAILTO:calendar-invite@lu.ma
+UID:evt-xe0KtwOOa7GyeBx@events.lu.ma
+SUMMARY:Claude Code Meetup Denver
+DESCRIPTION:Get up-to-date information at: https://luma.com/w6ps2c5d\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Jake Colling & Cod
+ y Lund
+LOCATION:https://luma.com/event/evt-xe0KtwOOa7GyeBx
+GEO:40.02182312985622;-105.21972626485771
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260219T180000Z
+DTEND:20260219T203000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Vincent Bruijn":MAILTO:calendar-invite@lu.ma
+UID:evt-MKMTHPekFNdMlnK@events.lu.ma
+SUMMARY:Claude Code Meetup Amsterdam
+DESCRIPTION:Get up-to-date information at: https://luma.com/08wx9g7q\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Vincent Bruijn & R
+ ogier Muller
+LOCATION:https://luma.com/event/evt-MKMTHPekFNdMlnK
+GEO:52.36928543050036;4.904106394973373
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260220T010000Z
+DTEND:20260220T030000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Alex Corren":MAILTO:calendar-invite@lu.ma
+UID:evt-BWd2xJgWVWBYy2c@events.lu.ma
+SUMMARY:Claude Code Meetup Boulder
+DESCRIPTION:Get up-to-date information at: https://luma.com/pf5zpumz\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Alex Corren
+LOCATION:https://luma.com/event/evt-BWd2xJgWVWBYy2c
+GEO:40.02270607569673;-105.25066269253584
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260220T120000Z
+DTEND:20260220T140000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Peter Kibet":MAILTO:calendar-invite@lu.ma
+UID:evt-Zo7uzAP4jqQIKJJ@events.lu.ma
+SUMMARY:Claude Code Meetup Nairobi #2
+DESCRIPTION:Get up-to-date information at: https://luma.com/sbsa789m\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Peter Kibet
+LOCATION:https://luma.com/event/evt-Zo7uzAP4jqQIKJJ
+GEO:-1.2844697871252546;36.78953084961588
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260220T180000Z
+DTEND:20260220T220000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Claude Community":MAILTO:calendar-invite@lu.ma
+UID:evt-XggBlRc7YWcWsrH@events.lu.ma
+SUMMARY:Claude Code London 03 - 'Build an MCP App' Hack Night
+DESCRIPTION:Get up-to-date information at: https://luma.com/ictqc1wp\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Claude Community, 
+ Olivier Alterhq.com & Anastasia
+LOCATION:https://luma.com/event/evt-XggBlRc7YWcWsrH
+GEO:51.52503360128025;-0.08337960993789664
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260221T023000Z
+DTEND:20260221T050000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Ian Borders":MAILTO:calendar-invite@lu.ma
+UID:evt-F1aqEbfEBahBEnE@events.lu.ma
+SUMMARY:Claude Code Workshop Chiang Mai
+DESCRIPTION:Get up-to-date information at: https://luma.com/zfnosht4\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Ian Borders & nich
+ olas frith
+LOCATION:https://luma.com/event/evt-F1aqEbfEBahBEnE
+GEO:18.810867515281302;98.97689332265061
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260222T040000Z
+DTEND:20260222T070000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Kozo Nishida":MAILTO:calendar-invite@lu.ma
+UID:evt-G8mOrvb4ZJyk5Gl@events.lu.ma
+SUMMARY:Claude Code Meetup Kobe #2 - Let's Talk 'Skills'
+DESCRIPTION:Get up-to-date information at: https://luma.com/bm38n19b\n\nAd
+ dress:\nコワーキングスペースDEP.\n神戸市中央区, Hyogo\nJap
+ an\n\nHosted by Kozo Nishida
+LOCATION:コワーキングスペースDEP., Japan, 〒650-0021 Hyogo, 神
+ 戸市中央区Chuo Ward, Sannomiyachō, 3-chōme−1−１６ 三星ビ
+ ル 4階南室
+GEO:34.6892783;135.1904644
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260223T170000Z
+DTEND:20260223T204500Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Claude Code Community Munich":MAILTO:calendar-invite@lu.ma
+UID:evt-xFQQXEw4YS8rXAg@events.lu.ma
+SUMMARY:Claude Code Meetup Munich
+DESCRIPTION:Get up-to-date information at: https://luma.com/nlfxyfut\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Claude Code Commun
+ ity Munich & 6 others
+LOCATION:https://luma.com/event/evt-xFQQXEw4YS8rXAg
+GEO:48.11894169923021;11.60411092671598
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260224T220000Z
+DTEND:20260225T003000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Rishabh":MAILTO:calendar-invite@lu.ma
+UID:evt-iQGpoLDEeoj6Xx3@events.lu.ma
+SUMMARY:Claude Code Meetup Halifax
+DESCRIPTION:Get up-to-date information at: https://luma.com/spzdvx1z\n\nAd
+ dress:\nVolta\nHalifax, Nova Scotia\nCanada\n\nHosted by Rishabh & Jitaksh
+ i Sharma
+LOCATION:Volta, 1800 Argyle St Unit 801, Halifax, NS B3J 3N8, Canada
+GEO:44.6482111;-63.575598
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260225T150000Z
+DTEND:20260225T190000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Aleksander Stensby":MAILTO:calendar-invite@lu.ma
+UID:evt-TjFfeZUFjk32Cg9@events.lu.ma
+SUMMARY:Claude Code Meetup Oslo
+DESCRIPTION:Get up-to-date information at: https://luma.com/ppnpbgvm\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Aleksander Stensby
+LOCATION:https://luma.com/event/evt-TjFfeZUFjk32Cg9
+GEO:59.91404574831405;10.74271089987338
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260225T170000Z
+DTEND:20260225T200000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Mahir Isikli":MAILTO:calendar-invite@lu.ma
+UID:evt-kYeM4Di5gyPEzIy@events.lu.ma
+SUMMARY:Claude Code Berlin v2
+DESCRIPTION:Get up-to-date information at: https://luma.com/i0ld8224\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Mahir Isikli & Mer
+ antix AI Campus
+LOCATION:https://luma.com/event/evt-kYeM4Di5gyPEzIy
+GEO:52.54055668184239;13.380937919436287
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260226T013000Z
+DTEND:20260226T033000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="YK":MAILTO:calendar-invite@lu.ma
+UID:evt-z0abdaBBlbLCOlF@events.lu.ma
+SUMMARY:Claude Code Meetup Vancouver
+DESCRIPTION:Get up-to-date information at: https://luma.com/ccmv-3\n\nAddr
+ ess:\nCheck event page for more details.\n\nHosted by YK & Brandon Waselnu
+ k
+LOCATION:https://luma.com/event/evt-z0abdaBBlbLCOlF
+GEO:49.27453694339633;-123.12040969053388
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260226T013000Z
+DTEND:20260226T040000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Alex Owen":MAILTO:calendar-invite@lu.ma
+UID:evt-bkKMey14X0FnYx4@events.lu.ma
+SUMMARY:Claude Code Meetup Los Angeles
+DESCRIPTION:Get up-to-date information at: https://luma.com/qn0jcqq2\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Alex Owen
+LOCATION:https://luma.com/event/evt-bkKMey14X0FnYx4
+GEO:33.98845253449032;-118.4476443052825
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260226T060000Z
+DTEND:20260226T093000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Peter Kibet":MAILTO:calendar-invite@lu.ma
+UID:evt-F5opffOg2rwJW5W@events.lu.ma
+SUMMARY:Claude Code Meetup Mombasa #1
+DESCRIPTION:Get up-to-date information at: https://luma.com/vsf5re14\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Peter Kibet
+LOCATION:https://luma.com/event/evt-F5opffOg2rwJW5W
+GEO:-4.035867607413698;39.66950713521957
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260226T153000Z
+DTEND:20260226T183000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Onat Vural":MAILTO:calendar-invite@lu.ma
+UID:evt-CmSmegUUFSDndMF@events.lu.ma
+SUMMARY:Claude Meetup Istanbul #2  - Lets Talk 'Skills'
+DESCRIPTION:Get up-to-date information at: https://luma.com/n1ndetgf\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Onat Vural, Said S
+ ürücü & QNBEYOND
+LOCATION:https://luma.com/event/evt-CmSmegUUFSDndMF
+GEO:41.08335039506281;29.008352662869427
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260226T153000Z
+DTEND:20260226T190000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Diana Meda":MAILTO:calendar-invite@lu.ma
+UID:evt-F0aXGOaBgPWTRbt@events.lu.ma
+SUMMARY:Claude Code Meetup Copenhagen
+DESCRIPTION:Get up-to-date information at: https://luma.com/jx7v1l7f\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Diana Meda & Jacob
+  Langvad Nilsson
+LOCATION:https://luma.com/event/evt-F0aXGOaBgPWTRbt
+GEO:55.66760386510365;12.53665052337263
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260226T180000Z
+DTEND:20260226T210000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Kevin Collins":MAILTO:calendar-invite@lu.ma
+UID:evt-ZndjS4DTeuafK36@events.lu.ma
+SUMMARY:Claude Code Meetup Dublin
+DESCRIPTION:Get up-to-date information at: https://luma.com/oh45q3or\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Kevin Collins & An
+ thony
+LOCATION:https://luma.com/event/evt-ZndjS4DTeuafK36
+GEO:53.30987016293861;-6.239431087038265
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260226T180000Z
+DTEND:20260226T203000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Eric Daspet":MAILTO:calendar-invite@lu.ma
+UID:evt-lW77ApFA9Z22xDu@events.lu.ma
+SUMMARY:Claude Code Meetup Lyon
+DESCRIPTION:Get up-to-date information at: https://luma.com/ppmkw85k\n\nAd
+ dress:\nSanofi, Spaces Part Dieu, 49 boulevard Vivier Merle, Lyon 69003, F
+ rance\n\nHosted by Eric Daspet
+LOCATION:Sanofi, Spaces Part Dieu, 49 boulevard Vivier Merle, Lyon 69003, 
+ France
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260227T013000Z
+DTEND:20260227T033000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Claude Community":MAILTO:calendar-invite@lu.ma
+UID:evt-XgietXLTyWVNT0Q@events.lu.ma
+SUMMARY:Claude Cowork GTM Workshop
+DESCRIPTION:Get up-to-date information at: https://luma.com/kfftxij2\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Claude Community, 
+ Will Reese & WorkOS
+LOCATION:https://luma.com/event/evt-XgietXLTyWVNT0Q
+GEO:37.78718282708895;-122.40361690028124
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260227T170000Z
+DTEND:20260227T210000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Warsaw International":MAILTO:calendar-invite@lu.ma
+UID:evt-carATy1TGChhM09@events.lu.ma
+SUMMARY:Claude Code Meetup Warsaw
+DESCRIPTION:Get up-to-date information at: https://luma.com/lci3te14\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Warsaw Internation
+ al
+LOCATION:https://luma.com/event/evt-carATy1TGChhM09
+GEO:52.2273771003001;21.006038321412863
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260227T233000Z
+DTEND:20260228T020000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Justin Elliott":MAILTO:calendar-invite@lu.ma
+UID:evt-vrW6AqnQljlRjuu@events.lu.ma
+SUMMARY:Claude Code Meetup Miami
+DESCRIPTION:Get up-to-date information at: https://luma.com/a1gwb2ei\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Justin Elliott, Ro
+ berto Garcia & The LAB Miami
+LOCATION:https://luma.com/event/evt-vrW6AqnQljlRjuu
+GEO:25.799926832561653;-80.20114675711915
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260228T180000Z
+DTEND:20260228T230000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="AJ Green":MAILTO:calendar-invite@lu.ma
+UID:evt-saYDOArQvLU39Vd@events.lu.ma
+SUMMARY:Claude Code Meetup Portland
+DESCRIPTION:Get up-to-date information at: https://luma.com/u55aqt1t\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by AJ Green & 6 other
+ s
+LOCATION:https://luma.com/event/evt-saYDOArQvLU39Vd
+GEO:45.50592530919349;-122.6812597661061
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260301T000000Z
+DTEND:20260301T030000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Travis Johnson":MAILTO:calendar-invite@lu.ma
+UID:evt-gBIDXTJI0NkeTff@events.lu.ma
+SUMMARY:Claude Meetup Orange County
+DESCRIPTION:Get up-to-date information at: https://luma.com/kjwrri63\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Travis Johnson
+LOCATION:https://luma.com/event/evt-gBIDXTJI0NkeTff
+GEO:33.71355199809271;-117.83839915430778
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260301T103000Z
+DTEND:20260301T133000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Aniket Sahu":MAILTO:calendar-invite@lu.ma
+UID:evt-IcKOSAOGP6GAeEX@events.lu.ma
+SUMMARY:Bhopal | Claude Code for Builders
+DESCRIPTION:Get up-to-date information at: https://luma.com/hphplrbx\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Aniket Sahu, The O
+ rigin Guild & Vishal kumar
+LOCATION:https://luma.com/event/evt-IcKOSAOGP6GAeEX
+GEO:23.266962370695772;77.4572836601048
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260303T200000Z
+DTEND:20260303T220000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Kendra Ramirez":MAILTO:calendar-invite@lu.ma
+UID:evt-d09sxGXa7Yaa6kU@events.lu.ma
+SUMMARY:Cincinnati | Claude Code for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/xvokjlgz\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Kendra Ramirez & I
+ magination Age 🪄 ✨
+LOCATION:https://luma.com/event/evt-d09sxGXa7Yaa6kU
+GEO:39.13250531522609;-84.49332608537757
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260304T010000Z
+DTEND:20260304T030000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Women in AI Club":MAILTO:calendar-invite@lu.ma
+UID:evt-wDwKGwpqUbjve6W@events.lu.ma
+SUMMARY:SF | Claude Code Workshop for Women in AI
+DESCRIPTION:Get up-to-date information at: https://luma.com/f8saybia\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Women in AI Club &
+  4 others
+LOCATION:https://luma.com/event/evt-wDwKGwpqUbjve6W
+GEO:37.790025352027186;-122.4041048885318
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260304T073000Z
+DTEND:20260304T090000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Wayne Hoggett":MAILTO:calendar-invite@lu.ma
+UID:evt-0JKU6PCDUpm6YGF@events.lu.ma
+SUMMARY:Brisbane | Claude Code for DevOps
+DESCRIPTION:Get up-to-date information at: https://luma.com/ClaudeBrisbane
+ 1\n\nAddress:\nCheck event page for more details.\n\nHosted by Wayne Hogge
+ tt & Lucas Ridley
+LOCATION:https://luma.com/event/evt-0JKU6PCDUpm6YGF
+GEO:-27.469833273658733;153.03161828050267
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260304T170000Z
+DTEND:20260304T200000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Olivier Alterhq.com":MAILTO:calendar-invite@lu.ma
+UID:evt-Nfh3EbPHv7BqcHC@events.lu.ma
+SUMMARY:Barcelona | Claude Code for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/kqmy9rws\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Olivier Alterhq.co
+ m, Jérémie Benhamou & Matt Roberts
+LOCATION:https://luma.com/event/evt-Nfh3EbPHv7BqcHC
+GEO:41.370477779657705;2.1790853630229914
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260304T203000Z
+DTEND:20260304T233000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Luiz Couto":MAILTO:calendar-invite@lu.ma
+UID:evt-9JTMlYySBbBsp1I@events.lu.ma
+SUMMARY:Claude Code Meetup São Paulo - 2º Meetup
+DESCRIPTION:Get up-to-date information at: https://luma.com/sutujjrf\n\nAd
+ dress:\nEscritório Alice\nSão Paulo, São Paulo\nBrazil\n\nHosted by Lui
+ z Couto
+LOCATION:Escritório Alice, Av. Rebouças, 3535 - Pinheiros, São Paulo - 
+ SP, 05401-400, Brazil
+GEO:-23.5723236;-46.6927154
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260305T020000Z
+DTEND:20260305T040000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Evan Grenda":MAILTO:calendar-invite@lu.ma
+UID:evt-ks9CkwcC0F7lcCP@events.lu.ma
+SUMMARY:LA | Claude Code for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/p5z4trc8\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Evan Grenda
+LOCATION:https://luma.com/event/evt-ks9CkwcC0F7lcCP
+GEO:33.98696036227379;-118.47228319710922
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260305T100000Z
+DTEND:20260305T123000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Max Del Vita":MAILTO:calendar-invite@lu.ma
+UID:evt-asMtGX8HsHKjKGT@events.lu.ma
+SUMMARY:Singapore | Claude Code Meetup #3 /Design
+DESCRIPTION:Get up-to-date information at: https://luma.com/1xh22u5r\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Max Del Vita & 4 o
+ thers
+LOCATION:https://luma.com/event/evt-asMtGX8HsHKjKGT
+GEO:1.2903750027305254;103.79407186254369
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260305T100000Z
+DTEND:20260305T130000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Paolo De los Santos":MAILTO:calendar-invite@lu.ma
+UID:evt-RYZPyL2rHDWOm3h@events.lu.ma
+SUMMARY:Manila | Claude Code for Builders
+DESCRIPTION:Get up-to-date information at: https://luma.com/cc-manila-1\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by Paolo De los S
+ antos
+LOCATION:https://luma.com/event/evt-RYZPyL2rHDWOm3h
+GEO:14.561952185675025;121.03755641164447
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260305T160000Z
+DTEND:20260305T180000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Héctor Tortosa":MAILTO:calendar-invite@lu.ma
+UID:evt-F6tyR05G6CHh5YG@events.lu.ma
+SUMMARY:Helsinki | Claude Code for Builders
+DESCRIPTION:Get up-to-date information at: https://luma.com/aavuvh00\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Héctor Tortosa & 
+ Glafira Privalova
+LOCATION:https://luma.com/event/evt-F6tyR05G6CHh5YG
+GEO:60.169140194954984;24.922733836693013
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260305T223000Z
+DTEND:20260306T013000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Saurabh Suri":MAILTO:calendar-invite@lu.ma
+UID:evt-YF8tUtHBwGFNTcD@events.lu.ma
+SUMMARY:Toronto | Claude for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/qnl21j2p\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Saurabh Suri, Robl
+ eh Jama & New
+LOCATION:https://luma.com/event/evt-YF8tUtHBwGFNTcD
+GEO:43.640928025587044;-79.40870785825409
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260307T080000Z
+DTEND:20260307T100000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Daniel Kang":MAILTO:calendar-invite@lu.ma
+UID:evt-nXkayZ7SNQCa3kH@events.lu.ma
+SUMMARY:Forest City | Claude Code for Entrepreneurs
+DESCRIPTION:Get up-to-date information at: https://luma.com/kwhrhy18\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Daniel Kang & 4 ot
+ hers
+LOCATION:https://luma.com/event/evt-nXkayZ7SNQCa3kH
+GEO:1.3344717971220221;103.59402046572659
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260307T180000Z
+DTEND:20260308T030000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Max Krueger":MAILTO:calendar-invite@lu.ma
+UID:evt-Ze5bUs2FiiL096o@events.lu.ma
+SUMMARY:San Diego | Claude Impact Lab
+DESCRIPTION:Get up-to-date information at: https://luma.com/6ok9h92y\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Max Krueger
+LOCATION:https://luma.com/event/evt-Ze5bUs2FiiL096o
+GEO:32.7139559652641;-117.16700924360713
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260309T173000Z
+DTEND:20260309T210000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Olivier Alterhq.com":MAILTO:calendar-invite@lu.ma
+UID:evt-ztY0PVfGkI8IfOz@events.lu.ma
+SUMMARY:Paris | Claude Code for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/ra5bmhlk\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Olivier Alterhq.co
+ m, 42 Artificial Intelligence & Thomas ROUX
+LOCATION:https://luma.com/event/evt-ztY0PVfGkI8IfOz
+GEO:48.89508624612069;2.3208360500477965
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260311T170000Z
+DTEND:20260311T190000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Victor Stepanov":MAILTO:calendar-invite@lu.ma
+UID:evt-b1MoinPS74XRKPQ@events.lu.ma
+SUMMARY:Paris | Claude Cowork for Operators
+DESCRIPTION:Get up-to-date information at: https://luma.com/ibbmlywj\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Victor Stepanov & 
+ 3 others
+LOCATION:https://luma.com/event/evt-b1MoinPS74XRKPQ
+GEO:48.872365455199585;2.3520044125881094
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260311T180000Z
+DTEND:20260311T200000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Max Tatton-Brown":MAILTO:calendar-invite@lu.ma
+UID:evt-vIfNs3RgaC3Wz22@events.lu.ma
+SUMMARY:London | Claude Code Curious #3
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-code-cu
+ rious-3\n\nAddress:\nCheck event page for more details.\n\nHosted by Max T
+ atton-Brown & Shreman Shrestha
+LOCATION:https://luma.com/event/evt-vIfNs3RgaC3Wz22
+GEO:51.524682466735605;-0.07983231921886087
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260311T220000Z
+DTEND:20260312T010000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="The AI Collective":MAILTO:calendar-invite@lu.ma
+UID:evt-QRQ9Wx2xEcZGLTQ@events.lu.ma
+SUMMARY:Detroit | Claude Code for Developers
+DESCRIPTION:Get up-to-date information at: https://luma.com/ycv18ofl\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by The AI Collective 
+ & 5 others
+LOCATION:https://luma.com/event/evt-QRQ9Wx2xEcZGLTQ
+GEO:42.337674304427296;-83.05148591530984
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260312T073000Z
+DTEND:20260312T093000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Rye Smith":MAILTO:calendar-invite@lu.ma
+UID:evt-uyiOqIZvOsSbaHX@events.lu.ma
+SUMMARY:Adelaide | Claude Code for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/f9a3m3p9\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Rye Smith & 3 othe
+ rs
+LOCATION:https://luma.com/event/evt-uyiOqIZvOsSbaHX
+GEO:-34.91997619490357;138.61029872070145
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260312T200000Z
+DTEND:20260312T233000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Felipe Pacheco / Bendita IA":MAILTO:calendar-invite@lu.ma
+UID:evt-8HgHbaqbmxqBYMh@events.lu.ma
+SUMMARY:Santiago | Claude Code / Cowork / No developers
+DESCRIPTION:Get up-to-date information at: https://luma.com/claudecode.ben
+ ditaia\n\nAddress:\nCheck event page for more details.\n\nHosted by Felipe
+  Pacheco / Bendita IA
+LOCATION:https://luma.com/event/evt-8HgHbaqbmxqBYMh
+GEO:-33.421503505348866;-70.59993277851265
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260314T050000Z
+DTEND:20260314T083000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Natalie Lin":MAILTO:calendar-invite@lu.ma
+UID:evt-wsFr0I1W3AppSOn@events.lu.ma
+SUMMARY:Taipei | Claude Code for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-taipei-
+ 2\n\nAddress:\nCheck event page for more details.\n\nHosted by Natalie Lin
+ , Ling Wu 吳冠霖 & Raj Sivakumar
+LOCATION:https://luma.com/event/evt-wsFr0I1W3AppSOn
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260316T180000Z
+DTEND:20260316T203000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Vikram Pawar":MAILTO:calendar-invite@lu.ma
+UID:evt-DCGnCustBYcaGSL@events.lu.ma
+SUMMARY:Central London | Claude Code for Everyone CCCL #4
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude.code.ce
+ ntral.london.4\n\nAddress:\nCheck event page for more details.\n\nHosted b
+ y Vikram Pawar & Ganga Pawar
+LOCATION:https://luma.com/event/evt-DCGnCustBYcaGSL
+GEO:51.52070139271916;-0.08501827195035212
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260318T070000Z
+DTEND:20260318T090000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Rye Smith":MAILTO:calendar-invite@lu.ma
+UID:evt-oA4nTH7oeWOD9w0@events.lu.ma
+SUMMARY:Sydney | Claude Code for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/olip6ef8\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Rye Smith & 3 othe
+ rs
+LOCATION:https://luma.com/event/evt-oA4nTH7oeWOD9w0
+GEO:-33.878496755222805;151.20743959440188
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260318T230000Z
+DTEND:20260319T010000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Dominik Fretz":MAILTO:calendar-invite@lu.ma
+UID:evt-xDFKgzFPCxKNL09@events.lu.ma
+SUMMARY:Sydney | Claude & Coffee
+DESCRIPTION:Get up-to-date information at: https://luma.com/nu7anakm\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Dominik Fretz
+LOCATION:https://luma.com/event/evt-xDFKgzFPCxKNL09
+GEO:-33.88144305884677;151.20409598480683
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260319T090000Z
+DTEND:20260319T110000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Rye Smith":MAILTO:calendar-invite@lu.ma
+UID:evt-AqTc9IlBCAlOPBh@events.lu.ma
+SUMMARY:Perth | Claude Code for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/mlgr7q9z\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Rye Smith, Juliett
+ e Lucas & Claude Community Australia
+LOCATION:https://luma.com/event/evt-AqTc9IlBCAlOPBh
+GEO:-31.95504500098211;115.86032383676735
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260319T180000Z
+DTEND:20260319T210000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Olivier Alterhq.com":MAILTO:calendar-invite@lu.ma
+UID:evt-WpwpDYB3SqwcGlC@events.lu.ma
+SUMMARY:Paris | Claude Code for Developers
+DESCRIPTION:Get up-to-date information at: https://luma.com/jffqynvq\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Olivier Alterhq.co
+ m, Boris T & Thomas ROUX
+LOCATION:https://luma.com/event/evt-WpwpDYB3SqwcGlC
+GEO:48.86573524009496;2.3813698836810118
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260319T223000Z
+DTEND:20260320T010000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Christian Somora":MAILTO:calendar-invite@lu.ma
+UID:evt-16BAzeB53wIlX3N@events.lu.ma
+SUMMARY:Chicago | Claude Code for HealthTech
+DESCRIPTION:Get up-to-date information at: https://luma.com/s0pc2wz3\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Christian Somora
+LOCATION:https://luma.com/event/evt-16BAzeB53wIlX3N
+GEO:41.88102134055741;-87.64137546173298
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260320T130000Z
+DTEND:20260320T150000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Peter Kibet":MAILTO:calendar-invite@lu.ma
+UID:evt-RlnDDOhqwJGwoeM@events.lu.ma
+SUMMARY:Nairobi | Claude for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/jgfwyg2h\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Peter Kibet
+LOCATION:https://luma.com/event/evt-RlnDDOhqwJGwoeM
+GEO:-1.2950663415032895;36.79622602149783
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260320T233000Z
+DTEND:20260321T030000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Ricardo Lira de la Vega":MAILTO:calendar-invite@lu.ma
+UID:evt-sSE90gLN90wxlB0@events.lu.ma
+SUMMARY:Monterrey | Claude Code for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/claudemonterre
+ y-11\n\nAddress:\nCheck event page for more details.\n\nHosted by Ricardo 
+ Lira de la Vega, Sebastián Marines & Erik Porroa
+LOCATION:https://luma.com/event/evt-sSE90gLN90wxlB0
+GEO:25.651794831436057;-100.29433556678188
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260321T180000Z
+DTEND:20260321T210000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Cindy Yang":MAILTO:calendar-invite@lu.ma
+UID:evt-1mrGQxcqtLA935F@events.lu.ma
+SUMMARY:Claude Community Jersey City — Vibe Coding Demo Day & PM Meetup
+DESCRIPTION:Get up-to-date information at: https://luma.com/3f8f8qee\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Cindy Yang & MJ
+LOCATION:https://luma.com/event/evt-1mrGQxcqtLA935F
+GEO:40.720484503495896;-74.04021454879374
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260321T190000Z
+DTEND:20260321T220000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Ricardo Lira de la Vega":MAILTO:calendar-invite@lu.ma
+UID:evt-OYWwfnO0vBwMfyy@events.lu.ma
+SUMMARY:Mexico City | Claude Code for Builders - Build Day
+DESCRIPTION:Get up-to-date information at: https://luma.com/claudemexicoci
+ ty\n\nAddress:\nCheck event page for more details.\n\nHosted by Ricardo Li
+ ra de la Vega & 3 others
+LOCATION:https://luma.com/event/evt-OYWwfnO0vBwMfyy
+GEO:19.413015215505215;-99.16786595639823
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260323T070000Z
+DTEND:20260323T090000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Rye Smith":MAILTO:calendar-invite@lu.ma
+UID:evt-Zxu3bopKhWQYeEL@events.lu.ma
+SUMMARY:Sydney | Claude Code for Developers
+DESCRIPTION:Get up-to-date information at: https://luma.com/j1d8s3ik\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Rye Smith, Dominik
+  Fretz & Claude Community Australia
+LOCATION:https://luma.com/event/evt-Zxu3bopKhWQYeEL
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260323T170000Z
+DTEND:20260323T210000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Dr. Florian Steiner":MAILTO:calendar-invite@lu.ma
+UID:evt-4aFD8aBEcQ2OrQg@events.lu.ma
+SUMMARY:Munich | Claude Code for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/5abx5e5u\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Dr. Florian Steine
+ r & 5 others
+LOCATION:https://luma.com/event/evt-4aFD8aBEcQ2OrQg
+GEO:48.11929076360017;11.602248090789924
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260323T213000Z
+DTEND:20260324T010000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="João Lisboa":MAILTO:calendar-invite@lu.ma
+UID:evt-YbHGoXmFdrotDxJ@events.lu.ma
+SUMMARY:Rio de Janeiro | Claude Code for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/4o81zsdl\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by João Lisboa
+LOCATION:https://luma.com/event/evt-YbHGoXmFdrotDxJ
+GEO:-22.98606193723149;-43.224673115612966
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260324T150000Z
+DTEND:20260324T190000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Aleksander Stensby":MAILTO:calendar-invite@lu.ma
+UID:evt-1fF0stsICq89p6n@events.lu.ma
+SUMMARY:Oslo | Claude Code for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/sn2puv1c\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Aleksander Stensby
+LOCATION:https://luma.com/event/evt-1fF0stsICq89p6n
+GEO:59.91548178984933;10.745280885197253
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260324T180000Z
+DTEND:20260324T200000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Max Tatton-Brown":MAILTO:calendar-invite@lu.ma
+UID:evt-LDYwHRUADjysomr@events.lu.ma
+SUMMARY:London | Claude Code Curious: Cutting Edge
+DESCRIPTION:Get up-to-date information at: https://luma.com/ccc-cutting-ed
+ ge-1\n\nAddress:\nCheck event page for more details.\n\nHosted by Max Tatt
+ on-Brown
+LOCATION:https://luma.com/event/evt-LDYwHRUADjysomr
+GEO:51.52431932861379;-0.0901759008522605
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260324T213000Z
+DTEND:20260325T003000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Tyler Sztuka":MAILTO:calendar-invite@lu.ma
+UID:evt-d8ky8P4ERoDVWVA@events.lu.ma
+SUMMARY:Atlanta | Claude Kickoff + Intro to Cowork
+DESCRIPTION:Get up-to-date information at: https://luma.com/lqly96sx\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Tyler Sztuka
+LOCATION:https://luma.com/event/evt-d8ky8P4ERoDVWVA
+GEO:33.84739974216711;-84.35981926263408
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260325T000000Z
+DTEND:20260325T030000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Ricardo Lira de la Vega":MAILTO:calendar-invite@lu.ma
+UID:evt-xBcEok4bYYCndAm@events.lu.ma
+SUMMARY:Mérida | Claude Code for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/claudemerida\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by Ricardo Lira d
+ e la Vega & 3 others
+LOCATION:https://luma.com/event/evt-xBcEok4bYYCndAm
+GEO:21.037324167237745;-89.59970432096586
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260326T010000Z
+DTEND:20260326T030000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Evan Grenda":MAILTO:calendar-invite@lu.ma
+UID:evt-aS4smoD0srrbmC0@events.lu.ma
+SUMMARY:LA | Claude Cowork for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/skd05los\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Evan Grenda
+LOCATION:https://luma.com/event/evt-aS4smoD0srrbmC0
+GEO:33.9880375607651;-118.47449184005374
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260326T070000Z
+DTEND:20260326T090000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Rye Smith":MAILTO:calendar-invite@lu.ma
+UID:evt-EzOUisZtR9AiQ9t@events.lu.ma
+SUMMARY:Melbourne | Claude Code for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/8zlgv4dm\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Rye Smith & 3 othe
+ rs
+LOCATION:https://luma.com/event/evt-EzOUisZtR9AiQ9t
+GEO:-37.82525403237588;144.99000122350404
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260326T100000Z
+DTEND:20260326T123000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Max Del Vita":MAILTO:calendar-invite@lu.ma
+UID:evt-dDN4tBY1UNCUFKC@events.lu.ma
+SUMMARY:Singapore | Claude Code Meetup #4 / Agents
+DESCRIPTION:Get up-to-date information at: https://luma.com/cjsc9b1d\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Max Del Vita, Alex
+  Svanevik & Samir
+LOCATION:https://luma.com/event/evt-dDN4tBY1UNCUFKC
+GEO:1.285698290448594;103.85084202222855
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260326T163000Z
+DTEND:20260326T193000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="tamas puski":MAILTO:calendar-invite@lu.ma
+UID:evt-pxDotSgWmRxymaf@events.lu.ma
+SUMMARY:Budapest | Claude for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/j7ehsd5s\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by tamas puski & 4 ot
+ hers
+LOCATION:https://luma.com/event/evt-pxDotSgWmRxymaf
+GEO:47.49825008986917;19.0581344628667
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260326T163000Z
+DTEND:20260326T193000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Michael Whelehan":MAILTO:calendar-invite@lu.ma
+UID:evt-KnLqbcL9NoXWsex@events.lu.ma
+SUMMARY:Nuremberg | Claude for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/b7np82x9\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Michael Whelehan
+LOCATION:https://luma.com/event/evt-KnLqbcL9NoXWsex
+GEO:49.451994264572576;11.076268760714058
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260326T170000Z
+DTEND:20260326T200000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Ricardo Lira de la Vega":MAILTO:calendar-invite@lu.ma
+UID:evt-Squ40eE4HO7Q1eT@events.lu.ma
+SUMMARY:Cancún | Claude Code for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/claudecancun1
+ \n\nAddress:\nCheck event page for more details.\n\nHosted by Ricardo Lira
+  de la Vega & 3 others
+LOCATION:https://luma.com/event/evt-Squ40eE4HO7Q1eT
+GEO:21.061213849867947;-86.84692701036529
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260327T000000Z
+DTEND:20260327T033000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Sunil Grover":MAILTO:calendar-invite@lu.ma
+UID:evt-qhjHuiATHyT7xco@events.lu.ma
+SUMMARY:Palo Alto | Claude for Technical Founders
+DESCRIPTION:Get up-to-date information at: https://luma.com/1ak30p1v\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Sunil Grover, Vik 
+ Ghai & Amar Chokhawala
+LOCATION:https://luma.com/event/evt-qhjHuiATHyT7xco
+GEO:37.44539875909169;-122.16034462122389
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260327T130000Z
+DTEND:20260327T150000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Peter Kibet":MAILTO:calendar-invite@lu.ma
+UID:evt-xdwZFnErCGBV9yP@events.lu.ma
+SUMMARY:Nairobi | Claude for Everyone #2
+DESCRIPTION:Get up-to-date information at: https://luma.com/pgbxkvi9\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Peter Kibet & Bloc
+ kchain Centre NBO
+LOCATION:https://luma.com/event/evt-xdwZFnErCGBV9yP
+GEO:-1.2938488131998138;36.79679638481678
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260327T180000Z
+DTEND:20260327T220000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Olivier Alterhq.com":MAILTO:calendar-invite@lu.ma
+UID:evt-kjMEs50HjOfCgJY@events.lu.ma
+SUMMARY:London | Claude Code for Voice
+DESCRIPTION:Get up-to-date information at: https://luma.com/k24hdger\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Olivier Alterhq.co
+ m & Joséphine Parquet
+LOCATION:https://luma.com/event/evt-kjMEs50HjOfCgJY
+GEO:51.526041285886976;-0.07837854566144481
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260327T183000Z
+DTEND:20260327T203000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Vincent Bruijn":MAILTO:calendar-invite@lu.ma
+UID:evt-0IjkBYxoRhtHj3k@events.lu.ma
+SUMMARY:Groningen | Code /w Claude | Workshop
+DESCRIPTION:Get up-to-date information at: https://luma.com/45i5w55s\n\nAd
+ dress:\nNP3\nGroningen, Groningen\nNetherlands\n\nHosted by Vincent Bruijn
+LOCATION:NP3, Hofstraat 21, 9712 JA Groningen, Netherlands
+GEO:53.2211857;6.567889699999999
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260327T223000Z
+DTEND:20260328T010000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Justin Elliott":MAILTO:calendar-invite@lu.ma
+UID:evt-DY7rtF6hntA79WO@events.lu.ma
+SUMMARY:Miami | Claude Code for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/3v7e6cd2\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Justin Elliott
+LOCATION:https://luma.com/event/evt-DY7rtF6hntA79WO
+GEO:25.80294482839538;-80.20183109174675
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260328T190000Z
+DTEND:20260328T230000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Blythe Easterly":MAILTO:calendar-invite@lu.ma
+UID:evt-EGUwS6PAQYCUreg@events.lu.ma
+SUMMARY:Anchorage | Claude for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/qa7irbw8\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Blythe Easterly & 
+ 3 others
+LOCATION:https://luma.com/event/evt-EGUwS6PAQYCUreg
+GEO:61.19264945919172;-149.80140530098842
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260401T170000Z
+DTEND:20260401T200000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Olivier Alterhq.com":MAILTO:calendar-invite@lu.ma
+UID:evt-3B2edqKmWV6yENR@events.lu.ma
+SUMMARY:London | Claude Code for Designers | Thinking Forward #01
+DESCRIPTION:Get up-to-date information at: https://luma.com/so5bgpqs\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Olivier Alterhq.co
+ m, Eleanor Cranfield & Sandra
+LOCATION:https://luma.com/event/evt-3B2edqKmWV6yENR
+GEO:51.50883061192942;-0.0915541970444549
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260403T170000Z
+DTEND:20260403T193000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Vincent Bruijn":MAILTO:calendar-invite@lu.ma
+UID:evt-GUgwFlqOLEEpqoa@events.lu.ma
+SUMMARY:Amsterdam | Claude Code for Developers
+DESCRIPTION:Get up-to-date information at: https://luma.com/t03vh53s\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Vincent Bruijn & R
+ ogier Muller
+LOCATION:https://luma.com/event/evt-GUgwFlqOLEEpqoa
+GEO:52.3522673497177;4.910832855650578
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260404T230000Z
+DTEND:20260405T020000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Travis Johnson":MAILTO:calendar-invite@lu.ma
+UID:evt-wtgvEimZwY7yKHZ@events.lu.ma
+SUMMARY:Orange County | Claude Code for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/claudeoc\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Travis Johnson
+LOCATION:https://luma.com/event/evt-wtgvEimZwY7yKHZ
+GEO:33.607634005312086;-117.87080632133409
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260407T153000Z
+DTEND:20260407T183000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Onat Vural":MAILTO:calendar-invite@lu.ma
+UID:evt-eE8oBXyjRPY08l0@events.lu.ma
+SUMMARY:Istanbul | Claude + Local LLMs: Building Hybrid AI Workflows for R
+ egulated Industries
+DESCRIPTION:Get up-to-date information at: https://luma.com/tl129s8l\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Onat Vural & 3 oth
+ ers
+LOCATION:https://luma.com/event/evt-eE8oBXyjRPY08l0
+GEO:40.999298469339465;29.063716864313257
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260407T163000Z
+DTEND:20260407T190000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Olivier Alterhq.com":MAILTO:calendar-invite@lu.ma
+UID:evt-uMfxC0FaHMw130o@events.lu.ma
+SUMMARY:Paris | Claude Code for Developers
+DESCRIPTION:Get up-to-date information at: https://luma.com/yqi5g872\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Olivier Alterhq.co
+ m, Thomas ROUX & Jérémy Lanfranchi
+LOCATION:https://luma.com/event/evt-uMfxC0FaHMw130o
+GEO:48.86755469228154;2.3331178690186825
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260407T170000Z
+DTEND:20260407T193000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Vikram Pawar":MAILTO:calendar-invite@lu.ma
+UID:evt-GuprabiviyzaDCX@events.lu.ma
+SUMMARY:Central London | CCCL #5 — Claude Code for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/cccl.5\n\nAddr
+ ess:\nCheck event page for more details.\n\nHosted by Vikram Pawar
+LOCATION:https://luma.com/event/evt-GuprabiviyzaDCX
+GEO:51.521245058850965;-0.08707085827661312
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260408T050000Z
+DTEND:20260408T080000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Adam Holt":MAILTO:calendar-invite@lu.ma
+UID:evt-IfDKtuHbIy505Em@events.lu.ma
+SUMMARY:Auckland | Claude Cowork for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/Auckland-claud
+ e-cowork\n\nAddress:\nCheck event page for more details.\n\nHosted by Adam
+  Holt & Simon Conroy
+LOCATION:https://luma.com/event/evt-IfDKtuHbIy505Em
+GEO:-36.84457059790516;174.75669525873454
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260408T163000Z
+DTEND:20260408T200000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Vikram Pawar":MAILTO:calendar-invite@lu.ma
+UID:evt-Nqbcy37wG9cfnhA@events.lu.ma
+SUMMARY:Central London | CCCL #5B — Claude Code for Agentic Engineering
+DESCRIPTION:Get up-to-date information at: https://luma.com/cccl.5b\n\nAdd
+ ress:\nCheck event page for more details.\n\nHosted by Vikram Pawar
+LOCATION:https://luma.com/event/evt-Nqbcy37wG9cfnhA
+GEO:51.527783004654545;-0.08223791642787388
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260408T213000Z
+DTEND:20260409T003000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Tyler Sztuka":MAILTO:calendar-invite@lu.ma
+UID:evt-LnNA4CCeTDnMGpP@events.lu.ma
+SUMMARY:Atlanta | Claude Cowork Workshop for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/dok4p4gq\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Tyler Sztuka & Mar
+ k Michelson
+LOCATION:https://luma.com/event/evt-LnNA4CCeTDnMGpP
+GEO:34.065560323575696;-84.29206317378474
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260409T103000Z
+DTEND:20260409T133000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Justin Shaw":MAILTO:calendar-invite@lu.ma
+UID:evt-vjWafnG0UysgR8Y@events.lu.ma
+SUMMARY:Taipei | Claude Code for Developers
+DESCRIPTION:Get up-to-date information at: https://luma.com/2ux70uqz\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Justin Shaw & 3 ot
+ hers
+LOCATION:https://luma.com/event/evt-vjWafnG0UysgR8Y
+GEO:25.04324712824517;121.50455497162793
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260409T110000Z
+DTEND:20260409T140000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Fatih Guner":MAILTO:calendar-invite@lu.ma
+UID:evt-jiZKTBfBWEbb8Gt@events.lu.ma
+SUMMARY:Istanbul | Claude Cowork Workshop for Customer Experience and Oper
+ ations
+DESCRIPTION:Get up-to-date information at: https://luma.com/v85ynuye\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Fatih Guner & Kom
+ ünite
+LOCATION:https://luma.com/event/evt-jiZKTBfBWEbb8Gt
+GEO:41.11054725341558;28.98634382471243
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260409T143000Z
+DTEND:20260409T180000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Jacob Langvad Nilsson":MAILTO:calendar-invite@lu.ma
+UID:evt-khhvlEnDjDNgtbe@events.lu.ma
+SUMMARY:Copenhagen | Claude Code for Developers
+DESCRIPTION:Get up-to-date information at: https://luma.com/jgvmj9ji\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Jacob Langvad Nils
+ son & Diana Meda
+LOCATION:https://luma.com/event/evt-khhvlEnDjDNgtbe
+GEO:55.66465631528034;12.56022840388445
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260409T150000Z
+DTEND:20260409T180000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Sachin Agrawal":MAILTO:calendar-invite@lu.ma
+UID:evt-y6wlFtOhOIJtsnR@events.lu.ma
+SUMMARY:Stuttgart | Claude Code for Developers
+DESCRIPTION:Get up-to-date information at: https://luma.com/ya5jpjbe\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Sachin Agrawal & M
+ aide A.
+LOCATION:https://luma.com/event/evt-y6wlFtOhOIJtsnR
+GEO:48.72353211796326;9.172706418351359
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260409T160000Z
+DTEND:20260409T190000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Olivier Alterhq.com":MAILTO:calendar-invite@lu.ma
+UID:evt-8l3C4hG7vZ0jNcQ@events.lu.ma
+SUMMARY:Barcelona | Claude for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/98k2e1yu\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Olivier Alterhq.co
+ m, Jérémie Benhamou & Matt Roberts
+LOCATION:https://luma.com/event/evt-8l3C4hG7vZ0jNcQ
+GEO:41.37253501290567;2.1795729705474387
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260409T233000Z
+DTEND:20260410T020000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Felipe Aguirre Martinez":MAILTO:calendar-invite@lu.ma
+UID:evt-yi7GNwbmfgK0Gyu@events.lu.ma
+SUMMARY:Medellin | Claude for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/8o3twolb\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Felipe Aguirre Mar
+ tinez & Jose Betancur
+LOCATION:https://luma.com/event/evt-yi7GNwbmfgK0Gyu
+GEO:6.199099360715494;-75.58031606920343
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260410T000000Z
+DTEND:20260410T040000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Ricardo Lira de la Vega":MAILTO:calendar-invite@lu.ma
+UID:evt-aUNTEDgCl751Dtj@events.lu.ma
+SUMMARY:Colima | Claude Code for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/claudecolima\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by Ricardo Lira d
+ e la Vega, Miguel Oceguera & WDT Colima
+LOCATION:https://luma.com/event/evt-aUNTEDgCl751Dtj
+GEO:19.244242419037175;-103.72827739802753
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260410T050000Z
+DTEND:20260410T090000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Hakkei Sekine":MAILTO:calendar-invite@lu.ma
+UID:evt-La9JWKXOZBKHJL5@events.lu.ma
+SUMMARY:Hyderabad | Claude Code Workshop for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/m8ahogms\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Hakkei Sekine
+LOCATION:https://luma.com/event/evt-La9JWKXOZBKHJL5
+GEO:17.454164639976888;78.36833022389597
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260413T000000Z
+DTEND:20260413T040000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="varunr":MAILTO:calendar-invite@lu.ma
+UID:evt-9xXyWxCrEBZbBdG@events.lu.ma
+SUMMARY:Bellingham | Claude Code Workshop for Builders
+DESCRIPTION:Get up-to-date information at: https://luma.com/ealxq5mn\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by varunr & Michael G
+ an
+LOCATION:https://luma.com/event/evt-9xXyWxCrEBZbBdG
+GEO:48.78655190561719;-122.49387995550371
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260413T230000Z
+DTEND:20260414T010000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Damon Bodine":MAILTO:calendar-invite@lu.ma
+UID:evt-lJVE46pD3ha5KJI@events.lu.ma
+SUMMARY:Austin | Claude Code
+DESCRIPTION:Get up-to-date information at: https://luma.com/bxx20kyi\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Damon Bodine & Jas
+ on Desiderio
+LOCATION:https://luma.com/event/evt-lJVE46pD3ha5KJI
+GEO:30.270135035210956;-97.74132865102479
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260414T093000Z
+DTEND:20260414T120000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Xavier (최훈민)":MAILTO:calendar-invite@lu.ma
+UID:evt-vYbAdpkJTSe3MWm@events.lu.ma
+SUMMARY:Seoul | Claude Bloom
+DESCRIPTION:Get up-to-date information at: https://luma.com/2yw4poh6\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Xavier (최훈민)
+  & Bloom 🌸
+LOCATION:https://luma.com/event/evt-vYbAdpkJTSe3MWm
+GEO:37.50575162756135;127.04446768793719
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260414T170000Z
+DTEND:20260414T190000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Max Tatton-Brown":MAILTO:calendar-invite@lu.ma
+UID:evt-hNC7DCVpu61mGgC@events.lu.ma
+SUMMARY:London | Claude Code Curious #4
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-code-cu
+ rious-4\n\nAddress:\nCheck event page for more details.\n\nHosted by Max T
+ atton-Brown
+LOCATION:https://luma.com/event/evt-hNC7DCVpu61mGgC
+GEO:51.53244877734201;-0.12784449366206846
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260414T220000Z
+DTEND:20260415T010000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="em":MAILTO:calendar-invite@lu.ma
+UID:evt-IB39yHkJVgqvYmc@events.lu.ma
+SUMMARY:New York | Claude Code for Developers
+DESCRIPTION:Get up-to-date information at: https://luma.com/63r354v8\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by em, Adam Roman & C
+ ami al
+LOCATION:https://luma.com/event/evt-IB39yHkJVgqvYmc
+GEO:40.727571544542876;-74.00054307963616
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260414T230000Z
+DTEND:20260415T030000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Ricardo Lira de la Vega":MAILTO:calendar-invite@lu.ma
+UID:evt-M6UjTJ5CLM1MBQr@events.lu.ma
+SUMMARY:Villahermosa | Claude Code para Todos
+DESCRIPTION:Get up-to-date information at: https://luma.com/claudevillaher
+ mosa\n\nAddress:\nCheck event page for more details.\n\nHosted by Ricardo 
+ Lira de la Vega, Cesar Méndez & Xpectre Labs
+LOCATION:https://luma.com/event/evt-M6UjTJ5CLM1MBQr
+GEO:17.999164990291373;-92.9408249456999
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260415T010000Z
+DTEND:20260415T040000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Max Krueger":MAILTO:calendar-invite@lu.ma
+UID:evt-Dqvfux7j1BWoNBp@events.lu.ma
+SUMMARY:San Diego - North County | Claude for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/i6bqfpsm\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Max Krueger
+LOCATION:https://luma.com/event/evt-Dqvfux7j1BWoNBp
+GEO:33.12047693488593;-117.28207068639229
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260415T103000Z
+DTEND:20260415T130000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Max Del Vita":MAILTO:calendar-invite@lu.ma
+UID:evt-6uVoajKPMLHF6fi@events.lu.ma
+SUMMARY:Singapore | Claude Code Meetup #5 / Fintech
+DESCRIPTION:Get up-to-date information at: https://luma.com/lps0j4mi\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Max Del Vita & 3 o
+ thers
+LOCATION:https://luma.com/event/evt-6uVoajKPMLHF6fi
+GEO:1.2855526289257775;103.84703792734005
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260415T160000Z
+DTEND:20260415T190000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Tom Axberg":MAILTO:calendar-invite@lu.ma
+UID:evt-nfeqYElpops8U1s@events.lu.ma
+SUMMARY:Stockholm | Claude Code for Developers
+DESCRIPTION:Get up-to-date information at: https://luma.com/u3kulv8j\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Tom Axberg & Peter
+  Sandström
+LOCATION:https://luma.com/event/evt-nfeqYElpops8U1s
+GEO:59.33802441531288;18.06572729594012
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260416T073000Z
+DTEND:20260416T113000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Luma Event":MAILTO:calendar-invite@lu.ma
+UID:evt-DNXeeXg8ju2DmzA@events.lu.ma
+SUMMARY:Melbourne | Claude for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/d4ui1swh\n\nAd
+ dress:\nCheck event page for more details.
+LOCATION:https://luma.com/event/evt-DNXeeXg8ju2DmzA
+GEO:-37.818025632212475;144.95407253843277
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260416T153000Z
+DTEND:20260416T183000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Michael Whelehan":MAILTO:calendar-invite@lu.ma
+UID:evt-mDaGssrOSNcnWym@events.lu.ma
+SUMMARY:Nuremberg | Claude for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/sdp1trzl\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Michael Whelehan
+LOCATION:https://luma.com/event/evt-mDaGssrOSNcnWym
+GEO:49.45195584278098;11.062304704925676
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260417T010000Z
+DTEND:20260417T040000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Ricardo Lira de la Vega":MAILTO:calendar-invite@lu.ma
+UID:evt-ahDot6wYeQfol8F@events.lu.ma
+SUMMARY:Hermosillo | Claude Code for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/claudehermosil
+ lo\n\nAddress:\nCheck event page for more details.\n\nHosted by Ricardo Li
+ ra de la Vega, Argel Bejarano & Tadeo Zamora
+LOCATION:https://luma.com/event/evt-ahDot6wYeQfol8F
+GEO:29.076533806819427;-110.96298588395808
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260417T093000Z
+DTEND:20260417T120000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Xavier (최훈민)":MAILTO:calendar-invite@lu.ma
+UID:evt-9n0dVCk21k6v09Z@events.lu.ma
+SUMMARY:Seoul | Claude Code FDE Night
+DESCRIPTION:Get up-to-date information at: https://luma.com/j06jbiks\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Xavier (최훈민)
+LOCATION:https://luma.com/event/evt-9n0dVCk21k6v09Z
+GEO:37.49386902769042;127.01273801887349
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260417T160000Z
+DTEND:20260417T190000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Fatih Guner":MAILTO:calendar-invite@lu.ma
+UID:evt-LNfJkJAdABwB8jq@events.lu.ma
+SUMMARY:Istanbul | Claude for Solopreneurs
+DESCRIPTION:Get up-to-date information at: https://luma.com/7blh2z2w\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Fatih Guner & Kom
+ ünite
+LOCATION:https://luma.com/event/evt-LNfJkJAdABwB8jq
+GEO:41.107199392785844;28.985040323503686
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260418T000000Z
+DTEND:20260418T030000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Claude Community":MAILTO:calendar-invite@lu.ma
+UID:evt-B3hJaLXu9F0hW7D@events.lu.ma
+SUMMARY:Mexico City | Claude for Finance
+DESCRIPTION:Get up-to-date information at: https://luma.com/claudemexicoci
+ tyfinance-1\n\nAddress:\nCheck event page for more details.\n\nHosted by C
+ laude Community & 3 others
+LOCATION:https://luma.com/event/evt-B3hJaLXu9F0hW7D
+GEO:19.419658905787127;-99.17437253961347
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260418T180000Z
+DTEND:20260419T010000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Ricardo Lira de la Vega":MAILTO:calendar-invite@lu.ma
+UID:evt-Q0zxPZEwEGkdG0q@events.lu.ma
+SUMMARY:Mexico City | Claude Impact Lab
+DESCRIPTION:Get up-to-date information at: https://luma.com/claudemexicoci
+ tylab\n\nAddress:\nCheck event page for more details.\n\nHosted by Ricardo
+  Lira de la Vega & 5 others
+LOCATION:https://luma.com/event/evt-Q0zxPZEwEGkdG0q
+GEO:19.428435313468007;-99.16287908371856
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260419T170000Z
+DTEND:20260419T183000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Evan Grenda":MAILTO:calendar-invite@lu.ma
+UID:evt-ZjjAcdD6JiwBLE2@events.lu.ma
+SUMMARY:LA | Claude Coffee Meetup
+DESCRIPTION:Get up-to-date information at: https://luma.com/sb5763nu\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Evan Grenda
+LOCATION:https://luma.com/event/evt-ZjjAcdD6JiwBLE2
+GEO:33.990047873603636;-118.47400184109614
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260420T160000Z
+DTEND:20260420T200000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Claude Code Community Munich":MAILTO:calendar-invite@lu.ma
+UID:evt-yeYK5I4iWVqnnF3@events.lu.ma
+SUMMARY:Munich | Claude Code for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/ujak3b5v\n\nAd
+ dress:\ncodecentric AG\nMünchen, Bayern\nGermany\n\nHosted by Claude Code
+  Community Munich & 5 others
+LOCATION:codecentric AG, August-Everding-Straße 20, 81671 München, Germa
+ ny
+GEO:48.125516499999996;11.6104372
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260420T213000Z
+DTEND:20260421T010000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Saurabh Suri":MAILTO:calendar-invite@lu.ma
+UID:evt-qjQz48FZOxsUffc@events.lu.ma
+SUMMARY:Toronto | Claude for Marketers and GTM
+DESCRIPTION:Get up-to-date information at: https://luma.com/eikrron6\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Saurabh Suri & Rob
+ leh Jama
+LOCATION:https://luma.com/event/evt-qjQz48FZOxsUffc
+GEO:43.64341579397451;-79.39617699549595
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260420T230000Z
+DTEND:20260421T010000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Olivier Alterhq.com":MAILTO:calendar-invite@lu.ma
+UID:evt-ATaKdWjFwZYFLrW@events.lu.ma
+SUMMARY:SF | Claude Clinic for builders
+DESCRIPTION:Get up-to-date information at: https://luma.com/z5l01ry7\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Olivier Alterhq.co
+ m & Ricardo Lira de la Vega
+LOCATION:https://luma.com/event/evt-ATaKdWjFwZYFLrW
+GEO:37.78576681021559;-122.39810838780357
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260421T160000Z
+DTEND:20260421T193000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Claude Community":MAILTO:calendar-invite@lu.ma
+UID:evt-ObZJx1LI5SK0w3t@events.lu.ma
+SUMMARY:Aix en Provence | Claude Code for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/claudeaix\n\nA
+ ddress:\nCheck event page for more details.\n\nHosted by Claude Community,
+  Adrian Chiapello & Alexandre Griffon
+LOCATION:https://luma.com/event/evt-ObZJx1LI5SK0w3t
+GEO:43.477529793516005;5.373178900506298
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260421T160000Z
+DTEND:20260421T190000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Fatih Guner":MAILTO:calendar-invite@lu.ma
+UID:evt-Ca6DSCECYuHaEhL@events.lu.ma
+SUMMARY:Istanbul | Claude Code Workshop for Developers
+DESCRIPTION:Get up-to-date information at: https://luma.com/zfkvz4xz\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Fatih Guner & Kom
+ ünite
+LOCATION:https://luma.com/event/evt-Ca6DSCECYuHaEhL
+GEO:41.109836275493784;28.98434735843757
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260423T003000Z
+DTEND:20260423T033000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Claude Community":MAILTO:calendar-invite@lu.ma
+UID:evt-xXfp7xkEV0ylpdj@events.lu.ma
+SUMMARY:San Francisco | Claude Para Todos: La Edición Latina
+DESCRIPTION:Get up-to-date information at: https://luma.com/claudesanfranc
+ isco\n\nAddress:\nCheck event page for more details.\n\nHosted by Claude C
+ ommunity & 8 others
+LOCATION:https://luma.com/event/evt-xXfp7xkEV0ylpdj
+GEO:37.783496291922305;-122.41189475466473
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260423T143000Z
+DTEND:20260423T180000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Jacob Langvad Nilsson":MAILTO:calendar-invite@lu.ma
+UID:evt-PBLlPLeev9joVQ8@events.lu.ma
+SUMMARY:Aarhus | Claude Code for Developers
+DESCRIPTION:Get up-to-date information at: https://luma.com/9lhgh2e6\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Jacob Langvad Nils
+ son & Tommy Dejbjerg Pedersen
+LOCATION:https://luma.com/event/evt-PBLlPLeev9joVQ8
+GEO:56.1992934235427;10.179753872724403
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260423T163000Z
+DTEND:20260423T193000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Olivier Alterhq.com":MAILTO:calendar-invite@lu.ma
+UID:evt-Gsez5goxA8XLYts@events.lu.ma
+SUMMARY:Paris | Claude Code for Everyone | Building The Agentic Company of
+  the Future.
+DESCRIPTION:Get up-to-date information at: https://luma.com/uxc8yqei\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Olivier Alterhq.co
+ m & 4 others
+LOCATION:https://luma.com/event/evt-Gsez5goxA8XLYts
+GEO:48.88135393206254;2.336949535026042
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260423T210000Z
+DTEND:20260424T010000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Felipe Pacheco / Bendita IA":MAILTO:calendar-invite@lu.ma
+UID:evt-uI5TfGnWeSloHXN@events.lu.ma
+SUMMARY:Santiago | Claude Code Workshop for Developers
+DESCRIPTION:Get up-to-date information at: https://luma.com/deveps-bendita
+ ia\n\nAddress:\nCheck event page for more details.\n\nHosted by Felipe Pac
+ heco / Bendita IA
+LOCATION:https://luma.com/event/evt-uI5TfGnWeSloHXN
+GEO:-33.41997035827175;-70.60090465974336
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260424T140000Z
+DTEND:20260424T163000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Felipe Pacheco / Bendita IA":MAILTO:calendar-invite@lu.ma
+UID:evt-4YMJDZGBrAfddp8@events.lu.ma
+SUMMARY:Santiago | Claude Code LEGAL / Workshop
+DESCRIPTION:Get up-to-date information at: https://luma.com/legalbenditaia
+ \n\nAddress:\nCheck event page for more details.\n\nHosted by Felipe Pache
+ co / Bendita IA
+LOCATION:https://luma.com/event/evt-4YMJDZGBrAfddp8
+GEO:-33.402030468266766;-70.59542018773783
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260424T170000Z
+DTEND:20260424T200000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Claude Community":MAILTO:calendar-invite@lu.ma
+UID:evt-rXEZPOdzMaPLNHv@events.lu.ma
+SUMMARY:London | Claude Code for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/z20tnrv8\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Claude Community, 
+ Olivier Alterhq.com & Wilfred Kasekende
+LOCATION:https://luma.com/event/evt-rXEZPOdzMaPLNHv
+GEO:51.52796086610254;-0.07910789796713269
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260425T043000Z
+DTEND:20260425T070000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Vikram Pawar":MAILTO:calendar-invite@lu.ma
+UID:evt-5mmLyHqJiQxWXvr@events.lu.ma
+SUMMARY:Bangalore | CCCL BLR1 — Claude for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/cccl.blr1\n\nA
+ ddress:\nCheck event page for more details.\n\nHosted by Vikram Pawar
+LOCATION:https://luma.com/event/evt-5mmLyHqJiQxWXvr
+GEO:12.965321584324586;77.70339765940807
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260425T103000Z
+DTEND:20260425T133000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Sumeet G Doshi":MAILTO:calendar-invite@lu.ma
+UID:evt-GwkXUaizjXYCbbq@events.lu.ma
+SUMMARY:Ahmedabad | Claude Code for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/ClaudeAhmedaba
+ d\n\nAddress:\nCheck event page for more details.\n\nHosted by Sumeet G Do
+ shi & Priya Vadhan
+LOCATION:https://luma.com/event/evt-GwkXUaizjXYCbbq
+GEO:23.036782082557835;72.5327646128296
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260425T130000Z
+DTEND:20260425T220000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Justin Elliott":MAILTO:calendar-invite@lu.ma
+UID:evt-HOrCyA2DavasEdf@events.lu.ma
+SUMMARY:Miami | Claude Code Impact Lab
+DESCRIPTION:Get up-to-date information at: https://luma.com/h27b72n4\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Justin Elliott & Y
+ adira Diaz
+LOCATION:https://luma.com/event/evt-HOrCyA2DavasEdf
+GEO:25.802356031893567;-80.20092456006955
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260427T103000Z
+DTEND:20260427T130000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Max Del Vita":MAILTO:calendar-invite@lu.ma
+UID:evt-6VQMnBfbm7z5CGb@events.lu.ma
+SUMMARY:Singapore | Claude Meetup #6
+DESCRIPTION:Get up-to-date information at: https://luma.com/2yl4ajiz\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Max Del Vita & 3 o
+ thers
+LOCATION:https://luma.com/event/evt-6VQMnBfbm7z5CGb
+GEO:1.2782333619872748;103.85091211761836
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260427T140000Z
+DTEND:20260427T170000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Héctor Tortosa":MAILTO:calendar-invite@lu.ma
+UID:evt-DvuCrLsjh43aNUs@events.lu.ma
+SUMMARY:Helsinki | Claude Cowork for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/kw39n6o5\n\nAd
+ dress:\nSanoma Media Finland Oy\nCome to Sanoma lobby\nHelsinki, Uusimaa\n
+ Finland\n\nHosted by Héctor Tortosa & 3 others
+LOCATION:Sanoma Media Finland Oy, Töölönlahdenkatu 2, 00100 Helsinki, F
+ inland
+GEO:60.17243;24.9380116
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260427T140000Z
+DTEND:20260427T180000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Aleksander Stensby":MAILTO:calendar-invite@lu.ma
+UID:evt-IKAIDKKvi6giHbN@events.lu.ma
+SUMMARY:Oslo | Claude Code for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/xaa7tip5\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Aleksander Stensby
+  & Mesh Oslo
+LOCATION:https://luma.com/event/evt-IKAIDKKvi6giHbN
+GEO:59.9122011480476;10.744425901834198
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260427T163000Z
+DTEND:20260427T183000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Olivier Alterhq.com":MAILTO:calendar-invite@lu.ma
+UID:evt-nQUXOMGADonMq1J@events.lu.ma
+SUMMARY:Lille | Claude for Builders
+DESCRIPTION:Get up-to-date information at: https://luma.com/x892niha\n\nAd
+ dress:\nEuraTechnologies\nLille, Hauts-de-France\nFrance\n\nHosted by Oliv
+ ier Alterhq.com & 4 others
+LOCATION:EuraTechnologies, 165 Av. de Bretagne, 59000 Lille, France
+GEO:50.6330446;3.0201713
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260427T163000Z
+DTEND:20260427T193000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Dana Ghosn":MAILTO:calendar-invite@lu.ma
+UID:evt-HqxkNEFeDWLzNSm@events.lu.ma
+SUMMARY:Paris | Claude Code for Developers
+DESCRIPTION:Get up-to-date information at: https://luma.com/xeeiay05\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Dana Ghosn & 3 oth
+ ers
+LOCATION:https://luma.com/event/evt-HqxkNEFeDWLzNSm
+GEO:48.90303594766626;2.2846754788566974
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260427T163000Z
+DTEND:20260427T183000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Alexio Cassani":MAILTO:calendar-invite@lu.ma
+UID:evt-GaYoFcXph9XlHwc@events.lu.ma
+SUMMARY:Milan | Claude for Women in Tech
+DESCRIPTION:Get up-to-date information at: https://luma.com/kqsekrnc\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Alexio Cassani & M
+ attia Nanetti
+LOCATION:https://luma.com/event/evt-GaYoFcXph9XlHwc
+GEO:45.481842705389106;9.177422018887116
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260427T210000Z
+DTEND:20260428T000000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Tyler Sztuka":MAILTO:calendar-invite@lu.ma
+UID:evt-8t7rgXjTAM1Ycju@events.lu.ma
+SUMMARY:Atlanta | Claude Code Workshop for College Builders
+DESCRIPTION:Get up-to-date information at: https://luma.com/y78y4yzj\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Tyler Sztuka & 4 o
+ thers
+LOCATION:https://luma.com/event/evt-8t7rgXjTAM1Ycju
+GEO:33.752379371103295;-84.3884084022618
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260428T000000Z
+DTEND:20260428T033000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Vik Ghai":MAILTO:calendar-invite@lu.ma
+UID:evt-bDHMmsbqaCNg6Yb@events.lu.ma
+SUMMARY:SF | Claude for Technical Founders
+DESCRIPTION:Get up-to-date information at: https://luma.com/0bkgs4jg\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Vik Ghai, Sunil Gr
+ over & Amar Chokhawala
+LOCATION:https://luma.com/event/evt-bDHMmsbqaCNg6Yb
+GEO:37.78927169666365;-122.400831075307
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260428T070000Z
+DTEND:20260428T100000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Max Del Vita":MAILTO:calendar-invite@lu.ma
+UID:evt-4MpPupQ5OMLlTw4@events.lu.ma
+SUMMARY:Singapore | Claude Workshop: Advanced Workflow
+DESCRIPTION:Get up-to-date information at: https://luma.com/azq38nk9\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Max Del Vita, Vane
+ ssa Chin & Yier Cao
+LOCATION:https://luma.com/event/evt-4MpPupQ5OMLlTw4
+GEO:1.2826098814343456;103.8524275114109
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260428T083000Z
+DTEND:20260428T103000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Rye Smith":MAILTO:calendar-invite@lu.ma
+UID:evt-wS5QAuTG507adUE@events.lu.ma
+SUMMARY:Adelaide | Claude for Founders
+DESCRIPTION:Get up-to-date information at: https://luma.com/lvh72mke\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Rye Smith & 3 othe
+ rs
+LOCATION:https://luma.com/event/evt-wS5QAuTG507adUE
+GEO:-34.92286803011137;138.59654193609214
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260428T130000Z
+DTEND:20260428T160000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Claude Community":MAILTO:calendar-invite@lu.ma
+UID:evt-mz3IlCsVClfDMsA@events.lu.ma
+SUMMARY:Nairobi | Claude Workshop for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/7cumglyk\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Claude Community &
+  4 others
+LOCATION:https://luma.com/event/evt-mz3IlCsVClfDMsA
+GEO:-1.2934581093779662;36.79322474682148
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260428T230000Z
+DTEND:20260429T010000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Justin Elliott":MAILTO:calendar-invite@lu.ma
+UID:evt-bWX5uRSU9VonpgQ@events.lu.ma
+SUMMARY:TLV to Miami | Claude for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/Claudaforevery
+ one-miami\n\nAddress:\nCheck event page for more details.\n\nHosted by Jus
+ tin Elliott & 3 others
+LOCATION:https://luma.com/event/evt-bWX5uRSU9VonpgQ
+GEO:25.799749229643282;-80.20139886106922
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260429T073000Z
+DTEND:20260429T093000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Wayne Hoggett":MAILTO:calendar-invite@lu.ma
+UID:evt-FMkQdjRtv9LQuqt@events.lu.ma
+SUMMARY:Brisbane | Claude Code for Developers, Founders, Product Managers,
+  and Operators
+DESCRIPTION:Get up-to-date information at: https://luma.com/ClaudeBrisbane
+ 2\n\nAddress:\nCheck event page for more details.\n\nHosted by Wayne Hogge
+ tt, Lucas Ridley & Tim Black
+LOCATION:https://luma.com/event/evt-FMkQdjRtv9LQuqt
+GEO:-27.479356471327627;153.01809135752387
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260429T140000Z
+DTEND:20260429T170000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Claude Community":MAILTO:calendar-invite@lu.ma
+UID:evt-CNQVR50fTjLki9Y@events.lu.ma
+SUMMARY:Nairobi | Claude Code Workshop for Developers
+DESCRIPTION:Get up-to-date information at: https://luma.com/qy8oh0ia\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Claude Community &
+  4 others
+LOCATION:https://luma.com/event/evt-CNQVR50fTjLki9Y
+GEO:-1.2921980886699524;36.795909456029904
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260429T153000Z
+DTEND:20260429T190000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="tamas puski":MAILTO:calendar-invite@lu.ma
+UID:evt-oHNY18QreNBVx4Z@events.lu.ma
+SUMMARY:Budapest | Claude Code for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/em2ky1oy\n\nAd
+ dress:\nCreate26\nBudapest, Hungary\n\nHosted by tamas puski, Ertl Balu & 
+ Jamie Murphy
+LOCATION:Create26, Budapest, Király u. 26, 1061 Hungary
+GEO:47.4995792;19.0587484
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260429T220000Z
+DTEND:20260430T010000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="João Lisboa":MAILTO:calendar-invite@lu.ma
+UID:evt-FYTck2E5HFG6LP8@events.lu.ma
+SUMMARY:Rio de Janeiro | Claude Code for Experienced Developers
+DESCRIPTION:Get up-to-date information at: https://luma.com/p3z24mx4\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by João Lisboa, Luiz
+  Guilherme Gama & Hannah Rabe
+LOCATION:https://luma.com/event/evt-FYTck2E5HFG6LP8
+GEO:-22.983453555009216;-43.22650229885841
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260430T010000Z
+DTEND:20260430T040000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Xavier (최훈민)":MAILTO:calendar-invite@lu.ma
+UID:evt-ZDGjJtBGNfX0htO@events.lu.ma
+SUMMARY:Pangyo | Claude Code for Developers
+DESCRIPTION:Get up-to-date information at: https://luma.com/tzobcks8\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Xavier (최훈민)
+LOCATION:https://luma.com/event/evt-ZDGjJtBGNfX0htO
+GEO:37.406262070481056;127.08463672871974
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260430T073000Z
+DTEND:20260430T100000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Dominik Fretz":MAILTO:calendar-invite@lu.ma
+UID:evt-bw7MBGSjO1M1Gnx@events.lu.ma
+SUMMARY:Sydney | Claude for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/12o4ksds\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Dominik Fretz & 3 
+ others
+LOCATION:https://luma.com/event/evt-bw7MBGSjO1M1Gnx
+GEO:-33.88006075503943;151.20841526358262
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260430T143000Z
+DTEND:20260430T180000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Jacob Langvad Nilsson":MAILTO:calendar-invite@lu.ma
+UID:evt-gxEYfFN83evx016@events.lu.ma
+SUMMARY:Odense | Claude Code for Developers
+DESCRIPTION:Get up-to-date information at: https://luma.com/eguy7dif\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Jacob Langvad Nils
+ son & Niclas Johansen
+LOCATION:https://luma.com/event/evt-gxEYfFN83evx016
+GEO:55.399525233922425;10.384444841054679
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260430T170000Z
+DTEND:20260430T200000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Max Tatton-Brown":MAILTO:calendar-invite@lu.ma
+UID:evt-mobC18IkdMdRgQ2@events.lu.ma
+SUMMARY:London | CCC: Cutting Edge 2 (AI ENGINEERS ONLY)
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-code-cu
+ rious-cutting-edge-2\n\nAddress:\nCheck event page for more details.\n\nHo
+ sted by Max Tatton-Brown
+LOCATION:https://luma.com/event/evt-mobC18IkdMdRgQ2
+GEO:51.523201502517765;-0.08753679945380304
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260430T180000Z
+DTEND:20260430T200000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Kevin Collins":MAILTO:calendar-invite@lu.ma
+UID:evt-aj4kf0XfptaE41f@events.lu.ma
+SUMMARY:Dublin | Claude Code Workshop for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/ktze7s0f\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Kevin Collins
+LOCATION:https://luma.com/event/evt-aj4kf0XfptaE41f
+GEO:53.31304214872818;-6.237755595379201
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260502T010000Z
+DTEND:20260502T060000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Natalie Lin":MAILTO:calendar-invite@lu.ma
+UID:evt-qsYYCnqPZ8HTlWF@events.lu.ma
+SUMMARY:Taipei | Claude and AI Ethics
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-taipei-
+ 3\n\nAddress:\nCheck event page for more details.\n\nHosted by Natalie Lin
+  & 4 others
+LOCATION:https://luma.com/event/evt-qsYYCnqPZ8HTlWF
+GEO:25.029114369095012;121.51327224505283
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260504T153000Z
+DTEND:20260504T183000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Tom Axberg":MAILTO:calendar-invite@lu.ma
+UID:evt-WuQYY1B4od6DGkP@events.lu.ma
+SUMMARY:Stockholm | Claude for Designers
+DESCRIPTION:Get up-to-date information at: https://luma.com/qep3fng6\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Tom Axberg, Somesh
+  Kesarla Suresh & Daniel Andersson
+LOCATION:https://luma.com/event/evt-WuQYY1B4od6DGkP
+GEO:59.3313190279635;18.064840244797974
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260505T080000Z
+DTEND:20260505T100000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Rye Smith":MAILTO:calendar-invite@lu.ma
+UID:evt-W0JJNlqgZ7WOtAo@events.lu.ma
+SUMMARY:Canberra | Claude for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/guktyle1\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Rye Smith & 3 othe
+ rs
+LOCATION:https://luma.com/event/evt-W0JJNlqgZ7WOtAo
+GEO:-35.27860820511223;149.12923535956904
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260505T123000Z
+DTEND:20260505T150000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Vikram Pawar":MAILTO:calendar-invite@lu.ma
+UID:evt-rGrZnRJbj5gTvOH@events.lu.ma
+SUMMARY:Pondicherry | CCCL PNY1 — Claude Code for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/cccl.pny1\n\nA
+ ddress:\nCheck event page for more details.\n\nHosted by Vikram Pawar
+LOCATION:https://luma.com/event/evt-rGrZnRJbj5gTvOH
+GEO:11.92641119512517;79.80896324139508
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260506T050000Z
+DTEND:20260506T090000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Xavier (최훈민)":MAILTO:calendar-invite@lu.ma
+UID:evt-EYtiHd1CI58GCRw@events.lu.ma
+SUMMARY:Daejeon | Claude for Everyone
+DESCRIPTION:Get up-to-date information at: https://luma.com/7aw68m2x\n\nAd
+ dress:\nCheck event page for more details.\n\nHosted by Xavier (최훈민)
+LOCATION:https://luma.com/event/evt-EYtiHd1CI58GCRw
+GEO:36.369054151736314;127.34512561443118
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260506T130000Z
+DTEND:20260506T210000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Felipe Pacheco / Bendita IA":MAILTO:calendar-invite@lu.ma
+UID:evt-zrUHSvSVpuYW0L6@events.lu.ma
+SUMMARY:Santiago | Claude Impact Lab
+DESCRIPTION:Get up-to-date information at: https://luma.com/claudeimpactla
+ bchile\n\nAddress:\nCheck event page for more details.\n\nHosted by Felipe
+  Pacheco / Bendita IA
+LOCATION:https://luma.com/event/evt-zrUHSvSVpuYW0L6
+GEO:-33.38323379000804;-70.62209277580826
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260913T160000Z
+DTEND:20260913T220000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Ricardo Lira de la Vega":MAILTO:calendar-invite@lu.ma
+UID:evt-bWCO3ZxhJAIJBHE@events.lu.ma
+SUMMARY:Santa Cruz de la Sierra | Claude Build Day
+DESCRIPTION:Get up-to-date information at: https://luma.com/claudesantacru
+ zdelasierra\n\nAddress:\nSanta Cruz de la Sierra City Hall\nSanta Cruz de 
+ la Sierra, Bolivia\n\nHosted by Ricardo Lira de la Vega, Natalia Bolivia D
+ uran Oliva & Gobernación de Santa Cruz
+LOCATION:Santa Cruz de la Sierra City Hall, Plaza 24 de Septiembre, Santa 
+ Cruz de la Sierra, Bolivia
+GEO:-17.782557999999998;-63.182241
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260913T190000Z
+DTEND:20260913T230000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Travis Johnson":MAILTO:calendar-invite@lu.ma
+UID:evt-9Ypc08q8NgwPjuw@events.lu.ma
+SUMMARY:Orange County | Claude Hang out
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-hznj\n
+ \nAddress:\n6401 San Joaquin Hills Rd\nNewport Beach, CA\nUnited States\n
+ \nHosted by Travis Johnson
+LOCATION:6401 San Joaquin Hills Rd, Newport Beach, CA 92657, USA
+GEO:33.6088453;-117.82614439999999
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260913T210000Z
+DTEND:20260914T000000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Kel":MAILTO:calendar-invite@lu.ma
+UID:evt-edb2MthkjmZ710S@events.lu.ma
+SUMMARY:Claude in Finance NYC
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-u86r\n
+ \nAddress:\nNo More Cafe\nNew York, NY\nUnited States\n\nHosted by Kel & I
+ shaan Das
+LOCATION:No More Cafe, 352 E 13th St, New York, NY 10003, USA
+GEO:40.7306952;-73.9836644
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260914T153000Z
+DTEND:20260914T190000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Aleksander Stensby":MAILTO:calendar-invite@lu.ma
+UID:evt-c5XyqUKwFXmKFHE@events.lu.ma
+SUMMARY:Claude Community Oslo | Fable 5.1 Build Day
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-1o6j\n
+ \nAddress:\nMesh Youngstorget - Mesh Community\nOslo, Norway\n\nHosted by 
+ Aleksander Stensby
+LOCATION:Mesh Youngstorget - Mesh Community, Møllergata 6, 8, 0179 Oslo, 
+ Norway
+GEO:59.9140854;10.7465087
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260914T230000Z
+DTEND:20260915T010000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Damon Bodine":MAILTO:calendar-invite@lu.ma
+UID:evt-NRbIDCQoqIl48mp@events.lu.ma
+SUMMARY:Austin | Claude Code Meetup
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-91pm\n
+ \nAddress:\nCapital Factory, Austin, TX\n\nHosted by Damon Bodine
+LOCATION:Capital Factory, Austin, TX
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260915T033000Z
+DTEND:20260915T123000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Aniket Sahu":MAILTO:calendar-invite@lu.ma
+UID:evt-mLFu3IoSUvVP1FA@events.lu.ma
+SUMMARY:Bhopal | Claude Impact Lab
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-r61u\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by Aniket Sahu
+LOCATION:https://luma.com/event/evt-mLFu3IoSUvVP1FA
+GEO:23.270163476942916;77.45628922269749
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260915T150000Z
+DTEND:20260915T180000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Jacob Langvad Nilsson":MAILTO:calendar-invite@lu.ma
+UID:evt-t10QmuI2B7kMnb5@events.lu.ma
+SUMMARY:Copenhagen | Claude for Fintech
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-s78u\n
+ \nAddress:\nCodeNode Copenhagen\nKøbenhavn, Denmark\n\nHosted by Jacob La
+ ngvad Nilsson
+LOCATION:CodeNode Copenhagen, Gdanskgade 2, 2150 København, Denmark
+GEO:55.7075688;12.599946599999999
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260915T160000Z
+DTEND:20260915T200000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Roman Pronskiy":MAILTO:calendar-invite@lu.ma
+UID:evt-2mr22YiGigjylXR@events.lu.ma
+SUMMARY:Amsterdam | Claude Meetup: Build Your Second Brain
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-wdr9\n
+ \nAddress:\nCafé Belcampo\nAmsterdam, Netherlands\n\nHosted by Roman Pron
+ skiy & Jenny
+LOCATION:Café Belcampo, Hannie Dankbaarpassage 10, 1053 RT Amsterdam, Net
+ herlands
+GEO:52.3668894;4.8688723
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260915T163000Z
+DTEND:20260915T190000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Olivier Alterhq.com":MAILTO:calendar-invite@lu.ma
+UID:evt-XwAS0hZSn8ljyuQ@events.lu.ma
+SUMMARY:Claude For Advertising 01: AI, Data And Insights
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-8ql4\n
+ \nAddress:\n34 Bd du Parc\nNeuilly-sur-Seine, France\n\nHosted by Olivier 
+ Alterhq.com, Pierre-Jean Bernard & The Chaos Club
+LOCATION:34 Bd du Parc, 92200 Neuilly-sur-Seine, France
+GEO:48.892977099999996;2.2638966
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260915T210000Z
+DTEND:20260916T000000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Brandon Slicklein":MAILTO:calendar-invite@lu.ma
+UID:evt-v95u4yO0KmaWqOO@events.lu.ma
+SUMMARY:New York | Claude for Private Equity & Venture Capital
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-m0yq\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by Brandon Slickl
+ ein, Kaila J. Lim & Kim Martin
+LOCATION:https://luma.com/event/evt-v95u4yO0KmaWqOO
+GEO:40.738761029910464;-73.99737379659344
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260916T073000Z
+DTEND:20260916T113000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Wayne Hoggett":MAILTO:calendar-invite@lu.ma
+UID:evt-CuhrMfNgYYGbBy2@events.lu.ma
+SUMMARY:Fable 5.1 Build Day - Brisbane
+DESCRIPTION:Get up-to-date information at: https://luma.com/BrisbaneBuildD
+ ay\n\nAddress:\nCheck event page for more details.\n\nHosted by Wayne Hogg
+ ett, Lucas Ridley & Robert Li
+LOCATION:https://luma.com/event/evt-CuhrMfNgYYGbBy2
+GEO:-27.46699330425143;153.0295647475663
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260916T163000Z
+DTEND:20260916T183000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Karl Richard Pilgram":MAILTO:calendar-invite@lu.ma
+UID:evt-47DmALOqzIk1KlL@events.lu.ma
+SUMMARY:Zurich | Claude for the Financial Service Industry
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-q4em\n
+ \nAddress:\nAdnovum AG (Zurich, Headquarter)\nZürich, Switzerland\n\nHost
+ ed by Karl Richard Pilgram & 5 others
+LOCATION:Adnovum AG (Zurich, Headquarter), Badenerstrasse 170, 8004 Züric
+ h, Switzerland
+GEO:47.375028699999994;8.520936299999999
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260916T163000Z
+DTEND:20260916T200000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Javi Gascón":MAILTO:calendar-invite@lu.ma
+UID:evt-7BhPBkQDwbUIgjC@events.lu.ma
+SUMMARY:Claude Community Madrid Launch Meetup
+DESCRIPTION:Get up-to-date information at: https://luma.com/claudemadrid-s
+ ept16\n\nAddress:\nISDI Escuela de Negocios - Sede Madrid\nMadrid, Spain\n
+ \nHosted by Javi Gascón & 7 others
+LOCATION:ISDI Escuela de Negocios - Sede Madrid, Calle de Viriato, 20, Cha
+ mberí, 28010 Madrid, Spain
+GEO:40.435848299999996;-3.7014762
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260916T220000Z
+DTEND:20260917T000000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Jack Z":MAILTO:calendar-invite@lu.ma
+UID:evt-n3cWLDTrDYqdbG8@events.lu.ma
+SUMMARY:Durham | Claude Meetup
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-au1e\n
+ \nAddress:\n330 Blackwell St suite 900\nDurham, NC\nUnited States\n\nHoste
+ d by Jack Z
+LOCATION:330 Blackwell St suite 900, Durham, NC 27701, USA
+GEO:35.9932952;-78.90493099999999
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260916T230000Z
+DTEND:20260917T020000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Camilo Rico":MAILTO:calendar-invite@lu.ma
+UID:evt-KfLlVcc6axvYCDx@events.lu.ma
+SUMMARY:Fable 5.1 Build Day - Bogotá
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-xcpz\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by Camilo Rico & 
+ Jairo Torregrosa
+LOCATION:https://luma.com/event/evt-KfLlVcc6axvYCDx
+GEO:4.711268307641796;-74.07430464743665
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260917T003000Z
+DTEND:20260917T030000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Dom Roselli Garcia":MAILTO:calendar-invite@lu.ma
+UID:evt-56rpRYdVANHnDQR@events.lu.ma
+SUMMARY:Vegas | Claude for Everyone Meetup
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-hwwk\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by Dom Roselli Ga
+ rcia
+LOCATION:https://luma.com/event/evt-56rpRYdVANHnDQR
+GEO:36.0591910534328;-115.03825794674725
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260917T010000Z
+DTEND:20260917T040000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Sean Jungbluth":MAILTO:calendar-invite@lu.ma
+UID:evt-9Od3f0F1Zqw4tPI@events.lu.ma
+SUMMARY:San Francisco | Claude in Sales Meetup
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-4n2g\n
+ \nAddress:\nGray Area / Grand Theater\nSan Francisco, CA\nUnited States\n
+ \nHosted by Sean Jungbluth & Laurie Sartain
+LOCATION:Gray Area / Grand Theater, 2665 Mission St, San Francisco, CA 941
+ 10, USA
+GEO:37.7543922;-122.41850269999999
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260917T060000Z
+DTEND:20260917T090000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="西信好真":MAILTO:calendar-invite@lu.ma
+UID:evt-FZVNFhMwAmikCmH@events.lu.ma
+SUMMARY:TOSU | Claude Code Workshop ／ローカルでつくる Small Busi
+ ness
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-tjrg\n
+ \nAddress:\nNesXt TOSU (Sakae Bldg. 2F, 1336-6 Motomachi, Tosu, Saga)\n\nH
+ osted by 西信好真 & 3 others
+LOCATION:NesXt TOSU (Sakae Bldg. 2F, 1336-6 Motomachi, Tosu, Saga)
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260917T073000Z
+DTEND:20260917T103000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Dominik Fretz":MAILTO:calendar-invite@lu.ma
+UID:evt-XzWBVYl62Nq7Fbz@events.lu.ma
+SUMMARY:Sydney | Claude Build night @ MongoDB
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-9nu4\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by Dominik Fretz,
+  Claude Community Australia & Rye Smith
+LOCATION:https://luma.com/event/evt-XzWBVYl62Nq7Fbz
+GEO:-33.872991678456636;151.20803560854895
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260917T100000Z
+DTEND:20260917T121000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Max Del Vita":MAILTO:calendar-invite@lu.ma
+UID:evt-vEeGve5HZFG6WAs@events.lu.ma
+SUMMARY:Singapore | Claude Code Meetup — Healthcare Edition
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-xdv0\n
+ \nAddress:\nPhilips Singapore\nSingapore\n\nHosted by Max Del Vita, Dianne
+  Baunbaek & Noemi Jimenez
+LOCATION:Philips Singapore, 622 Lor 1 Toa Payoh, Singapore 319763
+GEO:1.3344677000000003;103.8427265
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260917T140000Z
+DTEND:20260917T173000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Natali Shtulman":MAILTO:calendar-invite@lu.ma
+UID:evt-pmlBstGRSkB7JOc@events.lu.ma
+SUMMARY:Tel Aviv | Claude Code Fable 5.1 Build Day
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-8cca\n
+ \nAddress:\nIsland\nTel Aviv-Yafo, Israel\n\nHosted by Natali Shtulman & T
+ ali Despins
+LOCATION:Island, HaMered St 25, Tel Aviv-Yafo, 6812508, Israel
+GEO:32.0627396;34.7629545
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260917T170000Z
+DTEND:20260917T190000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Kevin Collins":MAILTO:calendar-invite@lu.ma
+UID:evt-CpNfIYSsGq8jxYq@events.lu.ma
+SUMMARY:Dublin | Claude Conversation
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-0n1a\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by Kevin Collins
+LOCATION:https://luma.com/event/evt-CpNfIYSsGq8jxYq
+GEO:53.33697766200894;-6.261986689405571
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260917T210000Z
+DTEND:20260918T000000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Marie Roker-Jones":MAILTO:calendar-invite@lu.ma
+UID:evt-NiP3OtQ7cGyZHR4@events.lu.ma
+SUMMARY:New York City | Claude Build Day for Healthcare
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-0yfm\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by Marie Roker-Jo
+ nes, Sharon Rao & Aj Yadav
+LOCATION:https://luma.com/event/evt-NiP3OtQ7cGyZHR4
+GEO:40.77051550548125;-73.982953776391
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260917T220000Z
+DTEND:20260918T030000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Ricardo Lira de la Vega":MAILTO:calendar-invite@lu.ma
+UID:evt-CDNbs0jysoF84ZW@events.lu.ma
+SUMMARY:Mexico City | Claude Build Day
+DESCRIPTION:Get up-to-date information at: https://luma.com/claudemexicoci
+ tybuildday\n\nAddress:\nUniversidad Iberoamericana Ciudad de México\nCiud
+ ad de México, Mexico\n\nHosted by Ricardo Lira de la Vega, Andrés Guille
+ rmo Molano & Ingeniería para la Innovación - IBERO
+LOCATION:Universidad Iberoamericana Ciudad de México, Prol. P.º de la Re
+ forma, Santa Fe, Zedec Sta Fé, Álvaro Obregón, 01376 Ciudad de México,
+  CDMX, Mexico
+GEO:19.369407199999998;-99.2640157
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260917T223000Z
+DTEND:20260918T013000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Brandon Slicklein":MAILTO:calendar-invite@lu.ma
+UID:evt-jjbdkEMgLomu44J@events.lu.ma
+SUMMARY:New York | Claude Build Night
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-9nmf\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by Brandon Slickl
+ ein
+LOCATION:https://luma.com/event/evt-jjbdkEMgLomu44J
+GEO:40.7438461251517;-73.65182114948493
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260918T003000Z
+DTEND:20260918T023000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Diana Wolfe":MAILTO:calendar-invite@lu.ma
+UID:evt-2Fg9rGnELr5CPib@events.lu.ma
+SUMMARY:Claude Community Seattle: What’s in a Workflow?
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-uwj2\n
+ \nAddress:\nSURF Incubator\nSeattle, WA\nUnited States\n\nHosted by Diana 
+ Wolfe
+LOCATION:SURF Incubator, 999 3rd Ave Ste 700, Seattle, WA 98104, USA
+GEO:47.6049806;-122.33393109999999
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260918T100000Z
+DTEND:20260918T130000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Gang Rui":MAILTO:calendar-invite@lu.ma
+UID:evt-M15YIFXA25yoCjs@events.lu.ma
+SUMMARY:Singapore | Claude Code Build Day - Fable 5.1
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-cajk\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by Gang Rui & 3 o
+ thers
+LOCATION:https://luma.com/event/evt-M15YIFXA25yoCjs
+GEO:1.2894637618081048;103.84021093392185
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260918T160000Z
+DTEND:20260918T190000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Olivier Alterhq.com":MAILTO:calendar-invite@lu.ma
+UID:evt-ioKhlcjEf0toPc3@events.lu.ma
+SUMMARY:London | Claude by Hyde Park, a FinTech Night
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-b09y\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by Olivier Alterh
+ q.com & Kel
+LOCATION:https://luma.com/event/evt-ioKhlcjEf0toPc3
+GEO:51.49821651516559;-0.17109998332780343
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260918T160000Z
+DTEND:20260918T190000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Ben Tarenne":MAILTO:calendar-invite@lu.ma
+UID:evt-fgGamXrxD6I7jH1@events.lu.ma
+SUMMARY:Barcelona | Claude Code Workshop
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-vr7e\n
+ \nAddress:\nDynatrace SLU, Lab Barcelona\nFloor 14th\nBarcelona, Spain\n\n
+ Hosted by Ben Tarenne & 3 others
+LOCATION:Dynatrace SLU, Lab Barcelona, Torre Glories, Av. Diagonal, 211, P
+ lanta 16, Sant Martí, 08018 Barcelona, Spain
+GEO:41.4034045;2.1895933999999997
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260918T210000Z
+DTEND:20260919T010000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Luiz Couto":MAILTO:calendar-invite@lu.ma
+UID:evt-mugoNlx11SSGGAr@events.lu.ma
+SUMMARY:São Paulo | Claude Code Build Day
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-ex40\n
+ \nAddress:\nAv. Rebouças, 1585\nDistrito\nSão Paulo, SP\nBrazil\n\nHoste
+ d by Luiz Couto
+LOCATION:Av. Rebouças, 1585 - Pinheiros, São Paulo - SP, 05401-200, Braz
+ il
+GEO:-23.5636312;-46.67594750000001
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260918T213000Z
+DTEND:20260919T010000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Cesar Méndez":MAILTO:calendar-invite@lu.ma
+UID:evt-8gOE9pQn3v293qj@events.lu.ma
+SUMMARY:Mexico City | Claude For Healthcare UNAM
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-ejbg\n
+ \nAddress:\nCarlos Graef Fernández\nCiudad de México, Mexico\n\nHosted b
+ y Cesar Méndez & Fer Osorio
+LOCATION:Carlos Graef Fernández, Cto. Bicipuma 3000, C.U., Coyoacán, 045
+ 10 Ciudad de México, CDMX, Mexico
+GEO:19.3248602;-99.17915889999999
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260919T030000Z
+DTEND:20260919T070000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Ian Borders":MAILTO:calendar-invite@lu.ma
+UID:evt-mkmov6RdyfnTtq7@events.lu.ma
+SUMMARY:Chiang Mai | Claude Code Build Day
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-7zx3\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by Ian Borders
+LOCATION:https://luma.com/event/evt-mkmov6RdyfnTtq7
+GEO:18.81303661817193;98.97896935301792
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260919T050000Z
+DTEND:20260919T070000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="森田和明":MAILTO:calendar-invite@lu.ma
+UID:evt-GilvlmeEGWkndHO@events.lu.ma
+SUMMARY:Osaka | Fable 5.1 Build Day
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-oec1\n
+ \nAddress:\n大阪市内で探し中\n\nHosted by 森田和明
+LOCATION:大阪市内で探し中
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260919T080000Z
+DTEND:20260919T110000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Tomoya Yasunaga":MAILTO:calendar-invite@lu.ma
+UID:evt-ttGmfZ8J4dsHzo1@events.lu.ma
+SUMMARY:仙台｜Claudeワークショップ
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-gwgv\n
+ \nAddress:\nMEDIUM（メディウム）\nSendai, Japan\n\nHosted by Tomoya
+  Yasunaga
+LOCATION:MEDIUM（メディウム）, 6-5 Rokuchōnome Nishimachi, Wakabay
+ ashi Ward, Sendai, Miyagi 984-0011, Japan
+GEO:38.2536554;140.9352754
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260919T100000Z
+DTEND:20260919T143000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Onat Vural":MAILTO:calendar-invite@lu.ma
+UID:evt-3hCFa71tBDXQgGG@events.lu.ma
+SUMMARY:Istanbul | Claude Code Workshop
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-ldgo\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by Onat Vural & S
+ aid Sürücü
+LOCATION:https://luma.com/event/evt-3hCFa71tBDXQgGG
+GEO:41.08175970889493;29.010924730019173
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260919T130000Z
+DTEND:20260919T170000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Jose Betancur":MAILTO:calendar-invite@lu.ma
+UID:evt-Xsm6SdXuFUIJfoN@events.lu.ma
+SUMMARY:Medellín | Claude Code Build Day
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-brgz\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by Jose Betancur
+LOCATION:https://luma.com/event/evt-Xsm6SdXuFUIJfoN
+GEO:6.198211332388345;-75.57855971625807
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260919T140000Z
+DTEND:20260920T050000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Peter Kibet":MAILTO:calendar-invite@lu.ma
+UID:evt-D7HKuzGxNo3avSL@events.lu.ma
+SUMMARY:Nairobi | Fable 5.1 Build Day
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-fl8o\n
+ \nAddress:\nNairobi\nNairobi, Kenya\n\nHosted by Peter Kibet & Billy Mwang
+ i
+LOCATION:Nairobi, Kenya
+GEO:-1.2920658999999999;36.8219462
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260919T140000Z
+DTEND:20260919T173000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Jairo Torregrosa":MAILTO:calendar-invite@lu.ma
+UID:evt-Ig6AHOKLR2lLxyv@events.lu.ma
+SUMMARY:Bogota | Claude Workshop | Crea tu primer Agente con la Claude Age
+ nt SDK
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-be23\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by Jairo Torregro
+ sa
+LOCATION:https://luma.com/event/evt-Ig6AHOKLR2lLxyv
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260919T160000Z
+DTEND:20260919T230000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Claude Community":MAILTO:calendar-invite@lu.ma
+UID:evt-EZCwRbZdoggH6yR@events.lu.ma
+SUMMARY:San Francisco | Claude Build Day
+DESCRIPTION:Get up-to-date information at: https://luma.com/claudesanfranc
+ iscobuildday\n\nAddress:\n590 Howard St\nSan Francisco, CA\nUnited States
+ \n\nHosted by Claude Community & 4 others
+LOCATION:590 Howard St, San Francisco, CA 94105, USA
+GEO:37.787170499999995;-122.39813819999998
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260919T170000Z
+DTEND:20260919T200000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Ian Kiku":MAILTO:calendar-invite@lu.ma
+UID:evt-e5EOfrFbom2zMhl@events.lu.ma
+SUMMARY:Fable 5.1 Build Day - Austin
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-atx-bui
+ ld-day\n\nAddress:\n1705 Guadalupe St\n1705 Guadalupe St\nAustin, TX 78701
+ , USA\nFloor 3, DeAI\nAustin, TX\nUnited States\n\nHosted by Ian Kiku, Dam
+ on Bodine & Valentyn Yaromenko
+LOCATION:1705 Guadalupe St, Austin, TX 78701, USA
+GEO:30.2799767;-97.7419086
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260920T053000Z
+DTEND:20260920T123000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Aniket Sahu":MAILTO:calendar-invite@lu.ma
+UID:evt-4zpHOs9YWXolVLg@events.lu.ma
+SUMMARY:Bhopal | Claude Code Build Day - Fable 5.1
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-z01j\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by Aniket Sahu
+LOCATION:https://luma.com/event/evt-4zpHOs9YWXolVLg
+GEO:23.25841691915713;77.41342933287171
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260920T090000Z
+DTEND:20260920T140000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Justin Shaw":MAILTO:calendar-invite@lu.ma
+UID:evt-TCr4DlE2iyOnYLv@events.lu.ma
+SUMMARY:Taipei | Claude Code Build Day
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-chk0\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by Justin Shaw
+LOCATION:https://luma.com/event/evt-TCr4DlE2iyOnYLv
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260920T140000Z
+DTEND:20260920T200000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Justin Elliott":MAILTO:calendar-invite@lu.ma
+UID:evt-nk2A2fCaoADxG9Y@events.lu.ma
+SUMMARY:Miami | Claude Code Build Day
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-3ja5\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by Justin Elliott
+  & The LAB Miami
+LOCATION:https://luma.com/event/evt-nk2A2fCaoADxG9Y
+GEO:25.803752193793073;-80.20106584086709
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260921T110000Z
+DTEND:20260921T130000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Claude Code Community Munich":MAILTO:calendar-invite@lu.ma
+UID:evt-aAww7jbWizuQMs5@events.lu.ma
+SUMMARY:Barcelona | Claude Code Workshop
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-zbtn\n
+ \nAddress:\nCarrer de Bilbao, 128\nBarcelona, Spain\n\nHosted by Claude Co
+ de Community Munich & 4 others
+LOCATION:Carrer de Bilbao, 128, Sant Martí, 08018 Barcelona, Spain
+GEO:41.4069769;2.1981227999999997
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260921T140000Z
+DTEND:20260921T160000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Olivier Alterhq.com":MAILTO:calendar-invite@lu.ma
+UID:evt-RlkUVhgENLrE0AJ@events.lu.ma
+SUMMARY:Barcelona | Claude Conversation
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-fqam\n
+ \nAddress:\nCarrer de Bilbao, 128\nBarcelona, Spain\n\nHosted by Olivier A
+ lterhq.com & 9 others
+LOCATION:Carrer de Bilbao, 128, Sant Martí, 08018 Barcelona, Spain
+GEO:41.4069769;2.1981227999999997
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260921T230000Z
+DTEND:20260922T020000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Victor Bajanov":MAILTO:calendar-invite@lu.ma
+UID:evt-KB9I19KEQm9GHI6@events.lu.ma
+SUMMARY:Sydney | Claude Code Business Writing Workshop
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-code-sy
+ dney-business-writing\n\nAddress:\nCheck event page for more details.\n\nH
+ osted by Victor Bajanov & Harley Barnes
+LOCATION:https://luma.com/event/evt-KB9I19KEQm9GHI6
+GEO:-33.866720266417566;151.20686753698948
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260921T233000Z
+DTEND:20260923T080000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="りゅうせい Ryusei":MAILTO:calendar-invite@lu.ma
+UID:evt-NsrVDwGOFHJrfkM@events.lu.ma
+SUMMARY:Takamatsu | Claude Code Game Jam / うどん県で、うどんの
+ ゲームを作る2日間
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-6ppq\n
+ \nAddress:\nトキワ一丁目\nTakamatsu, Japan\n\nHosted by りゅうせ
+ い Ryusei
+LOCATION:トキワ一丁目, 1-chōme-8-5-1 Tokiwachō, Takamatsu, Kagawa 
+ 760-0054, Japan
+GEO:34.3386576;134.0505572
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260922T073000Z
+DTEND:20260922T100000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Dominik Fretz":MAILTO:calendar-invite@lu.ma
+UID:evt-Lr3FPKijKt4oTMf@events.lu.ma
+SUMMARY:Sydney | Claude Community Meetup
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-2vga\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by Dominik Fretz,
+  Claude Community Australia & Rye Smith
+LOCATION:https://luma.com/event/evt-Lr3FPKijKt4oTMf
+GEO:-33.87851814991912;151.20502207708552
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260922T120000Z
+DTEND:20260922T140000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Matt Roberts":MAILTO:calendar-invite@lu.ma
+UID:evt-xEvJhiORHgy1rCG@events.lu.ma
+SUMMARY:Barcelona | Claude for Small Business Owners (Workshop )
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-9k9m\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by Matt Roberts
+LOCATION:https://luma.com/event/evt-xEvJhiORHgy1rCG
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260922T163000Z
+DTEND:20260922T173000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Brandon Slicklein":MAILTO:calendar-invite@lu.ma
+UID:evt-kYwecCsEoRx5EC6@events.lu.ma
+SUMMARY:New York | Building with Claude: AI for Impact & Climate Leaders
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-av7h\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by Brandon Slickl
+ ein, Sustained Futures & Blue Earth
+LOCATION:https://luma.com/event/evt-kYwecCsEoRx5EC6
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260922T223000Z
+DTEND:20260923T050000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Justin Elliott":MAILTO:calendar-invite@lu.ma
+UID:evt-maPhjGEH8VNVs0R@events.lu.ma
+SUMMARY:Miami | Claude Code Hack Night
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-wh6k\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by Justin Elliott
+ , The LAB Miami & hello_miami
+LOCATION:https://luma.com/event/evt-maPhjGEH8VNVs0R
+GEO:25.802941925659415;-80.20182208645872
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260922T230000Z
+DTEND:20260923T010000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Reme Ekoh":MAILTO:calendar-invite@lu.ma
+UID:evt-72oPjYHgZJmiwpH@events.lu.ma
+SUMMARY:AI-Powered Ideation with Claude: From Idea to MVP
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-i7y9\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by Reme Ekoh, Imp
+ act Hub Houston & Claude Community
+LOCATION:https://luma.com/event/evt-72oPjYHgZJmiwpH
+GEO:29.736372502140146;-95.38116124650165
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260923T050000Z
+DTEND:20260923T120000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Xavier (최훈민)":MAILTO:calendar-invite@lu.ma
+UID:evt-PLuVEhZyPW0PTkM@events.lu.ma
+SUMMARY:Seoul | Claude Fable 5.1 Build Day
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-8b84\n
+ \nAddress:\nSeoul\nSeoul, South Korea\n\nHosted by Xavier (최훈민)
+LOCATION:Seoul, South Korea
+GEO:37.550263;126.9970831
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260923T070000Z
+DTEND:20260923T150000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Michael Whelehan":MAILTO:calendar-invite@lu.ma
+UID:evt-HLP7USpA6E5z030@events.lu.ma
+SUMMARY:Barcelona | Claude Build Day
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-znsk\n
+ \nAddress:\nCarrer de Bilbao, 128\nB@B (Bilbao 128), Poblenou — Claude C
+ ommunity House\nBarcelona, Spain\n\nHosted by Michael Whelehan
+LOCATION:Carrer de Bilbao, 128, Sant Martí, 08018 Barcelona, Spain
+GEO:41.4069769;2.1981227999999997
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260923T120000Z
+DTEND:20260923T160000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Sumeet G Doshi":MAILTO:calendar-invite@lu.ma
+UID:evt-skiDEu7t3D5hwC5@events.lu.ma
+SUMMARY:Mumbai | Claude Fable 5.1 Build Day
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-Fable5.
+ 1\n\nAddress:\nMumbai\nMumbai, India\n\nHosted by Sumeet G Doshi
+LOCATION:Mumbai, Maharashtra, India
+GEO:18.9582347;72.8319514
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260923T230000Z
+DTEND:20260924T020000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Sean Nguyen":MAILTO:calendar-invite@lu.ma
+UID:evt-aSf9pGb6x11Vmus@events.lu.ma
+SUMMARY:Chicago | Claude for Finance
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-chi-fin
+ ance\n\nAddress:\nCheck event page for more details.\n\nHosted by Sean Ngu
+ yen & Lorena Mesa
+LOCATION:https://luma.com/event/evt-aSf9pGb6x11Vmus
+GEO:41.87930778602885;-87.62652030475766
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260924T020000Z
+DTEND:20260924T070000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Rye Smith":MAILTO:calendar-invite@lu.ma
+UID:evt-bUJ8nFuVHYNyYXD@events.lu.ma
+SUMMARY:Melbourne | Claude Build Day
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-ok03\n
+ \nAddress:\nCremorne Digital Hub\nCremorne, VIC\nAustralia\n\nHosted by Ry
+ e Smith & 4 others
+LOCATION:Cremorne Digital Hub, 80 Balmain St, Cremorne VIC 3121, Australia
+GEO:-37.8304051;144.9944672
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260924T070000Z
+DTEND:20260924T160000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Olivier Alterhq.com":MAILTO:calendar-invite@lu.ma
+UID:evt-EyBJGFLqSbP3uzu@events.lu.ma
+SUMMARY:Barcelona | Claude Impact Lab
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-rwzi\n
+ \nAddress:\nCarrer de Bilbao, 128\nBarcelona, Spain\n\nHosted by Olivier A
+ lterhq.com & 8 others
+LOCATION:Carrer de Bilbao, 128, Sant Martí, 08018 Barcelona, Spain
+GEO:41.4069769;2.1981227999999997
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260924T073000Z
+DTEND:20260924T093000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Wayne Hoggett":MAILTO:calendar-invite@lu.ma
+UID:evt-x9cz11E9JIGYNDR@events.lu.ma
+SUMMARY:Brisbane | Claude Code Meetup
+DESCRIPTION:Get up-to-date information at: https://luma.com/ClaudeBrisbane
+ \n\nAddress:\nCheck event page for more details.\n\nHosted by Wayne Hogget
+ t & 4 others
+LOCATION:https://luma.com/event/evt-x9cz11E9JIGYNDR
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260924T223000Z
+DTEND:20260925T010000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Justin Elliott":MAILTO:calendar-invite@lu.ma
+UID:evt-ODKXiPuLPJkwvfy@events.lu.ma
+SUMMARY:Miami | Claude Para Todos: Edición Latina
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-uy67\n
+ \nAddress:\nThe DOCK\nMiami, FL\nUnited States\n\nHosted by Justin Elliott
+  & 4 others
+LOCATION:The DOCK, 400 NW 26th St, Miami, FL 33127, USA
+GEO:25.8011523;-80.2022413
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260925T033000Z
+DTEND:20260925T123000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Shubhangi Gupta":MAILTO:calendar-invite@lu.ma
+UID:evt-V6Dkh15AUXbmmNv@events.lu.ma
+SUMMARY:Bangalore | Claude Fable Build Day
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-x5dm\n
+ \nAddress:\nKoramangala\nBengaluru, India\n\nHosted by Shubhangi Gupta
+LOCATION:Koramangala, Bengaluru, Karnataka, India
+GEO:12.935240300000002;77.624532
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260925T160000Z
+DTEND:20260925T190000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Mehul Patel":MAILTO:calendar-invite@lu.ma
+UID:evt-asE7xC2ip2TstQm@events.lu.ma
+SUMMARY:Berlin | Claude Code Meetup
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-coy0\n
+ \nAddress:\nNLND Neuland Berlin\nEnter and exit via the Innovation Hub Rec
+ eption, Building A9. Follow the signage to the Kino.\nBerlin, Germany\n\nH
+ osted by Mehul Patel, Yair Etziony & NLND Berlin Team
+LOCATION:NLND Neuland Berlin, Neuköllnische Allee 80, 12057 Berlin, Germa
+ ny
+GEO:52.4656648;13.4642628
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260925T160000Z
+DTEND:20260925T180000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Dr. Vinicius Covas":MAILTO:calendar-invite@lu.ma
+UID:evt-zbyDtU41UqkqGNc@events.lu.ma
+SUMMARY:Mexico City | Claude for Research Meetup
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-investi
+ gadores\n\nAddress:\nAnáhuac University\nSalón MBA 3\nLomas Anáhuac, Me
+ xico\n\nHosted by Dr. Vinicius Covas
+LOCATION:Anáhuac University, Av. Universidad Anáhuac 46, Lomas Anahuac, 
+ 52786 Lomas Anáhuac, Méx., Mexico
+GEO:19.4022675;-99.262119
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260925T210000Z
+DTEND:20260925T230000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Claude Community":MAILTO:calendar-invite@lu.ma
+UID:evt-duXXe6Tsda17GPD@events.lu.ma
+SUMMARY:San Francisco | Claude Meetup - For the Business Moms: The AI Back
+  Office You Didn't Know You Had
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-aly0\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by Claude Communi
+ ty & 3 others
+LOCATION:https://luma.com/event/evt-duXXe6Tsda17GPD
+GEO:37.772804146047555;-122.41885459574364
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260926T043000Z
+DTEND:20260926T063000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Kazuki Suemitsu":MAILTO:calendar-invite@lu.ma
+UID:evt-4JCLIYqnLoux1D3@events.lu.ma
+SUMMARY:Matsue | Claude Meetup
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-a7b7\n
+ \nAddress:\nコワーキングスペース enun 縁雲 松江\nMatsue, Jap
+ an\n\nHosted by Kazuki Suemitsu
+LOCATION:コワーキングスペース enun 縁雲 松江, Japan, 〒690-
+ 0845 Shimane, Matsue, Nishichamachi, ４０−１ ニューアーバンホ
+ テル 3F
+GEO:35.4685123;133.050613
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260926T053000Z
+DTEND:20260926T080000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Sumeet G Doshi":MAILTO:calendar-invite@lu.ma
+UID:evt-BoeGnBLfPjaS0Gd@events.lu.ma
+SUMMARY:Mumbai | Claude Conversation
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-ley0\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by Sumeet G Doshi
+LOCATION:https://luma.com/event/evt-BoeGnBLfPjaS0Gd
+GEO:18.960376651743402;72.8316884321404
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260926T080000Z
+DTEND:20260926T140000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Natalie Lin":MAILTO:calendar-invite@lu.ma
+UID:evt-0WXhb7LEQ7KXY9N@events.lu.ma
+SUMMARY:Taipei | 中秋節 Claude Meetup
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-taipei-
+ 10\n\nAddress:\nCheck event page for more details.\n\nHosted by Natalie Li
+ n, 高見龍 & Justin Shaw
+LOCATION:https://luma.com/event/evt-0WXhb7LEQ7KXY9N
+GEO:25.078044947765566;121.55637723073467
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260927T110000Z
+DTEND:20260927T140000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Burak Gökalp":MAILTO:calendar-invite@lu.ma
+UID:evt-s1zzT2rRdXCvu00@events.lu.ma
+SUMMARY:Ankara | Claude for Education: Innovation and Research Meetup
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-m0x7\n
+ \nAddress:\nODTÜ Teknokent\nÇankaya, Türkiye\n\nHosted by Burak Gökalp
+ , Mustafa Alkan & Kollektif Zeka
+LOCATION:Üniversiteler, ODTÜ Teknokent, 06800 Çankaya/Ankara, Türkiye
+GEO:39.8983984;32.7760968
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260930T140000Z
+DTEND:20260930T170000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Aleksander Stensby":MAILTO:calendar-invite@lu.ma
+UID:evt-hBlSiZaMXjDgWlG@events.lu.ma
+SUMMARY:Oslo | Claude Conversation
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-326i\n
+ \nAddress:\nMesh Youngstorget - Mesh Community\nOslo, Norway\n\nHosted by 
+ Aleksander Stensby
+LOCATION:Mesh Youngstorget - Mesh Community, Møllergata 6, 8, 0179 Oslo, 
+ Norway
+GEO:59.9140854;10.7465087
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20260930T220000Z
+DTEND:20261001T010000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Lara Shackelford":MAILTO:calendar-invite@lu.ma
+UID:evt-wuF3qIdNjTDLzNp@events.lu.ma
+SUMMARY:Claude for CMOs: The New Marketing Operating Model
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-h03c\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by Lara Shackelfo
+ rd
+LOCATION:https://luma.com/event/evt-wuF3qIdNjTDLzNp
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20261001T080000Z
+DTEND:20261001T100000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="平川知秀":MAILTO:calendar-invite@lu.ma
+UID:evt-aCvbhFSWGDYSACw@events.lu.ma
+SUMMARY:Kesennuma | Claude for Business
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-tpx0\n
+ \nAddress:\nPier 7\nKesennuma, Japan\n\nHosted by 平川知秀 & 3 others
+LOCATION:Pier 7, 1-11 Minamimachikaigan, Kesennuma, Miyagi 988-0018, Japan
+GEO:38.905059;141.57530699999998
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART;VALUE=DATE:20261002
+DTEND;VALUE=DATE:20261005
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Geoffrey from Pitchless":MAILTO:calendar-invite@lu.ma
+UID:evt-iiDgfCYJME3bQ0M@events.lu.ma
+SUMMARY:Madrid | 48-hour Claude Code Hackathon
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-dyek\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by Geoffrey from 
+ Pitchless & 7 others
+LOCATION:https://luma.com/event/evt-iiDgfCYJME3bQ0M
+GEO:40.44695285707642;-3.707596517771079
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20261003T063000Z
+DTEND:20261003T173000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Alexio Cassani":MAILTO:calendar-invite@lu.ma
+UID:evt-WLhIIht2bIn7lFZ@events.lu.ma
+SUMMARY:Milan | Claude Impact Lab
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-gs6b\n
+ \nAddress:\nMilan, Italy\n\nHosted by Alexio Cassani
+LOCATION:Milan, Italy
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20261003T150000Z
+DTEND:20261003T200000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Sustained Futures":MAILTO:calendar-invite@lu.ma
+UID:evt-L1Kz9KdWja8Ud6s@events.lu.ma
+SUMMARY:Miami | Building with Claude: AI for ocean conservation
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-5bay\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by Sustained Futu
+ res
+LOCATION:https://luma.com/event/evt-L1Kz9KdWja8Ud6s
+GEO:25.08194732175659;-80.45191942176089
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20261005T100000Z
+DTEND:20261005T180000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Michael Whelehan":MAILTO:calendar-invite@lu.ma
+UID:evt-5xf5Kbhic62hljq@events.lu.ma
+SUMMARY:Nuremberg | Claude Code Impact Lab
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-98gz\n
+ \nAddress:\nFraunhofer-Institut für Integrierte Schaltungen IIS, Standort
+  Nürnberg\nNürnberg, Germany\n\nHosted by Michael Whelehan
+LOCATION:Fraunhofer-Institut für Integrierte Schaltungen IIS, Standort N
+ ürnberg, Nordostpark 84, 90411 Nürnberg-Nordwestliche Außenstadt, Germa
+ ny
+GEO:49.4861809;11.1286658
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20261007T093000Z
+DTEND:20261007T120000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="吉田真吾":MAILTO:calendar-invite@lu.ma
+UID:evt-VKT4kEBxjoCaJFP@events.lu.ma
+SUMMARY:Tokyo | Claude Code Meetup
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-7fyk\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by 吉田真吾
+LOCATION:https://luma.com/event/evt-VKT4kEBxjoCaJFP
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20261007T160000Z
+DTEND:20261007T190000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Alexio Cassani":MAILTO:calendar-invite@lu.ma
+UID:evt-AekZVGtBQWsuqqP@events.lu.ma
+SUMMARY:Torino | Claude Meetup
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-hv3a\n
+ \nHosted by Alexio Cassani
+LOCATION:https://luma.com/event/evt-AekZVGtBQWsuqqP
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20261009T220000Z
+DTEND:20261010T050000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Rye Smith":MAILTO:calendar-invite@lu.ma
+UID:evt-jn8SqIdUF7kdPdZ@events.lu.ma
+SUMMARY:Melbourne | Claude Impact Lab
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-ggvx\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by Rye Smith & 3 
+ others
+LOCATION:https://luma.com/event/evt-jn8SqIdUF7kdPdZ
+GEO:-37.821959099628785;144.99146105574343
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20261013T230000Z
+DTEND:20261014T020000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Valentyn Yaromenko":MAILTO:calendar-invite@lu.ma
+UID:evt-BDBNZuqh91adyt1@events.lu.ma
+SUMMARY:Austin | Claude for Revenue & GTM | October 13
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-kt5v\n
+ \nAddress:\nCapital Factory\nVoltron room, 1st floor\nAustin, TX\nUnited S
+ tates\n\nHosted by Valentyn Yaromenko
+LOCATION:Capital Factory, 701 Brazos St, Austin, TX 78701, USA
+GEO:30.268888899999997;-97.7405556
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20261017T060000Z
+DTEND:20261017T080000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="平川知秀":MAILTO:calendar-invite@lu.ma
+UID:evt-eJix7OLwYeOiYUb@events.lu.ma
+SUMMARY:Shibuya | Claude Meetup
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-2p7o\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by 平川知秀 &
+  4 others
+LOCATION:https://luma.com/event/evt-eJix7OLwYeOiYUb
+GEO:35.65883085549268;139.7015385325274
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20261017T080000Z
+DTEND:20261017T110000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Tomoya Yasunaga":MAILTO:calendar-invite@lu.ma
+UID:evt-U2uZb8VkFmUnuzx@events.lu.ma
+SUMMARY:仙台｜Claudeワークショップ
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-eopb\n
+ \nAddress:\nMEDIUM（メディウム）\nSendai, Japan\n\nHosted by Tomoya
+  Yasunaga
+LOCATION:MEDIUM（メディウム）, 6-5 Rokuchōnome Nishimachi, Wakabay
+ ashi Ward, Sendai, Miyagi 984-0011, Japan
+GEO:38.2536554;140.9352754
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20261018T180000Z
+DTEND:20261018T210000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Kel":MAILTO:calendar-invite@lu.ma
+UID:evt-T1CfykMy6VgoBgj@events.lu.ma
+SUMMARY:Claude & Longevity Health
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-tzao\n
+ \nAddress:\nEverything's Jake NYC Bar & Lounge\nNew York, NY\nUnited State
+ s\n\nHosted by Kel
+LOCATION:Everything's Jake NYC Bar & Lounge, 54 E 13th St, New York, NY 10
+ 003, USA
+GEO:40.7341957;-73.9916951
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20261019T223000Z
+DTEND:20261020T033000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Claude Community":MAILTO:calendar-invite@lu.ma
+UID:evt-XH4PQqyEuYJL6Ik@events.lu.ma
+SUMMARY:Mexico City | Claude for AI Engineering
+DESCRIPTION:Get up-to-date information at: https://luma.com/claudeforaieng
+ ineering\n\nAddress:\nUniversidad Iberoamericana Ciudad de México\nCiudad
+  de México, Mexico\n\nHosted by Claude Community & 3 others
+LOCATION:Universidad Iberoamericana Ciudad de México, Prol. P.º de la Re
+ forma, Santa Fe, Zedec Sta Fé, Álvaro Obregón, 01376 Ciudad de México,
+  CDMX, Mexico
+GEO:19.369407199999998;-99.2640157
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20261020T203000Z
+DTEND:20261021T003000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Claude Community":MAILTO:calendar-invite@lu.ma
+UID:evt-nRMlFpvwxn9uzmG@events.lu.ma
+SUMMARY:Mexico City | Claude en el Senado de la República 🏛️
+DESCRIPTION:Get up-to-date information at: https://luma.com/claudemexicoci
+ tysenado\n\nAddress:\nSenate of the Republic\nCiudad de México, Mexico\n
+ \nHosted by Claude Community & 3 others
+LOCATION:Senate of the Republic, Av. P.º de la Reforma 135, Tabacalera, C
+ uauhtémoc, 06030 Ciudad de México, CDMX, Mexico
+GEO:19.432513;-99.1576819
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20261022T233000Z
+DTEND:20261023T023000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Ricardo Lira de la Vega":MAILTO:calendar-invite@lu.ma
+UID:evt-93TpbHDU3XmUP6O@events.lu.ma
+SUMMARY:Mexico City | Claude for Marketers
+DESCRIPTION:Get up-to-date information at: https://luma.com/claudemexicoci
+ tymarketing\n\nAddress:\nPinterest México\nCiudad de México, Mexico\n\nH
+ osted by Ricardo Lira de la Vega & Francisco Navarrete
+LOCATION:Pinterest México, Av. P.º de la Reforma 509, Cuauhtémoc, 06500
+  Ciudad de México, CDMX, Mexico
+GEO:19.423797;-99.1756078
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20261024T033000Z
+DTEND:20261024T080000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="西信好真":MAILTO:calendar-invite@lu.ma
+UID:evt-5WtgTiuQorGQ06F@events.lu.ma
+SUMMARY:KARATSU | Claude Code Impact Lab／ローカルでつくる Small 
+ Business
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-flnb\n
+ \nAddress:\nPLAPLA - World Ocean Plastic Planning Center (720-1 Hado, Chin
+ zei-machi, Karatsu, Saga)\n\nHosted by 西信好真 & 3 others
+LOCATION:PLAPLA - World Ocean Plastic Planning Center (720-1 Hado, Chinzei
+ -machi, Karatsu, Saga)
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20261025T160000Z
+DTEND:20261026T023000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Adam Burgh":MAILTO:calendar-invite@lu.ma
+UID:evt-hyFbKqzTXu6MVAt@events.lu.ma
+SUMMARY:Seattle | AI Week Claude Impact Lab Hackathon
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-impact
+ \n\nAddress:\nthinkspace SEATTLE\nSeattle, WA\nUnited States\n\nHosted by 
+ Adam Burgh
+LOCATION:thinkspace SEATTLE, 1700 Westlake Ave N #200, Seattle, WA 98109, 
+ USA
+GEO:47.6343718;-122.3396589
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20261028T010000Z
+DTEND:20261028T033000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Miguel Oceguera":MAILTO:calendar-invite@lu.ma
+UID:evt-1rMHygk3j6SdT6B@events.lu.ma
+SUMMARY:Guadalajara | Claude Code Meetup: JavaScript Edition
+DESCRIPTION:Get up-to-date information at: https://luma.com/claude-ftde\n
+ \nAddress:\nCheck event page for more details.\n\nHosted by Miguel Oceguer
+ a, Ximena Cruz & Yuliana Reyna
+LOCATION:https://luma.com/event/evt-1rMHygk3j6SdT6B
+GEO:20.711166432226978;-103.40870965687387
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20261028T233000Z
+DTEND:20261029T030000Z
+DTSTAMP:20260913T151448Z
+ORGANIZER;CN="Ricardo Lira de la Vega":MAILTO:calendar-invite@lu.ma
+UID:evt-tu8cNyxJvWJtOrf@events.lu.ma
+SUMMARY:Mexico City | Claude for Music
+DESCRIPTION:Get up-to-date information at: https://luma.com/claudeformusic
+ \n\nAddress:\nFuente de Cibeles\nCiudad de México, Mexico\n\nHosted by Ri
+ cardo Lira de la Vega & Sunshine Vendetta
+LOCATION:Fuente de Cibeles, Pl. Villa de Madrid, Roma Nte., Cuauhtémoc, 0
+ 6700 Ciudad de México, CDMX, Mexico
+GEO:19.4200098;-99.16631149999999
+SEQUENCE:211475688
+STATUS:TENTATIVE
+END:VEVENT
+END:VCALENDAR
