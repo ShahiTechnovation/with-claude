@@ -1,0 +1,232 @@
+---
+import Admin from '@/layouts/Admin.astro';
+import {
+  ambassadorOptions,
+  sourceStatus,
+  unattributedIngestedEvents,
+} from '@/server/ambassadors';
+import { unresolvedOrganizers } from '../../../src/server/events/hosts';
+import { pooledDb } from '@db/pool';
+
+export const prerender = false;
+
+/**
+ * ATTRIBUTION AND SOURCE HEALTH. §35, §37.
+ *
+ * The operational page for the one thing about event ingestion that needs a
+ * human: who ran the event. It is deliberately three lists rather than a
+ * dashboard —
+ *
+ *   sources        when each last synced, what it saw, in what mode
+ *   organisers     the names no ambassador claims, commonest first
+ *   events         ingested, live, and with nobody credited
+ *
+ * The middle list is the efficient way to work: mapping one organiser name on
+ * an ambassador record attributes every event that organiser has ever had and
+ * every one they will have. Correcting a single event is the exception, for a
+ * room somebody else ran.
+ *
+ * ── WHAT THIS PAGE IS NOT ────────────────────────────────────────────────
+ *
+ * A success metric. There is no "attribution rate" here and it would be a
+ * harmful number: the honest baseline on the public Claude Community calendar
+ * is that almost nothing matches, because the feed publishes an organiser's
+ * display name and matching requires a name a human has configured. A
+ * percentage on this page would be a standing invitation to improve it by
+ * loosening the matcher.
+ */
+const db = pooledDb();
+const [status, unattributed, organisers, ambassadors] = await Promise.all([
+  sourceStatus(db),
+  unattributedIngestedEvents(db),
+  unresolvedOrganizers(db as never),
+  ambassadorOptions(db),
+]);
+
+const error = Astro.url.searchParams.get('error');
+const saved = Astro.url.searchParams.get('saved');
+
+const ago = (date: Date | null) => {
+  if (!date) return 'never';
+  const minutes = Math.floor((Date.now() - date.getTime()) / 60000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+};
+
+/** §34 — freshness described by what the mode can actually deliver. */
+const FRESHNESS: Record<string, string> = {
+  webhook: 'near-real-time',
+  api: 'polled on the configured interval',
+  ics: 'scheduled sync',
+  manual: 'hand-entered',
+};
+---
+
+<Admin title="Attribution" active="/attribution">
+  <div class="page-head">
+    <h1>Attribution</h1>
+    <p class="hint">
+      Event sources, and the events nobody is credited on. An unattributed event is a
+      valid event — it is published and public either way.
+    </p>
+  </div>
+
+  {error && <p class="notice notice-error">{error}</p>}
+  {saved && <p class="notice notice-ok">Saved. Rebuild the public site to see it on the prerendered pages.</p>}
+
+  <section class="panel">
+    <h2>Sources</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Source</th>
+            <th>Mode</th>
+            <th>Freshness</th>
+            <th>Last sync</th>
+            <th>Result</th>
+            <th class="num">Seen</th>
+            <th class="num">Promoted</th>
+            <th>Staged states</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            status.sources.map((source) => (
+              <tr>
+                <td>
+                  {source.label}
+                  <span class="hint">{source.key}</span>
+                </td>
+                <td><code>{source.syncMode}</code></td>
+                <td class="hint">{FRESHNESS[source.syncMode] ?? source.syncMode}</td>
+                <td>{ago(source.lastSyncedAt)}</td>
+                <td>
+                  <span class={`chip chip-${source.lastSyncStatus}`}>{source.lastSyncStatus}</span>
+                  {source.lastSyncMessage && <span class="hint">{source.lastSyncMessage}</span>}
+                </td>
+                <td class="num">{source.lastSeenCount ?? '—'}</td>
+                <td class="num">{source.lastPromotedCount ?? '—'}</td>
+                <td class="hint">
+                  {Object.entries(source.states)
+                    .map(([state, count]) => `${state}: ${count}`)
+                    .join(' · ') || '—'}
+                </td>
+              </tr>
+            ))
+          }
+          {status.sources.length === 0 && (
+            <tr><td colspan="8" class="empty">No sources configured.</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+
+    <dl class="meta-grid">
+      <div>
+        <dt>Curated attributions</dt>
+        <dd class="num">{status.attribution.curated ?? 0}</dd>
+      </div>
+      <div>
+        <dt>Matched from a feed</dt>
+        <dd class="num">{status.attribution.ingest ?? 0}</dd>
+      </div>
+      <div>
+        <dt>Moderator corrections</dt>
+        <dd class="num">{status.attribution.manual ?? 0}</dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="panel">
+    <h2>Unresolved organisers</h2>
+    <p class="hint">
+      Organiser names from the feed that no published ambassador is configured for. To
+      attribute every event from one of these at once, put the name verbatim in the
+      ambassador's <strong>Luma organiser name</strong> field. Matching ignores case and
+      spacing and nothing else.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Organiser, as the feed prints it</th>
+            <th class="num">Events</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            organisers.map((row) => (
+              <tr>
+                <td><code>{row.organizer}</code></td>
+                <td class="num">{row.events}</td>
+              </tr>
+            ))
+          }
+          {organisers.length === 0 && (
+            <tr><td colspan="2" class="empty">Nothing unresolved.</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Ingested events with no host credit</h2>
+    <p class="hint">
+      Correcting one here writes a moderator attribution, which the next sync will not
+      overwrite. The staged source record keeps saying exactly what the feed said.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Event</th>
+            <th>Date</th>
+            <th>City</th>
+            <th>Feed organiser</th>
+            <th>Credit</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            unattributed.map((row) => (
+              <tr>
+                <td>
+                  {row.title}
+                  <span class="hint">{row.slug}</span>
+                </td>
+                <td>{row.date}</td>
+                <td>{row.cityName}</td>
+                <td class="hint">{row.organizer ?? '—'}</td>
+                <td>
+                  <form method="post" action={`/api/events/${row.eventId}/host`} class="actions">
+                    <select name="ambassadorId" aria-label={`Host for ${row.title}`} required>
+                      <option value="">Choose…</option>
+                      {ambassadors.map((person) => (
+                        <option value={person.id}>{person.name}</option>
+                      ))}
+                    </select>
+                    <select name="role" aria-label="Role">
+                      <option value="primary_host">host</option>
+                      <option value="co_host">co-host</option>
+                      <option value="organizer">organiser</option>
+                      <option value="partner">partner</option>
+                    </select>
+                    <button class="btn" type="submit">Credit</button>
+                  </form>
+                </td>
+              </tr>
+            ))
+          }
+          {unattributed.length === 0 && (
+            <tr><td colspan="5" class="empty">Every ingested event has a host credit.</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</Admin>

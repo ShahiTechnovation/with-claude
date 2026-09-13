@@ -1,6 +1,12 @@
 import { istInstant } from '@/lib/datetime';
 import { cityState, cityStateRank } from '@/lib/city';
 import { lifecycleOf } from '@/lib/status';
+import {
+  leaderboard,
+  standingOf,
+  type LeaderboardEntry,
+  type LeaderboardWindow,
+} from '@/lib/leaderboard';
 import { derived, listProxy, mapProxy } from './dataset';
 import type {
   Ambassador,
@@ -9,6 +15,7 @@ import type {
   City,
   CityState,
   CommunityEvent,
+  EventHostCredit,
   EventPhoto,
   Guide,
   ModerationStatus,
@@ -251,8 +258,51 @@ export function venueLabel(event: CommunityEvent): string | undefined {
   return address && !name.includes(address) ? `${name}, ${address}` : name;
 }
 
+/**
+ * Events where this ambassador holds ANY credit, newest first.
+ *
+ * Reads `host.credits` and not `host.ambassadorSlug`, which is the whole point
+ * of the credit list: a co-hosted or organised event is an event this person
+ * ran, and the old implementation — a filter on the headline host — could not
+ * see one. The primary credit is in `credits` too, so every event the previous
+ * version returned is still returned.
+ */
 export function eventsHostedBy(ambassadorSlug: string): CommunityEvent[] {
-  return eventsChronological.filter((e) => e.host.ambassadorSlug === ambassadorSlug);
+  return eventsChronological.filter((e) =>
+    (e.host.credits ?? []).some((credit) => credit.ambassadorSlug === ambassadorSlug),
+  );
+}
+
+/**
+ * THE COMMUNITY ACTIVITY INDEX. §19–§22.
+ *
+ * A selector rather than a page-level computation so `/ambassadors`,
+ * `/ambassadors/[slug]`, `/cities/[slug]` and the search index all read one
+ * ranking. Two pages computing their own would be two rankings, and §50
+ * requires one canonical ambassador wherever they appear.
+ *
+ * `now` is threaded through rather than defaulted here, so a test can pin the
+ * clock and §61's determinism is assertable.
+ */
+export function activityLeaderboard(
+  options: { window?: LeaderboardWindow; now?: Date } = {},
+): LeaderboardEntry[] {
+  return leaderboard(publicAmbassadors, publicEvents, options);
+}
+
+/** One ambassador's standing, with the all-time figures §21 insists on. */
+export function ambassadorStanding(slug: string, now?: Date) {
+  return standingOf(slug, publicAmbassadors, publicEvents, { now });
+}
+
+/** The credits on an event that resolve to a published ambassador. §29. */
+export function eventCredits(event: CommunityEvent): { credit: EventHostCredit; ambassador: Ambassador }[] {
+  return (event.host.credits ?? [])
+    .map((credit) => {
+      const ambassador = ambassadorBySlug.get(credit.ambassadorSlug);
+      return ambassador ? { credit, ambassador } : undefined;
+    })
+    .filter((entry): entry is { credit: EventHostCredit; ambassador: Ambassador } => Boolean(entry));
 }
 
 /** The builder-directory entry for an ambassador, when they have one. */

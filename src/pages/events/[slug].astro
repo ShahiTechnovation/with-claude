@@ -8,6 +8,7 @@ import {
   cityBySlug,
   cityName,
   eventsChronological,
+  eventCredits,
   hostAmbassador,
   guidesForEvent,
   projectsFromEvent,
@@ -28,6 +29,7 @@ import {
   istInstant,
 } from '@/lib/datetime';
 import { registrationLink } from '@/lib/attribution';
+import { CREDIT_ROLE_LABEL } from '@/lib/credits';
 import { formatCoords } from '@/lib/geo';
 import { asset, requireAsset } from '@/lib/images';
 import { titles, trail } from '@/lib/seo';
@@ -53,6 +55,19 @@ const city = cityBySlug.get(event.citySlug);
 const speakers = speakersOf(event);
 const coHosts = coHostsOf(event);
 const ambassador = hostAmbassador(event);
+
+/**
+ * The credited ambassadors other than the headline host.
+ *
+ * `primary_host` is excluded because it is `ambassador` above and printing it
+ * twice would read as two hosts. `speaker` is excluded because the page
+ * already has a speakers block sourced from `event_speakers` — the curated
+ * archive's record of who talked — and listing the same person under both
+ * would imply two separate contributions.
+ */
+const otherCredits = eventCredits(event).filter(
+  (entry) => entry.credit.role !== 'primary_host' && entry.credit.role !== 'speaker',
+);
 const canRegister = isRegistrationOpen(event);
 /**
  * The registration href, with WITH CLAUDE attribution merged in. §26.
@@ -194,12 +209,40 @@ const crumbs = trail(
             <div class="detail-host">
               <span class="chip chip-verified">Ambassador-led</span>
               <p class="detail-host-line">
+                {/*
+                  §29 — the host credit leads to the AMBASSADOR page, not
+                  straight to the builder profile.
+                
+                  It used to link to `/builders/…`, which skipped the one page
+                  that answers the question a reader of an event page actually
+                  has: what else does this person run. The ambassador page
+                  carries the upcoming and past rooms and cross-links the
+                  builder profile from there (§24), so nothing is lost and the
+                  graph runs the way §29 and §30 describe.
+                */}
                 Hosted by{' '}
-                <a href={`/builders/${ambassador.builderSlug ?? ambassador.slug}`}>
-                  {ambassador.name}
-                </a>
-                , {ambassador.title}.
+                <a href={`/ambassadors/${ambassador.slug}`}>{ambassador.name}</a>, {ambassador.title}.
               </p>
+
+              {/*
+                Everyone else credited on this room, if anyone is. Reads
+                `event_hosts` through the selector, so a co-host or organiser
+                credit added in the admin appears here without this page
+                learning anything new about roles.
+              */}
+              {otherCredits.length > 0 && (
+                <p class="detail-host-line">
+                  With{' '}
+                  {otherCredits.map((entry, index) => (
+                    <>
+                      {index > 0 && (index === otherCredits.length - 1 ? ' & ' : ', ')}
+                      <a href={`/ambassadors/${entry.ambassador.slug}`}>{entry.ambassador.name}</a>
+                      {` (${CREDIT_ROLE_LABEL[entry.credit.role]})`}
+                    </>
+                  ))}
+                  .
+                </p>
+              )}
               <p class="detail-host-note">
                 Claude Community Ambassadors are appointed by Anthropic. This site records the
                 status, it does not grant it.

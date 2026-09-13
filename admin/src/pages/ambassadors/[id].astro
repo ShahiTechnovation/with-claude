@@ -1,0 +1,219 @@
+---
+import Admin from '@/layouts/Admin.astro';
+import { ambassadorAudit, cityOptions, getAmbassador } from '@/server/ambassadors';
+
+export const prerender = false;
+
+const { id } = Astro.params;
+const ambassador = id ? await getAmbassador(id) : null;
+
+if (!ambassador) {
+  return new Response('No such ambassador.', { status: 404 });
+}
+
+const [cities, trail] = await Promise.all([cityOptions(), ambassadorAudit(ambassador.id)]);
+
+const error = Astro.url.searchParams.get('error');
+const saved = Astro.url.searchParams.get('saved');
+const rebuild = Astro.url.searchParams.get('rebuild');
+---
+
+<Admin title={ambassador.name} active="/ambassadors">
+  <div class="page-head">
+    <h1>{ambassador.name}</h1>
+    <p class="hint">
+      <a href="/ambassadors">← All ambassadors</a>
+      <span> · </span>
+      <span class={`chip chip-${ambassador.status}`}>{ambassador.status}</span>
+      {ambassador.status === 'published' && (
+        <>
+          <span> · </span>
+          <a href={`https://www.withclaude.in/ambassadors/${ambassador.slug}/`} target="_blank" rel="noopener">
+            public profile
+          </a>
+        </>
+      )}
+    </p>
+  </div>
+
+  {error && <p class="notice notice-error">{error}</p>}
+  {saved && <p class="notice notice-ok">Saved.</p>}
+  {rebuild && <p class="notice notice-info">{rebuild}</p>}
+
+  <section class="panel">
+    <h2>Record</h2>
+    <form method="post" action={`/api/ambassadors/${ambassador.id}`} class="action-form">
+      <input type="hidden" name="intent" value="update" />
+
+      <p>
+        <label for="name">Name</label>
+        <input id="name" name="name" value={ambassador.name} required />
+      </p>
+
+      <p>
+        <label for="cityId">City</label>
+        <select id="cityId" name="cityId" required>
+          {cities.map((city) => (
+            <option value={city.id} selected={city.id === ambassador.cityId}>
+              {city.name}
+            </option>
+          ))}
+        </select>
+      </p>
+
+      <p>
+        <label for="verifiedVia">How was this verified?</label>
+        <input id="verifiedVia" name="verifiedVia" value={ambassador.verifiedVia} required />
+        <span class="hint">Rendered on the public profile. It cannot be emptied.</span>
+      </p>
+
+      <p>
+        <label for="bio">Bio</label>
+        <textarea id="bio" name="bio" rows="3">{ambassador.bio ?? ''}</textarea>
+      </p>
+
+      <h3>Luma identity</h3>
+      <p class="hint">
+        The organiser name is what event attribution matches on, exactly. A name already
+        configured against another ambassador is refused by the database — one organiser
+        string maps to one person, which is what stops an ambiguous match from ever
+        needing to be resolved by guesswork.
+      </p>
+
+      <p>
+        <label for="lumaDisplayName">Luma organiser name</label>
+        <input id="lumaDisplayName" name="lumaDisplayName" value={ambassador.lumaDisplayName ?? ''} />
+      </p>
+
+      <p>
+        <label for="lumaProfileUrl">Luma profile URL</label>
+        <input id="lumaProfileUrl" name="lumaProfileUrl" type="url" value={ambassador.lumaProfileUrl ?? ''} />
+      </p>
+
+      <p>
+        <label for="lumaExternalId">Luma user id</label>
+        <input id="lumaExternalId" name="lumaExternalId" value={ambassador.lumaExternalId ?? ''} />
+      </p>
+
+      <p>
+        <button class="btn btn-solid" type="submit">Save</button>
+      </p>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>WITH CLAUDE account</h2>
+    <p class="hint">
+      {
+        ambassador.memberUsername
+          ? `Linked to @${ambassador.memberUsername}. The public profile cross-links their builder page; nothing about their profile is copied into this record.`
+          : 'Not linked. An ambassador does not need an account — the link is made when the person claims one, by a moderator, never by name matching.'
+      }
+    </p>
+
+    <form method="post" action={`/api/ambassadors/${ambassador.id}`} class="action-form">
+      <input type="hidden" name="intent" value="link-member" />
+      <p>
+        <label for="username">Member username</label>
+        <input id="username" name="username" value={ambassador.memberUsername ?? ''} placeholder="leave blank to unlink" />
+      </p>
+      <p>
+        <button class="btn" type="submit">Update link</button>
+      </p>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>Status</h2>
+    <div class="actions">
+      {
+        ambassador.status !== 'published' && (
+          <form method="post" action={`/api/ambassadors/${ambassador.id}`}>
+            <input type="hidden" name="intent" value="publish" />
+            <button class="btn btn-solid" type="submit">Publish</button>
+          </form>
+        )
+      }
+      {
+        ambassador.status !== 'archived' && (
+          <form method="post" action={`/api/ambassadors/${ambassador.id}`}>
+            <input type="hidden" name="intent" value="disable" />
+            <button class="btn btn-danger" type="submit">Disable</button>
+          </form>
+        )
+      }
+      <form method="post" action={`/api/ambassadors/${ambassador.id}`}>
+        <input type="hidden" name="intent" value="rebuild" />
+        <button class="btn btn-quiet" type="submit">Rebuild public site</button>
+      </form>
+    </div>
+    <p class="hint">
+      Disabling archives the record and removes it from the public site and the
+      leaderboard. It deletes nothing: the events still happened, their attribution rows
+      stay, and publishing again restores everything.
+    </p>
+    <p class="hint">
+      There is no stored score to recalculate — the activity score is derived from event
+      records on every build, which is what makes the ranking reproducible. "Rebuild
+      public site" is what makes a change to attribution visible on the prerendered pages.
+    </p>
+  </section>
+
+  <section class="panel">
+    <h2>Credits</h2>
+    <dl class="meta-grid">
+      <div>
+        <dt>Hosted</dt>
+        <dd class="num">{ambassador.primaryHostEvents}</dd>
+      </div>
+      <div>
+        <dt>Co-hosted</dt>
+        <dd class="num">{ambassador.coHostEvents}</dd>
+      </div>
+      <div>
+        <dt>Other credits</dt>
+        <dd class="num">{ambassador.otherCredits}</dd>
+      </div>
+    </dl>
+    <p class="hint">
+      Counted from <code>event_hosts</code>. To change who is credited on a particular
+      event, use <a href="/attribution">attribution</a>.
+    </p>
+  </section>
+
+  <section class="panel">
+    <h2>Audit</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>When</th>
+            <th>Action</th>
+            <th>By</th>
+            <th>Note</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            trail.map((entry) => (
+              <tr>
+                <td>{entry.createdAt?.toISOString().slice(0, 16).replace('T', ' ')}</td>
+                <td><code>{entry.action}</code></td>
+                <td class="private">{entry.actorEmail ?? '—'}</td>
+                <td class="hint">
+                  {entry.note}
+                  {entry.fromStatus && entry.toStatus && ` (${entry.fromStatus} → ${entry.toStatus})`}
+                </td>
+              </tr>
+            ))
+          }
+          {trail.length === 0 && (
+            <tr>
+              <td colspan="4" class="empty">Nothing recorded against this ambassador yet.</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</Admin>

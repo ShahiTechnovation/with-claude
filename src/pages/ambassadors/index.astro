@@ -1,0 +1,137 @@
+---
+import { itemListSchema, titles, trail } from '@/lib/seo';
+import Base from '@/layouts/Base.astro';
+import Section from '@/components/Section.astro';
+import PageIntro from '@/components/PageIntro.astro';
+import AmbassadorLeaderboard from '@/components/AmbassadorLeaderboard.astro';
+import { activityLeaderboard } from '@/data';
+import { CREDIT_WEIGHT_LABELS } from '@/lib/credits';
+
+/**
+ * AMBASSADORS — a directory that happens to be ranked.
+ *
+ * §22 asks for ranked entries and §53 asks that the ranking not be presented
+ * as an official Anthropic standing. Those pull in opposite directions, and
+ * the resolution is in the order of the page rather than in a disclaimer at
+ * the bottom: this is a directory of people first, and the number beside each
+ * name is explained, in full, above the list.
+ *
+ * ── WHY THE FORMULA IS PRINTED ───────────────────────────────────────────
+ *
+ * §20: "Do not hide the formula." A ranking whose inputs are secret invites
+ * exactly one question — why is that person above me — and has no answer. The
+ * weights are rendered from `CREDIT_WEIGHT_LABELS`, so the printed formula and
+ * the computed score cannot drift; there is no second copy of the numbers.
+ *
+ * ── PRERENDERED, LIKE EVERY OTHER PUBLIC DIRECTORY ───────────────────────
+ *
+ * No `prerender = false`. The leaderboard is computed at build time from the
+ * same `RecordSet` the events and cities pages read, which is what §45 means
+ * by a public page that never calls Luma: by the time this HTML exists there
+ * is no database connection and no feed to wait on.
+ */
+const board = activityLeaderboard({ window: 'all' });
+
+// A ranked page needs somebody on it. Everyone verified appears, including
+// people with nothing scored yet — §22 is a directory before it is a table.
+const active = board.filter((entry) => entry.events.length > 0);
+const upcomingTotal = board.reduce((sum, entry) => sum + entry.upcoming.length, 0);
+const cities = new Set(board.flatMap((entry) => [entry.ambassador.citySlug, ...entry.cities]));
+
+const description =
+  `Claude Community Ambassadors running events across India — ${board.length} on the record, ` +
+  `${active.length} with events, ${upcomingTotal} rooms coming up. Community activity is ` +
+  `counted from event records, not self-reported.`;
+
+const formula = CREDIT_WEIGHT_LABELS.map((w) => `${w.label} ×${w.weight}`).join(' · ');
+---
+
+<Base
+  title="Ambassadors"
+  seoTitle={titles.ambassadors()}
+  description={description}
+  active="/ambassadors"
+  breadcrumbs={trail({ name: 'Ambassadors', href: '/ambassadors' })}
+  schema={[
+    itemListSchema(
+      board.map((entry) => ({
+        name: entry.ambassador.name,
+        href: `/ambassadors/${entry.ambassador.slug}`,
+      })),
+      'Claude Community Ambassadors in India',
+    ),
+  ]}
+>
+  <PageIntro
+    eyebrow="Ambassadors"
+    title="Claude Community Ambassadors"
+    stamp={`${String(board.length).padStart(2, '0')} on the record`}
+    size="lg"
+    facts={[
+      { label: 'Ambassadors', value: String(board.length).padStart(2, '0') },
+      { label: 'With events', value: String(active.length).padStart(2, '0') },
+      { label: 'Cities', value: String(cities.size).padStart(2, '0') },
+    ]}
+  >
+    <p><strong>The people growing Claude community activity across India.</strong></p>
+    <p>
+      A directory of Claude Community Ambassadors and the rooms they run. Every entry
+      says how the status was confirmed — this site records Ambassadors, it does not
+      appoint them.
+    </p>
+  </PageIntro>
+
+  <Section id="activity" labelledby="activity-heading">
+    <AmbassadorLeaderboard entries={board} heading="Community activity" eyebrow="Index" />
+  </Section>
+
+  <Section id="method" tone="sunk" labelledby="method-heading">
+    <div class="container-wide method">
+      <p class="eyebrow">How this is counted</p>
+      <hr class="rule-line" />
+      <h2 id="method-heading">WITH CLAUDE Community Activity</h2>
+      <div class="method-body">
+        <p>
+          <strong>This is an activity index, not an official ranking.</strong> It is
+          calculated by this website from event records. It is not an Anthropic ranking,
+          it does not imply endorsement, and it confers nothing.
+        </p>
+        <p>
+          Each event a person is credited on is worth a fixed number of credits:
+          <strong>{formula}</strong>. The activity score is the sum. One event counts
+          once per role, a cancelled event counts for nothing, and an attribution nobody
+          has confirmed is shown but not counted.
+        </p>
+        <p>
+          Events come from the curated archive and from the public Claude Community
+          calendar on Luma. Attendance and registration numbers are deliberately absent:
+          the sources do not publish them, so ranking on them would mean inventing them.
+        </p>
+      </div>
+    </div>
+  </Section>
+</Base>
+
+<style>
+  .method {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .method h2 {
+    font-size: clamp(1.35rem, 2.4vw, 1.9rem);
+    margin: 0;
+  }
+
+  .method-body {
+    display: grid;
+    gap: 0.85rem;
+    max-width: 62ch;
+    margin-top: 0.5rem;
+  }
+
+  .method-body p {
+    margin: 0;
+    color: var(--ink-2);
+  }
+</style>

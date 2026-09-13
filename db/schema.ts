@@ -42,6 +42,7 @@ import {
   index,
   integer,
   jsonb,
+  numeric,
   pgEnum,
   pgTable,
   primaryKey,
@@ -627,6 +628,57 @@ export const ambassadors = pgTable(
     verifiedBy: uuid('verified_by').references(() => users.id, { onDelete: 'set null' }),
     /** Links this ambassador to their entry in the builder directory. */
     builderId: uuid('builder_id').references(() => builders.id, { onDelete: 'set null' }),
+
+    /**
+     * The WITH CLAUDE account, when this person has claimed one.
+     *
+     * NULL is the normal state and not a gap. An ambassador record exists
+     * because their status was verified from a public source; whether they
+     * have since logged in is a separate fact. §25: an ambassador may exist
+     * without a member account, and a member is never forced into ambassador
+     * status.
+     *
+     * This is a LINK and not a second identity. Everything a member edits
+     * about themselves stays in `member_profiles`, projected into `builders`;
+     * nothing about a profile is copied here. That is what keeps §24's "no
+     * duplicated profile content" true by construction — the ambassador page
+     * reads the builder record through this join rather than holding its own
+     * copy of a bio.
+     */
+    memberId: uuid('member_id').references(() => members.id, { onDelete: 'set null' }),
+
+    /**
+     * ── LUMA IDENTITY ────────────────────────────────────────────────────
+     *
+     * Three columns because the feed we actually have gives us exactly one of
+     * the three, and pretending otherwise is how attribution goes wrong.
+     *
+     * `lumaProfileUrl`  the public profile page. Editorial: it is a link on
+     *                   the ambassador page. NOT used for matching, because a
+     *                   calendar feed never mentions it.
+     *
+     * `lumaExternalId`  Luma's own stable user id, if we are ever granted API
+     *                   access to a calendar that exposes it. This is the
+     *                   PREFERRED match key (§16.1) and is unique. Null today.
+     *
+     * `lumaDisplayName` the exact organiser name as the source prints it.
+     *
+     * That last one is the only key the Claude Community ICS feed makes
+     * available: every VEVENT carries `ORGANIZER;CN="Some Name"` and a generic
+     * calendar MAILTO, so the display name is the whole of the identity on
+     * offer. It is therefore a MANUALLY CONFIGURED MAPPING — an admin types
+     * the organiser string they have actually seen against the ambassador it
+     * belongs to — and matching is exact on the normalised value, never fuzzy.
+     * §16 forbids matching ambassadors by name similarity; it permits an
+     * explicitly configured, human-verified mapping, which is this.
+     *
+     * The unique index on the normalised value is what makes an ambiguous
+     * match impossible rather than merely unlikely: two ambassadors cannot
+     * both claim one organiser string, so the matcher never has to choose.
+     */
+    lumaProfileUrl: text('luma_profile_url'),
+    lumaExternalId: text('luma_external_id'),
+    lumaDisplayName: text('luma_display_name'),
     since: date('since'),
     bio: text('bio'),
     imageId: uuid('image_id').references(() => media.id, { onDelete: 'set null' }),
@@ -642,6 +694,20 @@ export const ambassadors = pgTable(
     /** One ambassador record per builder. Nobody is verified twice over. */
     uniqueIndex('ambassadors_builder_unique').on(table.builderId),
     index('ambassadors_city_idx').on(table.cityId),
+    /** One ambassador record per member account, for the same reason. */
+    uniqueIndex('ambassadors_member_unique').on(table.memberId),
+    /** The preferred match key, when a source ever gives us one. */
+    uniqueIndex('ambassadors_luma_external_unique').on(table.lumaExternalId),
+    /**
+     * The key the ICS feed actually makes matchable, normalised.
+     *
+     * With this index an organiser string cannot be configured against two
+     * ambassadors, so `matchAmbassador()` looking for "exactly one row" is a
+     * database guarantee rather than a hope. §16.
+     */
+    uniqueIndex('ambassadors_luma_display_name_unique')
+      .on(sql`lower(btrim(${table.lumaDisplayName}))`)
+      .where(sql`${table.lumaDisplayName} IS NOT NULL`),
   ],
 );
 
@@ -918,6 +984,115 @@ export const eventCoHosts = pgTable(
       .references(() => builders.id, { onDelete: 'cascade' }),
   },
   (table) => [primaryKey({ columns: [table.eventId, table.builderId] })],
+);
+
+/**
+ * WHO RAN AN EVENT — the canonical attribution relationship.
+ *
+ * §17 asks for `event_hosts` rather than more ambassador columns on `events`,
+ * and §19 asks for a transparent leaderboard. Both need the same thing: a row
+ * per (event, person, role) that says how confident we are and where the claim
+ * came from. A column cannot carry a role, a provenance and a confidence, and
+ * three columns for three roles cannot carry a fourth.
+ *
+ * ── RELATIONSHIP TO `events.ambassador_id` ───────────────────────────────
+ *
+ * `events.ambassador_id` STAYS, and is the denormalised primary host. It is
+ * not a competing record: the invariant, enforced by `setEventHosts()` in
+ * `src/server/events/hosts.ts` and asserted by the test suite, is
+ *
+ *     events.ambassador_id  ==  the ambassador_id of this event's
+ *                               single `primary_host` row, or NULL
+ *
+ * The column is kept because it is load-bearing in a way that is easy to
+ * underestimate: `RecordSet` flows from it, `cityState()` decides that a city
+ * is ambassador-led from it, and 71 prerendered pages read it with no null
+ * checks. Replacing it with a join would mean rewriting the data source, the
+ * equivalence suite and the city model to gain nothing a reader can see.
+ *
+ * So: ONE writer, ONE invariant, and the join table owns everything the column
+ * cannot express. §19's credit for a co-host, an organiser or a partner exists
+ * only here.
+ *
+ * ── WHY IT POINTS AT AMBASSADORS AND NOT BUILDERS ────────────────────────
+ *
+ * Because `event_co_hosts`, `event_speakers` and `event_attendees` already
+ * point at builders, and they stay exactly as they are — they are the curated
+ * archive's record of who was in a room, and nothing here replaces them. This
+ * table answers a narrower question: who gets community-activity CREDIT for
+ * running the event, which §19 scores and §22 ranks. That credit belongs to a
+ * verified ambassador record or to nobody, which is also why an unmatched
+ * organiser produces no row at all rather than a row with a low confidence.
+ */
+export const eventHostRole = pgEnum('event_host_role', [
+  'primary_host',
+  'co_host',
+  'organizer',
+  'partner',
+  'speaker',
+]);
+
+/**
+ * How this attribution was established. Never inferred, always recorded.
+ *
+ * `curated`  a human authored it in the record, or it was backfilled from
+ *            `events.ambassador_id`, which a human authored.
+ * `ingest`   a sync matched the source's organiser against a configured Luma
+ *            identity. Exact match on a mapping an admin set up — see
+ *            `ambassadors.lumaDisplayName`.
+ * `manual`   a moderator corrected or added it in the admin. §37.
+ */
+export const eventHostSource = pgEnum('event_host_source', ['curated', 'ingest', 'manual']);
+
+export const eventHosts = pgTable(
+  'event_hosts',
+  {
+    eventId: uuid('event_id')
+      .notNull()
+      .references(() => events.id, { onDelete: 'cascade' }),
+    ambassadorId: uuid('ambassador_id')
+      .notNull()
+      .references(() => ambassadors.id, { onDelete: 'cascade' }),
+    role: eventHostRole('role').notNull(),
+    source: eventHostSource('source').notNull(),
+    /**
+     * How sure we are, 0–1. Scored credit requires 1.
+     *
+     * §19: "if event attribution is ambiguous, do not automatically score it".
+     * A row below 1 is a real, recorded, VISIBLE attribution that deliberately
+     * earns nothing until a moderator confirms it — which is what lets the
+     * system hold an uncertain claim without either discarding it or letting
+     * it move a ranking. `scoreOf()` in `src/lib/leaderboard.ts` is the only
+     * reader of this column.
+     */
+    confidence: numeric('confidence', { precision: 3, scale: 2 }).notNull().default('1.00'),
+    /** What the source actually said, when a name was matched. For review. */
+    sourceLabel: text('source_label'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    /**
+     * §19: "only one credit should come from each actual event/role
+     * combination". The primary key IS that rule — double counting one
+     * ambassador twice in one role on one event is not prevented by careful
+     * code, it is unrepresentable.
+     */
+    primaryKey({ columns: [table.eventId, table.ambassadorId, table.role] }),
+    /**
+     * AND ONE PRIMARY HOST PER EVENT.
+     *
+     * Without this, two ambassadors could each hold a `primary_host` row and
+     * `events.ambassador_id` could only mirror one of them — the invariant at
+     * the top of this comment would be unstateable. A second person who ran
+     * the room is a `co_host`, which is exactly what §19 scores at 0.5.
+     */
+    uniqueIndex('event_hosts_one_primary')
+      .on(table.eventId)
+      .where(sql`role = 'primary_host'`),
+    check('event_hosts_confidence_range', sql`${table.confidence} BETWEEN 0 AND 1`),
+    index('event_hosts_ambassador_idx').on(table.ambassadorId),
+  ],
 );
 
 /** Who talked. Deliberately not merged with co-hosting. */

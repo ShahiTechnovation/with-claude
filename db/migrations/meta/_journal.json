@@ -85,6 +85,13 @@
       "when": 1789601000000,
       "tag": "0011_media_project_association",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1789602000000,
+      "tag": "0012_event_hosts_and_ambassador_identity",
+      "breakpoints": true
     }
   ]
 }

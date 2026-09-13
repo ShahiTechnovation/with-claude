@@ -18,9 +18,22 @@
  * attribution is a cost worth paying to avoid degrading the button.
  */
 
-/** The convention, fixed in one place so every link agrees. §26. */
+/**
+ * The convention, fixed in one place so every link agrees. §26, §48.
+ *
+ * ── WHY `withclaude.in` AND NOT `withclaude` ─────────────────────────────
+ *
+ * §48 fixes the canonical value as the DOMAIN, exactly: `withclaude.in`. It
+ * had been `withclaude` here, which is the kind of difference that does not
+ * look like a bug and behaves like one — an organiser reading their Luma
+ * referrer report sees two sources where there is one, and neither total is
+ * the real number of people this site sent them.
+ *
+ * The bare-word form is not accepted anywhere and not aliased. A value that
+ * has two spellings has no canonical spelling.
+ */
 export const UTM = {
-  source: 'withclaude',
+  source: 'withclaude.in',
   medium: 'event',
   campaign: 'india-community',
 } as const;
@@ -76,4 +89,29 @@ export function withAttribution(
  */
 export function registrationLink(url: string | null | undefined): string | null {
   return withAttribution(url);
+}
+
+/**
+ * ATTRIBUTION FOR A LUMA REGISTRATION EMBED. §14.
+ *
+ * A Luma embed is a script-driven button, so it never passes through a URL we
+ * build and `registrationLink()` cannot reach it. Luma's own mechanism for
+ * this is a `data-luma-utm-source` attribute on the trigger element, which is
+ * why the value is spread onto the element rather than appended to an href.
+ *
+ * Returned as an attribute bag rather than a string so the value is escaped by
+ * the template engine on the way out, and so the embed and the plain link are
+ * demonstrably carrying the SAME constant — §49 asserts exactly that, and it
+ * is only assertable because both read `UTM`.
+ *
+ * NOTE: this does not itself render an embed, and deliberately so. WITH CLAUDE
+ * does not become the registration provider (§13); the default path is a link
+ * to Luma, and an embed is an enhancement on an event that supports one.
+ */
+export function lumaEmbedAttributes(): Record<string, string> {
+  return {
+    'data-luma-utm-source': UTM.source,
+    'data-luma-utm-medium': UTM.medium,
+    'data-luma-utm-campaign': UTM.campaign,
+  };
 }

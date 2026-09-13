@@ -24,9 +24,10 @@
  *     of a relationship it could not resolve — a silently broken graph is
  *     worse than no import, because it looks like it worked.
  */
-import { and, eq, notInArray, sql } from 'drizzle-orm';
+import { and, eq, notInArray, or, sql } from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 
+import { curatedCredits } from '../../src/lib/credits';
 import { ambassadors } from '../../src/data/ambassadors';
 import { builders } from '../../src/data/builders';
 import { cities } from '../../src/data/cities';
@@ -648,6 +649,57 @@ export async function importRecords(
       })),
       (r) => r.builderId,
     );
+
+    /**
+     * ── CANONICAL HOST ATTRIBUTION ─────────────────────────────────────
+     *
+     * `event_hosts` written from the same rule that migration 0012 backfilled
+     * with and that `source-ts.ts` synthesises from — `curatedCredits()`, so
+     * all three agree by construction and `tests/equivalence.test.ts` can
+     * compare the two sources at all.
+     *
+     * ── WHAT GETS DELETED, AND WHAT SURVIVES ───────────────────────────
+     *
+     * The repository record is authoritative for a curated event's HEADLINE
+     * host: `values.ambassadorId` above is written from it unconditionally, so
+     * the matching `primary_host` row has to be rewritten with it or the
+     * invariant in `src/server/events/hosts.ts` breaks on the next import.
+     *
+     * A moderator's non-primary credit does NOT get deleted. Someone adding a
+     * co-host or partner in the admin is recording something the repository
+     * record has no way to express (§37), and an import that reverted it every
+     * time would make the admin's own UI look broken. So: this import owns
+     * `curated` rows and the primary role; `manual` co-host, organiser and
+     * partner credits are left exactly where the moderator put them.
+     *
+     * Note that an INGESTED event never reaches this loop — it is not in the
+     * repository record — so nothing here can touch a Luma attribution.
+     */
+    await db
+      .delete(schema.eventHosts)
+      .where(
+        and(
+          eq(schema.eventHosts.eventId, row.id),
+          or(eq(schema.eventHosts.source, 'curated'), eq(schema.eventHosts.role, 'primary_host')),
+        ),
+      );
+
+    for (const credit of curatedCredits(event.host)) {
+      await db
+        .insert(schema.eventHosts)
+        .values({
+          eventId: row.id,
+          ambassadorId: resolve(
+            ambassadorIdBySlug,
+            credit.ambassadorSlug,
+            `event ${event.slug} ${credit.role}`,
+          ),
+          role: credit.role,
+          source: credit.source,
+          confidence: credit.confidence.toFixed(2),
+        })
+        .onConflictDoNothing();
+    }
 
     // Speakers — who talked. A separate credit from hosting.
     await syncJoin(

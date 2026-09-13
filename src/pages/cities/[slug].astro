@@ -28,7 +28,6 @@ const { city } = Astro.props;
 
 const signal = citySignal(city);
 const live = isLive(signal.state);
-const ambassador = signal.ambassadors[0];
 const image = asset(city.image);
 const nationalNext = nextEvent();
 
@@ -109,17 +108,25 @@ const indexable = isCityIndexable(city);
         <span class:list={['chip', `chip-${signal.state}`]}>{CITY_STATE_LABEL[signal.state]}</span>
         <h2 id="status-heading" class="status-title">{CITY_STATE_NOTE[signal.state]}</h2>
 
+        {/*
+          §28 — a city page lists its ambassadors, and each one leads to their
+          own page rather than straight to a builder profile. `signal.ambassadors`
+          is every verified ambassador in this city, so a city with two is
+          rendered as a city with two instead of silently showing the first.
+        */}
         {
-          ambassador && (
+          signal.ambassadors.length > 0 && (
             <div class="status-amb">
               <span class="chip chip-verified">Verified</span>
-              <p class="status-amb-line">
-                <a href={`/builders/${ambassador.builderSlug ?? ambassador.slug}`}>
-                  {ambassador.name}
-                </a>{' '}
-                is a {ambassador.title} here.
-              </p>
-              <p class="status-note">{ambassador.verifiedVia}.</p>
+              {signal.ambassadors.map((person) => (
+                <>
+                  <p class="status-amb-line">
+                    <a href={`/ambassadors/${person.slug}`}>{person.name}</a>{' '}
+                    is a {person.title} here.
+                  </p>
+                  <p class="status-note">{person.verifiedVia}.</p>
+                </>
+              ))}
             </div>
           )
         }

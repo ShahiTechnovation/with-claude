@@ -1,0 +1,261 @@
+---
+import { cityName } from '@/data';
+import { plural } from '@/lib/words';
+import type { LeaderboardEntry } from '@/lib/leaderboard';
+
+/**
+ * THE RANKED INDEX. §22.
+ *
+ * An editorial list with a number in the margin — not a metrics dashboard.
+ * The distinction is deliberate and it is mostly about what is NOT here: no
+ * sparklines, no percentage deltas, no progress bars, no trend arrows. Each of
+ * those implies a measurement over time that a count of events cannot support.
+ *
+ * Every figure printed is one the record can answer exactly: how many events,
+ * how many of them are still to come, how many cities, and the score with its
+ * formula stated on the page. §23's "do not show fake metrics", applied at the
+ * level of what the markup is even capable of saying.
+ */
+interface Props {
+  entries: LeaderboardEntry[];
+  heading?: string;
+  eyebrow?: string;
+  showHead?: boolean;
+  /** Cap the list, for a discovery panel on another page. */
+  limit?: number;
+}
+
+const { entries, heading = 'Community activity', eyebrow = 'Ambassadors', showHead = true, limit } =
+  Astro.props;
+
+const shown = limit ? entries.slice(0, limit) : entries;
+---
+
+<div class="board">
+  {
+    showHead && (
+      <div class="section-head">
+        <p class="eyebrow">{eyebrow}</p>
+        <h2 id="activity-heading">{heading}</h2>
+        <p class="prose">
+          Ranked by an activity score this site calculates from event records. Hosting an
+          event earns a full credit, co-hosting half. The number is an index of activity —
+          it is not a ranking by Anthropic and it is not a measure of anyone's standing.
+        </p>
+      </div>
+    )
+  }
+
+  <ol class="entries">
+    {
+      shown.map((entry, index) => {
+        const { ambassador } = entry;
+        const home = cityName(ambassador.citySlug);
+        return (
+          <li data-reveal>
+            <a class="entry" href={`/ambassadors/${ambassador.slug}`}>
+              {/*
+                The rank is `aria-hidden` because the list is already an `<ol>`:
+                a screen reader announces "item 3" from the markup, and the
+                printed "03" would make it "item 3, 03, Name".
+              */}
+              <span class="rank" aria-hidden="true">
+                {String(index + 1).padStart(2, '0')}
+              </span>
+
+              <span class="body">
+                <span class="name">{ambassador.name}</span>
+                <span class="where">
+                  {home}
+                  {entry.cities.length > 1 && (
+                    <span class="also">
+                      {` · active in ${entry.cities.length} cities`}
+                    </span>
+                  )}
+                </span>
+
+                {/*
+                  An ambassador with nothing scored yet says so in words. A row
+                  of zeroes reads as a failure state; "no events on the record
+                  yet" reads as what it is.
+                */}
+                {entry.events.length === 0 ? (
+                  <span class="none">No events on the record yet</span>
+                ) : (
+                  <dl class="figures">
+                    <div>
+                      <dt>Events</dt>
+                      <dd>{String(entry.events.length).padStart(2, '0')}</dd>
+                    </div>
+                    <div>
+                      <dt>Upcoming</dt>
+                      <dd>{String(entry.upcoming.length).padStart(2, '0')}</dd>
+                    </div>
+                    <div>
+                      <dt>Past</dt>
+                      <dd>{String(entry.past.length).padStart(2, '0')}</dd>
+                    </div>
+                  </dl>
+                )}
+              </span>
+
+              <span class="score">
+                <span class="score-value">{entry.score.toFixed(2)}</span>
+                <span class="score-label">score</span>
+              </span>
+            </a>
+
+            {entry.unscoredCredits > 0 && (
+              /*
+                §19 — an attribution awaiting confirmation is visible and
+                uncounted. Saying so in the margin is the honest version of a
+                number that is lower than the person's own records would show.
+              */
+              <p class="pending">
+                {`${plural(entry.unscoredCredits, 'attribution')} awaiting confirmation, not counted above`}
+              </p>
+            )}
+          </li>
+        );
+      })
+    }
+  </ol>
+
+  {shown.length === 0 && <p class="prose empty">No ambassadors are on the record yet.</p>}
+</div>
+
+<style>
+  .entries {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .entries > li {
+    border-top: var(--border-hair) solid var(--rule);
+  }
+
+  .entries > li:last-child {
+    border-bottom: var(--border-hair) solid var(--rule);
+  }
+
+  .entry {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: baseline;
+    gap: var(--s-4);
+    padding: var(--s-5) 0;
+    text-decoration: none;
+    color: var(--ink);
+    transition: background var(--dur-2) var(--ease-out);
+  }
+
+  .entry:hover,
+  .entry:focus-visible {
+    background: var(--paper-raised);
+  }
+
+  .rank {
+    font-family: var(--font-mono);
+    font-size: var(--t-meta);
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .body {
+    display: grid;
+    gap: var(--s-2);
+    min-width: 0;
+  }
+
+  .name {
+    font-family: var(--font-display);
+    font-size: var(--t-h3);
+    line-height: 1.1;
+  }
+
+  .where {
+    font-size: var(--t-small);
+    color: var(--ink-2);
+  }
+
+  .also {
+    color: var(--ink-3);
+  }
+
+  .none {
+    font-size: var(--t-small);
+    color: var(--ink-3);
+  }
+
+  .figures {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-5);
+    margin: var(--s-2) 0 0;
+  }
+
+  .figures div {
+    display: flex;
+    align-items: baseline;
+    gap: var(--s-2);
+  }
+
+  .figures dt {
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .figures dd {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: var(--t-small);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .score {
+    display: grid;
+    justify-items: end;
+    gap: 0.1rem;
+    text-align: right;
+  }
+
+  .score-value {
+    font-family: var(--font-mono);
+    font-size: var(--t-h3);
+    font-variant-numeric: tabular-nums;
+    color: var(--clay-deep);
+    line-height: 1;
+  }
+
+  .score-label {
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .pending {
+    margin: 0 0 var(--s-4);
+    font-size: var(--t-micro);
+    color: var(--ink-3);
+  }
+
+  .empty {
+    margin-top: var(--s-5);
+  }
+
+  @media (max-width: 34rem) {
+    .entry {
+      grid-template-columns: auto 1fr;
+    }
+
+    .score {
+      grid-column: 2;
+      justify-items: start;
+      text-align: left;
+    }
+  }
+</style>

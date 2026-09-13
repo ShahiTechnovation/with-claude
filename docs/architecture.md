@@ -325,13 +325,180 @@ apply the last row of a 50-row batch to every conflicting row in it.
 ### UTM
 
 `registrationLink()` in `src/lib/attribution.ts` adds
-`utm_source=withclaude&utm_medium=event&utm_campaign=india-community` — and
+`utm_source=withclaude.in&utm_medium=event&utm_campaign=india-community` — and
 **never overwrites** a parameter the source already set, so an organiser
 circulating their own `utm_source` keeps their attribution. Non-`http(s)`
 schemes are refused, since this value originates in an external feed.
 
+The canonical source value is the **domain**, exactly: `withclaude.in`. It was
+`withclaude` until the unification pass, which is the kind of difference that
+does not look like a bug and behaves like one — an organiser reading their Luma
+referrer report saw two sources where there was one, and neither total was the
+real number of people this site had sent them. `withclaude`, `WITHCLAUDE` and
+`with_claude` are not accepted or aliased anywhere; `tests/utm-attribution.test.ts`
+asserts the literal string rather than importing the constant, because a test
+that reads the value it is checking cannot catch that bug.
+
+Luma registration **embeds** never pass through a URL we build, so they carry
+the same value through Luma's own mechanism: `lumaEmbedAttributes()` returns
+`data-luma-utm-source` and friends, read from the same `UTM` constant. WITH
+CLAUDE does not become the registration provider — the default path is a link
+to Luma, and an embed is an enhancement on an event that supports one.
+
 The JSON-LD `offers.url` stays **undecorated**: that field is a canonical
 identifier, not a click.
+
+---
+
+## 6a. Ambassadors, host attribution and the activity index
+
+### One graph, not a second one
+
+An ambassador is an extension of the existing record, not a parallel system.
+`ambassadors` already existed and already linked to `builders`; the
+unification pass added an identity a source can be matched against and a
+relationship that can carry a role.
+
+```
+Privy ─▶ members ─▶ member_profiles ─▶ builders ─┐
+                                                  ├─▶ ambassadors ─▶ event_hosts ─▶ events ─▶ cities
+                                     Luma ─▶ event_sources ─▶ event_source_records ─┘
+```
+
+`ambassadors.member_id` links to a claimed account, `ambassadors.builder_id` to
+the public profile. Neither copies anything: the bio, city and projects on an
+ambassador page are read through those joins, so there is no second profile to
+keep in step.
+
+### `event_hosts` is canonical; `events.ambassador_id` is a denormalisation
+
+`events.ambassador_id` records one host and nothing about them — no role, no
+provenance, no confidence. Enough for the verified treatment on an event page,
+not enough for a credit. So attribution lives in `event_hosts`
+`(event_id, ambassador_id, role, source, confidence)`, and the column stays as
+a denormalisation of that table's single `primary_host` row, because
+`RecordSet`, `cityState()` and the prerendered pages read it with no null
+checks.
+
+The invariant:
+
+```
+events.ambassador_id  ==  the ambassador_id of that event's single
+                          primary_host row in event_hosts, or NULL
+```
+
+Two writes that must not diverge is the shape of bug that gets written when two
+modules each do half of it, so **every** mutation in the system — the Luma
+sync, the repository importer, the admin — goes through `setPrimaryHost()` /
+`clearPrimaryHost()` in `src/server/events/hosts.ts`. Nothing else may write
+that column. `attributionDrift()` is the same query in production that
+`tests/event-hosts.test.ts` runs after every mutation, and a non-empty result
+is a bug in that module by definition.
+
+Two database constraints do the rest of the work: the primary key
+`(event_id, ambassador_id, role)` makes double-counting one credit
+unrepresentable, and a partial unique index allows only one `primary_host` per
+event.
+
+### Matching is exact against a configured mapping, never fuzzy
+
+The Claude Community calendar is an ICS feed. Its entire statement about who
+runs an event is `ORGANIZER;CN="Some Name"` plus a MAILTO that is the same
+generic calendar address on all 317 events. There is no Luma user id and no
+profile URL in the feed.
+
+So the only available key is a name — and matching on `ambassadors.name` is
+forbidden, because two people share a surname and nobody notices the wrong
+attribution. Instead the match is against `ambassadors.luma_display_name`: a
+column that is empty by default and holds the organiser string **an admin has
+actually seen and assigned**. Exact, on the normalised value, with a unique
+index on `lower(btrim(...))` so one organiser string cannot be configured
+against two ambassadors and the matcher never has to break a tie.
+
+Preference order, when a source ever offers more: `luma_external_id` (stable
+provider id, unique, null today) → `luma_display_name` (configured mapping).
+`luma_profile_url` is editorial only — a link on the profile, never a key.
+
+What this costs is coverage. Measured on the live capture: 317 events in the
+feed, 13 placed in India across 8 cities, and **zero attributed** until a
+mapping is configured. Three of those 13 are hosted by "Aniket Sahu", the
+ambassador already on the record — so configuring one string attributes three
+real events. That trade is deliberate: an unattributed event is honest and
+fixable, a wrongly attributed one moves a public leaderboard quietly.
+
+Attribution runs as its own pass over every promoted record, **not** only over
+records the feed changed. It was originally inside the promotion branch, which
+meant an admin could configure a mapping, run the sync, and see nothing happen
+— the events had not changed, so the code never looked at them. Attribution
+depends on our configuration, not on the feed's revisions.
+
+A sync will not overwrite an attribution it did not write. A `curated` row came
+from a human authoring the archive; a `manual` row came from a moderator
+correcting that event. A feed reasserting its guess hourly would undo the
+correction every time and look like a haunting rather than a bug.
+
+### The activity index
+
+Two public numbers, per §19–§22: **events hosted** and a **community activity
+score**, with the formula printed on the page rather than explained in a
+tooltip. Weights are a frozen table in `src/lib/credits.ts`:
+
+| role | credit |
+|---|---|
+| primary host | 1.0 |
+| organiser | 1.0 |
+| co-host | 0.5 |
+| partner | 0.25 |
+| speaker | 0 |
+
+`speaker` is in the table at zero on purpose: leaving the role out would mean a
+speaker credit fell through to a default, and a default is how a weight gets
+assigned by accident.
+
+Determinism is a requirement, so: no model, no "importance", no randomness;
+`now` is a parameter rather than read from the clock inside a comparison; and
+the sort is total — score, then events, then upcoming, then name, then slug,
+which is unique. Without a final unique key, ties are left in engine-defined
+order and "same state, same ranking" is false on most real inputs.
+
+Not counted, because the sources do not publish them and inventing them would
+be worse than omitting them: registrations, attendance, reach, followers,
+engagement, growth. A cancelled event counts for nothing. An attribution below
+full confidence is **shown and not scored** — visible on the page as awaiting
+confirmation, which is what lets the system hold an uncertain claim without
+either discarding it or letting it move a ranking.
+
+Windows are all-time (the default), this year and this month, and a windowed
+view never replaces the all-time figure — a page showing only the current year
+would make a long-term organiser look inactive for eleven months of it.
+
+The score is **derived on every build** and never stored, which is what makes
+determinism provable: no cached total can disagree with the rows, because no
+total is cached. The admin's "recalculate" is therefore honestly a public
+rebuild, and it reuses `triggerDeploy()` rather than reading the deploy hook
+itself — one deploy path, enforced by `tests/admin-isolation.test.ts`.
+
+### Labelling
+
+"WITH CLAUDE Community Activity", never "official Claude Ambassador ranking".
+The pages say in plain words that the index is calculated by this website from
+event records, is not an Anthropic ranking, and implies no endorsement.
+`ambassadors.verified_via` is NOT NULL and is **rendered on the profile**: a
+title with its source beside it is a claim a reader can check, and a title on
+its own is one they have to take on trust. The admin refuses to create a record
+without it.
+
+### Routes and reads
+
+`/ambassadors` and `/ambassadors/[slug]` are prerendered from the same
+`RecordSet` the events and cities pages read, so no public page calls Luma and
+an ambassador page costs no queries at render time. Ambassadors are reachable
+from the footer's Discover column, city pages and event pages — deliberately
+not the masthead, which stays at five links and a CTA.
+
+Search indexes ambassadors into the **existing** index as `person` records with
+one ranking model, and only for ambassadors who have no builder record —
+otherwise the same human would appear twice under two URLs.
 
 ---
 
@@ -341,7 +508,12 @@ Admin is **not** a publishing gate. Members publish instantly; moderators act
 reactively — dismiss, restrict, restore, archive, soft-delete.
 
 Every moderator mutation writes to `audit_log`, which is **append-only**: a
-trigger from migration 0001 refuses every `UPDATE`. A consequence worth
+trigger from migration 0001 refuses every `UPDATE`. The ambassador and
+attribution vocabulary: `ambassador.created`, `ambassador.updated`,
+`ambassador.linked`, `ambassador.disabled`, `event.host.linked`,
+`event.host.unlinked`, `leaderboard.recalculated`. `action` is free text
+because this log outlives any particular vocabulary — an entry written today
+must still read correctly after a status is renamed or retired. A consequence worth
 knowing: a member who has ever acted cannot be hard-deleted, because nulling
 `actor_member_id` is an `UPDATE` and the cascade fails. A member is retired by
 setting `members.status = 'deleted'`. That is the database enforcing the rule
@@ -358,6 +530,29 @@ Separate Astro app in `admin/`, deployed to `admin.withclaude.in`, Better Auth
 over a `users` allowlist, pinned to `sin1`. Same-origin is checked against the
 **served host**, never `BETTER_AUTH_URL`. Two identity systems, no bridge:
 neither can mint or read the other's session.
+
+`/ambassadors` is the register: add, edit, set the Luma identity, link a member
+account by username, publish, disable. Created as a draft — being able to add
+an ambassador does not imply that adding one should immediately alter a public
+leaderboard. `verified_via` is required, and a database conflict on the
+organiser-name index is translated into a sentence explaining that one
+organiser string maps to one person.
+
+`/attribution` is the working queue: source health with the freshness each mode
+can actually deliver, the organiser names no ambassador claims (commonest
+first, so the mapping worth configuring reads at the top), and the ingested
+events with no host credit. Scoped to events that reached the site — an earlier
+version listed every staged organiser and returned 134 names, almost all of
+them people who have never run an event in India.
+
+Both are open to `editor` and `admin`, not `admin` alone: §36 puts ambassador
+management among a moderator's ordinary duties. A `reviewer` cannot — creating
+a public profile is not reviewing one. Moderators gain no project-edit
+permission from any of this.
+
+Corrections never touch `event_source_records`: the staged row keeps saying
+exactly what the feed said, forever, and the correction lives in `event_hosts`
+beside it marked `manual`, which is what makes it survive the next sync.
 
 ---
 
@@ -411,6 +606,13 @@ ago looks exactly like a quiet community until someone checks `lastSyncedAt`.
 
 ## 11. Migrations
 
+> **`drizzle-kit generate` is not safe in this repository.** The `meta/`
+> snapshots stop at `0009` because every migration since has been hand-written,
+> so a generated diff re-emits the tables from `0010`, `0011` and `0012`
+> together and fails on any database that already has them. Write the SQL and
+> add the journal entry by hand. Migration `0012` is a worked example: four
+> nullable columns, two enums, one table, one backfill, nothing dropped.
+
 `drizzle-kit generate` writes SQL into `db/migrations`, which is committed;
 `npm run db:migrate` applies it. Nothing pushes a schema straight at a
 database, so the schema can always be rebuilt from empty — and
@@ -462,7 +664,11 @@ data. `/me/*`, `/admin/*` and `/api/*` are `noindex`.
 profile appears without waiting for a build. It enumerates only public routes,
 filtered on the same predicates the pages use — projects on
 `published` + `clean`, builders on `published` + `clean|reported`, events on
-`published`, cities via `indexableCityPaths()`.
+`published`, ambassadors on `published`, cities via `indexableCityPaths()`.
+
+Ambassador pages are indexable public profiles: each carries a canonical URL,
+title, description, OG data and `Person` + `ProfilePage` structured data whose
+`sameAs` only ever lists links the page actually renders.
 
 `isPrivatePath()` in `src/lib/indexable.ts` is a **prefix** rule covering `/me/`
 and `/api/`. It is a prefix rather than a list because the six account pages

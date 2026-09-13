@@ -38,14 +38,15 @@
  * never fires on this feed. §23 still has to be satisfied, and absence is what
  * is left.
  */
-import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import { createHash } from 'node:crypto';
 import * as schema from '../../../db/schema';
 import { canonicalCityName, classifyIndia } from './india';
 import { isCancelledStatus, type EventSource, type NormalizedEvent } from './source';
+import { attributeIngestedEvent, loadAmbassadorIdentities } from './hosts';
 
-type AnyDatabase = PgDatabase<PgQueryResultHKT, typeof schema>;
+export type AnyDatabase = PgDatabase<PgQueryResultHKT, typeof schema>;
 
 export interface SyncSummary {
   source: string;
@@ -63,6 +64,31 @@ export interface SyncSummary {
   review: number;
   rejected: number;
   withdrawn: number;
+
+  /**
+   * ── ATTRIBUTION, REPORTED SEPARATELY FROM INGESTION ────────────────────
+   *
+   * §35 asks the admin to show ambassador matches and unresolved hosts, and
+   * these are deliberately three numbers rather than a success rate. On the
+   * live feed `hostsUnresolved` is the large one and that is the correct
+   * outcome, not a failure: the ICS organiser is a display name, and a name
+   * earns attribution only once an admin has mapped it (see `hosts.ts`).
+   *
+   * A single "attribution: 4%" figure would invite somebody to improve it by
+   * loosening the matcher, which is the one change this design exists to
+   * prevent.
+   */
+  hostsMatched: number;
+  /** Named an organiser no configured ambassador claims. §31 — still valid. */
+  hostsUnresolved: number;
+  /**
+   * Already had a host, so the feed left it alone. §37.
+   *
+   * Counts both a curated credit and a moderator's correction — from this
+   * side they are the same fact: somebody who is not a feed decided who ran
+   * this event, and a sync does not get to revisit it.
+   */
+  hostsKept: number;
   note?: string;
 }
 
@@ -169,7 +195,7 @@ export function eventSlug(event: NormalizedEvent, taken: Set<string>): string {
  *
  *   https://luma.com/hphplrbx
  *   https://www.luma.com/hphplrbx/
- *   https://luma.com/hphplrbx?utm_source=withclaude
+ *   https://luma.com/hphplrbx?utm_source=withclaude.in
  *
  * That last one matters because our OWN outgoing links carry UTM parameters,
  * so a comparison that kept the query string would fail to match the very
@@ -211,6 +237,9 @@ export async function syncSource(source: EventSource, db: AnyDatabase): Promise<
     unchanged: 0,
     promoted: 0,
     matchedCurated: 0,
+    hostsMatched: 0,
+    hostsUnresolved: 0,
+    hostsKept: 0,
     review: 0,
     rejected: 0,
     withdrawn: 0,
@@ -561,6 +590,16 @@ export async function syncSource(source: EventSource, db: AnyDatabase): Promise<
     else summary.created += 1;
   }
 
+  /**
+   * The configured Luma identities, read ONCE for the whole run.
+   *
+   * §45's no-N+1 rule applied to attribution: 317 events must not mean 317
+   * ambassador lookups. It is also read here rather than inside the loop so
+   * that a mapping added mid-sync cannot make the first half of a run behave
+   * differently from the second.
+   */
+  const identities = await loadAmbassadorIdentities(db);
+
   // ── PHASE 4: promotions and withdrawals, only where needed ───────────────
   //
   // A dozen of these, not 317 — every other row was settled by phase 2 or 3.
@@ -597,6 +636,7 @@ export async function syncSource(source: EventSource, db: AnyDatabase): Promise<
       if (eventId) {
         linkToEvent.push({ recordId: record.id, eventId });
         summary.promoted += 1;
+
       }
       continue;
     }
@@ -620,6 +660,80 @@ export async function syncSource(source: EventSource, db: AnyDatabase): Promise<
       .update(schema.eventSourceRecords)
       .set({ eventId: link.eventId })
       .where(eq(schema.eventSourceRecords.id, link.recordId));
+  }
+
+  /**
+   * ── PHASE 5: WHO RAN THEM ────────────────────────────────────────────────
+   *
+   * Attribution runs over every record this source has promoted, NOT only the
+   * ones that changed in this fetch.
+   *
+   * ── THE BUG THIS SHAPE FIXES ─────────────────────────────────────────────
+   *
+   * It was originally done inside the promotion branch above, which only
+   * executes for a record whose fingerprint moved. The consequence was quiet
+   * and bad: an admin configures "Aniket Sahu" against an ambassador, runs the
+   * sync, and NOTHING is attributed — because the three events in question had
+   * not changed, so the code that would have looked at them never ran. The
+   * mapping would only take effect the next time the organiser happened to
+   * edit the event. Measured against the live capture, that was 0 attributed
+   * instead of 3.
+   *
+   * Attribution depends on OUR configuration, not on the feed's revisions, so
+   * it cannot be driven by the feed's change detection.
+   *
+   * It stays cheap because the work is bounded by what is missing rather than
+   * by the size of the feed: one query for the promoted rows, one for the
+   * events that already have a host, and then a call only for those that do
+   * not. On a steady state where everything resolvable is resolved, that is
+   * two queries and no writes.
+   */
+  const promoted = await db
+    .select({
+      eventId: schema.eventSourceRecords.eventId,
+      organizer: schema.eventSourceRecords.organizer,
+    })
+    .from(schema.eventSourceRecords)
+    .where(
+      and(
+        eq(schema.eventSourceRecords.sourceId, sourceRow.id),
+        eq(schema.eventSourceRecords.state, 'promoted'),
+        isNotNull(schema.eventSourceRecords.eventId),
+      ),
+    );
+
+  if (promoted.length > 0) {
+    const eventIds = promoted.map((row) => row.eventId!) as string[];
+    const attributed = new Set(
+      (
+        await db
+          .select({ eventId: schema.eventHosts.eventId })
+          .from(schema.eventHosts)
+          .where(
+            and(
+              inArray(schema.eventHosts.eventId, eventIds),
+              eq(schema.eventHosts.role, 'primary_host'),
+            ),
+          )
+      ).map((row) => row.eventId),
+    );
+
+    for (const row of promoted) {
+      const eventId = row.eventId!;
+      if (attributed.has(eventId)) {
+        summary.hostsKept += 1;
+        continue;
+      }
+      const outcome = await attributeIngestedEvent({
+        db,
+        eventId,
+        identities,
+        event: { organizer: row.organizer },
+      });
+      if (outcome === 'matched') summary.hostsMatched += 1;
+      else if (outcome === 'unresolved') summary.hostsUnresolved += 1;
+      else if (outcome === 'kept-existing') summary.hostsKept += 1;
+    }
   }
 
   // ── Withdrawal by absence ────────────────────────────────────────────────
@@ -861,6 +975,7 @@ export async function syncAll(sources: EventSource[], db: AnyDatabase): Promise<
         reason: 'UNHANDLED',
         seen: 0, created: 0, updated: 0, unchanged: 0,
         promoted: 0, matchedCurated: 0, review: 0, rejected: 0, withdrawn: 0,
+        hostsMatched: 0, hostsUnresolved: 0, hostsKept: 0,
       });
     }
   }

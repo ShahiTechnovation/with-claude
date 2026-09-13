@@ -63,6 +63,16 @@ export const titles = {
   cities: () => `Claude Communities in India | ${site.wordmark}`,
   city: (name: string) => `Claude Community in ${name} | ${site.wordmark}`,
   builders: () => `Claude Builders in India | ${site.wordmark}`,
+  /**
+   * §41 — ambassador pages are indexable public profiles.
+   *
+   * "Community Ambassadors" and not "Official Anthropic Ambassadors": §54 is
+   * explicit that the site must not claim official standing on somebody's
+   * behalf, and a page title is the single most quoted string on a page.
+   */
+  ambassadors: () => `Claude Community Ambassadors in India | ${site.wordmark}`,
+  ambassador: (name: string, city: string) =>
+    `${name} | Claude Community Ambassador in ${city} | ${site.wordmark}`,
   builder: (name: string, _city: string) => `${name} | Claude Community Builder | ${site.wordmark}`,
   projects: () => `Projects Built With Claude | ${site.wordmark}`,
   project: (name: string, _city: string) => `${name} | Built With Claude | ${site.wordmark}`,

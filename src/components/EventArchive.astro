@@ -16,6 +16,20 @@ import type { CommunityEvent } from '@/data/types';
  * is complete and merely unfiltered.
  */
 interface Props {
+  /**
+   * An explicit list, when the caller already has one.
+   *
+   * The ambassador pages need "the events this person is credited on", which
+   * is a set this component cannot select for itself — it comes out of
+   * `event_hosts` via the leaderboard, not out of a city or a date range.
+   *
+   * An override rather than a second component: §65 says extend what exists,
+   * and a bespoke event list on the ambassador page would be a second place
+   * where a room's status, date and verified treatment are decided. The
+   * default path is untouched — omit this and the archive selects exactly as
+   * it always has.
+   */
+  events?: CommunityEvent[];
   citySlug?: string;
   limit?: number;
   order?: 'chronological' | 'upcoming-first';
@@ -27,6 +41,7 @@ interface Props {
 }
 
 const {
+  events: providedEvents,
   citySlug,
   limit,
   order = 'upcoming-first',
@@ -47,9 +62,8 @@ function sortEvents(list: CommunityEvent[]): CommunityEvent[] {
   return [...upcoming, ...past];
 }
 
-const scoped = citySlug
-  ? eventsChronological.filter((e) => e.citySlug === citySlug)
-  : eventsChronological;
+const source = providedEvents ?? eventsChronological;
+const scoped = citySlug ? source.filter((e) => e.citySlug === citySlug) : source;
 const all = sortEvents(scoped);
 const rows = limit ? all.slice(0, limit) : all;
 const remaining = all.length - rows.length;

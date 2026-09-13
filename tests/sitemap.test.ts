@@ -69,6 +69,34 @@ describe('dynamic sitemap', () => {
       status: 'published',
       moderationState: 'restricted'
     });
+
+    /**
+     * §40, §63 — ambassadors belong in the sitemap, under the same visibility
+     * predicate the pages use.
+     *
+     * The draft one is the point of the pair. `/ambassadors/[slug]` is
+     * generated from `publicAmbassadors`, so a draft record has no page; a
+     * sitemap that listed it would be handing a crawler a 404 and spending
+     * somebody's crawl budget on it.
+     */
+    await db.insert(schema.ambassadors).values([
+      {
+        id: '00000000-0000-0000-0000-000000000006',
+        slug: 'published-ambassador',
+        name: 'Published Ambassador',
+        cityId,
+        verifiedVia: 'Confirmed for the test',
+        status: 'published'
+      },
+      {
+        id: '00000000-0000-0000-0000-000000000007',
+        slug: 'draft-ambassador',
+        name: 'Draft Ambassador',
+        cityId,
+        verifiedVia: 'Confirmed for the test',
+        status: 'draft'
+      }
+    ]);
   });
 
   afterAll(async () => {
@@ -95,5 +123,22 @@ describe('dynamic sitemap', () => {
     expect(xml).not.toContain('private-builder');
     expect(xml).not.toContain('archived-builder');
     expect(xml).not.toContain('restricted-builder');
+  });
+
+  it('lists public ambassadors and excludes unpublished ones', async () => {
+    const xml = await (await GET({} as any)).text();
+
+    expect(xml).toContain('<loc>https://www.withclaude.in/ambassadors/</loc>');
+    expect(xml).toContain('<loc>https://www.withclaude.in/ambassadors/published-ambassador/</loc>');
+    expect(xml).not.toContain('draft-ambassador');
+  });
+
+  it('never advertises a private or API route', async () => {
+    // §40's exclusions, asserted on the output rather than trusted to the
+    // route list staying short.
+    const xml = await (await GET({} as any)).text();
+    expect(xml).not.toMatch(/withclaude\.in\/me\//);
+    expect(xml).not.toMatch(/withclaude\.in\/api\//);
+    expect(xml).not.toContain('/admin');
   });
 });

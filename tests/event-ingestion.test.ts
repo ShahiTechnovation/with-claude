@@ -232,7 +232,7 @@ describe('Luma specifics', () => {
 describe('UTM attribution', () => {
   it('adds the convention', () => {
     expect(withAttribution('https://luma.com/x')).toBe(
-      'https://luma.com/x?utm_source=withclaude&utm_medium=event&utm_campaign=india-community',
+      'https://luma.com/x?utm_source=withclaude.in&utm_medium=event&utm_campaign=india-community',
     );
   });
 
@@ -401,7 +401,7 @@ describe('the sync', () => {
           title: 'Bhopal | Claude Code for Builders',
           // Same event, and carrying OUR own UTM parameters — the comparison
           // has to ignore the query string or it will not match.
-          registrationUrl: 'https://luma.com/hphplrbx?utm_source=withclaude',
+          registrationUrl: 'https://luma.com/hphplrbx?utm_source=withclaude.in',
         }),
       ],
       { key: 'test:dedupe', complete: true },

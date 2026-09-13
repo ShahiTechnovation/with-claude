@@ -1,0 +1,177 @@
+---
+import Admin from '@/layouts/Admin.astro';
+import { cityOptions, listAmbassadors } from '@/server/ambassadors';
+
+export const prerender = false;
+
+/**
+ * THE AMBASSADOR REGISTER. §36.
+ *
+ * A table and a form. The table's job is to make the two things a moderator
+ * actually needs to know visible without clicking: whether the record is
+ * public, and whether it has a Luma organiser name configured — because an
+ * ambassador with no configured name is one whose events will keep arriving
+ * unattributed, and that is invisible from anywhere else in the system.
+ */
+const [rows, cities] = await Promise.all([listAmbassadors(), cityOptions()]);
+
+const error = Astro.url.searchParams.get('error');
+const created = Astro.url.searchParams.get('created');
+const unmapped = rows.filter((row) => !row.lumaDisplayName && !row.lumaExternalId);
+---
+
+<Admin title="Ambassadors" active="/ambassadors">
+  <div class="page-head">
+    <h1>Ambassadors</h1>
+    <p class="hint">
+      {rows.length} on the record. This application records ambassadors and never grants
+      the status — every row has to say how it was verified.
+    </p>
+  </div>
+
+  {error && <p class="notice notice-error">{error}</p>}
+  {created && <p class="notice notice-ok">Ambassador created as a draft. Publish it below when the record is right.</p>}
+
+  {
+    unmapped.length > 0 && (
+      <p class="notice notice-info">
+        {unmapped.length} of {rows.length} have no Luma organiser name configured. Events
+        they host on the Claude Community calendar will arrive unattributed until one is
+        set — attribution is an exact match against a name entered here, never a guess.
+      </p>
+    )
+  }
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>City</th>
+          <th>Status</th>
+          <th>Luma organiser</th>
+          <th>Member</th>
+          <th class="num">Hosted</th>
+          <th class="num">Co-host</th>
+          <th class="num">Other</th>
+          <th>Verified via</th>
+        </tr>
+      </thead>
+      <tbody>
+        {
+          rows.map((row) => (
+            <tr>
+              <td>
+                <a href={`/ambassadors/${row.id}`}>{row.name}</a>
+                <span class="hint">{row.slug}</span>
+              </td>
+              <td>{row.cityName}</td>
+              <td>
+                <span class={`chip chip-${row.status}`}>{row.status}</span>
+              </td>
+              <td>
+                {row.lumaDisplayName ? (
+                  <code>{row.lumaDisplayName}</code>
+                ) : (
+                  <span class="hint">not configured</span>
+                )}
+              </td>
+              <td>
+                {row.memberUsername ? (
+                  <code>@{row.memberUsername}</code>
+                ) : (
+                  <span class="hint">no account</span>
+                )}
+              </td>
+              <td class="num">{row.primaryHostEvents}</td>
+              <td class="num">{row.coHostEvents}</td>
+              <td class="num">{row.otherCredits}</td>
+              <td class="hint">{row.verifiedVia}</td>
+            </tr>
+          ))
+        }
+        {rows.length === 0 && (
+          <tr>
+            <td colspan="9" class="empty">No ambassadors on the record.</td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+
+  <section class="panel">
+    <h2>Add an ambassador</h2>
+    <p class="hint">
+      Created as a draft. Nothing appears on the public site, and no event credit is
+      counted, until it is published.
+    </p>
+
+    <form method="post" action="/api/ambassadors" class="action-form">
+      <p>
+        <label for="name">Name</label>
+        <input id="name" name="name" required autocomplete="off" />
+      </p>
+
+      <p>
+        <label for="slug">Slug</label>
+        <input id="slug" name="slug" placeholder="derived from the name if left blank" />
+      </p>
+
+      <p>
+        <label for="cityId">City</label>
+        <select id="cityId" name="cityId" required>
+          <option value="">Choose a city…</option>
+          {cities.map((city) => <option value={city.id}>{city.name}</option>)}
+        </select>
+      </p>
+
+      <p>
+        <label for="verifiedVia">How was this verified?</label>
+        <input
+          id="verifiedVia"
+          name="verifiedVia"
+          required
+          placeholder="e.g. Confirmed by the Bhopal organisers, September 2026"
+        />
+        <span class="hint">
+          Required. If you cannot fill this in from something you actually saw, do not
+          create the record.
+        </span>
+      </p>
+
+      <p>
+        <label for="lumaDisplayName">Luma organiser name</label>
+        <input id="lumaDisplayName" name="lumaDisplayName" autocomplete="off" />
+        <span class="hint">
+          The organiser string exactly as the Luma calendar prints it. This is the only
+          key the ICS feed offers, and matching is exact — case and spacing are ignored,
+          nothing else is. Leave blank if you have not seen it.
+        </span>
+      </p>
+
+      <p>
+        <label for="lumaProfileUrl">Luma profile URL</label>
+        <input id="lumaProfileUrl" name="lumaProfileUrl" type="url" />
+        <span class="hint">Rendered as a link on the public profile. Not used for matching.</span>
+      </p>
+
+      <p>
+        <label for="lumaExternalId">Luma user id</label>
+        <input id="lumaExternalId" name="lumaExternalId" />
+        <span class="hint">
+          Preferred match key when a source provides one. The public ICS feed does not,
+          so this is normally empty.
+        </span>
+      </p>
+
+      <p>
+        <label for="bio">Bio</label>
+        <textarea id="bio" name="bio" rows="3"></textarea>
+      </p>
+
+      <p>
+        <button class="btn btn-solid" type="submit">Create as draft</button>
+      </p>
+    </form>
+  </section>
+</Admin>

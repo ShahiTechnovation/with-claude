@@ -16,7 +16,14 @@ import '@/styles/admin.css';
 interface Props {
   title: string;
   /** Nav item to mark current. */
-  active?: 'submissions' | 'publish' | 'audit' | '/moderation' | '/reports';
+  active?:
+    | 'submissions'
+    | 'publish'
+    | 'audit'
+    | '/moderation'
+    | '/reports'
+    | '/ambassadors'
+    | '/attribution';
   /** Chrome is dropped on the login page — there is nobody to show yet. */
   bare?: boolean;
 }
@@ -56,6 +63,12 @@ const user = Astro.locals.user;
             </a>
             <a href="/publish" aria-current={active === 'publish' ? 'page' : undefined}>
               Publish
+            </a>
+            <a href="/ambassadors" aria-current={active === '/ambassadors' ? 'page' : undefined}>
+              Ambassadors
+            </a>
+            <a href="/attribution" aria-current={active === '/attribution' ? 'page' : undefined}>
+              Attribution
             </a>
             <a href="/audit" aria-current={active === 'audit' ? 'page' : undefined}>
               Audit

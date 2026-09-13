@@ -83,6 +83,7 @@ import type { RecordSet } from './source';
 import type {
   AgendaItem,
   Ambassador,
+  EventHostCredit,
   Authorship,
   Builder,
   BuilderRole,
@@ -99,6 +100,12 @@ import type {
   UseCase,
   WorkflowStep,
 } from './types';
+/**
+ * Relative, like every other import in this file. `db/snapshot.ts` loads this
+ * module through `tsx` outside Astro, where the `@` alias is a tsconfig
+ * `paths` entry that the runtime does not apply.
+ */
+import { sortCredits } from '../lib/credits';
 
 /** Any Drizzle connection over this schema. The reader is driver-agnostic. */
 export type ReadDatabase = PgDatabase<PgQueryResultHKT, typeof schema>;
@@ -310,6 +317,7 @@ export async function loadRecordSet(db: ReadDatabase): Promise<RecordSet> {
 
   // ── Wave 2 — children and joins ──────────────────────────────────────
   const [
+    hostCreditRows,
     coHostRows,
     speakerRows,
     attendeeRows,
@@ -325,6 +333,15 @@ export async function loadRecordSet(db: ReadDatabase): Promise<RecordSet> {
     sourceRows,
     linkRows,
   ] = await Promise.all([
+    /**
+     * The canonical host attribution. One query for every published event,
+     * in the same wave as every other child table — §45's no-N+1 rule, and
+     * the reason an ambassador page costs two queries rather than one per
+     * event.
+     */
+    whenAny(eventIds, () =>
+      db.select().from(schema.eventHosts).where(inArray(schema.eventHosts.eventId, eventIds)),
+    ),
     whenAny(eventIds, () =>
       db.select().from(schema.eventCoHosts).where(inArray(schema.eventCoHosts.eventId, eventIds)),
     ),
@@ -399,6 +416,7 @@ export async function loadRecordSet(db: ReadDatabase): Promise<RecordSet> {
   const agendaByEvent = groupBy(byPosition(agendaRows), (r) => r.eventId);
   const outcomesByEvent = groupBy(byPosition(outcomeRows), (r) => r.eventId);
   const photosByEvent = groupBy(byPosition(photoRows), (r) => r.eventId);
+  const hostCreditsByEvent = groupBy(hostCreditRows, (r) => r.eventId);
   const coHostsByEvent = groupBy(coHostRows, (r) => r.eventId);
   const speakersByEvent = groupBy(speakerRows, (r) => r.eventId);
   /**
@@ -555,6 +573,9 @@ export async function loadRecordSet(db: ReadDatabase): Promise<RecordSet> {
       bio: row.bio ?? undefined,
       image: row.imagePath ?? undefined,
       links: linksOf('ambassador', row.id),
+      lumaProfileUrl: row.lumaProfileUrl ?? undefined,
+      // A boolean, not the id. See the note on `Ambassador.memberLinked`.
+      memberLinked: row.memberId ? true : undefined,
     } as Ambassador),
   );
 
@@ -578,6 +599,42 @@ export async function loadRecordSet(db: ReadDatabase): Promise<RecordSet> {
       citySlug: citySlug.get(row.cityId) ?? '',
       host: compact({
         ambassadorSlug: row.ambassadorId ? ambassadorSlug.get(row.ambassadorId) : undefined,
+        /**
+         * ── `credits` IS ALWAYS AN ARRAY, EVEN WHEN EMPTY ────────────────
+         *
+         * `compact()` drops undefined keys, and `optionalList()` turns an
+         * empty array into undefined — which is right for `builderSlugs`,
+         * where the record's convention is to omit an absent relationship.
+         *
+         * It is wrong here. The TypeScript source produces `credits: []` for
+         * an event with no ambassador (that is what `curatedCredits()` returns
+         * for one), so a database source that produced `undefined` for the
+         * same event would differ from it on every unattributed event and the
+         * equivalence suite would fail. Two sources, one convention: a credit
+         * list that is present and empty.
+         *
+         * `confidence` is parsed to a number because `numeric` comes back from
+         * the driver as a string — `'1.00'`, which is truthy, `>= 1` only by
+         * accident of string coercion, and not equal to the `1` the
+         * TypeScript record holds.
+         */
+        credits: sortCredits(
+          (hostCreditsByEvent.get(row.id) ?? [])
+            .map((credit) => {
+              const slug = ambassadorSlug.get(credit.ambassadorId);
+              // An attribution to an ambassador who is not published does not
+              // reach the public record. A credit must always lead somewhere.
+              return slug
+                ? {
+                    ambassadorSlug: slug,
+                    role: credit.role,
+                    source: credit.source,
+                    confidence: Number(credit.confidence),
+                  }
+                : undefined;
+            })
+            .filter((credit): credit is EventHostCredit => Boolean(credit)),
+        ),
         builderSlugs: optionalList(
           slugsOf(coHostsByEvent.get(row.id) ?? [], (r) => r.builderId, builderSlug),
         ),

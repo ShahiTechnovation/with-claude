@@ -32,10 +32,24 @@ const BOOTSTRAP_ENDPOINT = '/api/member/bootstrap/';
 const BOOTSTRAPPED_KEY = 'wc_bootstrapped';
 const NEEDS_USERNAME_KEY = 'wc_needs_username';
 const NUDGE_DISMISSED_KEY = 'wc_nudge_dismissed';
+/**
+ * The ambassador slug, cached per login alongside the other bootstrap facts.
+ *
+ * Cached for the same reason `needsUsername` is: the menu is rendered on every
+ * page, and a member who has already been provisioned must not cause a POST
+ * per navigation just so a menu item can be decided. §45, applied to a
+ * five-item dropdown.
+ */
+const AMBASSADOR_KEY = 'wc_ambassador_slug';
 
 type BootstrapState =
   | { status: 'idle' | 'running' }
-  | { status: 'done'; needsUsername: boolean }
+  | {
+      status: 'done';
+      needsUsername: boolean;
+      /** §43 — the slug when this member is a published ambassador, else null. */
+      ambassadorSlug: string | null;
+    }
   | { status: 'failed'; kind: 'server-unavailable' | 'auth-error' };
 
 /**
@@ -57,8 +71,13 @@ function useBootstrapOnce(): BootstrapState {
 
     const memberKey = `${BOOTSTRAPPED_KEY}:${user?.id ?? 'unknown'}`;
     const usernameKey = `${NEEDS_USERNAME_KEY}:${user?.id ?? 'unknown'}`;
+    const ambassadorKey = `${AMBASSADOR_KEY}:${user?.id ?? 'unknown'}`;
     if (sessionStorage.getItem(memberKey)) {
-      setState({ status: 'done', needsUsername: sessionStorage.getItem(usernameKey) === '1' });
+      setState({
+        status: 'done',
+        needsUsername: sessionStorage.getItem(usernameKey) === '1',
+        ambassadorSlug: sessionStorage.getItem(ambassadorKey) || null,
+      });
       return;
     }
 
@@ -83,11 +102,19 @@ function useBootstrapOnce(): BootstrapState {
           setState({ status: 'failed', kind });
           return;
         }
-        const body = (await response.json()) as { profile?: { needsUsername?: boolean } };
+        const body = (await response.json()) as {
+          profile?: { needsUsername?: boolean };
+          ambassador?: { slug?: string } | null;
+        };
         const needsUsername = Boolean(body.profile?.needsUsername);
+        const ambassadorSlug = body.ambassador?.slug ?? null;
         sessionStorage.setItem(memberKey, '1');
         sessionStorage.setItem(usernameKey, needsUsername ? '1' : '0');
-        setState({ status: 'done', needsUsername });
+        // Written as the empty string for "not an ambassador", so the cached
+        // read above can tell "we asked and the answer was no" from "we have
+        // not asked" — `getItem` returns null for both otherwise.
+        sessionStorage.setItem(ambassadorKey, ambassadorSlug ?? '');
+        setState({ status: 'done', needsUsername, ambassadorSlug });
       } catch {
         setState({ status: 'failed', kind: 'auth-error' });
       }
@@ -165,6 +192,14 @@ function AccountSlot({ bootstrap }: { bootstrap: BootstrapState }) {
 
   const initial = displayName[0]?.toUpperCase() ?? '•';
 
+  /**
+   * Null until the bootstrap call has answered, and null for nearly everyone
+   * after it. Read off the discriminated state rather than kept in its own
+   * `useState`, so the menu cannot show a stale ambassador link from a
+   * previous login in the same tab.
+   */
+  const ambassadorSlug = bootstrap.status === 'done' ? bootstrap.ambassadorSlug : null;
+
   const target = document.getElementById('account-slot-root');
   if (!target) return null;
 
@@ -232,6 +267,17 @@ function AccountSlot({ bootstrap }: { bootstrap: BootstrapState }) {
             <a href="/me/projects/" role="menuitem">
               Projects
             </a>
+            {/*
+              §43 — only when there is one. Ambassador status is a community
+              identity, not an account tier, so the overwhelming majority of
+              signed-in members never see this item and nothing on the menu
+              hints that they are missing anything.
+            */}
+            {ambassadorSlug && (
+              <a href={`/ambassadors/${ambassadorSlug}/`} role="menuitem">
+                Ambassador profile
+              </a>
+            )}
             <a href="/me/settings/" role="menuitem">
               Settings
             </a>

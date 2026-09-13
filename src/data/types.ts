@@ -72,6 +72,22 @@ export interface Ambassador extends RecordBase {
   bio?: string;
   image?: string;
   links?: SocialLink[];
+  /**
+   * The public Luma profile, when one has been configured. Editorial only —
+   * a link on the ambassador page, never a match key. See `hosts.ts`.
+   */
+  lumaProfileUrl?: string;
+  /**
+   * True when this ambassador has claimed a WITH CLAUDE account.
+   *
+   * A BOOLEAN and not the member id. §24 wants the ambassador page to
+   * cross-link the builder profile, which `builderSlug` already reaches — and
+   * a member id in the public record would be an internal identifier on a
+   * prerendered page for no reader's benefit. This carries the one fact the
+   * public pages need: whether the cross-link is a claimed account or a
+   * record about somebody who has not signed in.
+   */
+  memberLinked?: boolean;
 }
 
 // =========================================================================
@@ -133,6 +149,47 @@ export interface EventHost {
   builderSlugs?: string[];
   /** Organisations hosting, co-hosting, or lending the room. */
   organisations?: string[];
+  /**
+   * THE FULL ATTRIBUTION, AND WHAT SCORES.
+   *
+   * `ambassadorSlug` above says who headlines the event and drives the
+   * verified treatment. It cannot say that a second ambassador co-hosted, that
+   * a third organised, or that any of it came from a feed rather than from an
+   * editor — and §19 needs all three to compute a credit.
+   *
+   * So this is the complete list, one entry per (person, role), mirroring
+   * `event_hosts`. The primary entry here and `ambassadorSlug` are the same
+   * fact and are kept consistent by `setPrimaryHost()`; see the schema note on
+   * `event_hosts` for why the denormalisation is deliberate.
+   *
+   * NOT the same thing as `builderSlugs`. That is the curated archive's record
+   * of the builders who ran a room — a wider and older set of people, most of
+   * whom are not ambassadors and none of whom appear on the community-activity
+   * leaderboard.
+   */
+  credits?: EventHostCredit[];
+}
+
+/** The roles §19 assigns a credit weight to, plus speaking, which it does not. */
+export type EventHostRoleName = 'primary_host' | 'co_host' | 'organizer' | 'partner' | 'speaker';
+
+/** Where an attribution came from. Recorded on every credit, never inferred. */
+export type EventHostSourceName = 'curated' | 'ingest' | 'manual';
+
+/**
+ * One person's credit on one event.
+ *
+ * `confidence` is on the record rather than resolved away because §19 requires
+ * an ambiguous attribution to be visible and unscored at the same time, which
+ * needs a number a reader can be shown and `scoreOf()` can refuse.
+ */
+export interface EventHostCredit {
+  /** Must resolve against `ambassadors`, so a credit always leads somewhere. */
+  ambassadorSlug: string;
+  role: EventHostRoleName;
+  source: EventHostSourceName;
+  /** 0–1. Only 1 is scored. */
+  confidence: number;
 }
 
 export interface CommunityEvent extends RecordBase {

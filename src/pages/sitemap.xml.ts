@@ -53,7 +53,22 @@ export const GET: APIRoute = async () => {
       .from(schema.events)
       .where(eq(schema.events.status, 'published'));
 
-    // 4. Cities (using existing indexability logic which checks if they have public activity)
+    /**
+     * 4. Ambassadors — §40.
+     *
+     * The same visibility predicate the pages use: `/ambassadors/[slug]` is
+     * generated from `publicAmbassadors`, which is `status IN ('published',
+     * 'featured')`, and `published` is the only one of those an ambassador row
+     * can hold. A sitemap that advertised a draft ambassador would be offering
+     * a crawler a 404, and §40 asks specifically for the same predicate rather
+     * than a second one that happens to agree today.
+     */
+    const ambassadors = await db
+      .select({ slug: schema.ambassadors.slug, updatedAt: schema.ambassadors.updatedAt })
+      .from(schema.ambassadors)
+      .where(eq(schema.ambassadors.status, 'published'));
+
+    // 5. Cities (using existing indexability logic which checks if they have public activity)
     const cityPaths = indexableCityPaths();
 
     const staticPaths = [
@@ -62,6 +77,7 @@ export const GET: APIRoute = async () => {
       '/projects/',
       '/events/',
       '/cities/',
+      '/ambassadors/',
       '/record/'
     ];
 
@@ -79,6 +95,10 @@ export const GET: APIRoute = async () => {
       ...events.map((e) => ({
         url: `${ORIGIN}/events/${e.slug}/`,
         lastmod: e.updatedAt?.toISOString()
+      })),
+      ...ambassadors.map((a) => ({
+        url: `${ORIGIN}/ambassadors/${a.slug}/`,
+        lastmod: a.updatedAt?.toISOString()
       }))
     ];
 

@@ -1,0 +1,347 @@
+---
+import type { GetStaticPaths } from 'astro';
+import { profileSchema, titles, trail } from '@/lib/seo';
+import Base from '@/layouts/Base.astro';
+import Section from '@/components/Section.astro';
+import PageIntro from '@/components/PageIntro.astro';
+import EventArchive from '@/components/EventArchive.astro';
+import {
+  ambassadorStanding,
+  builderForAmbassador,
+  cityName,
+  projectsOf,
+  publicAmbassadors,
+} from '@/data';
+import { site } from '@/data/site';
+import { CREDIT_WEIGHT_LABELS } from '@/lib/credits';
+import { formatDate } from '@/lib/datetime';
+import { plural } from '@/lib/words';
+
+/**
+ * AN AMBASSADOR'S PUBLIC PAGE. §23, §24.
+ *
+ * ── WHAT THIS PAGE DOES NOT OWN ──────────────────────────────────────────
+ *
+ * Any of its content. §24 is explicit that an ambassador page must not
+ * duplicate profile content, so:
+ *
+ *   the bio, city, role      the `ambassadors` record, or the linked builder
+ *   the events               `events` + `event_hosts`, via `ambassadorStanding`
+ *   the projects             the linked builder's projects
+ *   the score                `src/lib/leaderboard.ts`, same function as the index
+ *
+ * Nothing is recomputed here and nothing is restated. That is what makes §50's
+ * "one canonical ambassador" true across `/ambassadors`, this page,
+ * `/cities/[slug]` and `/events/[slug]` — they are four renderings of one
+ * record, not four records.
+ *
+ * ── PROVENANCE IS NOT OPTIONAL ───────────────────────────────────────────
+ *
+ * §54: the page may not claim someone is an official Anthropic ambassador
+ * unless that is actually verified. `verifiedVia` is NOT NULL in the database
+ * for exactly this reason, and it is rendered on the page rather than kept as
+ * an internal note — a title with its source next to it is a claim a reader
+ * can check, and a title on its own is one they have to take on trust.
+ */
+export const getStaticPaths: GetStaticPaths = () =>
+  publicAmbassadors.map((ambassador) => ({ params: { slug: ambassador.slug } }));
+
+const { slug } = Astro.params;
+
+const standing = ambassadorStanding(String(slug));
+// `getStaticPaths` only ever emits published ambassadors, so this is a guard
+// against a build-order surprise rather than a reachable state.
+if (!standing) return Astro.redirect('/ambassadors');
+
+const { allTime, year, rank } = standing;
+const ambassador = allTime.ambassador;
+const home = cityName(ambassador.citySlug);
+const builder = builderForAmbassador(ambassador);
+const projects = builder ? projectsOf(builder) : [];
+
+const url = `${site.url}/ambassadors/${ambassador.slug}`;
+const description =
+  allTime.events.length > 0
+    ? `${ambassador.name} is a Claude Community Ambassador in ${home}, on the record for ` +
+      `${plural(allTime.events.length, 'Claude community event')} across ` +
+      `${plural(allTime.cities.length || 1, 'city', 'cities')}.`
+    : `${ambassador.name} is a Claude Community Ambassador in ${home}.`;
+
+const formula = CREDIT_WEIGHT_LABELS.map((w) => `${w.label} ×${w.weight}`).join(' · ');
+
+/**
+ * The links the page renders — and therefore the only ones `sameAs` may carry.
+ *
+ * `profileSchema` documents that rule; honouring it means building one list
+ * and using it for both the markup and the structured data.
+ */
+const links = [
+  ...(ambassador.links ?? []).map((link) => ({ label: link.label, url: link.url })),
+  ...(ambassador.lumaProfileUrl
+    ? [{ label: 'Luma', url: ambassador.lumaProfileUrl }]
+    : []),
+];
+---
+
+<Base
+  title={ambassador.name}
+  seoTitle={titles.ambassador(ambassador.name, home)}
+  description={description}
+  active="/ambassadors"
+  image={ambassador.image}
+  breadcrumbs={trail(
+    { name: 'Ambassadors', href: '/ambassadors' },
+    { name: ambassador.name, href: `/ambassadors/${ambassador.slug}` },
+  )}
+  schema={profileSchema(
+    {
+      name: ambassador.name,
+      slug: ambassador.slug,
+      city: home,
+      // The programme title, verbatim, because it is what the page prints.
+      role: ambassador.title,
+      bio: ambassador.bio,
+      links,
+      image: ambassador.image,
+    },
+    url,
+  )}
+>
+  <PageIntro
+    eyebrow="Ambassador"
+    title={ambassador.name}
+    stamp={`${home} · rank ${String(rank).padStart(2, '0')}`}
+    size="lg"
+    facts={[
+      { label: 'Events', value: String(allTime.events.length).padStart(2, '0') },
+      { label: 'Upcoming', value: String(allTime.upcoming.length).padStart(2, '0') },
+      { label: 'Score', value: allTime.score.toFixed(2) },
+    ]}
+  >
+    <p>
+      <strong>{ambassador.title}</strong> in {home}.
+      {ambassador.since && ` On the record since ${formatDate(ambassador.since)}.`}
+    </p>
+    {ambassador.bio && <p>{ambassador.bio}</p>}
+    <p class="provenance">
+      <span class="provenance-label">How this is verified</span>
+      {ambassador.verifiedVia}
+    </p>
+  </PageIntro>
+
+  {
+    (builder || links.length > 0) && (
+      <Section id="elsewhere" labelledby="elsewhere-heading">
+        <div class="container-wide">
+          <h2 id="elsewhere-heading" class="label">Elsewhere on the record</h2>
+          <ul class="links">
+            {builder && (
+              <li>
+                <a href={`/builders/${builder.slug}`}>
+                  Builder profile
+                  <span class="link-note">
+                    {ambassador.memberLinked
+                      ? 'A claimed WITH CLAUDE account'
+                      : 'A community profile on this site'}
+                  </span>
+                </a>
+              </li>
+            )}
+            {projects.length > 0 && (
+              <li>
+                <a href={`/builders/${builder!.slug}#projects`}>
+                  {plural(projects.length, 'project')}
+                  <span class="link-note">Built with Claude</span>
+                </a>
+              </li>
+            )}
+            {links.map((link) => (
+              <li>
+                <a href={link.url} rel="me noopener" target="_blank">
+                  {link.label}
+                  <span class="link-note">Off this site</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </Section>
+    )
+  }
+
+  {/*
+    §23's two lists. `EventArchive` is the same component the events index and
+    the city pages use, so a room reads identically wherever it appears —
+    which is what §50 asks for and what a second bespoke event list here
+    would quietly break.
+  */}
+  {
+    allTime.upcoming.length > 0 && (
+      <Section id="upcoming" labelledby="upcoming-heading">
+        <div class="container-wide section-head">
+          <p class="eyebrow">Ahead</p>
+          <h2 id="upcoming-heading">Upcoming events</h2>
+        </div>
+        <EventArchive events={allTime.upcoming} showHead={false} />
+      </Section>
+    )
+  }
+
+  {
+    allTime.past.length > 0 && (
+      <Section id="past" tone="sunk" labelledby="past-heading">
+        <div class="container-wide section-head">
+          <p class="eyebrow">Archive</p>
+          <h2 id="past-heading">Past events</h2>
+        </div>
+        <EventArchive events={allTime.past} showHead={false} />
+      </Section>
+    )
+  }
+
+  {
+    allTime.events.length === 0 && (
+      <Section id="no-events" labelledby="no-events-heading">
+        <div class="container-wide">
+          <h2 id="no-events-heading" class="label">Events</h2>
+          <p class="prose">
+            No events are attributed to {ambassador.name} on this site yet. Events are
+            recorded from the curated archive and from the public Claude Community
+            calendar; an event only carries a host credit once that attribution has been
+            confirmed.
+          </p>
+        </div>
+      </Section>
+    )
+  }
+
+  <Section id="activity" labelledby="activity-heading">
+    <div class="container-wide">
+      <p class="eyebrow">Community activity</p>
+      <hr class="rule-line" />
+      <h2 id="activity-heading">What is on the record</h2>
+
+      <dl class="activity">
+        <div>
+          <dt>Events hosted</dt>
+          <dd>{String(allTime.roleCounts.primary_host).padStart(2, '0')}</dd>
+        </div>
+        <div>
+          <dt>Co-hosted</dt>
+          <dd>{String(allTime.roleCounts.co_host).padStart(2, '0')}</dd>
+        </div>
+        <div>
+          <dt>Organised</dt>
+          <dd>{String(allTime.roleCounts.organizer).padStart(2, '0')}</dd>
+        </div>
+        <div>
+          <dt>Cities</dt>
+          <dd>{String(allTime.cities.length).padStart(2, '0')}</dd>
+        </div>
+        <div>
+          <dt>Activity score</dt>
+          <dd>{allTime.score.toFixed(2)}</dd>
+        </div>
+        <div>
+          {/*
+            §21 — recent activity alongside the all-time figure, never instead
+            of it. A page that showed only the current year would make a
+            long-term organiser look inactive for eleven months of it.
+          */}
+          <dt>This year</dt>
+          <dd>{year.score.toFixed(2)}</dd>
+        </div>
+      </dl>
+
+      <p class="prose note">
+        The activity score is an index this site calculates from event records:
+        <strong>{` ${formula}`}</strong>. It is not an Anthropic ranking and implies no
+        endorsement. Attendance and registration figures are not counted, because the
+        sources do not publish them.
+        {allTime.unscoredCredits > 0 &&
+          ` ${plural(allTime.unscoredCredits, 'further attribution')} is on the record awaiting confirmation and is not counted here.`}
+      </p>
+
+      <p class="prose">
+        <a href="/ambassadors">All ambassadors</a>
+        <span class="sep">·</span>
+        <a href={`/cities/${ambassador.citySlug}`}>{`Claude community in ${home}`}</a>
+      </p>
+    </div>
+  </Section>
+</Base>
+
+<style>
+  .provenance {
+    display: grid;
+    gap: 0.15rem;
+    margin-top: var(--s-4);
+    font-size: var(--t-small);
+    color: var(--ink-2);
+  }
+
+  .provenance-label {
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .links {
+    list-style: none;
+    margin: var(--s-4) 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+    gap: var(--s-4);
+  }
+
+  .links a {
+    display: grid;
+    gap: 0.2rem;
+    padding: var(--s-4);
+    border: var(--border-hair) solid var(--rule-strong);
+    text-decoration: none;
+    color: var(--ink);
+  }
+
+  .links a:hover,
+  .links a:focus-visible {
+    background: var(--paper-raised);
+  }
+
+  .link-note {
+    font-size: var(--t-micro);
+    color: var(--ink-3);
+  }
+
+  .activity {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+    gap: var(--s-5);
+    margin: var(--s-5) 0 var(--s-6);
+  }
+
+  .activity dt {
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .activity dd {
+    margin: 0.2rem 0 0;
+    font-family: var(--font-mono);
+    font-size: var(--t-h3);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .note {
+    max-width: 66ch;
+  }
+
+  .sep {
+    margin: 0 var(--s-3);
+    color: var(--ink-3);
+  }
+</style>

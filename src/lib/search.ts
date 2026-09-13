@@ -35,8 +35,10 @@ import {
   cityName,
   citySignalsRanked,
   claudeSurfaces,
+  builderForAmbassador,
   eventsChronological,
   guidesChronological,
+  publicAmbassadors,
   publicBuilders,
   publicCities,
   publicProjects,
@@ -95,6 +97,58 @@ function personRecords(): SearchRecord[] {
       weight: builder.status === 'featured' ? 2 : 1,
     };
   });
+}
+
+/**
+ * AMBASSADORS IN THE ONE INDEX. §39.
+ *
+ * §39 is explicit that there must be no separate ambassador search index and
+ * one ranking model, so these are `SearchRecord`s of kind `person` in the same
+ * list as the builders, scored by the same `runSearch()`. There is no second
+ * index, no second ranker, and no ambassador-only query path.
+ *
+ * ── THE DUPLICATE THIS AVOIDS ────────────────────────────────────────────
+ *
+ * Most ambassadors also have a builder record — `ambassadors.builder_id` is
+ * exactly that link — and `personRecords()` already indexes every public
+ * builder. Indexing both would put the same human in the results twice, under
+ * two URLs, which is precisely what §50's "one canonical ambassador appears
+ * consistently" forbids.
+ *
+ * So an ambassador is indexed here ONLY when they have no builder record to be
+ * found under. When they do have one, the builder entry is the canonical
+ * search result and their ambassador page is reachable from it — the builder
+ * profile renders the ambassador chip, and `ambassadorForBuilder()` is what
+ * puts it there.
+ *
+ * The weight is 2 for the same reason a featured builder gets 2: a verified
+ * ambassador is a strong match for a query about a place or the community, and
+ * this is the one ranking signal the index has to express that.
+ */
+function ambassadorRecords(): SearchRecord[] {
+  return publicAmbassadors
+    .filter((ambassador) => !builderForAmbassador(ambassador))
+    .map((ambassador) => ({
+      id: `ambassador:${ambassador.slug}`,
+      kind: 'person' as const,
+      title: ambassador.name,
+      subtitle: [cityName(ambassador.citySlug), ambassador.title].filter(Boolean).join(' · '),
+      summary: ambassador.bio ?? `${ambassador.title} in ${cityName(ambassador.citySlug)}.`,
+      href: `/ambassadors/${ambassador.slug}`,
+      facets: {
+        city: ambassador.citySlug,
+        category: 'ambassador',
+        surfaces: [],
+      },
+      terms: lower([
+        ambassador.name,
+        ambassador.title,
+        ambassador.bio,
+        cityName(ambassador.citySlug),
+        'ambassador host organiser',
+      ]),
+      weight: 2,
+    }));
 }
 
 function projectRecords(): SearchRecord[] {
@@ -265,6 +319,7 @@ export function buildSearchIndex(now: Date = new Date()): SearchRecord[] {
   const signals = citySignalsRanked(now);
   const all = [
     ...personRecords(),
+    ...ambassadorRecords(),
     ...projectRecords(),
     ...eventRecords(now),
     ...cityRecords(signals),

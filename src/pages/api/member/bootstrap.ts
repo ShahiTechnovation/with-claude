@@ -22,7 +22,9 @@
  * exactly the input this endpoint must not have.
  */
 import type { APIRoute } from 'astro';
+import { and, eq } from 'drizzle-orm';
 import { pooledDb } from '../../../../db/pool';
+import * as schema from '../../../../db/schema';
 import { verifyRequest } from '@/server/auth/privy';
 import { ensureProfileShell, provisionMember, statusFor } from '@/server/auth/member';
 import { assertSameOrigin, fetchSiteAllows } from '@/server/http/origin';
@@ -65,6 +67,32 @@ export const POST: APIRoute = async ({ request }) => {
 
   const shell = await ensureProfileShell(member, db);
 
+  /**
+   * Is this member also a verified ambassador? §43.
+   *
+   * The account menu shows an "Ambassador profile" item only when there is one
+   * to show, which means the client has to be told. It is answered here rather
+   * than by a second endpoint because this response is already the one call
+   * the menu makes after login.
+   *
+   * ── WHY THE SLUG AND NOT A BOOLEAN ───────────────────────────────────────
+   *
+   * The menu needs somewhere to link to. A boolean would force the client to
+   * construct the URL from a username, and an ambassador slug is NOT a
+   * username — they are separate identifiers on separate tables, and guessing
+   * one from the other is how a menu item starts 404ing for the people it is
+   * for.
+   *
+   * `status = 'published'` because an unpublished ambassador record has no
+   * public page. Linking to one would send the person it belongs to to a 404.
+   */
+  const [ambassador] = await db
+    .select({ slug: schema.ambassadors.slug })
+    .from(schema.ambassadors)
+    .where(
+      and(eq(schema.ambassadors.memberId, member.id), eq(schema.ambassadors.status, 'published')),
+    );
+
   return json(
     {
       member: { id: member.id, status: member.status },
@@ -75,6 +103,8 @@ export const POST: APIRoute = async ({ request }) => {
         // handle yet, or are they still on the placeholder?
         needsUsername: isPlaceholderUsername(shell.username),
       },
+      /** Null for almost everyone. §25 — ambassador status is not an account tier. */
+      ambassador: ambassador ? { slug: ambassador.slug } : null,
     },
     created ? 201 : 200,
   );
