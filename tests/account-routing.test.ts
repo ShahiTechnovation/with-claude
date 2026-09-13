@@ -24,6 +24,40 @@ describe('account routing', () => {
     expect(page).toContain('<AuthRequired reason={guard.reason} />');
   });
 
+  /**
+   * A `/me/*` RESPONSE IS NEVER PUBLICLY CACHEABLE — INCLUDING THE GATE.
+   *
+   * Every one of these pages called `privateHeaders()` inside its own
+   * `if (guard.ok)` branch, so an authenticated response was correctly
+   * `private, no-store` while every unauthenticated one came back
+   * `public, max-age=0, must-revalidate`. That was observed on production.
+   *
+   * It is the wrong way round for a URL whose body depends on who is asking:
+   * `/me/profile` returns a sign-in gate to one visitor and a person's name,
+   * city and email preference to the next, and a shared cache is not obliged
+   * to tell them apart.
+   *
+   * The fix is structural — `guardPage()` sets the headers itself, on every
+   * outcome, so no page can forget and the next account page inherits it. This
+   * asserts the guarantee lives there rather than in seven copies.
+   */
+  it('sets private, no-store headers from the guard rather than per page', () => {
+    const guard = source('src/server/http/page-guard.ts');
+
+    // Called unconditionally, before any branch on the outcome.
+    const body = guard.slice(guard.indexOf('export async function guardPage'));
+    const callIndex = body.indexOf('privateHeaders(astro)');
+    const firstBranch = body.indexOf('if (!identity.ok)');
+    expect(callIndex, 'guardPage does not call privateHeaders').toBeGreaterThan(-1);
+    expect(
+      callIndex,
+      'privateHeaders must run before the guard branches, so failures get it too',
+    ).toBeLessThan(firstBranch);
+
+    expect(guard).toContain("'Cache-Control', 'private, no-store'");
+    expect(guard).toContain("'X-Robots-Tag', 'noindex, nofollow'");
+  });
+
   it('sends the account menu to the actual profile, projects, and settings pages', () => {
     const menu = source('src/components/react/PrivyRoot.tsx');
     expect(menu).toContain('href="/me/profile/"');

@@ -97,6 +97,28 @@ export async function guardPage(
   astro: AstroGlobal,
   _options: { allowMissingProfile?: boolean } = {},
 ): Promise<PageGuard> {
+  /**
+   * PRIVATE HEADERS FIRST, ON EVERY OUTCOME — INCLUDING THE FAILURES.
+   *
+   * Each of the seven `/me/*` pages called `privateHeaders()` inside its own
+   * `if (guard.ok)` branch, so an authenticated response was correctly
+   * `private, no-store` and every UNAUTHENTICATED one came back
+   * `public, max-age=0, must-revalidate`. Verified on production before this
+   * changed.
+   *
+   * That is the wrong way round for a URL whose response depends on who is
+   * asking. `/me/profile` returns a sign-in gate to one visitor and a person's
+   * name, city and email preference to the next, and a shared cache is not
+   * required to know the difference — `public` is an invitation to store the
+   * response and serve it to somebody else.
+   *
+   * Setting them here rather than in the pages makes it structural: a page
+   * cannot forget, and the eighth account page inherits it. The pages keep
+   * their own calls, which are now redundant and idempotent; this is the
+   * guarantee.
+   */
+  privateHeaders(astro);
+
   const db = pooledDb();
   const identity = await requireMember(astro.request, db);
 

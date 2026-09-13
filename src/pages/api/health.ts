@@ -50,7 +50,21 @@ export const GET: APIRoute = async () => {
     dataSource: (process.env.DATA_SOURCE ?? 'ts').trim().toLowerCase() || 'ts',
     privy: Boolean(process.env.PRIVY_APP_ID?.trim() && process.env.PRIVY_VERIFICATION_KEY?.trim()),
     privyPublic: Boolean(process.env.PUBLIC_PRIVY_APP_ID?.trim()),
-    blob: Boolean(process.env.BLOB_READ_WRITE_TOKEN?.trim() || process.env.VERCEL_OIDC_TOKEN?.trim()),
+    /**
+     * `BLOB_READ_WRITE_TOKEN` AND NOTHING ELSE.
+     *
+     * This deliberately does NOT accept `VERCEL_OIDC_TOKEN` as a substitute,
+     * which an earlier version did. The two are not interchangeable:
+     * `handleUpload()` in `@vercel/blob/client` mints its client upload token
+     * from the read-write token specifically, so a deployment with OIDC and no
+     * blob token cannot accept an upload.
+     *
+     * Reporting them as equivalent made this endpoint answer `blob: true` on a
+     * deployment where every upload would fail — the exact opposite of what a
+     * health check is for. Production currently has `BLOB_STORE_ID` (the store
+     * is connected) but no read-write token, so this correctly reads false.
+     */
+    blob: Boolean(process.env.BLOB_READ_WRITE_TOKEN?.trim()),
     resend: Boolean(process.env.RESEND_API_KEY?.trim()),
     cron: Boolean(process.env.CRON_SECRET?.trim()),
     lumaApi: Boolean(process.env.LUMA_API_KEY?.trim()),
