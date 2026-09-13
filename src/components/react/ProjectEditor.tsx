@@ -81,37 +81,40 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Init
     try {
       let currentId = id;
 
-      // Upload file if selected
+      // 1. Create draft FIRST if it doesn't exist
+      if (!currentId) {
+        const draftPayload = { ...formData };
+        const res = await mutate('/api/projects/', { method: 'POST', body: JSON.stringify(draftPayload) });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || (await describeAccountError(res)));
+        currentId = data.id;
+        setId(currentId);
+        window.history.replaceState({}, '', `/me/projects/${currentId}/edit/`);
+      }
+
+      // 2. Upload file if selected, now using the valid projectId
       let finalImagePath = formData.imagePath;
       if (file) {
         const newBlob = await upload(file.name, file, {
           access: 'public',
           handleUploadUrl: '/api/media/upload',
+          clientPayload: JSON.stringify({ projectId: currentId, alt: formData.title || 'Project image' }),
         });
         finalImagePath = newBlob.url;
         setFormData((prev) => ({ ...prev, imagePath: finalImagePath }));
       }
 
+      // 3. Prepare payload with updated imagePath
       const payload = {
         ...formData,
         imagePath: finalImagePath,
       };
 
-      if (!currentId) {
-        // Create draft
-        const res = await mutate('/api/projects/', { method: 'POST', body: JSON.stringify(payload) });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || (await describeAccountError(res)));
-        currentId = data.id;
-        setId(data.id);
-        window.history.replaceState({}, '', `/me/projects/${data.id}/edit/`);
-      } else {
-        // Update existing
-        const res = await mutate(`/api/projects/${currentId}/`, { method: 'PUT', body: JSON.stringify(payload) });
-        if (!res.ok) {
-          const data = await res.json().catch(() => null);
-          throw new Error(data?.error || (await describeAccountError(res)));
-        }
+      // 4. Update the existing project
+      const res = await mutate(`/api/projects/${currentId}/`, { method: 'PUT', body: JSON.stringify(payload) });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || (await describeAccountError(res)));
       }
 
       if (publish && status !== 'published') {

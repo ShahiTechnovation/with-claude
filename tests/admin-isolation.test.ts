@@ -152,6 +152,7 @@ describe("the public site does not share the admin's authentication", () => {
         'src/pages/api/submit.ts',
         'src/pages/api/webhooks/luma.ts',
         'src/pages/builders/[slug].astro',
+        'src/pages/builders/index.astro',
         'src/pages/me/index.astro',
         'src/pages/me/profile/edit.astro',
         'src/pages/me/profile/index.astro',

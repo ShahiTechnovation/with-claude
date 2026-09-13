@@ -80,16 +80,7 @@ const counts = [
     </div>
   </div>
 
-  {
-    signal.reportedSources.length > 0 && signal.reportedMembers && (
-      <p class="signal-footnote">
-        Separately, {signal.reportedMembers}+ people are reported as part of the community locally.
-        That figure is self-reported and not independently verified —{' '}
-        {signal.reportedSources.join('; ')}. It is deliberately kept out of the counts above, which
-        are derived from the record.
-      </p>
-    )
-  }
+
 </div>
 
 <style>
@@ -249,14 +240,7 @@ const counts = [
     color: var(--ink-3);
   }
 
-  .signal-footnote {
-    margin-top: var(--s-5);
-    max-width: 72ch;
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    line-height: 1.75;
-    color: var(--ink-3);
-  }
+
 
   /* Vertical hairlines between counts, but never a trailing one. */
   @media (min-width: 42em) {

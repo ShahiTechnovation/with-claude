@@ -263,7 +263,20 @@ export async function createAmbassador(
  * important refusal in the system — see `matchAmbassador()`.
  */
 function conflictMessage(error: unknown): string {
-  const text = error instanceof Error ? error.message : String(error);
+  /**
+   * Drizzle wraps the driver's error rather than surfacing it directly: the
+   * top-level `.message` is always the generic `"Failed query: insert into
+   * ..."`, and Postgres's own "duplicate key value violates unique
+   * constraint ..." — the string every check below actually matches against
+   * — lives one level down, in `.cause`. Checking only the top-level message
+   * meant every one of these five checks matched nothing, ever, and every
+   * conflict fell through to the generic fallback. Caught by
+   * `tests/admin-ambassador-flow.test.ts` asserting the ACTUAL sentence a
+   * moderator would see, rather than only that a promise rejected.
+   */
+  const text = [error, (error as { cause?: unknown } | undefined)?.cause]
+    .map((e) => (e instanceof Error ? e.message : ''))
+    .join(' ');
   if (text.includes('ambassadors_luma_display_name_unique')) {
     return 'Another ambassador is already configured with that Luma organiser name. One organiser name can only map to one person — that is what keeps event attribution unambiguous.';
   }

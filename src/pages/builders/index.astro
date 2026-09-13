@@ -6,7 +6,34 @@ import PageIntro from '@/components/PageIntro.astro';
 import BuilderIndex from '@/components/BuilderIndex.astro';
 import SubmitPanel from '@/components/SubmitPanel.astro';
 import StoryStrip from '@/components/StoryStrip.astro';
-import { publicAmbassadors, publicBuilders, site } from '@/data';
+import { publicAmbassadors, site } from '@/data';
+import { getPublicBuilderList } from '@/server/directory';
+
+/**
+ * LIVE BUILDERS LISTING.
+ *
+ * `prerender = false` makes this an SSR route: it queries the database at
+ * request time, so a member who just published their Builder Passport appears
+ * here immediately — without a Git push, without a rebuild.
+ *
+ * The individual profile page `/builders/[slug]` has always been SSR for the
+ * same reason. This page now matches it.
+ *
+ * Cache-Control: `s-maxage=60` lets Vercel's CDN cache for up to one minute,
+ * so the database is not queried on every single request during a burst, but a
+ * newly published builder is visible within 60 seconds at most.
+ */
+export const prerender = false;
+
+const liveBuilders = await getPublicBuilderList();
+
+// Cache at the CDN for up to 60 s; stale responses may be served for up to
+// 24 h while a fresh fetch runs in the background. A newly published builder
+// therefore appears on the CDN within one minute without a rebuild.
+Astro.response.headers.set(
+  'Cache-Control',
+  'public, max-age=0, s-maxage=60, stale-while-revalidate=86400',
+);
 ---
 
 <Base
@@ -19,13 +46,13 @@ import { publicAmbassadors, publicBuilders, site } from '@/data';
   <PageIntro
     eyebrow="Builders"
     title="Claude Builders in India"
-    stamp={`${String(publicBuilders.length).padStart(2, '0')} on the index`}
+    stamp={`${String(liveBuilders.length).padStart(2, '0')} on the index`}
     facts={[
-      { label: 'On the index', value: String(publicBuilders.length).padStart(2, '0') },
+      { label: 'On the index', value: String(liveBuilders.length).padStart(2, '0') },
       { label: 'Ambassadors', value: String(publicAmbassadors.length).padStart(2, '0') },
       {
         label: 'Cities',
-        value: String(new Set(publicBuilders.map((b) => b.citySlug)).size).padStart(2, '0'),
+        value: String(new Set(liveBuilders.map((b) => b.citySlug)).size).padStart(2, '0'),
       },
     ]}
   >
@@ -37,7 +64,7 @@ import { publicAmbassadors, publicBuilders, site } from '@/data';
   </PageIntro>
 
   <Section id="roster" tone="sunk" labelledby="builders-heading">
-    <BuilderIndex heading="The index" eyebrow="Index" />
+    <BuilderIndex heading="The index" eyebrow="Index" builders={liveBuilders} />
   </Section>
 
   <Section id="add" labelledby="contribute-heading">

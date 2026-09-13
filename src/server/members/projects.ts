@@ -97,11 +97,28 @@ export async function getMemberProjects(
  * "not yours" — deliberately indistinguishable, so this cannot be used to
  * enumerate which project ids exist.
  */
+/**
+ * `projects.id` is `uuid`. Postgres refuses to compare it against a string
+ * that is not one — `invalid input syntax for type uuid`, thrown from the
+ * database rather than caught here — which turns a malformed id into a 500
+ * instead of the 403/404 every other "not yours" or "not found" path returns.
+ *
+ * Every route that reaches `getMemberProject` already validates its id with
+ * `z.string().uuid()` before calling it (see `src/pages/api/media/upload.ts`
+ * and the sibling project routes), so this can never fire in production. It
+ * is here anyway because this function, not its callers, is what makes "not
+ * a real id" and "not your project" the same answer — `null` — rather than a
+ * third failure mode a caller has to remember to guard against separately.
+ */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function getMemberProject(
   memberId: string,
   projectId: string,
   db: AnyDatabase,
 ): Promise<MemberProject | null> {
+  if (!UUID_RE.test(projectId)) return null;
+
   const rows = (await db
     .selectDistinct(projectColumns)
     .from(schema.projects)

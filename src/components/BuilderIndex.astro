@@ -1,6 +1,6 @@
 ---
 import { Image } from 'astro:assets';
-import { ambassadorForBuilder, cityName, eventsOf, projectsOf, publicBuilders } from '@/data';
+import { ambassadorForBuilder, cityName, eventsOf, projectsOf, publicBuilders, type Builder } from '@/data';
 import { asset } from '@/lib/images';
 
 /**
@@ -21,6 +21,7 @@ interface Props {
   showHead?: boolean;
   heading?: string;
   eyebrow?: string;
+  builders?: Builder[];
 }
 
 const {
@@ -29,19 +30,40 @@ const {
   showHead = true,
   heading = 'Who’s building',
   eyebrow = 'Builders',
+  builders = publicBuilders,
 } = Astro.props;
 
-const scoped = citySlug ? publicBuilders.filter((b) => b.citySlug === citySlug) : publicBuilders;
+const scoped = citySlug ? builders.filter((b) => b.citySlug === citySlug) : builders;
 
 // Ambassadors lead the index; everyone else follows in the order they joined.
+/**
+ * `builder.image` is one string with two possible meanings — see the note on
+ * `getPublicBuilderList()` in `src/server/directory.ts`. A repository asset
+ * key (`events/vol02-1.jpg`) resolves through the `astro:assets` registry and
+ * renders via `<Image>`, which is what every other image on this site does.
+ * An uploaded avatar is already an absolute Blob URL and cannot go through
+ * that pipeline — it was never processed at build time — so it renders
+ * through a plain `<img>` instead. The two are distinguished by the one fact
+ * that actually tells them apart: whether the value parses as an absolute URL.
+ */
+function isRemoteUrl(value: string): boolean {
+  try {
+    return Boolean(new URL(value).protocol.startsWith('http'));
+  } catch {
+    return false;
+  }
+}
+
 const entries = scoped
   .map((builder) => {
     const ambassador = ambassadorForBuilder(builder);
+    const remote = builder.image && isRemoteUrl(builder.image) ? builder.image : undefined;
     return {
       builder,
       ambassador,
       city: cityName(builder.citySlug),
-      portrait: asset(builder.image),
+      portrait: remote ? undefined : asset(builder.image),
+      remotePortrait: remote,
       eventCount: eventsOf(builder).length,
       projectCount: projectsOf(builder).length,
     };
@@ -87,6 +109,8 @@ const remaining = entries.length - rows.length;
                   loading="lazy"
                   decoding="async"
                 />
+              ) : entry.remotePortrait ? (
+                <img src={entry.remotePortrait} alt="" loading="lazy" decoding="async" />
               ) : (
                 <span class="row-initials">
                   {entry.builder.name
