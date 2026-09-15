@@ -6,8 +6,9 @@ import PageIntro from '@/components/PageIntro.astro';
 import BuilderIndex from '@/components/BuilderIndex.astro';
 import SubmitPanel from '@/components/SubmitPanel.astro';
 import StoryStrip from '@/components/StoryStrip.astro';
-import { publicAmbassadors, site } from '@/data';
-import { getPublicBuilderList } from '@/server/directory';
+import { site } from '@/data';
+import { getPublicBuilderList, loadLiveRecords } from '@/server/directory';
+import { RecordSelectors } from '@/data/selectors';
 
 /**
  * LIVE BUILDERS LISTING.
@@ -25,7 +26,10 @@ import { getPublicBuilderList } from '@/server/directory';
  */
 export const prerender = false;
 
-const liveBuilders = await getPublicBuilderList();
+const _rs = await loadLiveRecords();
+const selectors = new RecordSelectors(_rs);
+
+const liveBuilders = selectors.publicBuilders;
 
 // Cache at the CDN for up to 60 s; stale responses may be served for up to
 // 24 h while a fresh fetch runs in the background. A newly published builder
@@ -49,7 +53,7 @@ Astro.response.headers.set(
     stamp={`${String(liveBuilders.length).padStart(2, '0')} on the index`}
     facts={[
       { label: 'On the index', value: String(liveBuilders.length).padStart(2, '0') },
-      { label: 'Ambassadors', value: String(publicAmbassadors.length).padStart(2, '0') },
+      { label: 'Ambassadors', value: String(selectors.publicAmbassadors.length).padStart(2, '0') },
       {
         label: 'Cities',
         value: String(new Set(liveBuilders.map((b) => b.citySlug)).size).padStart(2, '0'),
@@ -64,7 +68,7 @@ Astro.response.headers.set(
   </PageIntro>
 
   <Section id="roster" tone="sunk" labelledby="builders-heading">
-    <BuilderIndex heading="The index" eyebrow="Index" builders={liveBuilders} />
+    <BuilderIndex heading="The index" eyebrow="Index" builders={liveBuilders} selectors={selectors} />
   </Section>
 
   <Section id="add" labelledby="contribute-heading">

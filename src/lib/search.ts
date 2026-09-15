@@ -29,23 +29,7 @@
  * browser island can run the identical scoring as you type.
  */
 
-import {
-  builderNamesOf,
-  buildersOf,
-  cityName,
-  citySignalsRanked,
-  claudeSurfaces,
-  builderForAmbassador,
-  eventsChronological,
-  guidesChronological,
-  publicAmbassadors,
-  publicBuilders,
-  publicCities,
-  publicProjects,
-  publicStories,
-  useCasesChronological,
-} from '@/data';
-import type { CitySignal } from '@/data';
+import type { CitySignal, RecordSelectors } from '@/data/selectors';
 import { formatName, lifecycleOf } from '@/lib/status';
 import { SEARCH_KINDS, parseQuery, runSearch } from '@/lib/search-core';
 import type { SearchRecord, SearchResult, SearchVocabulary } from '@/lib/search-core';
@@ -59,8 +43,8 @@ export * from '@/lib/search-core';
 const lower = (parts: (string | undefined)[]): string =>
   parts.filter(Boolean).join(' ').toLowerCase();
 
-function personRecords(): SearchRecord[] {
-  return publicBuilders.map((builder) => {
+function personRecords(selectors: RecordSelectors): SearchRecord[] {
+  return selectors.publicBuilders.map((builder) => {
     /**
      * Ambassador status is not a role a builder carries.
      *
@@ -77,7 +61,7 @@ function personRecords(): SearchRecord[] {
       id: `person:${builder.slug}`,
       kind: 'person' as const,
       title: builder.name,
-      subtitle: [cityName(builder.citySlug), builder.role].filter(Boolean).join(' · '),
+      subtitle: [selectors.cityName(builder.citySlug), builder.role].filter(Boolean).join(' · '),
       summary: builder.building ?? builder.bio ?? builder.role,
       href: `/builders/${builder.slug}`,
       facets: {
@@ -90,7 +74,7 @@ function personRecords(): SearchRecord[] {
         builder.role,
         builder.building,
         builder.bio,
-        cityName(builder.citySlug),
+        selectors.cityName(builder.citySlug),
         roles.join(' '),
         (builder.claudeTools ?? []).join(' '),
       ]),
@@ -125,15 +109,15 @@ function personRecords(): SearchRecord[] {
  * ambassador is a strong match for a query about a place or the community, and
  * this is the one ranking signal the index has to express that.
  */
-function ambassadorRecords(): SearchRecord[] {
-  return publicAmbassadors
-    .filter((ambassador) => !builderForAmbassador(ambassador))
+function ambassadorRecords(selectors: RecordSelectors): SearchRecord[] {
+  return selectors.publicAmbassadors
+    .filter((ambassador) => !selectors.builderForAmbassador(ambassador))
     .map((ambassador) => ({
       id: `ambassador:${ambassador.slug}`,
       kind: 'person' as const,
       title: ambassador.name,
-      subtitle: [cityName(ambassador.citySlug), ambassador.title].filter(Boolean).join(' · '),
-      summary: ambassador.bio ?? `${ambassador.title} in ${cityName(ambassador.citySlug)}.`,
+      subtitle: [selectors.cityName(ambassador.citySlug), ambassador.title].filter(Boolean).join(' · '),
+      summary: ambassador.bio ?? `${ambassador.title} in ${selectors.cityName(ambassador.citySlug)}.`,
       href: `/ambassadors/${ambassador.slug}`,
       facets: {
         city: ambassador.citySlug,
@@ -144,19 +128,19 @@ function ambassadorRecords(): SearchRecord[] {
         ambassador.name,
         ambassador.title,
         ambassador.bio,
-        cityName(ambassador.citySlug),
+        selectors.cityName(ambassador.citySlug),
         'ambassador host organiser',
       ]),
       weight: 2,
     }));
 }
 
-function projectRecords(): SearchRecord[] {
-  return publicProjects.map((project) => ({
+function projectRecords(selectors: RecordSelectors): SearchRecord[] {
+  return selectors.publicProjects.map((project) => ({
     id: `project:${project.slug}`,
     kind: 'project' as const,
     title: project.title,
-    subtitle: [cityName(project.citySlug), formatName(project.category)].join(' · '),
+    subtitle: [selectors.cityName(project.citySlug), formatName(project.category)].join(' · '),
     summary: project.summary,
     href: `/projects/${project.slug}`,
     facets: {
@@ -169,12 +153,12 @@ function projectRecords(): SearchRecord[] {
       project.summary,
       project.description,
       project.claudeUsage,
-      cityName(project.citySlug),
+      selectors.cityName(project.citySlug),
       project.category,
       (project.tags ?? []).join(' '),
-      buildersOf(project)
+      selectors.buildersOf(project)
         .map((b) => b.name)
-        .concat(builderNamesOf(project).map((b) => b.name))
+        .concat(selectors.builderNamesOf(project).map((b) => b.name))
         .join(' '),
     ]),
     weight: project.status === 'featured' ? 2 : 1,
@@ -182,15 +166,15 @@ function projectRecords(): SearchRecord[] {
   }));
 }
 
-function eventRecords(now: Date): SearchRecord[] {
-  return eventsChronological.map((event) => {
+function eventRecords(selectors: RecordSelectors, now: Date): SearchRecord[] {
+  return selectors.eventsChronological.map((event) => {
     const lifecycle = lifecycleOf(event, now);
     const ahead = lifecycle !== 'past' && lifecycle !== 'cancelled';
     return {
       id: `event:${event.slug}`,
       kind: 'event' as const,
       title: event.title,
-      subtitle: [cityName(event.citySlug), formatName(event.format)].join(' · '),
+      subtitle: [selectors.cityName(event.citySlug), formatName(event.format)].join(' · '),
       summary: event.summary,
       href: `/events/${event.slug}`,
       facets: { city: event.citySlug, format: event.format },
@@ -198,7 +182,7 @@ function eventRecords(now: Date): SearchRecord[] {
         event.title,
         event.summary,
         event.description,
-        cityName(event.citySlug),
+        selectors.cityName(event.citySlug),
         event.format,
         event.venue.name,
         (event.host.organisations ?? []).join(' '),
@@ -229,13 +213,13 @@ function cityRecords(signals: CitySignal[]): SearchRecord[] {
   }));
 }
 
-function useCaseRecords(): SearchRecord[] {
-  return useCasesChronological().map((useCase) => ({
+function useCaseRecords(selectors: RecordSelectors): SearchRecord[] {
+  return selectors.useCasesChronological().map((useCase) => ({
     id: `use-case:${useCase.slug}`,
     kind: 'use-case' as const,
     title: useCase.title,
     subtitle: [
-      useCase.citySlug ? cityName(useCase.citySlug) : undefined,
+      useCase.citySlug ? selectors.cityName(useCase.citySlug) : undefined,
       formatName(useCase.category),
     ]
       .filter(Boolean)
@@ -255,7 +239,7 @@ function useCaseRecords(): SearchRecord[] {
       useCase.result,
       useCase.tools.join(' '),
       useCase.category,
-      useCase.citySlug ? cityName(useCase.citySlug) : undefined,
+      useCase.citySlug ? selectors.cityName(useCase.citySlug) : undefined,
       useCase.author.name,
     ]),
     weight: useCase.status === 'featured' ? 2 : 1,
@@ -263,12 +247,12 @@ function useCaseRecords(): SearchRecord[] {
   }));
 }
 
-function storyRecords(): SearchRecord[] {
-  return publicStories.map((story) => ({
+function storyRecords(selectors: RecordSelectors): SearchRecord[] {
+  return selectors.publicStories.map((story) => ({
     id: `story:${story.slug}`,
     kind: 'story' as const,
     title: story.title,
-    subtitle: [story.citySlug ? cityName(story.citySlug) : undefined, formatName(story.kind)]
+    subtitle: [story.citySlug ? selectors.cityName(story.citySlug) : undefined, formatName(story.kind)]
       .filter(Boolean)
       .join(' · '),
     summary: story.standfirst,
@@ -279,7 +263,7 @@ function storyRecords(): SearchRecord[] {
       story.standfirst,
       (story.body ?? []).join(' '),
       story.author,
-      story.citySlug ? cityName(story.citySlug) : undefined,
+      story.citySlug ? selectors.cityName(story.citySlug) : undefined,
       story.kind,
     ]),
     weight: story.status === 'featured' ? 2 : 1,
@@ -287,8 +271,8 @@ function storyRecords(): SearchRecord[] {
   }));
 }
 
-function guideRecords(): SearchRecord[] {
-  return guidesChronological().map((guide) => ({
+function guideRecords(selectors: RecordSelectors): SearchRecord[] {
+  return selectors.guidesChronological().map((guide) => ({
     id: `guide:${guide.slug}`,
     kind: 'guide' as const,
     title: guide.title,
@@ -315,17 +299,17 @@ function guideRecords(): SearchRecord[] {
  * renders, which is what makes the page useful with scripts blocked: it is a
  * complete, ranked, browsable index before anything is typed.
  */
-export function buildSearchIndex(now: Date = new Date()): SearchRecord[] {
-  const signals = citySignalsRanked(now);
+export function buildSearchIndex(selectors: RecordSelectors, now: Date = new Date()): SearchRecord[] {
+  const signals = selectors.citySignalsRanked(now);
   const all = [
-    ...personRecords(),
-    ...ambassadorRecords(),
-    ...projectRecords(),
-    ...eventRecords(now),
+    ...personRecords(selectors),
+    ...ambassadorRecords(selectors),
+    ...projectRecords(selectors),
+    ...eventRecords(selectors, now),
     ...cityRecords(signals),
-    ...useCaseRecords(),
-    ...storyRecords(),
-    ...guideRecords(),
+    ...useCaseRecords(selectors),
+    ...storyRecords(selectors),
+    ...guideRecords(selectors),
   ];
 
   return all.sort(
@@ -347,22 +331,22 @@ export function buildSearchIndex(now: Date = new Date()): SearchRecord[] {
  * the server does. It is a few hundred bytes and it is derived, so it can
  * never name a city the atlas does not plot.
  */
-export function searchVocabulary(): SearchVocabulary {
+export function searchVocabulary(selectors: RecordSelectors): SearchVocabulary {
   return {
-    cities: publicCities.map((city) => ({ slug: city.slug, name: city.name })),
-    surfaces: claudeSurfaces(),
+    cities: selectors.publicCities.map((city) => ({ slug: city.slug, name: city.name })),
+    surfaces: selectors.claudeSurfaces(),
     // Only formats that actually occur. The parser should not understand a
     // format nobody has run.
-    formats: [...new Set(eventsChronological.map((event) => event.format))].sort(),
+    formats: [...new Set(selectors.eventsChronological.map((event) => event.format))].sort(),
   };
 }
 
 /** Parse against the real record. The convenience wrapper for server callers. */
-export function parse(input: string) {
-  return parseQuery(input, searchVocabulary());
+export function parse(selectors: RecordSelectors, input: string) {
+  return parseQuery(input, searchVocabulary(selectors));
 }
 
 /** The whole round trip, for callers that only have a string. */
-export function search(index: SearchRecord[], input: string): SearchResult[] {
-  return runSearch(index, parse(input));
+export function search(index: SearchRecord[], selectors: RecordSelectors, input: string): SearchResult[] {
+  return runSearch(index, parse(selectors, input));
 }

@@ -1,6 +1,14 @@
 ---
-import { cityName, pastEvents, publicEvents, upcomingEvents } from '@/data';
+import * as staticData from '@/data';
+import type { RecordSelectors } from '@/data/selectors';
 import { dateParts } from '@/lib/datetime';
+
+interface Props {
+  selectors?: RecordSelectors;
+}
+
+const { selectors } = Astro.props;
+const data = selectors ?? staticData;
 
 /**
  * CLAUDE, IN THE WILD — the editorial fact block above the archive.
@@ -13,21 +21,21 @@ import { dateParts } from '@/lib/datetime';
  * city list are derived too, so a new event in a new city changes this block
  * without anybody editing it.
  */
-const upcoming = upcomingEvents();
-const past = pastEvents();
+const upcoming = data.upcomingEvents();
+const past = data.pastEvents();
 
-const citySlugs = [...new Set(publicEvents.map((event) => event.citySlug))];
+const citySlugs = [...new Set(data.publicEvents.map((event) => event.citySlug))];
 
 // Ordered by how much has actually happened there, so the list reads as a
 // ranking rather than as an alphabet.
 const cities = citySlugs
   .map((slug) => ({
-    name: cityName(slug),
-    count: publicEvents.filter((event) => event.citySlug === slug).length,
+    name: data.cityName(slug),
+    count: data.publicEvents.filter((event) => event.citySlug === slug).length,
   }))
   .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 
-const chronological = [...publicEvents].sort((a, b) => (a.date < b.date ? -1 : 1));
+const chronological = [...data.publicEvents].sort((a, b) => (a.date < b.date ? -1 : 1));
 const first = chronological[0];
 const last = chronological[chronological.length - 1];
 
@@ -37,7 +45,7 @@ const span =
     : undefined;
 
 const figures = [
-  { value: publicEvents.length, label: 'Claude events' },
+  { value: data.publicEvents.length, label: 'Claude events' },
   { value: upcoming.length, label: 'Upcoming' },
   { value: past.length, label: 'Held' },
   { value: cities.length, label: 'Cities' },

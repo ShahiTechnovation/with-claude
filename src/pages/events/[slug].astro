@@ -1,33 +1,20 @@
 ---
-import { useLiveRecords } from '@/server/directory';
+import { loadLiveRecords } from '@/server/directory';
+import { RecordSelectors } from '@/data/selectors';
 export const prerender = false;
-await useLiveRecords();
+const _rs = await loadLiveRecords();
+const selectors = new RecordSelectors(_rs);
 
 Astro.response.headers.set(
   'Cache-Control',
   'public, max-age=0, s-maxage=60, stale-while-revalidate=86400',
 );
 
-import type { GetStaticPaths } from 'astro';
 import { Image } from 'astro:assets';
 import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
 import PageIntro from '@/components/PageIntro.astro';
-import {
-  cityBySlug,
-  cityName,
-  eventsChronological,
-  eventCredits,
-  hostAmbassador,
-  guidesForEvent,
-  projectsFromEvent,
-  publicEvents,
-  site,
-  coHostsOf,
-  speakersOf,
-  storiesForEvent,
-  useCasesForEvent,
-} from '@/data';
+import { site } from '@/data';
 import {
   dateParts,
   formatDate,
@@ -53,16 +40,15 @@ import {
 const { slug } = Astro.params;
 if (!slug) return Astro.redirect('/404');
 
-const { eventBySlug } = await import('@/data');
-const event = eventBySlug.get(slug);
+const event = selectors.eventBySlug.get(slug);
 if (!event) return Astro.redirect('/404');
 
 const lifecycle = lifecycleOf(event);
 const parts = dateParts(event.date);
-const city = cityBySlug.get(event.citySlug);
-const speakers = speakersOf(event);
-const coHosts = coHostsOf(event);
-const ambassador = hostAmbassador(event);
+const city = selectors.cityBySlug.get(event.citySlug);
+const speakers = selectors.speakersOf(event);
+const coHosts = selectors.coHostsOf(event);
+const ambassador = selectors.hostAmbassador(event);
 
 /**
  * The credited ambassadors other than the headline host.
@@ -73,7 +59,7 @@ const ambassador = hostAmbassador(event);
  * archive's record of who talked — and listing the same person under both
  * would imply two separate contributions.
  */
-const otherCredits = eventCredits(event).filter(
+const otherCredits = selectors.eventCredits(event).filter(
   (entry) => entry.credit.role !== 'primary_host' && entry.credit.role !== 'speaker',
 );
 const canRegister = isRegistrationOpen(event);
@@ -86,17 +72,17 @@ const canRegister = isRegistrationOpen(event);
  */
 const registerHref = registrationLink(event.registrationUrl);
 const cover = asset(event.coverImage);
-const outputs = projectsFromEvent(event.slug);
-const recaps = storiesForEvent(event.slug);
+const outputs = selectors.projectsFromEvent(event.slug);
+const recaps = selectors.storiesForEvent(event.slug);
 const isPast = lifecycle === 'past';
 
 // An event with neither a cover nor photographs should not leave half the page
 // empty — the record simply runs full width.
 const hasAside = Boolean(cover || event.photos?.length);
 
-const position = eventsChronological.findIndex((e) => e.slug === event.slug);
-const previous = eventsChronological[position - 1];
-const upNext = eventsChronological[position + 1];
+const position = selectors.eventsChronological.findIndex((e) => e.slug === event.slug);
+const previous = selectors.eventsChronological[position - 1];
+const upNext = selectors.eventsChronological[position + 1];
 
 const metaDescription = lifecycle === 'upcoming' && canRegister && event.registrationUrl
   ? `Register for ${event.title}: ${event.description ?? event.summary}`
@@ -105,7 +91,7 @@ const metaDescription = lifecycle === 'upcoming' && canRegister && event.registr
 const schema = [
   {
     '@type': 'Event',
-    name: `${event.title} · ${cityName(event.citySlug)}`,
+    name: `${event.title} · ${selectors.cityName(event.citySlug)}`,
     description: event.description ?? event.summary,
     url: `${site.url}/events/${event.slug}`,
     startDate: isoDateTime(event.date, event.startTime),
@@ -121,7 +107,7 @@ const schema = [
       name: event.venue.name,
       address: {
         '@type': 'PostalAddress',
-        addressLocality: cityName(event.citySlug),
+        addressLocality: selectors.cityName(event.citySlug),
         addressCountry: 'IN',
       },
     },
@@ -146,8 +132,8 @@ const schema = [
 // What this room produced in writing. Part of the event content flywheel:
 // one real event should be able to become a recap, a project and a workflow,
 // each with its own page and its own value.
-const practice = useCasesForEvent(event.slug);
-const eventGuides = guidesForEvent(event.slug);
+const practice = selectors.useCasesForEvent(event.slug);
+const eventGuides = selectors.guidesForEvent(event.slug);
 
 /**
  * Home → Events → Bhopal → Claude Conversation.
@@ -158,23 +144,23 @@ const eventGuides = guidesForEvent(event.slug);
  */
 const crumbs = trail(
   { name: 'Events', href: '/events' },
-  { name: cityName(event.citySlug), href: `/cities/${event.citySlug}` },
+  { name: selectors.cityName(event.citySlug), href: `/cities/${event.citySlug}` },
   { name: event.title, href: `/events/${event.slug}` },
 );
 ---
 
 <Base
-  title={`${event.title} · ${cityName(event.citySlug)}`}
-  seoTitle={titles.event(event.title, cityName(event.citySlug))}
+  title={`${event.title} · ${selectors.cityName(event.citySlug)}`}
+  seoTitle={titles.event(event.title, selectors.cityName(event.citySlug))}
   description={metaDescription}
   active="/events"
   breadcrumbs={crumbs}
   schema={schema}
   image={event.coverImage}
-  ogImageAlt={`Poster for ${event.title} in ${cityName(event.citySlug)}`}
+  ogImageAlt={`Poster for ${event.title} in ${selectors.cityName(event.citySlug)}`}
 >
   <PageIntro
-    eyebrow={`${cityName(event.citySlug)} · ${formatName(event.format)}${event.volume ? ` · vol. ${String(event.volume).padStart(2, '0')}` : ''}`}
+    eyebrow={`${selectors.cityName(event.citySlug)} · ${formatName(event.format)}${event.volume ? ` · vol. ${String(event.volume).padStart(2, '0')}` : ''}`}
     title={event.title}
     stamp={city ? formatCoords(city.lat, city.lon) : undefined}
   >
@@ -182,7 +168,7 @@ const crumbs = trail(
     
     <div class="intro-facts">
       <p><strong>Date:</strong> <time datetime={isoDateTime(event.date, event.startTime)}>{formatDate(event.date)}</time></p>
-      <p><strong>Location:</strong> <a href={`/cities/${event.citySlug}`}>{cityName(event.citySlug)}</a></p>
+      <p><strong>Location:</strong> <a href={`/cities/${event.citySlug}`}>{selectors.cityName(event.citySlug)}</a></p>
       {ambassador && (
         <p><strong>Host:</strong> <a href={`/builders/${ambassador.builderSlug ?? ambassador.slug}`}>{ambassador.name}</a></p>
       )}
@@ -274,7 +260,7 @@ const crumbs = trail(
           </div>
           <div>
             <dt class="label">City</dt>
-            <dd><a href={`/cities/${event.citySlug}`}>{cityName(event.citySlug)}</a></dd>
+            <dd><a href={`/cities/${event.citySlug}`}>{selectors.cityName(event.citySlug)}</a></dd>
           </div>
           <div>
             <dt class="label">Entry</dt>
@@ -453,7 +439,7 @@ const crumbs = trail(
                 <div class="plate plate-framed">
                   <Image
                     src={cover}
-                    alt={`Poster for ${event.title} in ${cityName(event.citySlug)}`}
+                    alt={`Poster for ${event.title} in ${selectors.cityName(event.citySlug)}`}
                     widths={[360, 640]}
                     sizes="(max-width: 61.99em) 90vw, 340px"
                     loading="eager"

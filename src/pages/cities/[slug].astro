@@ -1,14 +1,15 @@
 ---
-import { useLiveRecords } from '@/server/directory';
+import { loadLiveRecords } from '@/server/directory';
+import { RecordSelectors } from '@/data/selectors';
 export const prerender = false;
-await useLiveRecords();
+const _rs = await loadLiveRecords();
+const selectors = new RecordSelectors(_rs);
 
 Astro.response.headers.set(
   'Cache-Control',
   'public, max-age=0, s-maxage=60, stale-while-revalidate=86400',
 );
 
-import type { GetStaticPaths } from 'astro';
 import { Image } from 'astro:assets';
 import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
@@ -18,7 +19,7 @@ import BuilderIndex from '@/components/BuilderIndex.astro';
 import ProjectArchive from '@/components/ProjectArchive.astro';
 import PracticeLibrary from '@/components/PracticeLibrary.astro';
 import SubmitPanel from '@/components/SubmitPanel.astro';
-import { citySignal, nextEvent, official, publicCities, site, useCasesInCity } from '@/data';
+import { official, site } from '@/data';
 import { CITY_STATE_LABEL, CITY_STATE_NOTE, isLive } from '@/lib/city';
 import { dateParts, formatDate } from '@/lib/datetime';
 import { distanceKm, formatCoords } from '@/lib/geo';
@@ -30,26 +31,25 @@ import { titles, trail } from '@/lib/seo';
 const { slug } = Astro.params;
 if (!slug) return Astro.redirect('/404');
 
-const { getCity } = await import('@/data');
-const city = getCity(slug);
+const city = selectors.getCity(slug);
 if (!city) return Astro.redirect('/404');
 
 
-const signal = citySignal(city);
+const signal = selectors.citySignal(city);
 const live = isLive(signal.state);
 const image = asset(city.image);
-const nationalNext = nextEvent();
+const nationalNext = selectors.nextEvent();
 
 // The nearest city with activity — a real, useful fact for a quiet city.
-const elsewhere = publicCities
-  .map((other) => ({ other, s: citySignal(other) }))
+const elsewhere = selectors.publicCities
+  .map((other) => ({ other, s: selectors.citySignal(other) }))
   .filter(({ other, s }) => other.slug !== city.slug && isLive(s.state))
   .map(({ other, s }) => ({ other, s, km: distanceKm(city, other) }))
   .sort((a, b) => a.km - b.km)[0];
 
 // Rendered only when it exists. A "Practice" heading with an empty state
 // under it on all fourteen city pages would be fourteen promises.
-const practice = useCasesInCity(city.slug);
+const practice = selectors.useCasesInCity(city.slug);
 
 const crumbs = trail(
   { name: 'Cities', href: '/cities' },
@@ -316,6 +316,7 @@ const indexable = isCityIndexable(city);
           heading={`Events in ${city.name}`}
           eyebrow="Events"
           order="chronological"
+          selectors={selectors}
         />
       </Section>
     )
@@ -328,6 +329,7 @@ const indexable = isCityIndexable(city);
           citySlug={city.slug}
           heading={`Building in ${city.name}`}
           eyebrow="Builders"
+          selectors={selectors}
         />
       </Section>
     )
@@ -336,7 +338,7 @@ const indexable = isCityIndexable(city);
   {
     live && (
       <Section id="projects" tone="deep" size="lg" labelledby="projects-heading">
-        <ProjectArchive citySlug={city.slug} heading={`Made in ${city.name}`} eyebrow="Projects" />
+        <ProjectArchive citySlug={city.slug} heading={`Made in ${city.name}`} eyebrow="Projects" selectors={selectors} />
       </Section>
     )
   }
@@ -348,6 +350,7 @@ const indexable = isCityIndexable(city);
           citySlug={city.slug}
           heading={`How ${city.name} works with Claude`}
           eyebrow="Practice"
+          selectors={selectors}
         />
       </Section>
     )

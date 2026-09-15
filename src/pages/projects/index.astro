@@ -5,11 +5,13 @@ import Section from '@/components/Section.astro';
 import PageIntro from '@/components/PageIntro.astro';
 import ProjectArchive from '@/components/ProjectArchive.astro';
 import SubmitPanel from '@/components/SubmitPanel.astro';
-import { publicProjects } from '@/data';
-
-import { getPublicProjects } from '@/server/directory';
+import { getPublicProjects, loadLiveRecords } from '@/server/directory';
+import { RecordSelectors } from '@/data/selectors';
 
 export const prerender = false;
+
+const _rs = await loadLiveRecords();
+const selectors = new RecordSelectors(_rs);
 
 const { projectRows, allBuilderRows, allBuilders, allCities } = await getPublicProjects();
 
@@ -61,7 +63,7 @@ Astro.response.headers.set('Cache-Control', 'public, s-maxage=60, stale-while-re
   </PageIntro>
 
   <Section id="archive" tone="deep" size="lg" labelledby="projects-heading">
-    <ProjectArchive projects={projects as any} heading="The archive" eyebrow="Archive" filters />
+    <ProjectArchive projects={projects as any} heading="The archive" eyebrow="Archive" filters selectors={selectors} />
   </Section>
 
   <Section id="submit" labelledby="build-heading">

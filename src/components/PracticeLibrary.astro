@@ -1,5 +1,6 @@
 ---
-import { authorName, cityName, useCasesChronological } from '@/data';
+import * as staticData from '@/data';
+import type { RecordSelectors } from '@/data/selectors';
 import { formatDate } from '@/lib/datetime';
 import { formatName } from '@/lib/status';
 
@@ -32,6 +33,7 @@ interface Props {
   heading?: string;
   eyebrow?: string;
   filters?: boolean;
+  selectors?: RecordSelectors;
 }
 
 const {
@@ -43,9 +45,11 @@ const {
   heading = 'Claude in practice',
   eyebrow = 'Use cases',
   filters = false,
+  selectors,
 } = Astro.props;
 
-let scoped = useCasesChronological();
+const data = selectors ?? staticData;
+let scoped = data.useCasesChronological();
 if (citySlug) scoped = scoped.filter((u) => u.citySlug === citySlug);
 if (builderSlug) scoped = scoped.filter((u) => u.author.builderSlug === builderSlug);
 
@@ -140,13 +144,13 @@ const anatomy = [
               <a class="practice-row" href={`/use-cases/${useCase.slug}`}>
                 <p class="practice-meta">
                   <span class="practice-category">{formatName(useCase.category)}</span>
-                  {useCase.citySlug && <span>{cityName(useCase.citySlug)}</span>}
+                  {useCase.citySlug && <span>{data.cityName(useCase.citySlug)}</span>}
                   <span>{formatDate(useCase.date)}</span>
                 </p>
                 <h3 class="practice-title">{useCase.title}</h3>
                 <p class="practice-summary">{useCase.summary}</p>
                 <p class="practice-byline">
-                  <span class="practice-by">{authorName(useCase)}</span>
+                  <span class="practice-by">{data.authorName(useCase)}</span>
                   <span class="practice-credential">{useCase.author.credential}</span>
                 </p>
                 <p class="practice-tools">

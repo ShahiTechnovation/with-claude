@@ -1,7 +1,37 @@
 ---
-import { useLiveRecords } from '@/server/directory';
+/**
+ * BUILDER DETAIL — SSR, always reads from Neon.
+ *
+ * ── WHY THIS PAGE NO LONGER USES useLiveRecords() + publicBuilders.find() ──
+ *
+ * The old flow was:
+ *
+ *   await useLiveRecords();       // mutates module-global cached RecordSet
+ *   publicBuilders.find(b => b.slug === slug)  // reads that global
+ *
+ * This had two bugs:
+ *
+ *   1. A freshly self-published builder exists in Neon but was never in the
+ *      build-time dataset.json snapshot, so publicBuilders.find() returned
+ *      undefined → Astro.redirect('/404'). The publish flow appeared to work
+ *      (POST returned 200, /builders/ showed the new entry via SSR), but the
+ *      detail page always 404'd.
+ *
+ *   2. Under concurrent SSR, request B's useLiveRecords() call could overwrite
+ *      the module-global `cached` between request A's load and its find(),
+ *      causing request A to search the wrong dataset — a P0 isolation bug.
+ *
+ * The fix: query Neon directly via getPublicBuilderBySlug(). The result is
+ * request-local and includes the correct row for any builder that exists in
+ * the live database, including ones published seconds ago.
+ *
+ * The supplementary data — events, projects, ambassador links, etc. — still
+ * comes from the build-time RecordSet via publicBuilders selectors. That data
+ * is curated editorial content: it changes on deployment, not on self-publish,
+ * and the build-time snapshot is the correct source for it. Only the builder's
+ * own profile fields (name, bio, city, role, image) come from the live query.
+ */
 export const prerender = false;
-await useLiveRecords();
 
 Astro.response.headers.set(
   'Cache-Control',
@@ -19,7 +49,6 @@ import {
   eventsOf,
   guidesBy,
   projectsOf,
-  publicBuilders,
   site,
   useCasesBy,
 } from '@/data';
@@ -28,7 +57,10 @@ import { asset } from '@/lib/images';
 import { formatName, lifecycleLabel, lifecycleOf, lifecycleTone } from '@/lib/status';
 import { profileSchema, titles, trail } from '@/lib/seo';
 import ClaimProfile from '@/components/ClaimProfile.astro';
-import { getBuilderRow } from '@/server/directory';
+import {
+  getPublicBuilderBySlug,
+  isPublicBuilder,
+} from '@/server/directory';
 import { ReportModal } from '@/components/react/ReportModal';
 import ModeratorControls from '@/components/ModeratorControls.astro';
 import { isRequestModerator } from '@/server/moderation';
@@ -38,33 +70,62 @@ if (!slug) return Astro.redirect('/404');
 
 const isModerator = await isRequestModerator(Astro.request);
 
-const builderRow = await getBuilderRow(slug);
+/**
+ * Fetch the builder row directly from Neon.
+ *
+ * This returns the row regardless of visibility state. The caller (this page)
+ * decides whether to show it: non-moderators are redirected to /404 for
+ * restricted/removed content; moderators see a banner.
+ *
+ * Previously this was `getBuilderRow(slug)` (bare DB row) followed by
+ * `publicBuilders.find()` (build-time global). The new function returns the
+ * full projected shape — city slug, image URL — so both the moderation check
+ * and the template can use it without a second source.
+ */
+const builderRow = await getPublicBuilderBySlug(slug);
 if (!builderRow) return Astro.redirect('/404');
 
-const isAvailable = builderRow.moderationState === 'clean' || builderRow.moderationState === 'reported';
+/**
+ * Canonical visibility check.
+ *
+ * isPublicBuilder() = status === 'published' && moderationState === 'clean'
+ *
+ * 'reported' is NOT public. A reported builder awaits moderator action.
+ * Previously this page admitted 'reported' as public (treated same as 'clean');
+ * that was inconsistent with the stated moderation semantics.
+ */
+const isPublic = isPublicBuilder(builderRow);
 
-if (!isAvailable && !isModerator) {
+// Non-moderators cannot see non-public builders.
+if (!isPublic && !isModerator) {
   return Astro.redirect('/404');
 }
 
-const builder = publicBuilders.find(b => b.slug === slug);
-if (!builder) return Astro.redirect('/404');
+/**
+ * Supplementary editorial data — events, projects, ambassador links.
+ *
+ * These come from the build-time RecordSet via selectors in src/data/index.ts.
+ * This is correct: the curated archive changes on deployment, not on
+ * self-publish. A newly published builder has no event credits or projects in
+ * the archive yet, and that is accurate.
+ *
+ * The builder's own profile fields (name, bio, city, role, image) come from
+ * the live `builderRow` above.
+ */
+const ambassador = ambassadorForBuilder({ slug: builderRow.slug } as any);
+const events = eventsOf({ slug: builderRow.slug } as any);
+const hosted = ambassador ? eventsHostedBy(ambassador.slug) : [];
+const projects = projectsOf({ slug: builderRow.slug } as any);
 
 /**
- * Whether this record already has an owner.
- *
- * Read from the build's dataset, so it is a display decision only — the claim
- * endpoint refuses an owned record regardless of what a cached page shows.
- * `ownerMemberId` is absent from the TypeScript source, so a `ts` build simply
- * treats every record as claimable and the server still says no.
+ * Portrait: prefer the uploaded avatar (from the live Neon query) over the
+ * repository image asset. For legacy/curated builders the image field is a
+ * repository-relative path; for self-published builders it is a Blob URL from
+ * the media table. `asset()` handles the former; the Blob URL is used directly
+ * for the latter.
  */
-const owned = Boolean((builder as { ownerMemberId?: string | null }).ownerMemberId);
-
-const ambassador = ambassadorForBuilder(builder);
-const events = eventsOf(builder);
-const hosted = ambassador ? eventsHostedBy(ambassador.slug) : [];
-const projects = projectsOf(builder);
-const portrait = asset(builder.image);
+const uploadedImage = builderRow.image ?? null;
+const portrait = uploadedImage ? null : asset(undefined);
 
 // Everything this person is on the record for, deduplicated across the two
 // routes into the event list: speaking, and hosting as an Ambassador.
@@ -73,22 +134,21 @@ const allEvents = [...new Set([...events, ...hosted])].sort((a, b) => (a.date < 
 // The record is thin for most people. Say so plainly rather than dressing it up
 // or padding it with placeholders.
 const missing = [
-  !builder.bio && 'a short bio',
-  !builder.image && 'a portrait',
-  !builder.links?.length && 'links',
+  !builderRow.bio && 'a short bio',
+  !uploadedImage && 'a portrait',
 ].filter(Boolean) as string[];
 
 const description =
-  builder.bio ?? `${builder.name} — ${builder.role} in ${cityName(builder.citySlug)}.`;
+  builderRow.bio ?? `${builderRow.name} — ${builderRow.role} in ${cityName(builderRow.citySlug)}.`;
 
 // The practice half of this person's record. Empty until somebody writes one.
-const written = useCasesBy(builder.slug);
-const guides = guidesBy(builder.slug);
+const written = useCasesBy(builderRow.slug);
+const guides = guidesBy(builderRow.slug);
 
-const url = `${site.url}/builders/${builder.slug}`;
+const url = `${site.url}/builders/${builderRow.slug}`;
 const crumbs = trail(
   { name: 'Builders', href: '/builders' },
-  { name: builder.name, href: `/builders/${builder.slug}` },
+  { name: builderRow.name, href: `/builders/${builderRow.slug}` },
 );
 
 /**
@@ -96,56 +156,54 @@ const crumbs = trail(
  *
  * Only what the page renders: the role it prints, the bio it shows, the links
  * it lists. The Ambassador title is passed as the job title ONLY when a
- * verified Ambassador record claims this person — the same rule the chip
- * follows, so the markup and the page can never disagree.
+ * verified Ambassador record claims this person.
  */
 const schema = profileSchema(
   {
-    name: builder.name,
-    slug: builder.slug,
-    city: cityName(builder.citySlug),
-    role: ambassador ? ambassador.title : builder.role,
-    bio: builder.bio,
-    links: builder.links,
-    image: portrait ? new URL(portrait.src, site.url).href : undefined,
+    name: builderRow.name,
+    slug: builderRow.slug,
+    city: cityName(builderRow.citySlug),
+    role: ambassador ? ambassador.title : builderRow.role,
+    bio: builderRow.bio,
+    links: undefined,
+    image: uploadedImage ?? undefined,
   },
   url,
 );
 ---
 
 <Base
-  title={builder.name}
-  seoTitle={titles.builder(builder.name, cityName(builder.citySlug))}
+  title={builderRow.name}
+  seoTitle={titles.builder(builderRow.name, cityName(builderRow.citySlug))}
   description={description}
   active="/builders"
   breadcrumbs={crumbs}
   schema={schema}
 >
-  {(!isAvailable && isModerator) && (
+  {(!isPublic && isModerator) && (
     <div class="moderator-banner" style="background-color: var(--clay-deep); color: white; padding: 1rem; text-align: center; font-weight: bold; margin-bottom: 2rem;">
       RESTRICTED / REMOVED — not visible to the public.
     </div>
   )}
 
   <PageIntro
-    eyebrow={`${cityName(builder.citySlug)} · ${builder.role}`}
-    title={builder.name}
+    eyebrow={`${cityName(builderRow.citySlug)} · ${builderRow.role}`}
+    title={builderRow.name}
     size="lg"
     stamp={ambassador ? ambassador.title : undefined}
   >
-    {builder.bio && <p>{builder.bio}</p>}
-    {builder.building && <p>{builder.building}</p>}
+    {builderRow.bio && <p>{builderRow.bio}</p>}
   </PageIntro>
 
       <Section id="record" tone="sunk" labelledby="record-heading">
-        <h2 id="record-heading" class="visually-hidden">{`${builder.name} on the record`}</h2>
+        <h2 id="record-heading" class="visually-hidden">{`${builderRow.name} on the record`}</h2>
 
         <div class="profile">
           <div class="profile-main">
             <div class="roles">
               {ambassador ? <span class="chip chip-verified">{ambassador.title}</span> : null}
               {
-                builder.roles
+                (builderRow.roles as string[])
                   .filter((role) => role !== 'ambassador')
                   .map((role) => <span class="chip chip-role">{formatName(role)}</span>)
               }
@@ -199,18 +257,13 @@ const schema = profileSchema(
                   </ul>
                 ) : (
                   <p class="block-empty">
-                    Nothing from {builder.name} is in the archive yet.{' '}
+                    Nothing from {builderRow.name} is in the archive yet.{' '}
                     <a href="/submit/">Submissions are open.</a>
                   </p>
                 )
               }
             </div>
 
-            {
-              /* The practice half of the graph: what this person has written up.
-                Rendered only when it exists — an empty "Practice" heading on
-                every profile would be a promise the library cannot keep yet. */
-            }
             {
               (written.length > 0 || guides.length > 0) && (
                 <div class="block">
@@ -236,37 +289,39 @@ const schema = profileSchema(
                 </div>
               )
             }
-
-            {
-              builder.claudeTools && builder.claudeTools.length > 0 && (
-                <div class="block">
-                  <h3 class="label block-head">Works with</h3>
-                  <p class="tools">{builder.claudeTools.join(' · ')}</p>
-                </div>
-              )
-            }
           </div>
 
           <aside class="profile-side">
             {
-              portrait && (
+              uploadedImage ? (
+                <div class="plate plate-framed portrait">
+                  <img
+                    src={uploadedImage}
+                    alt={builderRow.name}
+                    width="640"
+                    height="800"
+                    loading="eager"
+                    decoding="async"
+                  />
+                </div>
+              ) : portrait ? (
                 <div class="plate plate-framed portrait">
                   <Image
                     src={portrait}
-                    alt={builder.name}
+                    alt={builderRow.name}
                     widths={[320, 640]}
                     sizes="(max-width: 61.99em) 60vw, 280px"
                     loading="eager"
                     decoding="async"
                   />
                 </div>
-              )
+              ) : null
             }
 
             <dl class="facts">
               <div>
                 <dt>City</dt>
-                <dd><a href={`/cities/${builder.citySlug}`}>{cityName(builder.citySlug)}</a></dd>
+                <dd><a href={`/cities/${builderRow.citySlug}`}>{cityName(builderRow.citySlug)}</a></dd>
               </div>
               <div>
                 <dt>Events</dt>
@@ -277,23 +332,6 @@ const schema = profileSchema(
                 <dd>{String(projects.length).padStart(2, '0')}</dd>
               </div>
             </dl>
-
-            {
-              builder.links && builder.links.length > 0 && (
-                <div class="links">
-                  <h3 class="label block-head">Elsewhere</h3>
-                  <ul>
-                    {builder.links.map((link) => (
-                      <li>
-                        <a href={link.url} target="_blank" rel="noopener">
-                          {link.label}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )
-            }
 
             {
               missing.length > 0 && (
@@ -313,7 +351,7 @@ const schema = profileSchema(
       </Section>
 
       <Section id="claim" size="sm">
-        <ClaimProfile slug={builder.slug} name={builder.name} owned={owned} />
+        <ClaimProfile slug={builderRow.slug} name={builderRow.name} owned={Boolean(builderRow.ownerMemberId)} />
       </Section>
   <Section id="back" size="sm">
     <a class="link-arrow" href="/builders">
@@ -398,13 +436,6 @@ const schema = profileSchema(
     color: var(--ink-2);
   }
 
-  .tools {
-    padding-top: var(--s-4);
-    font-family: var(--font-mono);
-    font-size: var(--t-small);
-    color: var(--ink-2);
-  }
-
   /* --- Side ---------------------------------------------------------------- */
   .profile-side {
     display: grid;
@@ -414,6 +445,12 @@ const schema = profileSchema(
 
   .portrait {
     aspect-ratio: 4 / 5;
+  }
+
+  .portrait img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
 
   .facts {

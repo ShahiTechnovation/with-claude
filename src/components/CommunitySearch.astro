@@ -1,7 +1,15 @@
 ---
 import { buildSearchIndex, searchVocabulary } from '@/lib/search';
 import { KIND_LABEL, SEARCH_KINDS, groupByKind } from '@/lib/search-core';
-import type { SearchKind } from '@/lib/search-core';
+import type { SearchKind, SearchRecord, SearchVocabulary } from '@/lib/search-core';
+import * as staticData from '@/data';
+
+interface Props {
+  index?: SearchRecord[];
+  vocab?: SearchVocabulary;
+}
+
+const { index: providedIndex, vocab: providedVocab } = Astro.props;
 
 /**
  * SEARCH THE COMMUNITY.
@@ -19,8 +27,8 @@ import type { SearchKind } from '@/lib/search-core';
  * The page is static, so the query never reaches the server and the canonical
  * URL stays `/discover` — there is one page here, not one per query.
  */
-const index = buildSearchIndex();
-const vocabulary = searchVocabulary();
+const index = providedIndex ?? buildSearchIndex(staticData.getStatic());
+const vocabulary = providedVocab ?? searchVocabulary(staticData.getStatic());
 const grouped = groupByKind(index.map((record) => ({ record, score: 0 })));
 
 // Groups with nothing in them are not rendered at all: an empty PROJECTS

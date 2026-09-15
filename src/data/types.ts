@@ -299,6 +299,7 @@ export interface Builder extends RecordBase {
   /** Which Claude tools they actually use. Free text, kept short. */
   claudeTools?: string[];
   image?: string;
+  profileVisibility?: string;
   links?: SocialLink[];
   projectSlugs?: string[];
   /** Event slugs they spoke at, mentored, or organised. */

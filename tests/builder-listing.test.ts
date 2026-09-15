@@ -137,6 +137,34 @@ describe('canonical visibility: non-public builders are excluded', () => {
 });
 
 // =============================================================================
+describe('unlisted visibility semantics', () => {
+  it('excludes an explicitly unlisted member from directory indexing', async () => {
+    const member = await publishedMember('did:privy:zz-list-unlisted', 'zz-list-unlisted');
+    
+    // Set member profile to unlisted
+    await db
+      .update(schema.memberProfiles)
+      .set({ visibility: 'unlisted' })
+      .where(eq(schema.memberProfiles.memberId, member.id));
+
+    const list = await getPublicBuilderList(db);
+    expect(list.map((b) => b.slug)).not.toContain('zz-list-unlisted');
+  });
+  
+  it('includes a member whose visibility is public (the default)', async () => {
+    const member = await publishedMember('did:privy:zz-list-public', 'zz-list-public');
+    
+    await db
+      .update(schema.memberProfiles)
+      .set({ visibility: 'public' })
+      .where(eq(schema.memberProfiles.memberId, member.id));
+
+    const list = await getPublicBuilderList(db);
+    expect(list.map((b) => b.slug)).toContain('zz-list-public');
+  });
+});
+
+// =============================================================================
 describe('city slug resolution', () => {
   it('resolves the city slug for a builder with a city', async () => {
     await publishedMember('did:privy:zz-list-city', 'zz-list-city');

@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, and, inArray, or, isNull } from 'drizzle-orm';
 import { pooledDb } from '../../db/pool';
 import * as schema from '../../db/schema';
 import { indexableCityPaths } from '@/lib/indexable';
@@ -36,14 +36,19 @@ export const GET: APIRoute = async () => {
         )
       );
 
-    // 2. Builders: status = 'published' AND moderationState IN ('clean', 'reported')
+    // 2. Builders: status = 'published' AND moderationState = 'clean' AND (visibility IS NULL OR visibility = 'public')
     const builders = await db
       .select({ slug: schema.builders.slug, updatedAt: schema.builders.updatedAt })
       .from(schema.builders)
+      .leftJoin(schema.memberProfiles, eq(schema.builders.ownerMemberId, schema.memberProfiles.memberId))
       .where(
         and(
           eq(schema.builders.status, 'published'),
-          inArray(schema.builders.moderationState, ['clean', 'reported'])
+          eq(schema.builders.moderationState, 'clean'),
+          or(
+            isNull(schema.memberProfiles.visibility),
+            eq(schema.memberProfiles.visibility, 'public')
+          )
         )
       );
 

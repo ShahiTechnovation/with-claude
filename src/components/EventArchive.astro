@@ -1,5 +1,6 @@
 ---
-import { cityName, eventsChronological, isAmbassadorLed } from '@/data';
+import * as staticData from '@/data';
+import type { RecordSelectors } from '@/data/selectors';
 import { dateParts, isoDateTime } from '@/lib/datetime';
 import { formatName, lifecycleLabel, lifecycleOf, lifecycleTone } from '@/lib/status';
 import type { CommunityEvent } from '@/data/types';
@@ -38,6 +39,7 @@ interface Props {
   showHead?: boolean;
   showLink?: boolean;
   filters?: boolean;
+  selectors?: RecordSelectors;
 }
 
 const {
@@ -50,7 +52,10 @@ const {
   showHead = true,
   showLink = true,
   filters = false,
+  selectors,
 } = Astro.props;
+
+const data = selectors ?? staticData;
 
 const now = new Date();
 
@@ -62,7 +67,7 @@ function sortEvents(list: CommunityEvent[]): CommunityEvent[] {
   return [...upcoming, ...past];
 }
 
-const source = providedEvents ?? eventsChronological;
+const source = providedEvents ?? data.eventsChronological;
 const scoped = citySlug ? source.filter((e) => e.citySlug === citySlug) : source;
 const all = sortEvents(scoped);
 const rows = limit ? all.slice(0, limit) : all;
@@ -74,7 +79,7 @@ const entries = rows.map((event) => {
     event,
     lifecycle,
     parts: dateParts(event.date),
-    verified: isAmbassadorLed(event),
+    verified: data.isAmbassadorLed(event),
     mode: lifecycle === 'past' ? 'past' : 'upcoming',
   };
 });
@@ -146,7 +151,7 @@ const hasPast = entries.some((e) => e.mode === 'past');
             </button>
             {cityList.map((slug) => (
               <button class="filter" type="button" data-filter="city" data-value={slug}>
-                {cityName(slug)}
+                {data.cityName(slug)}
               </button>
             ))}
           </div>
@@ -197,7 +202,7 @@ const hasPast = entries.some((e) => e.mode === 'past');
                 )}
               </span>
               <span class="cell-format">{formatName(entry.event.format)}</span>
-              <span class="cell-city">{cityName(entry.event.citySlug)}</span>
+              <span class="cell-city">{data.cityName(entry.event.citySlug)}</span>
               <span class:list={['pip', `pip-${lifecycleTone(entry.lifecycle)}`, 'cell-status']}>
                 {lifecycleLabel(entry.lifecycle)}
               </span>

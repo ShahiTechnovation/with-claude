@@ -276,6 +276,7 @@ export async function loadRecordSet(db: ReadDatabase): Promise<RecordSet> {
     guideRows,
     organizationRows,
     mediaRows,
+    memberProfileRows,
   ] = await Promise.all([
     db.select().from(schema.cities).where(eq(schema.cities.status, published)),
     db.select().from(schema.builders).where(ne(schema.builders.status, WITHHELD_BUILDER_STATUS)),
@@ -287,6 +288,7 @@ export async function loadRecordSet(db: ReadDatabase): Promise<RecordSet> {
     db.select().from(schema.guides).where(eq(schema.guides.status, published)),
     db.select().from(schema.organizations),
     db.select().from(schema.media),
+    db.select().from(schema.memberProfiles),
   ]);
 
   // Id → slug, so relationships can be expressed the way the record expresses
@@ -300,6 +302,7 @@ export async function loadRecordSet(db: ReadDatabase): Promise<RecordSet> {
   const orgName = new Map(organizationRows.map((r) => [r.id, r.name]));
   const orgById = new Map(organizationRows.map((r) => [r.id, r]));
   const mediaById = new Map(mediaRows.map((r) => [r.id, r]));
+  const profileVisibility = new Map(memberProfileRows.map((r) => [r.memberId, r.visibility]));
 
   const eventIds = eventRows.map((r) => r.id);
   const projectIds = projectRows.map((r) => r.id);
@@ -538,6 +541,7 @@ export async function loadRecordSet(db: ReadDatabase): Promise<RecordSet> {
       building: row.building ?? undefined,
       claudeTools: optionalList(row.claudeTools),
       image: row.imagePath ?? undefined,
+      profileVisibility: row.ownerMemberId ? profileVisibility.get(row.ownerMemberId) ?? undefined : undefined,
       links: linksOf('builder', row.id),
       /**
        * `projectSlugs` is left absent, and that is not a gap.

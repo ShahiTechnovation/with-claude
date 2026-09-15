@@ -1,6 +1,7 @@
 ---
 import Scout from './Scout.astro';
-import { citySignalsRanked } from '@/data';
+import * as staticData from '@/data';
+import type { RecordSelectors } from '@/data/selectors';
 import { CITY_STATE_LABEL, CITY_STATE_NOTE, CITY_STATE_ORDER } from '@/lib/city';
 import { PLATE, formatCoords, graticule, project, scaleBar } from '@/lib/geo';
 import { dateParts } from '@/lib/datetime';
@@ -29,12 +30,14 @@ import type { CityState } from '@/data/types';
 interface Props {
   variant?: 'atlas' | 'ghost';
   class?: string;
+  selectors?: RecordSelectors;
 }
 
-const { variant = 'atlas', class: className = '' } = Astro.props;
+const { variant = 'atlas', class: className = '', selectors } = Astro.props;
+const data = selectors ?? staticData;
 const interactive = variant === 'atlas';
 
-const signals = citySignalsRanked();
+const signals = data.citySignalsRanked();
 const grid = graticule(5);
 const bar = scaleBar(500);
 

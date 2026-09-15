@@ -1,12 +1,6 @@
 ---
-import {
-  cityName,
-  creditsFor,
-  isAmbassadorLed,
-  pastEvents,
-  upcomingEvents,
-  venueLabel,
-} from '@/data';
+import * as staticData from '@/data';
+import type { RecordSelectors } from '@/data/selectors';
 import type { CommunityEvent } from '@/data';
 import { registrationLink } from '@/lib/attribution';
 import { dateParts, formatTime, isoDateTime } from '@/lib/datetime';
@@ -35,8 +29,15 @@ import { formatName, lifecycleLabel, lifecycleOf, lifecycleTone } from '@/lib/st
  * Numbering is section-relative (01–03 upcoming, 01–11 past). It is not the
  * `volume`, which counts a city's own series and is shown on the event page.
  */
-const upcoming = upcomingEvents();
-const past = pastEvents();
+interface Props {
+  selectors?: RecordSelectors;
+}
+
+const { selectors } = Astro.props;
+const data = selectors ?? staticData;
+
+const upcoming = data.upcomingEvents();
+const past = data.pastEvents();
 
 interface Entry {
   event: CommunityEvent;
@@ -54,10 +55,10 @@ const toEntry = (event: CommunityEvent, i: number): Entry => ({
   event,
   n: String(i + 1).padStart(2, '0'),
   parts: dateParts(event.date),
-  city: cityName(event.citySlug),
-  venue: venueLabel(event),
-  hosts: creditsFor(event),
-  verified: isAmbassadorLed(event),
+  city: data.cityName(event.citySlug),
+  venue: data.venueLabel(event),
+  hosts: data.creditsFor(event),
+  verified: data.isAmbassadorLed(event),
   lifecycle: lifecycleOf(event),
 });
 

@@ -1,6 +1,8 @@
 ---
 import { Image } from 'astro:assets';
-import { ambassadorForBuilder, cityName, eventsOf, projectsOf, publicBuilders, type Builder } from '@/data';
+import * as staticData from '@/data';
+import type { RecordSelectors } from '@/data/selectors';
+import type { Builder } from '@/data/types';
 import { asset } from '@/lib/images';
 
 /**
@@ -22,6 +24,7 @@ interface Props {
   heading?: string;
   eyebrow?: string;
   builders?: Builder[];
+  selectors?: RecordSelectors;
 }
 
 const {
@@ -30,10 +33,14 @@ const {
   showHead = true,
   heading = 'Who’s building',
   eyebrow = 'Builders',
-  builders = publicBuilders,
+  builders,
+  selectors,
 } = Astro.props;
 
-const scoped = citySlug ? builders.filter((b) => b.citySlug === citySlug) : builders;
+const data = selectors ?? staticData;
+const list = builders ?? data.publicBuilders;
+
+const scoped = citySlug ? list.filter((b) => b.citySlug === citySlug) : list;
 
 // Ambassadors lead the index; everyone else follows in the order they joined.
 /**
@@ -56,16 +63,16 @@ function isRemoteUrl(value: string): boolean {
 
 const entries = scoped
   .map((builder) => {
-    const ambassador = ambassadorForBuilder(builder);
+    const ambassador = data.ambassadorForBuilder(builder);
     const remote = builder.image && isRemoteUrl(builder.image) ? builder.image : undefined;
     return {
       builder,
       ambassador,
-      city: cityName(builder.citySlug),
+      city: data.cityName(builder.citySlug),
       portrait: remote ? undefined : asset(builder.image),
       remotePortrait: remote,
-      eventCount: eventsOf(builder).length,
-      projectCount: projectsOf(builder).length,
+      eventCount: data.eventsOf(builder).length,
+      projectCount: data.projectsOf(builder).length,
     };
   })
   .sort((a, b) => Number(Boolean(b.ambassador)) - Number(Boolean(a.ambassador)));

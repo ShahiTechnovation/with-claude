@@ -1,13 +1,3 @@
-import { istInstant } from '@/lib/datetime';
-import { cityState, cityStateRank } from '@/lib/city';
-import { lifecycleOf } from '@/lib/status';
-import {
-  leaderboard,
-  standingOf,
-  type LeaderboardEntry,
-  type LeaderboardWindow,
-} from '@/lib/leaderboard';
-import { derived, listProxy, mapProxy } from './dataset';
 import type {
   Ambassador,
   Authorship,
@@ -25,764 +15,148 @@ import type {
   Story,
   UseCase,
 } from './types';
+import { records } from './dataset';
+import { RecordSelectors, type BuilderAttribution, type CitySignal, type NationalSignal, type TimelineMonth, type PhotoRecordItem } from './selectors';
+import type { LeaderboardWindow, LeaderboardEntry } from '@/lib/leaderboard';
 
 export * from './site';
 export type * from './types';
 export { activeSource } from './dataset';
 export type { DataSourceName, RecordSet } from './source';
+export { RecordSelectors } from './selectors';
 
-/**
- * THE RECORD, FROM WHICHEVER SOURCE THIS BUILD READS.
- *
- * `DATA_SOURCE=ts` (the default) hands back the TypeScript arrays in
- * `src/data/*.ts`. `DATA_SOURCE=db` hands back the same shapes, reconstructed
- * from PostgreSQL by the prebuild. Everything below this line is written once
- * and cannot tell the difference — see `src/data/source.ts` for why the seam
- * is here and not further up.
- *
- * These eight are unfiltered, exactly as they always were. `isPublic()` below
- * is what decides what renders, and it is the only thing that decides it.
- */
-/**
- * ── WHY THESE ARE GETTERS AND NOT CONSTANTS ──────────────────────────────
- *
- * Every collection below used to be a module-scope `const`, evaluated once at
- * import. For a build that is exactly right — one process renders one dataset,
- * so a constant is a cache that never misses — and the public API is a value,
- * so it has to keep looking like one to the fifty files that read it.
- *
- * What a frozen constant cannot do is be re-derived, and the equivalence suite
- * has to evaluate this whole layer against two datasets in one process. With
- * constants it compared the first dataset with itself and passed, which is
- * worse than having no suite at all.
- *
- * So each one is a getter over `derived()`, memoized on the identity of the
- * record set it came from. Reading `publicBuilders` still yields an array and
- * still computes once per dataset; it is simply no longer computed before the
- * dataset is known. Nothing that consumes this file changes.
- */
+let _staticSelectors: RecordSelectors | undefined;
 
-/**
- * A record is public once a human has moved it past review. Everything the
- * site renders goes through this — a `pending` submission is invisible, which
- * is the entire point of having the state.
- */
+/** The build-time singleton for SSG compatibility. */
+export function getStatic(): RecordSelectors {
+  if (!_staticSelectors) {
+    _staticSelectors = new RecordSelectors(records());
+  }
+  return _staticSelectors;
+}
+
+/** TEST ONLY: Reset the static selectors so equivalence tests can swap the dataset. */
+export function __resetStaticSelectors(): void {
+  _staticSelectors = undefined;
+}
+
+function listProxy<T>(read: () => T[]): ProxyHandler<T[]> {
+  return {
+    get(_target, property, receiver) {
+      const list = read();
+      const value = Reflect.get(list, property, receiver);
+      return typeof value === 'function' ? value.bind(list) : value;
+    },
+    has: (_target, property) => Reflect.has(read(), property),
+    ownKeys: () => Reflect.ownKeys(read()),
+    getOwnPropertyDescriptor: (_target, property) =>
+      Reflect.getOwnPropertyDescriptor(read(), property),
+    getPrototypeOf: () => Array.prototype,
+  };
+}
+
+function mapProxy<K, V>(read: () => Map<K, V>): ProxyHandler<Map<K, V>> {
+  return {
+    get(_target, property, receiver) {
+      const map = read();
+      const value = Reflect.get(map, property, receiver);
+      return typeof value === 'function' ? value.bind(map) : value;
+    },
+    has: (_target, property) => Reflect.has(read(), property),
+    getPrototypeOf: () => Map.prototype,
+  };
+}
+
+// -------------------------------------------------------------------------
+// COLLECTIONS (exported as Proxies to look like arrays/maps)
+// -------------------------------------------------------------------------
+export const ambassadors: Ambassador[] = new Proxy([] as Ambassador[], listProxy(() => getStatic().ambassadors));
+export const builders: Builder[] = new Proxy([] as Builder[], listProxy(() => getStatic().builders));
+export const cities: City[] = new Proxy([] as City[], listProxy(() => getStatic().cities));
+export const events: CommunityEvent[] = new Proxy([] as CommunityEvent[], listProxy(() => getStatic().events));
+export const guides: Guide[] = new Proxy([] as Guide[], listProxy(() => getStatic().guides));
+export const projects: Project[] = new Proxy([] as Project[], listProxy(() => getStatic().projects));
+export const stories: Story[] = new Proxy([] as Story[], listProxy(() => getStatic().stories));
+export const useCases: UseCase[] = new Proxy([] as UseCase[], listProxy(() => getStatic().useCases));
+
+export const publicAmbassadors: Ambassador[] = new Proxy([] as Ambassador[], listProxy(() => getStatic().publicAmbassadors));
+export const publicBuilders: Builder[] = new Proxy([] as Builder[], listProxy(() => getStatic().publicBuilders));
+export const publicProjects: Project[] = new Proxy([] as Project[], listProxy(() => getStatic().publicProjects));
+export const publicStories: Story[] = new Proxy([] as Story[], listProxy(() => getStatic().publicStories));
+export const publicEvents: CommunityEvent[] = new Proxy([] as CommunityEvent[], listProxy(() => getStatic().publicEvents));
+export const publicCities: City[] = new Proxy([] as City[], listProxy(() => getStatic().publicCities));
+export const publicUseCases: UseCase[] = new Proxy([] as UseCase[], listProxy(() => getStatic().publicUseCases));
+export const publicGuides: Guide[] = new Proxy([] as Guide[], listProxy(() => getStatic().publicGuides));
+export const eventsChronological: CommunityEvent[] = new Proxy([] as CommunityEvent[], listProxy(() => getStatic().eventsChronological));
+
+export const cityBySlug: Map<string, City> = new Proxy(new Map(), mapProxy(() => getStatic().cityBySlug));
+export const eventBySlug: Map<string, CommunityEvent> = new Proxy(new Map(), mapProxy(() => getStatic().eventBySlug));
+export const builderBySlug: Map<string, Builder> = new Proxy(new Map(), mapProxy(() => getStatic().builderBySlug));
+export const projectBySlug: Map<string, Project> = new Proxy(new Map(), mapProxy(() => getStatic().projectBySlug));
+export const storyBySlug: Map<string, Story> = new Proxy(new Map(), mapProxy(() => getStatic().storyBySlug));
+export const ambassadorBySlug: Map<string, Ambassador> = new Proxy(new Map(), mapProxy(() => getStatic().ambassadorBySlug));
+export const useCaseBySlug: Map<string, UseCase> = new Proxy(new Map(), mapProxy(() => getStatic().useCaseBySlug));
+export const guideBySlug: Map<string, Guide> = new Proxy(new Map(), mapProxy(() => getStatic().guideBySlug));
+
+// -------------------------------------------------------------------------
+// EXPLICIT WRAPPER FUNCTIONS
+// -------------------------------------------------------------------------
 export function isPublic(record: { status: ModerationStatus }): boolean {
   return record.status === 'published' || record.status === 'featured';
 }
 
-const publicOnly = <T extends RecordBase>(list: T[]): T[] => list.filter(isPublic);
-
-const $ambassadors = derived((r) => r.ambassadors);
-const $builders = derived((r) => r.builders);
-const $cities = derived((r) => r.cities);
-const $events = derived((r) => r.events);
-const $guides = derived((r) => r.guides);
-const $projects = derived((r) => r.projects);
-const $stories = derived((r) => r.stories);
-const $useCases = derived((r) => r.useCases);
-
-/** The record, unfiltered, exactly as it always was. */
-export const ambassadors: Ambassador[] = new Proxy([] as Ambassador[], listProxy($ambassadors));
-export const builders: Builder[] = new Proxy([] as Builder[], listProxy($builders));
-export const cities: City[] = new Proxy([] as City[], listProxy($cities));
-export const events: CommunityEvent[] = new Proxy([] as CommunityEvent[], listProxy($events));
-export const guides: Guide[] = new Proxy([] as Guide[], listProxy($guides));
-export const projects: Project[] = new Proxy([] as Project[], listProxy($projects));
-export const stories: Story[] = new Proxy([] as Story[], listProxy($stories));
-export const useCases: UseCase[] = new Proxy([] as UseCase[], listProxy($useCases));
-
-const $publicAmbassadors = derived((r) => publicOnly(r.ambassadors));
-const $publicBuilders = derived((r) => publicOnly(r.builders));
-const $publicProjects = derived((r) => publicOnly(r.projects));
-const $publicStories = derived((r) => publicOnly(r.stories));
-const $publicEvents = derived((r) => publicOnly(r.events));
-const $publicCities = derived((r) => publicOnly(r.cities));
-const $publicUseCases = derived((r) => publicOnly(r.useCases));
-const $publicGuides = derived((r) => publicOnly(r.guides));
-
-export const publicAmbassadors: Ambassador[] = new Proxy(
-  [] as Ambassador[],
-  listProxy($publicAmbassadors),
-);
-export const publicBuilders: Builder[] = new Proxy([] as Builder[], listProxy($publicBuilders));
-export const publicProjects: Project[] = new Proxy([] as Project[], listProxy($publicProjects));
-export const publicStories: Story[] = new Proxy([] as Story[], listProxy($publicStories));
-export const publicEvents: CommunityEvent[] = new Proxy(
-  [] as CommunityEvent[],
-  listProxy($publicEvents),
-);
-export const publicCities: City[] = new Proxy([] as City[], listProxy($publicCities));
-export const publicUseCases: UseCase[] = new Proxy([] as UseCase[], listProxy($publicUseCases));
-export const publicGuides: Guide[] = new Proxy([] as Guide[], listProxy($publicGuides));
-
-// =========================================================================
-// EVENTS
-// =========================================================================
-
-const byDateAsc = (a: CommunityEvent, b: CommunityEvent) =>
-  istInstant(a.date, a.startTime).getTime() - istInstant(b.date, b.startTime).getTime();
-
-/** Ascending by start time. */
-const $eventsChronological = derived((r) => publicOnly(r.events).sort(byDateAsc));
-export const eventsChronological: CommunityEvent[] = new Proxy(
-  [] as CommunityEvent[],
-  listProxy($eventsChronological),
-);
-
-/** Everything that has not finished, soonest first. */
-export function upcomingEvents(now: Date = new Date()): CommunityEvent[] {
-  return eventsChronological.filter((e) => {
-    const lifecycle = lifecycleOf(e, now);
-    return lifecycle !== 'past' && lifecycle !== 'cancelled';
-  });
-}
-
-/** Everything that has finished, most recent first. */
-export function pastEvents(now: Date = new Date()): CommunityEvent[] {
-  return [...eventsChronological].reverse().filter((e) => lifecycleOf(e, now) === 'past');
-}
-
-/**
- * THE next event, nationally. Every "next up" on the site reads this — the
- * hero, the nav, the JSON-LD, the meta description. There is no second copy.
- */
-export function nextEvent(now: Date = new Date()): CommunityEvent | undefined {
-  return upcomingEvents(now)[0];
-}
-
-/** Anything running right now. */
-export function liveEvents(now: Date = new Date()): CommunityEvent[] {
-  return eventsChronological.filter((e) => lifecycleOf(e, now) === 'live');
-}
-
-// =========================================================================
-// LOOKUPS
-// =========================================================================
-
-const bySlug = <T extends { slug: string }>(list: T[]): Map<string, T> =>
-  new Map(list.map((record) => [record.slug, record]));
-
-const $cityBySlug = derived((r) => bySlug(r.cities));
-const $eventBySlug = derived((r) => bySlug(publicOnly(r.events)));
-const $builderBySlug = derived((r) => bySlug(publicOnly(r.builders)));
-const $projectBySlug = derived((r) => bySlug(publicOnly(r.projects)));
-const $storyBySlug = derived((r) => bySlug(publicOnly(r.stories)));
-const $ambassadorBySlug = derived((r) => bySlug(publicOnly(r.ambassadors)));
-const $useCaseBySlug = derived((r) => bySlug(publicOnly(r.useCases)));
-const $guideBySlug = derived((r) => bySlug(publicOnly(r.guides)));
-
-export const cityBySlug: Map<string, City> = new Proxy(new Map(), mapProxy($cityBySlug));
-export const eventBySlug: Map<string, CommunityEvent> = new Proxy(
-  new Map(),
-  mapProxy($eventBySlug),
-);
-export const builderBySlug: Map<string, Builder> = new Proxy(new Map(), mapProxy($builderBySlug));
-export const projectBySlug: Map<string, Project> = new Proxy(new Map(), mapProxy($projectBySlug));
-export const storyBySlug: Map<string, Story> = new Proxy(new Map(), mapProxy($storyBySlug));
-export const ambassadorBySlug: Map<string, Ambassador> = new Proxy(
-  new Map(),
-  mapProxy($ambassadorBySlug),
-);
-export const useCaseBySlug: Map<string, UseCase> = new Proxy(new Map(), mapProxy($useCaseBySlug));
-export const guideBySlug: Map<string, Guide> = new Proxy(new Map(), mapProxy($guideBySlug));
-
-export function getCity(slug: string): City | undefined {
-  return cityBySlug.get(slug);
-}
-
-/** A city always has a name to render, even if the record is incomplete. */
-export function cityName(slug: string): string {
-  return cityBySlug.get(slug)?.name ?? slug;
-}
-
-// =========================================================================
-// THE COMMUNITY GRAPH
-// City ↔ Ambassador ↔ Builder ↔ Project ↔ Event ↔ Story
-// =========================================================================
-
-export function ambassadorsInCity(slug: string): Ambassador[] {
-  return publicAmbassadors.filter((a) => a.citySlug === slug);
-}
-
-/** The verified Ambassador hosting an event, if there is one. */
-export function hostAmbassador(event: CommunityEvent): Ambassador | undefined {
-  return event.host.ambassadorSlug ? ambassadorBySlug.get(event.host.ambassadorSlug) : undefined;
-}
-
-/**
- * An event is a verified Claude Community event when its host resolves to a
- * published Ambassador record. There is no flag for this and there must not be.
- */
-export function isAmbassadorLed(event: CommunityEvent): boolean {
-  return Boolean(hostAmbassador(event));
-}
-
-/** Builders who ran a room alongside the Ambassador. */
-export function coHostsOf(event: CommunityEvent): Builder[] {
-  return (event.host.builderSlugs ?? [])
-    .map((slug) => builderBySlug.get(slug))
-    .filter((builder): builder is Builder => Boolean(builder));
-}
-
-/**
- * Everyone credited with an event, in the order the site prints them:
- * the Ambassador, then co-hosts, then the organisations that lent the room.
- *
- * One function so the archive, the event page and the city page can never
- * credit a room differently from one another.
- */
-export function creditsFor(event: CommunityEvent): string[] {
-  return [
-    hostAmbassador(event)?.name,
-    ...coHostsOf(event).map((builder) => builder.name),
-    ...(event.host.organisations ?? []),
-  ].filter((name): name is string => Boolean(name));
-}
-
-/**
- * The printable venue for an event, or undefined when the record has none.
- *
- * A venue is only worth printing when it names somewhere. `private: true`
- * means the address goes to confirmed registrants only, and several older
- * entries use the city name as an honest stand-in for a venue nobody
- * recorded. Neither is a location, so neither is rendered as one.
- *
- * Lives here rather than in a component so the event record, the archive and
- * the history page can never print a room's address three different ways.
- */
-export function venueLabel(event: CommunityEvent): string | undefined {
-  const { name, address, private: isPrivate } = event.venue;
-  if (isPrivate) return undefined;
-  if (name === cityName(event.citySlug)) return undefined;
-  return address && !name.includes(address) ? `${name}, ${address}` : name;
-}
-
-/**
- * Events where this ambassador holds ANY credit, newest first.
- *
- * Reads `host.credits` and not `host.ambassadorSlug`, which is the whole point
- * of the credit list: a co-hosted or organised event is an event this person
- * ran, and the old implementation — a filter on the headline host — could not
- * see one. The primary credit is in `credits` too, so every event the previous
- * version returned is still returned.
- */
-export function eventsHostedBy(ambassadorSlug: string): CommunityEvent[] {
-  return eventsChronological.filter((e) =>
-    (e.host.credits ?? []).some((credit) => credit.ambassadorSlug === ambassadorSlug),
-  );
-}
-
-/**
- * THE COMMUNITY ACTIVITY INDEX. §19–§22.
- *
- * A selector rather than a page-level computation so `/ambassadors`,
- * `/ambassadors/[slug]`, `/cities/[slug]` and the search index all read one
- * ranking. Two pages computing their own would be two rankings, and §50
- * requires one canonical ambassador wherever they appear.
- *
- * `now` is threaded through rather than defaulted here, so a test can pin the
- * clock and §61's determinism is assertable.
- */
-export function activityLeaderboard(
-  options: { window?: LeaderboardWindow; now?: Date } = {},
-): LeaderboardEntry[] {
-  return leaderboard(publicAmbassadors, publicEvents, options);
-}
-
-/** One ambassador's standing, with the all-time figures §21 insists on. */
-export function ambassadorStanding(slug: string, now?: Date) {
-  return standingOf(slug, publicAmbassadors, publicEvents, { now });
-}
-
-/** The credits on an event that resolve to a published ambassador. §29. */
-export function eventCredits(event: CommunityEvent): { credit: EventHostCredit; ambassador: Ambassador }[] {
-  return (event.host.credits ?? [])
-    .map((credit) => {
-      const ambassador = ambassadorBySlug.get(credit.ambassadorSlug);
-      return ambassador ? { credit, ambassador } : undefined;
-    })
-    .filter((entry): entry is { credit: EventHostCredit; ambassador: Ambassador } => Boolean(entry));
-}
-
-/** The builder-directory entry for an ambassador, when they have one. */
-export function builderForAmbassador(ambassador: Ambassador): Builder | undefined {
-  return ambassador.builderSlug ? builderBySlug.get(ambassador.builderSlug) : undefined;
-}
-
-/** The Ambassador record claiming a builder, if any. Drives the role chip. */
-export function ambassadorForBuilder(builder: Builder): Ambassador | undefined {
-  return publicAmbassadors.find((a) => a.builderSlug === builder.slug || a.slug === builder.slug);
-}
-
-export function eventsInCity(slug: string): CommunityEvent[] {
-  return eventsChronological.filter((e) => e.citySlug === slug);
-}
-
-export function buildersInCity(slug: string): Builder[] {
-  return publicBuilders.filter((b) => b.citySlug === slug);
-}
-
-export function projectsInCity(slug: string): Project[] {
-  return publicProjects.filter((p) => p.citySlug === slug);
-}
-
-export function storiesInCity(slug: string): Story[] {
-  return publicStories.filter((s) => s.citySlug === slug);
-}
-
-export function speakersOf(event: CommunityEvent): Builder[] {
-  return (event.speakerSlugs ?? [])
-    .map((s) => builderBySlug.get(s))
-    .filter((b): b is Builder => Boolean(b));
-}
-
-/** Projects that came out of a given room. The event → project half of the loop. */
-export function projectsFromEvent(slug: string): Project[] {
-  return publicProjects.filter((p) => p.builtAtEventSlug === slug);
-}
-
-/** The people behind a project. The project → person half of the loop. */
-export function buildersOf(project: Project): Builder[] {
-  return project.builderSlugs
-    .map((s) => builderBySlug.get(s))
-    .filter((b): b is Builder => Boolean(b));
-}
-
-// ── Attribution-only builder resolution ───────────────────────────────
-//
-// Impact Lab builders are `pending` — they do not get public profile pages,
-// but their names must appear on project cards and detail pages as "Built
-// by X, Y, Z". This map resolves against ALL builders, not just public ones.
-
-const $allBuildersBySlug = derived((r) => bySlug(r.builders));
-
-/** Builder name + slug + public status, for attribution display. */
-export interface BuilderAttribution {
-  name: string;
-  slug: string;
-  isPublic: boolean;
-}
-
-/**
- * Resolve builder names for a project, including pending builders.
- *
- * Published builders get linked profiles. Pending builders get plain-text
- * attribution — their name appears, but there is no profile page to link to.
- */
-export function builderNamesOf(project: Project): BuilderAttribution[] {
-  return project.builderSlugs
-    .map((slug) => {
-      const builder = $allBuildersBySlug().get(slug);
-      return builder
-        ? { name: builder.name, slug: builder.slug, isPublic: isPublic(builder) }
-        : { name: slug, slug, isPublic: false };
-    });
-}
-
-/** Everything one builder has made. */
-export function projectsOf(builder: Builder): Project[] {
-  const declared = (builder.projectSlugs ?? [])
-    .map((s) => projectBySlug.get(s))
-    .filter((p): p is Project => Boolean(p));
-  const credited = publicProjects.filter((p) => p.builderSlugs.includes(builder.slug));
-  return [...new Set([...declared, ...credited])];
-}
-
-/** Every room one builder has been on the record in. */
-export function eventsOf(builder: Builder): CommunityEvent[] {
-  const declared = (builder.eventSlugs ?? [])
-    .map((s) => eventBySlug.get(s))
-    .filter((e): e is CommunityEvent => Boolean(e));
-  // Credited two ways — spoke in the room, or ran it. Both belong on a
-  // profile, and neither should need a second edit in `builders.ts`.
-  const credited = eventsChronological.filter(
-    (e) => e.speakerSlugs?.includes(builder.slug) || e.host.builderSlugs?.includes(builder.slug),
-  );
-  return [...new Set([...declared, ...credited])].sort(byDateAsc);
-}
-
-// -------------------------------------------------------------------------
-// USE CASES AND GUIDES — the practice half of the graph
-// -------------------------------------------------------------------------
-
-/** Newest first. Practice ages, so the most recent account leads. */
-export function useCasesChronological(): UseCase[] {
-  return [...publicUseCases].sort((a, b) => (a.date < b.date ? 1 : -1));
-}
-
-export function guidesChronological(): Guide[] {
-  return [...publicGuides].sort((a, b) =>
-    (a.modified ?? a.published) < (b.modified ?? b.published) ? 1 : -1,
-  );
-}
-
-/**
- * The builder behind a byline.
- *
- * An `Authorship` can name someone who has no profile yet, so this resolves
- * where it can and the UI falls back to the plain name where it cannot.
- */
-export function authorOf(record: { author: Authorship }): Builder | undefined {
-  return record.author.builderSlug ? builderBySlug.get(record.author.builderSlug) : undefined;
-}
-
-/** The name to print on a byline, resolved profile or not. */
-export function authorName(record: { author: Authorship }): string {
-  return authorOf(record)?.name ?? record.author.name ?? 'The community';
-}
-
-export function useCasesInCity(slug: string): UseCase[] {
-  return publicUseCases.filter((u) => u.citySlug === slug);
-}
-
-/** Everything one builder has written up. */
-export function useCasesBy(builderSlug: string): UseCase[] {
-  return useCasesChronological().filter((u) => u.author.builderSlug === builderSlug);
-}
-
-export function guidesBy(builderSlug: string): Guide[] {
-  return guidesChronological().filter(
-    (g) => g.author.builderSlug === builderSlug || g.builderSlugs?.includes(builderSlug),
-  );
-}
-
-/** The practice written up around one project — the project → knowledge edge. */
-export function useCasesForProject(slug: string): UseCase[] {
-  return publicUseCases.filter((u) => u.projectSlug === slug);
-}
-
-/** What came out of a room, in writing. */
-export function useCasesForEvent(slug: string): UseCase[] {
-  return publicUseCases.filter((u) => u.eventSlug === slug);
-}
-
-export function guidesForEvent(slug: string): Guide[] {
-  return publicGuides.filter((g) => g.eventSlugs?.includes(slug));
-}
-
-/** Which Claude surfaces the community has actually documented using. */
-export function claudeSurfaces(): string[] {
-  const surfaces = new Set<string>();
-  for (const useCase of publicUseCases) for (const tool of useCase.tools) surfaces.add(tool);
-  for (const builder of publicBuilders)
-    for (const tool of builder.claudeTools ?? []) surfaces.add(tool);
-  return [...surfaces].sort();
-}
-
-export function storiesChronological(): Story[] {
-  return [...publicStories].sort((a, b) => (a.date < b.date ? 1 : -1));
-}
-
-export function storiesForEvent(slug: string): Story[] {
-  return publicStories.filter((s) => s.eventSlug === slug);
-}
-
-// =========================================================================
-// CITY STATE — derived, never authored
-// =========================================================================
-
-export interface CitySignal {
-  city: City;
-  state: CityState;
-  ambassadors: Ambassador[];
-  eventCount: number;
-  heldCount: number;
-  builderCount: number;
-  projectCount: number;
-  storyCount: number;
-  interestCount: number;
-  next?: CommunityEvent;
-}
-
-/** The next event in a given city, if any. */
-export function nextEventInCity(slug: string, now: Date = new Date()): CommunityEvent | undefined {
-  return upcomingEvents(now).find((e) => e.citySlug === slug);
-}
-
-export function citySignal(city: City, now: Date = new Date()): CitySignal {
-  const cityAmbassadors = ambassadorsInCity(city.slug);
-  const cityEvents = eventsInCity(city.slug);
-  const interestCount = city.interest?.count ?? 0;
-
-  return {
-    city,
-    state: cityState({
-      hasAmbassador: cityAmbassadors.length > 0,
-      eventCount: cityEvents.length,
-      interestCount,
-    }),
-    ambassadors: cityAmbassadors,
-    eventCount: cityEvents.length,
-    heldCount: cityEvents.filter((e) => lifecycleOf(e, now) === 'past').length,
-    builderCount: buildersInCity(city.slug).length,
-    projectCount: projectsInCity(city.slug).length,
-    storyCount: storiesInCity(city.slug).length,
-    interestCount,
-    next: nextEventInCity(city.slug, now),
-  };
-}
-
-/** Everything the map and the city index need, computed once. */
-export function citySignals(now: Date = new Date()): CitySignal[] {
-  return publicCities.map((city) => citySignal(city, now));
-}
-
-/** Most active first, then alphabetical within a state. */
-export function citySignalsRanked(now: Date = new Date()): CitySignal[] {
-  return citySignals(now).sort(
-    (a, b) =>
-      cityStateRank(a.state) - cityStateRank(b.state) || a.city.name.localeCompare(b.city.name),
-  );
-}
-
-export function citiesInState(state: CityState, now: Date = new Date()): CitySignal[] {
-  return citySignals(now).filter((s) => s.state === state);
-}
-
-// =========================================================================
-// NATIONAL SIGNAL
-// =========================================================================
-
-export interface NationalSignal {
-  /** Events actually held. */
-  eventsHeld: number;
-  /** Events on the calendar. */
-  eventsScheduled: number;
-  citiesPlotted: number;
-  /** Cities with a verified Ambassador. */
-  citiesAmbassadorLed: number;
-  /** Cities with events but no assigned Ambassador. */
-  citiesWithActivity: number;
-  /** Cities where people have registered interest. */
-  citiesWithInterest: number;
-  builders: number;
-  projects: number;
-  stories: number;
-  useCases: number;
-  guides: number;
-  ambassadors: number;
-  /** Community-reported figures, summed. Undefined when none are reported. */
-  reportedMembers?: number;
-  /** Where the reported figures came from, so the UI can attribute them. */
-  reportedSources: string[];
-}
-
-/**
- * The numbers behind the signal strip.
- *
- * Every figure is counted from the record. The only ones that are not are the
- * community-reported figures, which are kept separate and carry their source
- * so the UI can label them honestly rather than folding them into a headline.
- */
-export function nationalSignal(now: Date = new Date()): NationalSignal {
-  const signals = citySignals(now);
-  const reported = publicCities.filter((c) => c.reported);
-  const members = reported.reduce((sum, c) => sum + (c.reported?.members ?? 0), 0);
-
-  return {
-    eventsHeld: pastEvents(now).length,
-    eventsScheduled: upcomingEvents(now).length,
-    citiesPlotted: signals.length,
-    citiesAmbassadorLed: signals.filter((s) => s.state === 'ambassador-led').length,
-    citiesWithActivity: signals.filter((s) => s.state === 'event-activity').length,
-    citiesWithInterest: signals.filter((s) => s.state === 'community-interest').length,
-    builders: publicBuilders.length,
-    projects: publicProjects.length,
-    stories: publicStories.length,
-    useCases: publicUseCases.length,
-    guides: publicGuides.length,
-    ambassadors: publicAmbassadors.length,
-    reportedMembers: members > 0 ? members : undefined,
-    reportedSources: reported.map((c) => c.reported!.source),
-  };
-}
-
-// =========================================================================
-// THE COMMUNITY FEED
-// =========================================================================
-
-/**
- * Everything in the record that carries a real date, in two piles.
- *
- * There is no authored feed file, so there is nothing here to invent — if the
- * community is quiet, the feed is short, and that is the honest reading. The
- * activity feed and the timeline both read this, so the two can never drift
- * into telling different stories about the same month.
- */
-function assembleSignals(now: Date): { scheduled: SignalItem[]; recent: SignalItem[] } {
-  const scheduled: SignalItem[] = upcomingEvents(now).map((event) => ({
-    kind: 'event-scheduled',
-    date: event.date,
-    subject: event.title,
-    action: 'on the calendar',
-    citySlug: event.citySlug,
-    href: `/events/${event.slug}`,
-  }));
-
-  const held: SignalItem[] = pastEvents(now).map((event) => ({
-    kind: 'event-held',
-    date: event.date,
-    subject: event.title,
-    action: 'held',
-    citySlug: event.citySlug,
-    href: `/events/${event.slug}`,
-  }));
-
-  // Only records that carry a real date can appear. An unknown `createdAt` is
-  // left undefined in the data rather than guessed, so these lists stay honest.
-  const joined: SignalItem[] = publicBuilders
-    .filter((b) => b.createdAt)
-    .map((b) => ({
-      kind: 'builder-published',
-      date: b.createdAt!,
-      subject: b.name,
-      action: 'joined the index',
-      citySlug: b.citySlug,
-      href: `/builders/${b.slug}`,
-    }));
-
-  const shipped: SignalItem[] = publicProjects
-    .filter((p) => p.createdAt)
-    .map((p) => ({
-      kind: 'project-published',
-      date: p.createdAt!,
-      subject: p.title,
-      action: 'added to the archive',
-      citySlug: p.citySlug,
-      href: `/projects/${p.slug}`,
-    }));
-
-  const written: SignalItem[] = publicStories.map((s) => ({
-    kind: 'story-published',
-    date: s.date,
-    subject: s.title,
-    action: 'published',
-    citySlug: s.citySlug,
-    href: `/stories/${s.slug}`,
-  }));
-
-  const documented: SignalItem[] = publicUseCases.map((u) => ({
-    kind: 'use-case-published',
-    date: u.date,
-    subject: u.title,
-    action: 'written up',
-    citySlug: u.citySlug,
-    href: `/use-cases/${u.slug}`,
-  }));
-
-  const explained: SignalItem[] = publicGuides.map((g) => ({
-    kind: 'guide-published',
-    date: g.modified ?? g.published,
-    subject: g.title,
-    action: g.modified ? 'updated' : 'published',
-    href: `/guides/${g.slug}`,
-  }));
-
-  const recent = [...held, ...joined, ...shipped, ...written, ...documented, ...explained].sort(
-    (a, b) => (a.date < b.date ? 1 : -1),
-  );
-
-  return { scheduled, recent };
-}
-
-/**
- * A merged stream of things that actually happened: what is on the calendar,
- * soonest first, then what has been held, most recent first.
- */
-export function communitySignal(limit = 6, now: Date = new Date()): SignalItem[] {
-  const { scheduled, recent } = assembleSignals(now);
-  return [...scheduled, ...recent].slice(0, limit);
-}
-
-// =========================================================================
-// COMMUNITY MEMORY — the record, by month
-// =========================================================================
-
-export interface TimelineEntry extends SignalItem {
-  /** True when this has not happened yet. Drives the unfilled marker. */
-  ahead: boolean;
-}
-
-export interface TimelineMonth {
-  /** `2026-09` — the sort key and the anchor id. */
-  key: string;
-  year: number;
-  /** Three letters, e.g. `SEP`. */
-  month: string;
-  /** True when the year changes at this month, so the rail can label it once. */
-  opensYear: boolean;
-  entries: TimelineEntry[];
-}
-
-const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-
-/**
- * THE RECORD — every dated thing in the community, grouped by month.
- *
- * Reads forward in time, because that is what a record is: it starts where
- * the community started and ends at what is next. Every entry comes from a
- * record carrying a real date, so a quiet month is genuinely a quiet month
- * and there is nothing here anyone had to write.
- */
-export function timeline(now: Date = new Date()): TimelineMonth[] {
-  const { scheduled, recent } = assembleSignals(now);
-  const entries: TimelineEntry[] = [
-    ...scheduled.map((item) => ({ ...item, ahead: true })),
-    ...recent.map((item) => ({ ...item, ahead: false })),
-  ].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
-
-  const months = new Map<string, TimelineMonth>();
-  for (const entry of entries) {
-    const [year, month] = entry.date.split('-');
-    const key = `${year}-${month}`;
-    let bucket = months.get(key);
-    if (!bucket) {
-      bucket = {
-        key,
-        year: Number(year),
-        month: MONTHS[Number(month) - 1] ?? month,
-        opensYear: false,
-        entries: [],
-      };
-      months.set(key, bucket);
-    }
-    bucket.entries.push(entry);
-  }
-
-  const ordered = [...months.values()];
-  ordered.forEach((bucket, i) => {
-    bucket.opensYear = i === 0 || ordered[i - 1].year !== bucket.year;
-  });
-  return ordered;
-}
-
-// =========================================================================
-// THE PHOTOGRAPHIC RECORD
-// =========================================================================
-
-export interface PhotoRecordItem extends EventPhoto {
-  event: CommunityEvent;
-  /** `06/02` — plate number within the archive, for the caption stamp. */
-  plate: string;
-}
-
-/**
- * FROM THE COMMUNITY runs on real photography until written stories exist.
- * Newest event first, so the most recent room is the one you meet.
- */
-export function photoRecord(): PhotoRecordItem[] {
-  const out: PhotoRecordItem[] = [];
-  const withPhotos = [...eventsChronological].reverse().filter((e) => e.photos?.length);
-
-  for (const event of withPhotos) {
-    event.photos!.forEach((photo, i) => {
-      out.push({
-        ...photo,
-        event,
-        plate: `${String(event.volume ?? 0).padStart(2, '0')}/${String(i + 1).padStart(2, '0')}`,
-      });
-    });
-  }
-  return out;
-}
+export function upcomingEvents(now?: Date) { return getStatic().upcomingEvents(now); }
+export function pastEvents(now?: Date) { return getStatic().pastEvents(now); }
+export function nextEvent(now?: Date) { return getStatic().nextEvent(now); }
+export function liveEvents(now?: Date) { return getStatic().liveEvents(now); }
+
+export function getCity(slug: string) { return getStatic().getCity(slug); }
+export function cityName(slug: string) { return getStatic().cityName(slug); }
+
+export function ambassadorsInCity(slug: string) { return getStatic().ambassadorsInCity(slug); }
+export function hostAmbassador(event: CommunityEvent) { return getStatic().hostAmbassador(event); }
+export function isAmbassadorLed(event: CommunityEvent) { return getStatic().isAmbassadorLed(event); }
+export function coHostsOf(event: CommunityEvent) { return getStatic().coHostsOf(event); }
+export function creditsFor(event: CommunityEvent) { return getStatic().creditsFor(event); }
+export function venueLabel(event: CommunityEvent) { return getStatic().venueLabel(event); }
+export function eventsHostedBy(ambassadorSlug: string) { return getStatic().eventsHostedBy(ambassadorSlug); }
+export function activityLeaderboard(options?: { window?: LeaderboardWindow; now?: Date }) { return getStatic().activityLeaderboard(options); }
+export function ambassadorStanding(slug: string, now?: Date) { return getStatic().ambassadorStanding(slug, now); }
+export function eventCredits(event: CommunityEvent) { return getStatic().eventCredits(event); }
+export function builderForAmbassador(ambassador: Ambassador) { return getStatic().builderForAmbassador(ambassador); }
+export function ambassadorForBuilder(builder: Builder) { return getStatic().ambassadorForBuilder(builder); }
+export function eventsInCity(slug: string) { return getStatic().eventsInCity(slug); }
+export function buildersInCity(slug: string) { return getStatic().buildersInCity(slug); }
+export function projectsInCity(slug: string) { return getStatic().projectsInCity(slug); }
+export function storiesInCity(slug: string) { return getStatic().storiesInCity(slug); }
+export function speakersOf(event: CommunityEvent) { return getStatic().speakersOf(event); }
+export function projectsFromEvent(slug: string) { return getStatic().projectsFromEvent(slug); }
+export function buildersOf(project: Project) { return getStatic().buildersOf(project); }
+export function builderNamesOf(project: Project) { return getStatic().builderNamesOf(project); }
+export function projectsOf(builder: Builder) { return getStatic().projectsOf(builder); }
+export function eventsOf(builder: Builder) { return getStatic().eventsOf(builder); }
+
+export function useCasesChronological() { return getStatic().useCasesChronological(); }
+export function guidesChronological() { return getStatic().guidesChronological(); }
+export function authorOf(record: { author: Authorship }) { return getStatic().authorOf(record); }
+export function authorName(record: { author: Authorship }) { return getStatic().authorName(record); }
+export function useCasesInCity(slug: string) { return getStatic().useCasesInCity(slug); }
+export function useCasesBy(builderSlug: string) { return getStatic().useCasesBy(builderSlug); }
+export function guidesBy(builderSlug: string) { return getStatic().guidesBy(builderSlug); }
+export function useCasesForProject(slug: string) { return getStatic().useCasesForProject(slug); }
+export function useCasesForEvent(slug: string) { return getStatic().useCasesForEvent(slug); }
+export function guidesForEvent(slug: string) { return getStatic().guidesForEvent(slug); }
+export function claudeSurfaces() { return getStatic().claudeSurfaces(); }
+export function storiesChronological() { return getStatic().storiesChronological(); }
+export function storiesForEvent(slug: string) { return getStatic().storiesForEvent(slug); }
+
+export function nextEventInCity(slug: string, now?: Date) { return getStatic().nextEventInCity(slug, now); }
+export function citySignal(city: City, now?: Date) { return getStatic().citySignal(city, now); }
+export function citySignals(now?: Date) { return getStatic().citySignals(now); }
+export function citySignalsRanked(now?: Date) { return getStatic().citySignalsRanked(now); }
+export function citiesInState(state: CityState, now?: Date) { return getStatic().citiesInState(state, now); }
+
+export function nationalSignal(now?: Date) { return getStatic().nationalSignal(now); }
+export function communitySignal(limit?: number, now?: Date) { return getStatic().communitySignal(limit, now); }
+export function timeline(now?: Date) { return getStatic().timeline(now); }
+export function photoRecord() { return getStatic().photoRecord(); }

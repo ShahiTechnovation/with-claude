@@ -91,13 +91,12 @@ export const POST: APIRoute = async ({ request }) => {
       /**
        * SAID PLAINLY, BECAUSE IT IS TRUE.
        *
-       * The row is committed and the record is public as far as the database
-       * is concerned. The PAGE is prerendered, so it appears when the rebuild
-       * this just triggered finishes — about a minute. Telling the client
-       * "published" and showing them a 404 would be the worse option.
+       * Both /builders/ and /builders/[slug] are SSR (prerender = false) and
+       * query Neon directly. The profile is live the moment the transaction
+       * commits — no rebuild, no CDN purge, no waiting.
        */
-      visibility: 'building',
-      message: 'Published. Your public page appears once the site finishes rebuilding.',
+      visibility: 'live',
+      message: 'Published. Your profile is live on the builders directory.',
     },
     result.created ? 201 : 200,
   );

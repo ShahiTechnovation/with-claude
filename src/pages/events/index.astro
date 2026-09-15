@@ -1,7 +1,9 @@
 ---
-import { useLiveRecords } from '@/server/directory';
+import { loadLiveRecords } from '@/server/directory';
+import { RecordSelectors } from '@/data/selectors';
 export const prerender = false;
-await useLiveRecords();
+const _rs = await loadLiveRecords();
+const selectors = new RecordSelectors(_rs);
 
 Astro.response.headers.set(
   'Cache-Control',
@@ -15,7 +17,6 @@ import PageIntro from '@/components/PageIntro.astro';
 import EventSignal from '@/components/EventSignal.astro';
 import EventRecord from '@/components/EventRecord.astro';
 import EventArchive from '@/components/EventArchive.astro';
-import { cityName, nextEvent, pastEvents, publicEvents, upcomingEvents } from '@/data';
 import { formatDate } from '@/lib/datetime';
 
 /**
@@ -27,13 +28,14 @@ import { formatDate } from '@/lib/datetime';
  * it is the same component the homepage and the city pages use, so there is no
  * second implementation of the table to keep in step.
  */
-const next = nextEvent();
-const upcoming = upcomingEvents();
-const past = pastEvents();
+const next = selectors.nextEvent();
+const upcoming = selectors.upcomingEvents();
+const past = selectors.pastEvents();
+const publicEvents = selectors.publicEvents;
 const cities = new Set(publicEvents.map((event) => event.citySlug));
 
 const description = next
-  ? `Every Claude community event in India, past and upcoming — ${publicEvents.length} rooms across ${cities.size} cities. Next: ${next.title} in ${cityName(next.citySlug)}, ${formatDate(next.date)}.`
+  ? `Every Claude community event in India, past and upcoming — ${publicEvents.length} rooms across ${cities.size} cities. Next: ${next.title} in ${selectors.cityName(next.citySlug)}, ${formatDate(next.date)}.`
   : `Every Claude community event in India, past and upcoming — ${publicEvents.length} rooms across ${cities.size} cities.`;
 ---
 
@@ -61,14 +63,14 @@ const description = next
   </PageIntro>
 
   <Section id="wild" tone="sunk" labelledby="wild-heading">
-    <EventSignal />
+    <EventSignal selectors={selectors} />
   </Section>
 
   <Section id="record" size="lg" labelledby="ahead-heading">
-    <EventRecord />
+    <EventRecord selectors={selectors} />
   </Section>
 
   <Section id="index" tone="sunk" labelledby="events-heading">
-    <EventArchive heading="Find a room" eyebrow="Index" showLink={false} filters />
+    <EventArchive heading="Find a room" eyebrow="Index" showLink={false} filters selectors={selectors} />
   </Section>
 </Base>

@@ -47,6 +47,7 @@ import { tsRecordSet } from '../src/data/source-ts';
 import { RECORD_KEYS, dataSourceName, type RecordSet } from '../src/data/source';
 import { __setRecords } from '../src/data/dataset';
 import * as selectors from '../src/data';
+import { getStatic, __resetStaticSelectors } from '../src/data/index';
 import { buildSearchIndex, searchVocabulary } from '../src/lib/search';
 import { isCityIndexable, nonIndexablePaths, indexableCityPaths } from '../src/lib/indexable';
 
@@ -78,16 +79,19 @@ beforeAll(async () => {
 afterAll(async () => {
   // Leave the selector layer reading its real source for any other suite.
   __setRecords(undefined);
+  __resetStaticSelectors();
   await db?.$close();
 });
 
 /** Evaluate a selector against a given record set, then put things back. */
 function against<T>(records: RecordSet, read: () => T): T {
   __setRecords(records);
+  __resetStaticSelectors();
   try {
     return read();
   } finally {
     __setRecords(undefined);
+    __resetStaticSelectors();
   }
 }
 
@@ -772,11 +776,11 @@ describe('the community graph', () => {
 
 describe('search', () => {
   it('produces an identical index', () => {
-    compare('buildSearchIndex()', () => buildSearchIndex(NOW));
+    compare('buildSearchIndex()', () => buildSearchIndex(getStatic(), NOW));
   });
 
   it('produces an identical vocabulary', () => {
-    compare('searchVocabulary()', () => searchVocabulary());
+    compare('searchVocabulary()', () => searchVocabulary(getStatic()));
   });
 });
 

@@ -1,7 +1,9 @@
 ---
-import { useLiveRecords } from '@/server/directory';
+import { loadLiveRecords } from '@/server/directory';
+import { RecordSelectors } from '@/data/selectors';
 export const prerender = false;
-await useLiveRecords();
+const _rs = await loadLiveRecords();
+const selectors = new RecordSelectors(_rs);
 
 Astro.response.headers.set(
   'Cache-Control',
@@ -12,12 +14,12 @@ import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
 import PageIntro from '@/components/PageIntro.astro';
 import CommunitySearch from '@/components/CommunitySearch.astro';
-import { nationalSignal } from '@/data';
-import { buildSearchIndex } from '@/lib/search';
+import { searchVocabulary, buildSearchIndex } from '@/lib/search';
 import { titles, trail } from '@/lib/seo';
 
-const index = buildSearchIndex();
-const signal = nationalSignal();
+const index = buildSearchIndex(selectors);
+const vocab = searchVocabulary(selectors);
+const signal = selectors.nationalSignal();
 
 const crumbs = trail({ name: 'Discover', href: '/discover' });
 
@@ -59,6 +61,6 @@ const description =
 
   <Section id="search" tone="sunk" size="lg" labelledby="search-results-heading">
     <h2 class="visually-hidden" id="search-results-heading">Search results</h2>
-    <CommunitySearch />
+    <CommunitySearch index={index} vocab={vocab} />
   </Section>
 </Base>

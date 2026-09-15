@@ -1,7 +1,9 @@
 ---
-import { useLiveRecords } from '@/server/directory';
+import { loadLiveRecords } from '@/server/directory';
+import { RecordSelectors } from '@/data/selectors';
 export const prerender = false;
-await useLiveRecords();
+const _rs = await loadLiveRecords();
+const selectors = new RecordSelectors(_rs);
 
 Astro.response.headers.set(
   'Cache-Control',
@@ -15,12 +17,12 @@ import PageIntro from '@/components/PageIntro.astro';
 import CityAtlas from '@/components/CityAtlas.astro';
 import CityIndex from '@/components/CityIndex.astro';
 import SubmitPanel from '@/components/SubmitPanel.astro';
-import { citySignals, publicCities } from '@/data';
 import { isLive } from '@/lib/city';
 import { EXTENT } from '@/lib/geo';
 import { inWordsCap } from '@/lib/words';
 
-const signals = citySignals();
+const signals = selectors.citySignals();
+const publicCities = selectors.publicCities;
 const live = signals.filter((s) => isLive(s.state));
 const led = signals.filter((s) => s.state === 'ambassador-led');
 ---
@@ -54,11 +56,11 @@ const led = signals.filter((s) => s.state === 'ambassador-led');
 
   <Section id="atlas" tone="night" size="lg" labelledby="atlas-heading">
     <h2 id="atlas-heading" class="visually-hidden">The atlas</h2>
-    <CityAtlas />
+    <CityAtlas selectors={selectors} />
   </Section>
 
   <Section id="index" labelledby="cities-heading">
-    <CityIndex heading="The index" eyebrow="Index" />
+    <CityIndex heading="The index" eyebrow="Index" selectors={selectors} />
   </Section>
 
   <Section id="register" tone="sunk" labelledby="city-heading">

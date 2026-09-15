@@ -1,26 +1,20 @@
 ---
-import { useLiveRecords } from '@/server/directory';
+import { loadLiveRecords } from '@/server/directory';
+import { RecordSelectors } from '@/data/selectors';
 export const prerender = false;
-await useLiveRecords();
+const _rs = await loadLiveRecords();
+const selectors = new RecordSelectors(_rs);
 
 Astro.response.headers.set(
   'Cache-Control',
   'public, max-age=0, s-maxage=60, stale-while-revalidate=86400',
 );
 
-import type { GetStaticPaths } from 'astro';
 import { profileSchema, titles, trail } from '@/lib/seo';
 import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
 import PageIntro from '@/components/PageIntro.astro';
 import EventArchive from '@/components/EventArchive.astro';
-import {
-  ambassadorStanding,
-  builderForAmbassador,
-  cityName,
-  projectsOf,
-  publicAmbassadors,
-} from '@/data';
 import { site } from '@/data/site';
 import { CREDIT_WEIGHT_LABELS } from '@/lib/credits';
 import { formatDate } from '@/lib/datetime';
@@ -56,16 +50,16 @@ const { slug } = Astro.params;
 if (!slug) return Astro.redirect('/404');
 
 
-const standing = ambassadorStanding(String(slug));
+const standing = selectors.ambassadorStanding(String(slug));
 // `getStaticPaths` only ever emits published ambassadors, so this is a guard
 // against a build-order surprise rather than a reachable state.
 if (!standing) return Astro.redirect('/ambassadors');
 
 const { allTime, year, rank } = standing;
 const ambassador = allTime.ambassador;
-const home = cityName(ambassador.citySlug);
-const builder = builderForAmbassador(ambassador);
-const projects = builder ? projectsOf(builder) : [];
+const home = selectors.cityName(ambassador.citySlug);
+const builder = selectors.builderForAmbassador(ambassador);
+const projects = builder ? selectors.projectsOf(builder) : [];
 
 const url = `${site.url}/ambassadors/${ambassador.slug}`;
 const description =
@@ -190,7 +184,7 @@ const links = [
           <p class="eyebrow">Ahead</p>
           <h2 id="upcoming-heading">Upcoming events</h2>
         </div>
-        <EventArchive events={allTime.upcoming} showHead={false} />
+        <EventArchive events={allTime.upcoming} showHead={false} selectors={selectors} />
       </Section>
     )
   }
@@ -202,7 +196,7 @@ const links = [
           <p class="eyebrow">Archive</p>
           <h2 id="past-heading">Past events</h2>
         </div>
-        <EventArchive events={allTime.past} showHead={false} />
+        <EventArchive events={allTime.past} showHead={false} selectors={selectors} />
       </Section>
     )
   }

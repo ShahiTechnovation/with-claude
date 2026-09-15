@@ -1,6 +1,7 @@
 ---
 import { Image } from 'astro:assets';
-import { builderNamesOf, cityName, publicProjects } from '@/data';
+import * as staticData from '@/data';
+import type { RecordSelectors } from '@/data/selectors';
 import { asset } from '@/lib/images';
 import { formatName } from '@/lib/status';
 
@@ -25,7 +26,8 @@ interface Props {
   /** Show the filter bar. Only meaningful on the full archive page. */
   filters?: boolean;
   /** Explicitly provided projects, bypassing the static dataset. */
-  projects?: import('@/data').Project[];
+  projects?: import('@/data/types').Project[];
+  selectors?: RecordSelectors;
 }
 
 const {
@@ -37,9 +39,11 @@ const {
   eyebrow = 'Projects',
   filters = false,
   projects,
+  selectors,
 } = Astro.props;
 
-let scoped = projects ?? publicProjects;
+const data = selectors ?? staticData;
+let scoped = projects ?? data.publicProjects;
 if (citySlug) scoped = scoped.filter((p) => p.citySlug === citySlug);
 if (builderSlug) scoped = scoped.filter((p) => p.builderSlugs.includes(builderSlug));
 
@@ -48,8 +52,8 @@ const isEmpty = rows.length === 0;
 
 const entries = rows.map((project) => ({
   project,
-  city: cityName(project.citySlug),
-  makers: builderNamesOf(project),
+  city: data.cityName(project.citySlug),
+  makers: data.builderNamesOf(project),
   image: asset(project.image),
 }));
 
@@ -133,7 +137,7 @@ const entryFields = [
                 </button>
                 {cities.map((slug) => (
                   <button class="filter" type="button" data-filter="city" data-value={slug}>
-                    {cityName(slug)}
+                    {data.cityName(slug)}
                   </button>
                 ))}
               </div>

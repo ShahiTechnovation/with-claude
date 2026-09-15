@@ -1,5 +1,6 @@
 ---
-import { citySignalsRanked, getCity } from '@/data';
+import * as staticData from '@/data';
+import type { RecordSelectors } from '@/data/selectors';
 import { CITY_STATE_LABEL, CITY_STATE_NOTE, isLive } from '@/lib/city';
 import { dateParts } from '@/lib/datetime';
 import { distanceKm, formatCoords } from '@/lib/geo';
@@ -21,6 +22,7 @@ interface Props {
   showHead?: boolean;
   /** Compact renders the quiet cities as a name grid instead of a full index. */
   compact?: boolean;
+  selectors?: RecordSelectors;
 }
 
 const {
@@ -28,14 +30,17 @@ const {
   eyebrow = 'Cities',
   showHead = true,
   compact = false,
+  selectors,
 } = Astro.props;
 
-const signals = citySignalsRanked();
+const data = selectors ?? staticData;
+
+const signals = data.citySignalsRanked();
 const live = signals.filter((s) => isLive(s.state));
 const quiet = signals.filter((s) => !isLive(s.state));
 
 // The first city with activity is the origin every distance is measured from.
-const origin = getCity(live[0]?.city.slug ?? 'bhopal');
+const origin = data.getCity(live[0]?.city.slug ?? 'bhopal');
 
 const quietWithDistance = quiet
   .map((s) => ({ ...s, km: origin ? distanceKm(origin, s.city) : undefined }))

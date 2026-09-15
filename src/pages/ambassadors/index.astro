@@ -1,7 +1,9 @@
 ---
-import { useLiveRecords } from '@/server/directory';
+import { loadLiveRecords } from '@/server/directory';
+import { RecordSelectors } from '@/data/selectors';
 export const prerender = false;
-await useLiveRecords();
+const _rs = await loadLiveRecords();
+const selectors = new RecordSelectors(_rs);
 
 Astro.response.headers.set(
   'Cache-Control',
@@ -13,7 +15,7 @@ import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
 import PageIntro from '@/components/PageIntro.astro';
 import AmbassadorLeaderboard from '@/components/AmbassadorLeaderboard.astro';
-import { activityLeaderboard } from '@/data';
+
 import { CREDIT_WEIGHT_LABELS } from '@/lib/credits';
 
 /**
@@ -32,7 +34,7 @@ import { CREDIT_WEIGHT_LABELS } from '@/lib/credits';
  * weights are rendered from `CREDIT_WEIGHT_LABELS`, so the printed formula and
  * the computed score cannot drift; there is no second copy of the numbers.
  */
-const board = activityLeaderboard({ window: 'all' });
+const board = selectors.activityLeaderboard({ window: 'all' });
 
 // A ranked page needs somebody on it. Everyone verified appears, including
 // people with nothing scored yet — §22 is a directory before it is a table.
@@ -84,7 +86,7 @@ const formula = CREDIT_WEIGHT_LABELS.map((w) => `${w.label} ×${w.weight}`).join
   </PageIntro>
 
   <Section id="activity" labelledby="activity-heading">
-    <AmbassadorLeaderboard entries={board} heading="Community activity" eyebrow="Index" />
+    <AmbassadorLeaderboard entries={board} heading="Community activity" eyebrow="Index" selectors={selectors} />
   </Section>
 
   <Section id="method" tone="sunk" labelledby="method-heading">

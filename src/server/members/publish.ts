@@ -33,14 +33,14 @@
  *
  * ── WHEN IT ACTUALLY BECOMES VISIBLE ─────────────────────────────────────
  *
- * `/builders/[slug]` is prerendered, so writing the row does not put a page on
- * the CDN. The deploy hook does, and it is called OUTSIDE the transaction and
- * cannot fail the publish — the database is the source of truth and Vercel
- * being unreachable is not a reason to un-publish something a member decided
- * to publish. That is `publishing.ts`'s argument and it holds here.
+ * `/builders/[slug]` and `/builders/` are both SSR (`prerender = false`) and
+ * query Neon directly. A published profile is immediately visible at
+ * `/builders/[slug]` — no rebuild needed, no CDN purge delay. The deploy hook
+ * is still called so other static pages that include the builder (sitemap,
+ * /discover search index) are updated on the next Vercel deployment, but the
+ * profile page itself is live the moment the transaction commits.
  *
- * Practically: a profile is live in about a minute, not instantly. The
- * authenticated `/me` view reads Neon directly and is immediate.
+ * The authenticated `/me` view reads Neon directly and is always immediate.
  */
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
@@ -156,6 +156,16 @@ export async function publishProfile(
           and(eq(schema.builders.id, owned.id), eq(schema.builders.ownerMemberId, member.id)),
         );
 
+      // ── Update publication timestamp atomically ──────────────────────────
+      // Moved inside the transaction (Phase G fix). Previously this ran after
+      // the transaction committed, meaning a network failure here left the
+      // builder row published but the profile's publishedAt as null — a
+      // half-published state. Now both writes commit or both roll back.
+      await tx
+        .update(schema.memberProfiles)
+        .set({ publishedAt: sql`now()`, updatedAt: new Date() })
+        .where(eq(schema.memberProfiles.memberId, member.id));
+
       return { slug: owned.slug, builderId: owned.id, created: false, auditId: audit.id };
     }
 
@@ -167,6 +177,15 @@ export async function publishProfile(
     const [created] = await tx
       .insert(schema.builders)
       .values({
+        /**
+         * SLUG INVARIANT (Phase I): the slug is set from username at first
+         * publication and is NEVER updated on re-publish. This is intentional:
+         * /builders/{slug} is the member's permanent public URL, and public
+         * URLs must not break when a member changes their username. The
+         * username is their login handle; the builder slug is their public
+         * identity. See projectToBuilder() — it deliberately omits 'slug'
+         * from its update projection so re-publishes cannot change the URL.
+         */
         slug: profile.username,
         name,
         cityId: profile.cityId!,
@@ -197,13 +216,14 @@ export async function publishProfile(
       })
       .returning({ id: schema.auditLog.id });
 
+    // ── Update publication timestamp atomically ──────────────────────────
+    await tx
+      .update(schema.memberProfiles)
+      .set({ publishedAt: sql`now()`, updatedAt: new Date() })
+      .where(eq(schema.memberProfiles.memberId, member.id));
+
     return { slug: created.slug, builderId: created.id, created: true, auditId: audit.id };
   });
-
-  await db
-    .update(schema.memberProfiles)
-    .set({ publishedAt: sql`now()`, updatedAt: new Date() })
-    .where(eq(schema.memberProfiles.memberId, member.id));
 
   // Outside the transaction, and its failure is not this call's failure.
   try {

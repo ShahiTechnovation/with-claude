@@ -1,29 +1,24 @@
 ---
-import type { GetStaticPaths } from 'astro';
 import { Image } from 'astro:assets';
 import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
 import PageIntro from '@/components/PageIntro.astro';
-import {
-  builderNamesOf,
-  buildersOf,
-  cityName,
-  eventBySlug,
-  publicProjects,
-  site,
-  useCasesForProject,
-} from '@/data';
+import { site } from '@/data';
 import { formatDate } from '@/lib/datetime';
 import { asset } from '@/lib/images';
 import { formatName } from '@/lib/status';
 import { titles, trail } from '@/lib/seo';
 
-import { getProjectData } from '@/server/directory';
+import { getProjectData, loadLiveRecords } from '@/server/directory';
+import { RecordSelectors } from '@/data/selectors';
 import { ReportModal } from '@/components/react/ReportModal';
 import ModeratorControls from '@/components/ModeratorControls.astro';
 import { isRequestModerator } from '@/server/moderation';
 
 export const prerender = false;
+
+const _rs = await loadLiveRecords();
+const selectors = new RecordSelectors(_rs);
 
 const { slug } = Astro.params;
 if (!slug) return Astro.redirect('/404');
@@ -62,7 +57,7 @@ const project = {
   videoUrl: projectRow.videoUrl,
   image: projectRow.imagePath,
   claudeUsage: projectRow.claudeUsage,
-  builtAtEventSlug: projectRow.builtAtEventId ? eventBySlug.get(projectRow.builtAtEventId)?.slug : undefined,
+  builtAtEventSlug: projectRow.builtAtEventId ? selectors.eventBySlug.get(projectRow.builtAtEventId)?.slug : undefined,
   citySlug,
   category: projectRow.category,
   tags: projectRow.tags,
@@ -72,9 +67,8 @@ const project = {
 // Vercel ISR Cache Control
 Astro.response.headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=86400');
 
-const makers = builderNamesOf(project as any);
-const publicMakers = buildersOf(project as any);
-const bornAt = project.builtAtEventSlug ? eventBySlug.get(project.builtAtEventSlug) : undefined;
+const makers = selectors.builderNamesOf(project as any);
+const bornAt = project.builtAtEventSlug ? selectors.eventBySlug.get(project.builtAtEventSlug) : undefined;
 const image = asset(project.image || undefined);
 
 const schema = [
@@ -87,12 +81,12 @@ const schema = [
     ...(makers.length > 0
       ? { creator: makers.map((maker) => ({ '@type': 'Person', name: maker.name })) }
       : {}),
-    locationCreated: { '@type': 'Place', name: cityName(project.citySlug) },
+    locationCreated: { '@type': 'Place', name: selectors.cityName(project.citySlug) },
   },
 ];
 
 // How this project was actually made, where somebody has written it up.
-const practice = useCasesForProject(project.slug);
+const practice = selectors.useCasesForProject(project.slug);
 
 const crumbs = trail(
   { name: 'Projects', href: '/projects' },
@@ -102,7 +96,7 @@ const crumbs = trail(
 
 <Base
   title={project.title}
-  seoTitle={titles.project(project.title, cityName(project.citySlug))}
+  seoTitle={titles.project(project.title, selectors.cityName(project.citySlug))}
   description={project.summary}
   active="/projects"
   breadcrumbs={crumbs}
@@ -116,7 +110,7 @@ const crumbs = trail(
   )}
 
   <PageIntro
-    eyebrow={`${formatName(project.category)} · ${cityName(project.citySlug)}`}
+    eyebrow={`${formatName(project.category)} · ${selectors.cityName(project.citySlug)}`}
     title={project.title}
     size="lg"
   >
@@ -230,7 +224,7 @@ const crumbs = trail(
           </div>
           <div>
             <dt>City</dt>
-            <dd><a href={`/cities/${project.citySlug}`}>{cityName(project.citySlug)}</a></dd>
+            <dd><a href={`/cities/${project.citySlug}`}>{selectors.cityName(project.citySlug)}</a></dd>
           </div>
           <div>
             <dt>Category</dt>

@@ -1,7 +1,9 @@
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import { pooledDb } from '../../db/pool';
 import * as dbSchema from '../../db/schema';
+import { loadRecordSet } from '../data/source-db';
+import type { RecordSet } from '../data/source';
 
 /**
  * The connection type every query in this module accepts.
@@ -70,33 +72,97 @@ export async function getPublicProjects() {
   return { projectRows, allBuilderRows, allBuilders, allCities };
 }
 
-export async function getPublicBuilderList(db: Db = pooledDb()) {
+/**
+ * The canonical public-builder predicate.
+ *
+ * A builder is public when:
+ *   status = 'published'   — an editorial or self-publish decision
+ *   moderationState = 'clean' — no moderation action is in effect
+ *
+ * 'reported' is NOT public. A reported builder has been flagged and is
+ * awaiting moderator action; showing it as public-clean would circumvent
+ * the moderation review. Any route that previously admitted 'reported' as
+ * public was inconsistent with the stated moderation semantics.
+ *
+ * This is the only place that decides what is public for the builders
+ * surface. All queries must use it or call `isPublicBuilder()` directly.
+ */
+export function isPublicBuilder(b: { status: string; moderationState: string }): boolean {
+  return b.status === 'published' && b.moderationState === 'clean';
+}
+
+/**
+ * A builder is indexable (appears in directory/search/sitemap) when:
+ * 1. It is public (published + clean)
+ * 2. It is NOT explicitly unlisted
+ */
+export function isIndexableBuilder(b: { status: string; moderationState: string; profileVisibility?: string }): boolean {
+  if (!isPublicBuilder(b)) return false;
+  // If visibility is unlisted, it is accessible via direct URL but not indexable
+  return b.profileVisibility !== 'unlisted';
+}
+
+/**
+ * The full builder row shape returned by getPublicBuilderList and
+ * getPublicBuilderBySlug.
+ */
+export interface PublicBuilderRow {
+  id: string;
+  slug: string;
+  name: string;
+  citySlug: string;
+  role: string;
+  roles: string[];
+  bio: string | undefined;
+  status: string;
+  moderationState: string;
+  profileVisibility: string | undefined;
+  featured: boolean;
+  ownerMemberId: string | null;
+  source: string;
+  image: string | undefined;
+}
+
+export async function getPublicBuilderList(db: Db = pooledDb()): Promise<PublicBuilderRow[]> {
   const builderRows = await db
     .select({
       builder: dbSchema.builders,
       citySlug: dbSchema.cities.slug,
       media: dbSchema.media,
+      profileVisibility: dbSchema.memberProfiles.visibility,
     })
     .from(dbSchema.builders)
     .innerJoin(dbSchema.cities, eq(dbSchema.builders.cityId, dbSchema.cities.id))
     .leftJoin(dbSchema.media, eq(dbSchema.builders.imageId, dbSchema.media.id))
+    .leftJoin(dbSchema.memberProfiles, eq(dbSchema.builders.ownerMemberId, dbSchema.memberProfiles.memberId))
     .where(
       and(
         eq(dbSchema.builders.status, 'published'),
-        inArray(dbSchema.builders.moderationState, ['clean', 'reported'])
+        eq(dbSchema.builders.moderationState, 'clean'),
       )
     );
 
-  return builderRows.map((row) => ({
+  // We filter out unlisted builders after query or as part of the return map.
+  return builderRows
+    .filter((row) => isIndexableBuilder({
+      status: row.builder.status,
+      moderationState: row.builder.moderationState,
+      profileVisibility: row.profileVisibility ?? undefined
+    }))
+    .map((row) => ({
     id: row.builder.id,
     slug: row.builder.slug,
     name: row.builder.name,
     citySlug: row.citySlug,
     role: row.builder.role,
-    roles: row.builder.roles as any,
+    roles: row.builder.roles as string[],
     bio: row.builder.bio || undefined,
-    status: row.builder.status as 'published',
+    status: row.builder.status,
+    moderationState: row.builder.moderationState,
+    profileVisibility: row.profileVisibility ?? undefined,
     featured: row.builder.featured,
+    ownerMemberId: row.builder.ownerMemberId ?? null,
+    source: row.builder.source,
     /**
      * A plain URL string, not a media record.
      *
@@ -117,75 +183,93 @@ export async function getPublicBuilderList(db: Db = pooledDb()) {
   }));
 }
 
-// =========================================================================
-// LIVE DATA CONSOLIDATION (PHASE 1)
-// =========================================================================
-
-import { loadRecordSet } from '../data/source-db';
-import { __setRecords } from '../data/dataset';
-
 /**
- * Loads the live recordset from Neon and injects it into the global dataset
- * cache. This ensures that all synchronous helpers in `src/data/index.ts`
- * (like `lifecycleOf`, `coHostsOf`) see the live data instead of the build-time snapshot.
+ * Fetch one builder by slug for the SSR detail page.
+ *
+ * Returns the full builder row plus resolved city slug and uploaded image URL.
+ * Returns null if the builder does not exist.
+ *
+ * This function returns the raw row regardless of visibility state so that:
+ *  - Moderators can inspect restricted/removed content (the caller filters)
+ *  - The caller applies the canonical isPublicBuilder() predicate itself
+ *
+ * This replaces the former pattern of calling useLiveRecords() then
+ * publicBuilders.find(...), which depended on a module-global build-time
+ * RecordSet that never contains freshly self-published builders.
  */
-export async function useLiveRecords() {
-  const db = pooledDb();
-  const rs = await loadRecordSet(db);
-  __setRecords(rs);
-  return rs;
-}
+export async function getPublicBuilderBySlug(
+  slug: string,
+  db: Db = pooledDb(),
+): Promise<PublicBuilderRow | null> {
+  const [row] = await db
+    .select({
+      builder: dbSchema.builders,
+      citySlug: dbSchema.cities.slug,
+      media: dbSchema.media,
+      profileVisibility: dbSchema.memberProfiles.visibility,
+    })
+    .from(dbSchema.builders)
+    .innerJoin(dbSchema.cities, eq(dbSchema.builders.cityId, dbSchema.cities.id))
+    .leftJoin(dbSchema.media, eq(dbSchema.builders.imageId, dbSchema.media.id))
+    .leftJoin(dbSchema.memberProfiles, eq(dbSchema.builders.ownerMemberId, dbSchema.memberProfiles.memberId))
+    .where(eq(dbSchema.builders.slug, slug));
 
-export async function getPublicSearchData() {
-  const rs = await useLiveRecords();
+  if (!row) return null;
+
   return {
-    builders: rs.builders.filter(b => b.status === 'published' || b.status === 'featured'),
-    projects: rs.projects.filter(p => p.status === 'published' || p.status === 'featured'),
-    events: rs.events.filter(e => e.status === 'published' || e.status === 'featured'),
-    ambassadors: rs.ambassadors.filter(a => a.status === 'published' || a.status === 'featured'),
-    cities: rs.cities.filter(c => c.status === 'published' || c.status === 'featured'),
-    useCases: rs.useCases.filter(u => u.status === 'published' || u.status === 'featured'),
-    stories: rs.stories.filter(s => s.status === 'published' || s.status === 'featured'),
-    guides: rs.guides.filter(g => g.status === 'published' || g.status === 'featured'),
+    id: row.builder.id,
+    slug: row.builder.slug,
+    name: row.builder.name,
+    citySlug: row.citySlug,
+    role: row.builder.role,
+    roles: row.builder.roles as string[],
+    bio: row.builder.bio || undefined,
+    status: row.builder.status,
+    moderationState: row.builder.moderationState,
+    profileVisibility: row.profileVisibility ?? undefined,
+    featured: row.builder.featured,
+    ownerMemberId: row.builder.ownerMemberId ?? null,
+    source: row.builder.source,
+    image: row.media?.status === 'published' ? row.media.blobUrl ?? undefined : undefined,
   };
 }
 
-export async function getPublicEvents() {
-  const rs = await useLiveRecords();
-  return rs.events.filter(e => e.status === 'published' || e.status === 'featured');
+
+
+/**
+ * Load a FRESH, REQUEST-LOCAL RecordSet from Neon.
+ *
+ * Each call returns a new, independent RecordSet scoped to the current
+ * request. No module-global state is mutated. Concurrent SSR requests
+ * receive isolated datasets.
+ *
+ * Previously this was `useLiveRecords()` which called `__setRecords()` and
+ * wrote into the module-global `cached` in `dataset.ts`. That was a P0
+ * request-isolation bug: two concurrent requests shared one global dataset
+ * and request A's load could clobber request B's read window.
+ *
+ * Callers must pass the returned RecordSet explicitly to selector functions
+ * instead of relying on module-scope imports from `src/data/index.ts`.
+ */
+export async function loadLiveRecords(db: Db = pooledDb()): Promise<RecordSet> {
+  return loadRecordSet(db);
 }
 
-export async function getEventBySlug(slug: string) {
-  const events = await getPublicEvents();
-  return events.find((e) => e.slug === slug) || null;
-}
-
-export async function getPublicCities() {
-  const rs = await useLiveRecords();
-  return rs.cities.filter(c => c.status === 'published' || c.status === 'featured');
-}
-
-export async function getCityBySlug(slug: string) {
-  const cities = await getPublicCities();
-  return cities.find((c) => c.slug === slug) || null;
-}
-
-export async function getPublicAmbassadors() {
-  const rs = await useLiveRecords();
-  return rs.ambassadors.filter(a => a.status === 'published' || a.status === 'featured');
-}
-
-export async function getAmbassadorBySlug(slug: string) {
-  const ambassadors = await getPublicAmbassadors();
-  return ambassadors.find((a) => a.slug === slug) || null;
-}
-
-export async function getBuilderProfile(slug: string) {
-  const rs = await useLiveRecords();
-  const builder = rs.builders.find((b) => b.slug === slug);
-  if (!builder) return null;
-  if (builder.status !== 'published' && builder.status !== 'featured') {
-    return null;
-  }
-  return builder;
+/**
+ * Search data for the /discover page.
+ *
+ * Uses the canonical isPublic predicate: status = 'published' or 'featured'.
+ */
+export function getPublicSearchData(rs: RecordSet) {
+  const isVisible = (r: { status: string }) => r.status === 'published' || r.status === 'featured';
+  return {
+    builders: rs.builders.filter(b => isIndexableBuilder(b as any)),
+    projects: rs.projects.filter(isVisible),
+    events: rs.events.filter(isVisible),
+    ambassadors: rs.ambassadors.filter(isVisible),
+    cities: rs.cities.filter(isVisible),
+    useCases: rs.useCases.filter(isVisible),
+    stories: rs.stories.filter(isVisible),
+    guides: rs.guides.filter(isVisible),
+  };
 }

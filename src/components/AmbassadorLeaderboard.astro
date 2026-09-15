@@ -1,5 +1,6 @@
 ---
-import { cityName } from '@/data';
+import * as staticData from '@/data';
+import type { RecordSelectors } from '@/data/selectors';
 import { plural } from '@/lib/words';
 import type { LeaderboardEntry } from '@/lib/leaderboard';
 
@@ -23,10 +24,12 @@ interface Props {
   showHead?: boolean;
   /** Cap the list, for a discovery panel on another page. */
   limit?: number;
+  selectors?: RecordSelectors;
 }
 
-const { entries, heading = 'Community activity', eyebrow = 'Ambassadors', showHead = true, limit } =
+const { entries, heading = 'Community activity', eyebrow = 'Ambassadors', showHead = true, limit, selectors } =
   Astro.props;
+const data = selectors ?? staticData;
 
 const shown = limit ? entries.slice(0, limit) : entries;
 ---
@@ -50,7 +53,7 @@ const shown = limit ? entries.slice(0, limit) : entries;
     {
       shown.map((entry, index) => {
         const { ambassador } = entry;
-        const home = cityName(ambassador.citySlug);
+        const home = data.cityName(ambassador.citySlug);
         return (
           <li data-reveal>
             <a class="entry" href={`/ambassadors/${ambassador.slug}`}>
