@@ -1,4 +1,13 @@
 ---
+import { useLiveRecords } from '@/server/directory';
+export const prerender = false;
+await useLiveRecords();
+
+Astro.response.headers.set(
+  'Cache-Control',
+  'public, max-age=0, s-maxage=60, stale-while-revalidate=86400',
+);
+
 import { itemListSchema, titles, trail } from '@/lib/seo';
 import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
@@ -22,13 +31,6 @@ import { CREDIT_WEIGHT_LABELS } from '@/lib/credits';
  * exactly one question — why is that person above me — and has no answer. The
  * weights are rendered from `CREDIT_WEIGHT_LABELS`, so the printed formula and
  * the computed score cannot drift; there is no second copy of the numbers.
- *
- * ── PRERENDERED, LIKE EVERY OTHER PUBLIC DIRECTORY ───────────────────────
- *
- * No `prerender = false`. The leaderboard is computed at build time from the
- * same `RecordSet` the events and cities pages read, which is what §45 means
- * by a public page that never calls Luma: by the time this HTML exists there
- * is no database connection and no feed to wait on.
  */
 const board = activityLeaderboard({ window: 'all' });
 

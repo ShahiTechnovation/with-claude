@@ -116,7 +116,8 @@ if (guard.ok) {
     align-items: center;
     gap: 1.5rem;
   }
-  .account-page :global(.btn-primary) {
+  .account-page :global(.btn-primary),
+  .account-page :global(.btn-secondary) {
     display: inline-flex;
     align-items: center;
     padding: 0.75rem 1.5rem;
@@ -125,17 +126,27 @@ if (guard.ok) {
     text-transform: uppercase;
     letter-spacing: 0.05em;
     font-weight: 500;
-    color: var(--paper);
-    background: var(--ink);
-    border: none;
     border-radius: 2px;
     cursor: pointer;
     transition: background var(--dur-1) var(--ease-out);
+    border: 1px solid var(--rule);
+  }
+  .account-page :global(.btn-primary) {
+    color: var(--paper);
+    background: var(--ink);
+  }
+  .account-page :global(.btn-secondary) {
+    color: var(--ink);
+    background: var(--paper);
   }
   .account-page :global(.btn-primary:hover:not(:disabled)) {
     background: var(--clay-deep, #92400e);
   }
-  .account-page :global(.btn-primary:disabled) {
+  .account-page :global(.btn-secondary:hover:not(:disabled)) {
+    background: var(--wash, #f3f4f6);
+  }
+  .account-page :global(.btn-primary:disabled),
+  .account-page :global(.btn-secondary:disabled) {
     opacity: 0.5;
     cursor: not-allowed;
   }

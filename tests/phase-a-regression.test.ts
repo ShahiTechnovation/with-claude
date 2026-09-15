@@ -48,7 +48,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await db.$close();
+  await db?.$close();
 });
 
 describe('the migration leaves existing rows alone', () => {
@@ -151,8 +151,8 @@ describe('the two identity systems stay separate', () => {
     const names = (columns.rows as { column_name: string }[]).map((r) => r.column_name);
 
     // Nothing in `members` points at the admin allowlist.
+    // Role is now explicitly allowed for moderation
     expect(names).not.toContain('user_id');
-    expect(names).not.toContain('role');
     expect(names.sort()).toEqual(
       [
         'created_at',
@@ -162,20 +162,21 @@ describe('the two identity systems stay separate', () => {
         'id',
         'last_seen_at',
         'privy_user_id',
+        'role',
         'status',
         'updated_at',
       ].sort(),
     );
   });
 
-  it('gives a member no role or capability column to escalate through', async () => {
+  it('gives a member no role or capability column to escalate through (except the authorized role column)', async () => {
     const columns = await db.execute(sql`
       SELECT column_name FROM information_schema.columns
       WHERE table_name IN ('members', 'member_profiles')
     `);
     const names = (columns.rows as { column_name: string }[]).map((r) => r.column_name);
 
-    for (const forbidden of ['role', 'is_admin', 'verified', 'featured', 'trust_level']) {
+    for (const forbidden of ['is_admin', 'verified', 'featured', 'trust_level']) {
       expect(names).not.toContain(forbidden);
     }
   });

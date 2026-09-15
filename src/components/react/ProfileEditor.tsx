@@ -46,26 +46,12 @@ export default function ProfileEditor({ profile }: { profile: ProfileEditorProfi
   const [status, setStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
 
-  const save = async () => {
+  const save = async (publish: boolean = false) => {
     setStatus('saving');
     try {
       /**
        * Omit — not send empty — the two fields the schema cannot accept as
        * an empty string.
-       *
-       * `primaryRole` is `z.enum(SELECTABLE_ROLES)`: every profile starts
-       * with `primaryRole: null`, this form defaults that to `''`, and `''`
-       * is not a member of the enum — so it failed validation on every save
-       * until a member happened to type one of the exact eleven strings by
-       * hand, back when this was a free-text input. `website` is an HTTPS
-       * URL schema that calls `new URL(value)`, which throws on `''` too.
-       *
-       * `.optional()` on both means the KEY may be absent — "don't touch
-       * this field" — which is what an empty selection should mean here.
-       * `citySlug` is deliberately NOT in this list: the server explicitly
-       * maps `citySlug: ''` to "clear the city" (see
-       * `src/server/members/profile.ts`'s `updateProfile()`), so sending it
-       * is the correct way to let a member remove their city.
        */
       const body: Record<string, unknown> = { ...form };
       if (body.primaryRole === '') delete body.primaryRole;
@@ -86,8 +72,34 @@ export default function ProfileEditor({ profile }: { profile: ProfileEditorProfi
         setMessage(await describeAccountError(response));
         return;
       }
+      
+      if (!publish) {
+        setStatus('success');
+        setMessage('Changes saved.');
+        window.location.assign('/me/profile/');
+        return;
+      }
+
+      setStatus('saving');
+      
+      const published = await accountFetch(
+        '/api/member/profile/',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        },
+        getAccessToken,
+      );
+      
+      if (!published.ok) {
+        setStatus('error');
+        setMessage(await describeAccountError(published));
+        return;
+      }
+      
+      const pubBody = await published.json().catch(() => ({}));
       setStatus('success');
-      setMessage('Changes saved.');
+      setMessage(pubBody.message || 'Published.');
       window.location.assign('/me/profile/');
     } catch {
       // Only reachable now for an actual network failure — DNS, connection
@@ -157,8 +169,11 @@ export default function ProfileEditor({ profile }: { profile: ProfileEditorProfi
       </div>
 
       <div className="editor-actions">
-        <button type="button" className="btn-primary" onClick={() => void save()} disabled={status === 'saving'}>
+        <button type="button" className="btn-secondary" onClick={() => void save(false)} disabled={status === 'saving'}>
           {status === 'saving' ? 'Saving...' : 'Save changes'}
+        </button>
+        <button type="button" className="btn-primary" onClick={() => void save(true)} disabled={status === 'saving'}>
+          {status === 'saving' ? 'Publishing...' : 'Publish'}
         </button>
         {message && <p className={`editor-message ${status}`}>{message}</p>}
       </div>

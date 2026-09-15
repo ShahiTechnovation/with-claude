@@ -1,4 +1,13 @@
 ---
+import { useLiveRecords } from '@/server/directory';
+export const prerender = false;
+await useLiveRecords();
+
+Astro.response.headers.set(
+  'Cache-Control',
+  'public, max-age=0, s-maxage=60, stale-while-revalidate=86400',
+);
+
 import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
 import PageIntro from '@/components/PageIntro.astro';

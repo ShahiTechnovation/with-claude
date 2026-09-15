@@ -95,13 +95,29 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Init
       // 2. Upload file if selected, now using the valid projectId
       let finalImagePath = formData.imagePath;
       if (file) {
-        const newBlob = await upload(file.name, file, {
-          access: 'public',
-          handleUploadUrl: '/api/media/upload',
-          clientPayload: JSON.stringify({ projectId: currentId, alt: formData.title || 'Project image' }),
-        });
-        finalImagePath = newBlob.url;
-        setFormData((prev) => ({ ...prev, imagePath: finalImagePath }));
+        // `@vercel/blob`'s client does not accept a `credentials` option, but it
+        // uses the global `fetch` internally. The `privy-token` is an HttpOnly
+        // cookie, so we must force `credentials: 'include'` to ensure it travels
+        // with the token-generation request to `/api/media/upload`.
+        const originalFetch = window.fetch;
+        window.fetch = async (...args) => {
+          if (typeof args[0] === 'string' && args[0].includes('/api/media/upload')) {
+            args[1] = { ...args[1], credentials: 'include' };
+          }
+          return originalFetch(...args);
+        };
+
+        try {
+          const newBlob = await upload(file.name, file, {
+            access: 'public',
+            handleUploadUrl: '/api/media/upload',
+            clientPayload: JSON.stringify({ projectId: currentId, alt: formData.title || 'Project image' }),
+          });
+          finalImagePath = newBlob.url;
+          setFormData((prev) => ({ ...prev, imagePath: finalImagePath }));
+        } finally {
+          window.fetch = originalFetch;
+        }
       }
 
       // 3. Prepare payload with updated imagePath

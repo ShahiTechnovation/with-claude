@@ -1,0 +1,18 @@
+---
+import { ModeratorControls as ReactModeratorControls } from '@/components/react/ModeratorControls';
+
+interface Props {
+  entityType: 'builders' | 'projects';
+  entityId: string;
+  initialState: string;
+  isModerator: boolean;
+}
+
+const { entityType, entityId, initialState, isModerator } = Astro.props;
+
+if (!isModerator) {
+  return null;
+}
+---
+
+<ReactModeratorControls client:load entityType={entityType} entityId={entityId} initialState={initialState} />

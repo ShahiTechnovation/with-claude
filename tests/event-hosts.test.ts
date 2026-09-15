@@ -40,7 +40,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await db.$close();
+  await db?.$close();
 });
 
 beforeEach(async () => {

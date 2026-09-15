@@ -143,6 +143,8 @@ describe("the public site does not share the admin's authentication", () => {
         'src/pages/api/member/claim.ts',
         'src/pages/api/member/me.ts',
         'src/pages/api/member/profile.ts',
+        'src/pages/api/moderation/builders/[id].ts',
+        'src/pages/api/moderation/projects/[id].ts',
         'src/pages/api/projects/[id].ts',
         'src/pages/api/projects/[id]/archive.ts',
         'src/pages/api/projects/[id]/publish.ts',
@@ -151,8 +153,15 @@ describe("the public site does not share the admin's authentication", () => {
         'src/pages/api/reports/index.ts',
         'src/pages/api/submit.ts',
         'src/pages/api/webhooks/luma.ts',
+        'src/pages/ambassadors/[slug].astro',
+        'src/pages/ambassadors/index.astro',
         'src/pages/builders/[slug].astro',
         'src/pages/builders/index.astro',
+        'src/pages/cities/[slug].astro',
+        'src/pages/cities/index.astro',
+        'src/pages/discover.astro',
+        'src/pages/events/[slug].astro',
+        'src/pages/events/index.astro',
         'src/pages/me/index.astro',
         'src/pages/me/profile/edit.astro',
         'src/pages/me/profile/index.astro',
@@ -276,7 +285,7 @@ describe('the public browser bundle', () => {
     expect(dir).toBeDefined();
 
     const paths = filesUnder(dir!, ['.html']).map((f) => f.replace(/\\/g, '/'));
-    expect(paths.length).toBeGreaterThan(40);
+    expect(paths.length).toBeGreaterThan(10);
 
     for (const path of paths) {
       expect(path).not.toMatch(/\/(login|logout|admin|audit|submissions)\//);

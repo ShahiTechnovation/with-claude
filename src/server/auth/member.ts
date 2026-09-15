@@ -38,6 +38,7 @@ import { authTrace, verifyRequest, type AuthFailure } from './privy';
 type AnyDatabase = PgDatabase<PgQueryResultHKT, typeof schema>;
 
 export type MemberStatus = (typeof schema.memberStatus.enumValues)[number];
+export type MemberRole = (typeof schema.memberRole.enumValues)[number];
 
 /**
  * An authenticated public member.
@@ -51,6 +52,7 @@ export interface Member {
   id: string;
   privyUserId: string;
   status: MemberStatus;
+  role: MemberRole;
 }
 
 export type MemberFailure =
@@ -97,6 +99,7 @@ export async function requireMember(request: Request, db: AnyDatabase): Promise<
       id: schema.members.id,
       privyUserId: schema.members.privyUserId,
       status: schema.members.status,
+      role: schema.members.role,
     })
     .from(schema.members)
     .where(eq(schema.members.privyUserId, identity.privyUserId));
@@ -106,7 +109,7 @@ export async function requireMember(request: Request, db: AnyDatabase): Promise<
   if (row.status === 'suspended') return { ok: false, reason: 'suspended' };
   if (row.status === 'deleted') return { ok: false, reason: 'deleted' };
 
-  return { ok: true, member: { id: row.id, privyUserId: row.privyUserId, status: row.status } };
+  return { ok: true, member: { id: row.id, privyUserId: row.privyUserId, status: row.status, role: row.role } };
 }
 
 /**
@@ -145,10 +148,11 @@ export async function provisionMember(
       id: schema.members.id,
       privyUserId: schema.members.privyUserId,
       status: schema.members.status,
+      role: schema.members.role,
     });
 
   return {
-    member: { id: row.id, privyUserId: row.privyUserId, status: row.status },
+    member: { id: row.id, privyUserId: row.privyUserId, status: row.status, role: row.role },
     created: before.length === 0,
   };
 }

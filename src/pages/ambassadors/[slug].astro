@@ -1,4 +1,13 @@
 ---
+import { useLiveRecords } from '@/server/directory';
+export const prerender = false;
+await useLiveRecords();
+
+Astro.response.headers.set(
+  'Cache-Control',
+  'public, max-age=0, s-maxage=60, stale-while-revalidate=86400',
+);
+
 import type { GetStaticPaths } from 'astro';
 import { profileSchema, titles, trail } from '@/lib/seo';
 import Base from '@/layouts/Base.astro';
@@ -43,10 +52,9 @@ import { plural } from '@/lib/words';
  * an internal note — a title with its source next to it is a claim a reader
  * can check, and a title on its own is one they have to take on trust.
  */
-export const getStaticPaths: GetStaticPaths = () =>
-  publicAmbassadors.map((ambassador) => ({ params: { slug: ambassador.slug } }));
-
 const { slug } = Astro.params;
+if (!slug) return Astro.redirect('/404');
+
 
 const standing = ambassadorStanding(String(slug));
 // `getStaticPaths` only ever emits published ambassadors, so this is a guard

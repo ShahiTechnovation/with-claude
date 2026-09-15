@@ -1,4 +1,13 @@
 ---
+import { useLiveRecords } from '@/server/directory';
+export const prerender = false;
+await useLiveRecords();
+
+Astro.response.headers.set(
+  'Cache-Control',
+  'public, max-age=0, s-maxage=60, stale-while-revalidate=86400',
+);
+
 import type { GetStaticPaths } from 'astro';
 import { Image } from 'astro:assets';
 import Base from '@/layouts/Base.astro';
@@ -41,13 +50,12 @@ import {
   lifecycleTone,
 } from '@/lib/status';
 
-export const getStaticPaths = (() =>
-  publicEvents.map((event) => ({
-    params: { slug: event.slug },
-    props: { event },
-  }))) satisfies GetStaticPaths;
+const { slug } = Astro.params;
+if (!slug) return Astro.redirect('/404');
 
-const { event } = Astro.props;
+const { eventBySlug } = await import('@/data');
+const event = eventBySlug.get(slug);
+if (!event) return Astro.redirect('/404');
 
 const lifecycle = lifecycleOf(event);
 const parts = dateParts(event.date);

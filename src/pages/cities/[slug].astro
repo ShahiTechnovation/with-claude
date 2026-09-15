@@ -1,4 +1,13 @@
 ---
+import { useLiveRecords } from '@/server/directory';
+export const prerender = false;
+await useLiveRecords();
+
+Astro.response.headers.set(
+  'Cache-Control',
+  'public, max-age=0, s-maxage=60, stale-while-revalidate=86400',
+);
+
 import type { GetStaticPaths } from 'astro';
 import { Image } from 'astro:assets';
 import Base from '@/layouts/Base.astro';
@@ -18,13 +27,13 @@ import { lifecycleLabel, lifecycleOf, lifecycleTone } from '@/lib/status';
 import { isCityIndexable } from '@/lib/indexable';
 import { titles, trail } from '@/lib/seo';
 
-export const getStaticPaths = (() =>
-  publicCities.map((city) => ({
-    params: { slug: city.slug },
-    props: { city },
-  }))) satisfies GetStaticPaths;
+const { slug } = Astro.params;
+if (!slug) return Astro.redirect('/404');
 
-const { city } = Astro.props;
+const { getCity } = await import('@/data');
+const city = getCity(slug);
+if (!city) return Astro.redirect('/404');
+
 
 const signal = citySignal(city);
 const live = isLive(signal.state);

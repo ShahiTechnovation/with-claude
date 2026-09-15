@@ -20,11 +20,16 @@ import { titles, trail } from '@/lib/seo';
 
 import { getProjectData } from '@/server/directory';
 import { ReportModal } from '@/components/react/ReportModal';
+import ModeratorControls from '@/components/ModeratorControls.astro';
+import { isRequestModerator } from '@/server/moderation';
 
 export const prerender = false;
 
 const { slug } = Astro.params;
 if (!slug) return Astro.redirect('/404');
+
+const isModerator = await isRequestModerator(Astro.request);
+
 
 const data = await getProjectData(slug);
 if (!data) return Astro.redirect('/404');
@@ -34,6 +39,9 @@ if (projectRow.publicationStatus !== 'published') return Astro.redirect('/404');
 
 const isAvailable = projectRow.moderationState === 'clean' || projectRow.moderationState === 'reported';
 
+if (!isAvailable && !isModerator) {
+  return Astro.redirect('/404');
+}
 
 // Construct the project object matching what the page expects
 const project = {
@@ -101,15 +109,19 @@ const crumbs = trail(
   image={image ? undefined : '/og-card.jpg'}
   schema={schema}
 >
-  {isAvailable ? (
-    <>
-      <PageIntro
-        eyebrow={`${formatName(project.category)} · ${cityName(project.citySlug)}`}
-        title={project.title}
-        size="lg"
-      >
-        <p>{project.summary}</p>
-      </PageIntro>
+  {(!isAvailable && isModerator) && (
+    <div class="moderator-banner" style="background-color: var(--clay-deep); color: white; padding: 1rem; text-align: center; font-weight: bold; margin-bottom: 2rem;">
+      RESTRICTED / REMOVED — not visible to the public.
+    </div>
+  )}
+
+  <PageIntro
+    eyebrow={`${formatName(project.category)} · ${cityName(project.citySlug)}`}
+    title={project.title}
+    size="lg"
+  >
+    <p>{project.summary}</p>
+  </PageIntro>
 
   <Section id="detail" tone="sunk" labelledby="detail-heading">
     <h2 id="detail-heading" class="visually-hidden">About {project.title}</h2>
@@ -246,6 +258,7 @@ const crumbs = trail(
         
         <div class="mt-8 pt-6 border-t border-neutral-100">
           <ReportModal client:load entityType="project" entityId={project.id} />
+          <ModeratorControls entityType="projects" entityId={project.id} initialState={projectRow.moderationState} isModerator={isModerator} />
         </div>
       </aside>
     </div>
@@ -257,12 +270,7 @@ const crumbs = trail(
       <span class="arrow" aria-hidden="true">→</span>
     </a>
   </Section>
-  </>
-  ) : (
-    <PageIntro eyebrow="Unavailable" title="Project Unavailable" size="lg">
-      <p>This project is currently unavailable.</p>
-    </PageIntro>
-  )}
+
 </Base>
 
 <style>

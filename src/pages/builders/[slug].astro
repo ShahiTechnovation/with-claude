@@ -1,5 +1,13 @@
 ---
-import type { GetStaticPaths } from 'astro';
+import { useLiveRecords } from '@/server/directory';
+export const prerender = false;
+await useLiveRecords();
+
+Astro.response.headers.set(
+  'Cache-Control',
+  'public, max-age=0, s-maxage=60, stale-while-revalidate=86400',
+);
+
 import { Image } from 'astro:assets';
 import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
@@ -22,22 +30,23 @@ import { profileSchema, titles, trail } from '@/lib/seo';
 import ClaimProfile from '@/components/ClaimProfile.astro';
 import { getBuilderRow } from '@/server/directory';
 import { ReportModal } from '@/components/react/ReportModal';
-
-export const prerender = false;
+import ModeratorControls from '@/components/ModeratorControls.astro';
+import { isRequestModerator } from '@/server/moderation';
 
 const { slug } = Astro.params;
 if (!slug) return Astro.redirect('/404');
 
-const builderRow = await getBuilderRow(slug);
+const isModerator = await isRequestModerator(Astro.request);
 
+const builderRow = await getBuilderRow(slug);
 if (!builderRow) return Astro.redirect('/404');
 
 const isAvailable = builderRow.moderationState === 'clean' || builderRow.moderationState === 'reported';
 
-// We must construct a 'builder' object matching what the page expects.
-// Fortunately, the publicBuilders array in src/data constructs this from the DB in Phase A/B.
-// We can just find it in publicBuilders for now, since it includes DB builders.
-// BUT we must override the moderation state logic.
+if (!isAvailable && !isModerator) {
+  return Astro.redirect('/404');
+}
+
 const builder = publicBuilders.find(b => b.slug === slug);
 if (!builder) return Astro.redirect('/404');
 
@@ -112,17 +121,21 @@ const schema = profileSchema(
   breadcrumbs={crumbs}
   schema={schema}
 >
-  {isAvailable ? (
-    <>
-      <PageIntro
-        eyebrow={`${cityName(builder.citySlug)} · ${builder.role}`}
-        title={builder.name}
-        size="lg"
-        stamp={ambassador ? ambassador.title : undefined}
-      >
-        {builder.bio && <p>{builder.bio}</p>}
-        {builder.building && <p>{builder.building}</p>}
-      </PageIntro>
+  {(!isAvailable && isModerator) && (
+    <div class="moderator-banner" style="background-color: var(--clay-deep); color: white; padding: 1rem; text-align: center; font-weight: bold; margin-bottom: 2rem;">
+      RESTRICTED / REMOVED — not visible to the public.
+    </div>
+  )}
+
+  <PageIntro
+    eyebrow={`${cityName(builder.citySlug)} · ${builder.role}`}
+    title={builder.name}
+    size="lg"
+    stamp={ambassador ? ambassador.title : undefined}
+  >
+    {builder.bio && <p>{builder.bio}</p>}
+    {builder.building && <p>{builder.building}</p>}
+  </PageIntro>
 
       <Section id="record" tone="sunk" labelledby="record-heading">
         <h2 id="record-heading" class="visually-hidden">{`${builder.name} on the record`}</h2>
@@ -293,6 +306,7 @@ const schema = profileSchema(
 
             <div class="mt-8 pt-6 border-t border-neutral-100">
               <ReportModal client:load entityType="builder" entityId={builderRow.id} />
+              <ModeratorControls entityType="builders" entityId={builderRow.id} initialState={builderRow.moderationState} isModerator={isModerator} />
             </div>
           </aside>
         </div>
@@ -301,13 +315,6 @@ const schema = profileSchema(
       <Section id="claim" size="sm">
         <ClaimProfile slug={builder.slug} name={builder.name} owned={owned} />
       </Section>
-    </>
-  ) : (
-    <PageIntro eyebrow="Unavailable" title="Profile Unavailable" size="lg">
-      <p>This profile is currently unavailable.</p>
-    </PageIntro>
-  )}
-
   <Section id="back" size="sm">
     <a class="link-arrow" href="/builders">
       <span>The whole index</span>

@@ -116,3 +116,76 @@ export async function getPublicBuilderList(db: Db = pooledDb()) {
     image: row.media?.status === 'published' ? row.media.blobUrl ?? undefined : undefined,
   }));
 }
+
+// =========================================================================
+// LIVE DATA CONSOLIDATION (PHASE 1)
+// =========================================================================
+
+import { loadRecordSet } from '../data/source-db';
+import { __setRecords } from '../data/dataset';
+
+/**
+ * Loads the live recordset from Neon and injects it into the global dataset
+ * cache. This ensures that all synchronous helpers in `src/data/index.ts`
+ * (like `lifecycleOf`, `coHostsOf`) see the live data instead of the build-time snapshot.
+ */
+export async function useLiveRecords() {
+  const db = pooledDb();
+  const rs = await loadRecordSet(db);
+  __setRecords(rs);
+  return rs;
+}
+
+export async function getPublicSearchData() {
+  const rs = await useLiveRecords();
+  return {
+    builders: rs.builders.filter(b => b.status === 'published' || b.status === 'featured'),
+    projects: rs.projects.filter(p => p.status === 'published' || p.status === 'featured'),
+    events: rs.events.filter(e => e.status === 'published' || e.status === 'featured'),
+    ambassadors: rs.ambassadors.filter(a => a.status === 'published' || a.status === 'featured'),
+    cities: rs.cities.filter(c => c.status === 'published' || c.status === 'featured'),
+    useCases: rs.useCases.filter(u => u.status === 'published' || u.status === 'featured'),
+    stories: rs.stories.filter(s => s.status === 'published' || s.status === 'featured'),
+    guides: rs.guides.filter(g => g.status === 'published' || g.status === 'featured'),
+  };
+}
+
+export async function getPublicEvents() {
+  const rs = await useLiveRecords();
+  return rs.events.filter(e => e.status === 'published' || e.status === 'featured');
+}
+
+export async function getEventBySlug(slug: string) {
+  const events = await getPublicEvents();
+  return events.find((e) => e.slug === slug) || null;
+}
+
+export async function getPublicCities() {
+  const rs = await useLiveRecords();
+  return rs.cities.filter(c => c.status === 'published' || c.status === 'featured');
+}
+
+export async function getCityBySlug(slug: string) {
+  const cities = await getPublicCities();
+  return cities.find((c) => c.slug === slug) || null;
+}
+
+export async function getPublicAmbassadors() {
+  const rs = await useLiveRecords();
+  return rs.ambassadors.filter(a => a.status === 'published' || a.status === 'featured');
+}
+
+export async function getAmbassadorBySlug(slug: string) {
+  const ambassadors = await getPublicAmbassadors();
+  return ambassadors.find((a) => a.slug === slug) || null;
+}
+
+export async function getBuilderProfile(slug: string) {
+  const rs = await useLiveRecords();
+  const builder = rs.builders.find((b) => b.slug === slug);
+  if (!builder) return null;
+  if (builder.status !== 'published' && builder.status !== 'featured') {
+    return null;
+  }
+  return builder;
+}

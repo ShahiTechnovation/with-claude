@@ -91,7 +91,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await db.$close();
+  await db?.$close();
 });
 
 describe('the live capture, synced', () => {

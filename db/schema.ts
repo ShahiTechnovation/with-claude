@@ -204,6 +204,7 @@ export const userRole = pgEnum('user_role', ['viewer', 'reviewer', 'editor', 'ad
  * whatever they published.
  */
 export const memberStatus = pgEnum('member_status', ['active', 'suspended', 'deleted']);
+export const memberRole = pgEnum('member_role', ['user', 'moderator', 'owner']);
 
 /**
  * `unlisted` is not private. It means not promoted and not indexed — the page
@@ -1692,6 +1693,7 @@ export const members = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     /** The Privy DID, e.g. `did:privy:…`. The join to the identity provider. */
     privyUserId: text('privy_user_id').notNull().unique(),
+    role: memberRole('role').notNull().default('user'),
     status: memberStatus('status').notNull().default('active'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

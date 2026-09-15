@@ -92,6 +92,20 @@
       "when": 1789602000000,
       "tag": "0012_event_hosts_and_ambassador_identity",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1789388123826,
+      "tag": "0013_late_doorman",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1789390173774,
+      "tag": "0014_supreme_talisman",
+      "breakpoints": true
     }
   ]
 }
