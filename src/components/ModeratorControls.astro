@@ -9,10 +9,8 @@ interface Props {
 }
 
 const { entityType, entityId, initialState, isModerator } = Astro.props;
-
-if (!isModerator) {
-  return null;
-}
 ---
 
-<ReactModeratorControls client:load entityType={entityType} entityId={entityId} initialState={initialState} />
+{isModerator && (
+  <ReactModeratorControls client:load entityType={entityType} entityId={entityId} initialState={initialState} />
+)}
