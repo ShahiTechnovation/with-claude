@@ -3,12 +3,13 @@ import { guardPage, privateHeaders } from '@/server/http/page-guard';
 import AuthRequired from '@/components/AuthRequired.astro';
 import Base from '@/layouts/Base.astro';
 import ProfileEditor from '@/components/react/ProfileEditor';
-import { citySlugFor } from '@/server/members/profile';
+import { citySlugFor, getBuilderSlug } from '@/server/members/profile';
 
 export const prerender = false;
 
 const guard = await guardPage(Astro);
 let citySlug = '';
+let builderSlug: string | null = null;
 
 if (guard.ok) {
   privateHeaders(Astro);
@@ -28,6 +29,7 @@ if (guard.ok) {
   if (guard.profile.cityId) {
     citySlug = await citySlugFor(guard.profile.cityId, guard.db);
   }
+  builderSlug = await getBuilderSlug(guard.member.id, guard.db);
 }
 ---
 
@@ -50,6 +52,8 @@ if (guard.ok) {
           claudeSince: guard.profile.claudeSince,
           website: guard.profile.website,
           visibility: guard.profile.visibility,
+          publishedAt: guard.profile.publishedAt?.toISOString() ?? null,
+          builderSlug,
         }}
         client:only="react"
       />

@@ -153,6 +153,9 @@ export async function canEditProject(
 export type PublishBlocker =
   | { field: 'title'; message: string }
   | { field: 'summary'; message: string }
+  | { field: 'description'; message: string }
+  | { field: 'claudeUsage'; message: string }
+  | { field: 'category'; message: string }
   | { field: 'cityId'; message: string };
 
 /**
@@ -164,16 +167,26 @@ export type PublishBlocker =
  * Completeness did not stop being required; it moved here, to the boundary
  * where it actually matters.
  *
- * It matters because `Project.citySlug` in `src/data/types.ts` is a REQUIRED
- * string and the prerendered project and city pages dereference it without a
- * null check. A published project with no city would not be a cosmetic gap, it
- * would be a build that renders `undefined` into a URL. So this function is
- * what stands between a nullable column and a broken page, and every path to
- * `publicationStatus = 'published'` must call it.
+ * The five required fields for a published member project:
+ *   title     — every page that renders this project prints the title
+ *   summary   — the tagline shown on cards and in search
+ *   description — what the project actually is and does
+ *   claudeUsage — what Claude was used for (the interesting part)
+ *   cityId    — required non-null by Project.citySlug in the type system
+ *
+ * All five are returned in one pass so the editor can highlight every missing
+ * field simultaneously, rather than forcing the member to publish repeatedly
+ * to discover them one by one.
+ *
+ * Legacy/curated projects already in the DB are not retroactively affected:
+ * this gate runs only at the publish boundary, never as a migration.
  */
 export function publishBlockers(project: {
   title?: string | null;
   summary?: string | null;
+  description?: string | null;
+  claudeUsage?: string | null;
+  category?: string | null;
   cityId?: string | null;
 }): PublishBlocker[] {
   const blockers: PublishBlocker[] = [];
@@ -183,11 +196,26 @@ export function publishBlockers(project: {
   if (!project.summary?.trim()) {
     blockers.push({
       field: 'summary',
-      message: 'Add a short description before publishing it.',
+      message: 'Add a short tagline before publishing it.',
+    });
+  }
+  if (!project.description?.trim()) {
+    blockers.push({
+      field: 'description',
+      message: 'Describe what the project does before publishing it.',
+    });
+  }
+  if (!project.claudeUsage?.trim()) {
+    blockers.push({
+      field: 'claudeUsage',
+      message: 'Explain how Claude was used before publishing it.',
     });
   }
   if (!project.cityId) {
     blockers.push({ field: 'cityId', message: 'Choose a city before publishing it.' });
+  }
+  if (!project.category) {
+    blockers.push({ field: 'category', message: 'Choose a category before publishing it.' });
   }
   return blockers;
 }

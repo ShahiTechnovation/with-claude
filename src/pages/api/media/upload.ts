@@ -175,6 +175,13 @@ export const POST: APIRoute = async ({ request }) => {
      * The message here is OUR OWN, from the throws above — Blob surfaces them
      * verbatim — so it is safe to return. Anything else is collapsed, because
      * an SDK error can name a store id or a token.
+     *
+     * One specific SDK error gets special treatment: when BLOB_READ_WRITE_TOKEN
+     * is absent or invalid, the Blob client throws "Failed to retrieve the
+     * client token" before any upload authorisation runs. Leaking that string
+     * to the browser is unhelpful (the member cannot fix it). A 503 is honest
+     * about the cause — the service is unavailable — and says what the member
+     * can do: save or publish without a cover image.
      */
     const message = error instanceof Error ? error.message : '';
     const ours =
@@ -182,7 +189,22 @@ export const POST: APIRoute = async ({ request }) => {
       message === 'Describe the image first.' ||
       message.startsWith('Too big') ||
       message.startsWith('Invalid');
-    if (!ours) console.error('[media.upload] failed');
+    const tokenFailure =
+      message.includes('Failed to retrieve the client token') ||
+      message.includes('BLOB_READ_WRITE_TOKEN');
+
+    if (tokenFailure) {
+      console.error('[media.upload] Blob token unavailable — check BLOB_READ_WRITE_TOKEN');
+      return json(
+        {
+          error:
+            'Image uploads are temporarily unavailable. You can save or publish the project without a cover.',
+        },
+        503,
+      );
+    }
+
+    if (!ours) console.error('[media.upload] failed', message);
     return json({ error: ours ? message : 'That upload could not be completed.' }, ours ? 403 : 500);
   }
 };

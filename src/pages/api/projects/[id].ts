@@ -32,22 +32,36 @@ export const prerender = false;
  * `z.string().url()` alone accepts `javascript:` and `data:`, and these values
  * are rendered as `href`s on a public page. That is stored XSS, so the scheme
  * is checked rather than assumed.
+ *
+ * Browser form semantics and API semantics disagree about empty. A cleared URL
+ * field returns `""` from an HTML input; the column stores NULL. The transform
+ * normalises that disagreement so an empty or whitespace-only value is always
+ * null in the database — which is the correct representation of "no link" —
+ * and non-empty values are validated strictly. This is the single coercion
+ * point; the caller does not need to pre-process URL fields.
  */
-const httpUrl = z
+export const httpUrl = z
   .string()
   .trim()
   .max(255)
-  .refine(
-    (value) => {
-      try {
-        const { protocol } = new URL(value);
-        return protocol === 'https:' || protocol === 'http:';
-      } catch {
-        return false;
-      }
-    },
-    { message: 'Use a full http(s) link.' },
-  );
+  .transform((v) => (v === '' ? null : v))
+  .pipe(
+    z
+      .string()
+      .refine(
+        (value) => {
+          try {
+            const { protocol } = new URL(value);
+            return protocol === 'https:' || protocol === 'http:';
+          } catch {
+            return false;
+          }
+        },
+        { message: 'Use a full http(s) link.' },
+      )
+      .nullable(),
+  )
+  .nullable();
 
 const EditProjectSchema = z
   .object({
@@ -57,9 +71,9 @@ const EditProjectSchema = z
     claudeUsage: z.string().trim().max(1_000).optional().nullable(),
     cityId: z.string().uuid().optional().nullable(),
     category: z.enum(schema.projectCategory.enumValues).optional(),
-    url: httpUrl.optional().nullable(),
-    repoUrl: httpUrl.optional().nullable(),
-    videoUrl: httpUrl.optional().nullable(),
+    url: httpUrl.optional(),
+    repoUrl: httpUrl.optional(),
+    videoUrl: httpUrl.optional(),
     imagePath: z.string().trim().max(255).optional().nullable(),
   })
   .strict();

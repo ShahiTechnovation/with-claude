@@ -18,16 +18,14 @@ if (guard.ok) privateHeaders(Astro);
   <Base title="Add a project" description="Create a project." active="/me" noindex>
     <main class="account-page">
       <h1>Add a project</h1>
-      {guard.profile.cityId ? (
-        <ProjectEditor initialData={{ cityId: guard.profile.cityId }} client:only="react" />
-      ) : (
-        <p class="empty-state">
-          Add your city in <a href="/me/profile/edit/">your profile</a> first before publishing a project.
-        </p>
-      )}
+      <ProjectEditor
+        initialData={{ cityId: guard.profile.cityId ?? '' }}
+        client:only="react"
+      />
     </main>
   </Base>
 )}
+
 
 <style>
   .account-page {

@@ -59,7 +59,9 @@ import { profileSchema, titles, trail } from '@/lib/seo';
 import ClaimProfile from '@/components/ClaimProfile.astro';
 import {
   getPublicBuilderBySlug,
+  getBuilderProjects,
   isPublicBuilder,
+  type LiveBuilderProject,
 } from '@/server/directory';
 import { ReportModal } from '@/components/react/ReportModal';
 import ModeratorControls from '@/components/ModeratorControls.astro';
@@ -115,7 +117,35 @@ if (!isPublic && !isModerator) {
 const ambassador = ambassadorForBuilder({ slug: builderRow.slug } as any);
 const events = eventsOf({ slug: builderRow.slug } as any);
 const hosted = ambassador ? eventsHostedBy(ambassador.slug) : [];
-const projects = projectsOf({ slug: builderRow.slug } as any);
+
+/**
+ * LIVE + STATIC project merge — Bug F fix.
+ *
+ * The static RecordSet from `projectsOf()` knows about curated/editorial
+ * projects that were imported at build time. It does NOT know about projects
+ * a member published after the last deployment.
+ *
+ * `getBuilderProjects()` queries Neon live for both:
+ *   - project_builders.builder_id = this builder's id (canonical)
+ *   - projects.ownerMemberId = this builder's ownerMemberId (compatibility
+ *     fallback for projects published before attribution insert was added)
+ *
+ * The two sets are merged here and deduplicated by project slug, so a project
+ * that appears in both the static snapshot AND the live DB is not shown twice.
+ * Static data takes precedence for display fields (richer shape); live-only
+ * projects are shown with the narrower shape returned by the DB query.
+ */
+const staticProjects = projectsOf({ slug: builderRow.slug } as any);
+const staticSlugs = new Set(staticProjects.map((p) => p.slug));
+
+const liveProjects: LiveBuilderProject[] = await getBuilderProjects(
+  builderRow.id,
+  builderRow.ownerMemberId,
+);
+const liveOnlyProjects = liveProjects.filter((p) => !staticSlugs.has(p.slug));
+
+// Unified display list: static first (richest data), then live-only.
+const allProjects = [...staticProjects, ...liveOnlyProjects];
 
 /**
  * Portrait: prefer the uploaded avatar (from the live Neon query) over the
@@ -244,9 +274,9 @@ const schema = profileSchema(
             <div class="block">
               <h3 class="label block-head">Projects</h3>
               {
-                projects.length > 0 ? (
+                allProjects.length > 0 ? (
                   <ul class="list">
-                    {projects.map((project) => (
+                    {allProjects.map((project) => (
                       <li>
                         <a href={`/projects/${project.slug}`}>
                           <span class="list-title">{project.title}</span>
@@ -329,7 +359,7 @@ const schema = profileSchema(
               </div>
               <div>
                 <dt>Projects</dt>
-                <dd>{String(projects.length).padStart(2, '0')}</dd>
+                <dd>{String(allProjects.length).padStart(2, '0')}</dd>
               </div>
             </dl>
 

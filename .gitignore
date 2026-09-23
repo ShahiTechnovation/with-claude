@@ -25,3 +25,4 @@ scratch-*
 # not depend on somebody remembering to add a line here.
 .env.*
 !.env.example
+.env*.local

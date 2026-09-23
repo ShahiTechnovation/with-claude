@@ -128,6 +128,11 @@ export async function publishProfile(
     .where(eq(schema.builders.ownerMemberId, member.id));
 
   const result = await db.transaction(async (tx) => {
+    let finalBuilderId: string;
+    let finalSlug: string;
+    let finalCreated: boolean;
+    let finalAuditId: string;
+
     if (owned) {
       // ── Case 1: a row this member already owns ──────────────────────
       const patch = projectToBuilder(profile, owned.source);
@@ -156,65 +161,63 @@ export async function publishProfile(
           and(eq(schema.builders.id, owned.id), eq(schema.builders.ownerMemberId, member.id)),
         );
 
-      // ── Update publication timestamp atomically ──────────────────────────
-      // Moved inside the transaction (Phase G fix). Previously this ran after
-      // the transaction committed, meaning a network failure here left the
-      // builder row published but the profile's publishedAt as null — a
-      // half-published state. Now both writes commit or both roll back.
-      await tx
-        .update(schema.memberProfiles)
-        .set({ publishedAt: sql`now()`, updatedAt: new Date() })
-        .where(eq(schema.memberProfiles.memberId, member.id));
+      finalBuilderId = owned.id;
+      finalSlug = owned.slug;
+      finalCreated = false;
+      finalAuditId = audit.id;
+    } else {
+      // ── Case 2: a new row, named by the username ────────────────────────
+      const name =
+        profile.displayName?.trim() ||
+        [profile.firstName, profile.lastName].filter(Boolean).join(' ').trim();
 
-      return { slug: owned.slug, builderId: owned.id, created: false, auditId: audit.id };
+      const [created] = await tx
+        .insert(schema.builders)
+        .values({
+          /**
+           * SLUG INVARIANT (Phase I): the slug is set from username at first
+           * publication and is NEVER updated on re-publish. This is intentional:
+           * /builders/{slug} is the member's permanent public URL, and public
+           * URLs must not break when a member changes their username. The
+           * username is their login handle; the builder slug is their public
+           * identity. See projectToBuilder() — it deliberately omits 'slug'
+           * from its update projection so re-publishes cannot change the URL.
+           */
+          slug: profile.username,
+          name,
+          cityId: profile.cityId!,
+          role: profile.primaryRole ?? 'Builder',
+          // NO ROLES ARE ASSIGNED HERE. `roles` stays empty for the same reason
+          // the promotion path leaves it empty: it is curated, and the database
+          // would refuse `ambassador` outright. Nobody arrives at standing
+          // through a form.
+          bio: profile.bio ?? null,
+          status: 'published',
+          source: 'user',
+          ownerMemberId: member.id,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning({ id: schema.builders.id, slug: schema.builders.slug });
+
+      const [audit] = await tx
+        .insert(schema.auditLog)
+        .values({
+          actorMemberId: member.id,
+          action: 'member.profile.published',
+          entityType: 'builder',
+          entityId: created.id,
+          fromStatus: null,
+          toStatus: 'published',
+          note: 'Builder Passport published by its owner. Self-service, no editorial review.',
+        })
+        .returning({ id: schema.auditLog.id });
+
+      finalBuilderId = created.id;
+      finalSlug = created.slug;
+      finalCreated = true;
+      finalAuditId = audit.id;
     }
-
-    // ── Case 2: a new row, named by the username ────────────────────────
-    const name =
-      profile.displayName?.trim() ||
-      [profile.firstName, profile.lastName].filter(Boolean).join(' ').trim();
-
-    const [created] = await tx
-      .insert(schema.builders)
-      .values({
-        /**
-         * SLUG INVARIANT (Phase I): the slug is set from username at first
-         * publication and is NEVER updated on re-publish. This is intentional:
-         * /builders/{slug} is the member's permanent public URL, and public
-         * URLs must not break when a member changes their username. The
-         * username is their login handle; the builder slug is their public
-         * identity. See projectToBuilder() — it deliberately omits 'slug'
-         * from its update projection so re-publishes cannot change the URL.
-         */
-        slug: profile.username,
-        name,
-        cityId: profile.cityId!,
-        role: profile.primaryRole ?? 'Builder',
-        // NO ROLES ARE ASSIGNED HERE. `roles` stays empty for the same reason
-        // the promotion path leaves it empty: it is curated, and the database
-        // would refuse `ambassador` outright. Nobody arrives at standing
-        // through a form.
-        bio: profile.bio ?? null,
-        status: 'published',
-        source: 'user',
-        ownerMemberId: member.id,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .returning({ id: schema.builders.id, slug: schema.builders.slug });
-
-    const [audit] = await tx
-      .insert(schema.auditLog)
-      .values({
-        actorMemberId: member.id,
-        action: 'member.profile.published',
-        entityType: 'builder',
-        entityId: created.id,
-        fromStatus: null,
-        toStatus: 'published',
-        note: 'Builder Passport published by its owner. Self-service, no editorial review.',
-      })
-      .returning({ id: schema.auditLog.id });
 
     // ── Update publication timestamp atomically ──────────────────────────
     await tx
@@ -222,7 +225,33 @@ export async function publishProfile(
       .set({ publishedAt: sql`now()`, updatedAt: new Date() })
       .where(eq(schema.memberProfiles.memberId, member.id));
 
-    return { slug: created.slug, builderId: created.id, created: true, auditId: audit.id };
+    // ── Backfill project attribution ──────────────────────────────────────
+    // The member might have published projects before they published their
+    // Builder Passport. Now that they have one, they should get credit.
+    const uncreditedProjects = await tx
+      .select({ id: schema.projects.id })
+      .from(schema.projects)
+      .where(
+        and(
+          eq(schema.projects.ownerMemberId, member.id),
+          eq(schema.projects.publicationStatus, 'published')
+        )
+      );
+
+    if (uncreditedProjects.length > 0) {
+      await tx
+        .insert(schema.projectBuilders)
+        .values(
+          uncreditedProjects.map((p) => ({
+            projectId: p.id,
+            builderId: finalBuilderId,
+            position: 0,
+          }))
+        )
+        .onConflictDoNothing();
+    }
+
+    return { slug: finalSlug, builderId: finalBuilderId, created: finalCreated, auditId: finalAuditId };
   });
 
   // Outside the transaction, and its failure is not this call's failure.

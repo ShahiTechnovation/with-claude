@@ -273,3 +273,101 @@ export function getPublicSearchData(rs: RecordSet) {
     guides: rs.guides.filter(isVisible),
   };
 }
+
+/**
+ * LIVE PROJECTS FOR A BUILDER — Bug F fix.
+ *
+ * Returns published+clean projects attributed to this builder, with their
+ * city slug resolved. Deduplication by project ID is enforced before return.
+ *
+ * Two attribution sources, both queried:
+ *
+ *   1. project_builders (canonical)
+ *      The project_builders.builder_id → projects relationship. Set when
+ *      a project is published via the member publish endpoint (publish.ts
+ *      now inserts a row here for the owner).
+ *
+ *   2. projects.ownerMemberId → builders.ownerMemberId (compatibility fallback)
+ *      For member projects that existed before the attribution insert was
+ *      added, this is the only relationship. Both paths are deduped by ID.
+ *
+ * The combined result is what renders on /builders/[slug] for the Projects
+ * section, replacing the build-time projectsOf() selector which only knows
+ * about curated/snapshot projects.
+ */
+export interface LiveBuilderProject {
+  id: string;
+  slug: string;
+  title: string;
+  summary: string | null;
+  citySlug: string | null;
+}
+
+export async function getBuilderProjects(
+  builderId: string,
+  ownerMemberId: string | null,
+  db: Db = pooledDb(),
+): Promise<LiveBuilderProject[]> {
+  const seen = new Set<string>();
+  const results: LiveBuilderProject[] = [];
+
+  // ── Path 1: canonical project_builders ───────────────────────────────────
+  const credited = await db
+    .select({
+      id: dbSchema.projects.id,
+      slug: dbSchema.projects.slug,
+      title: dbSchema.projects.title,
+      summary: dbSchema.projects.summary,
+      citySlug: dbSchema.cities.slug,
+    })
+    .from(dbSchema.projectBuilders)
+    .innerJoin(dbSchema.projects, eq(dbSchema.projectBuilders.projectId, dbSchema.projects.id))
+    .leftJoin(dbSchema.cities, eq(dbSchema.projects.cityId, dbSchema.cities.id))
+    .where(
+      and(
+        eq(dbSchema.projectBuilders.builderId, builderId),
+        eq(dbSchema.projects.publicationStatus, 'published'),
+        eq(dbSchema.projects.moderationState, 'clean'),
+      ),
+    );
+
+  for (const row of credited) {
+    if (!seen.has(row.id)) {
+      seen.add(row.id);
+      results.push({ id: row.id, slug: row.slug, title: row.title, summary: row.summary, citySlug: row.citySlug ?? null });
+    }
+  }
+
+  // ── Path 2: ownerMemberId fallback ───────────────────────────────────────
+  // Picks up member-owned projects that predate the project_builders insert or
+  // where the builder has no published passport (no builder row → no attribution
+  // row was created at publish time).
+  if (ownerMemberId) {
+    const owned = await db
+      .select({
+        id: dbSchema.projects.id,
+        slug: dbSchema.projects.slug,
+        title: dbSchema.projects.title,
+        summary: dbSchema.projects.summary,
+        citySlug: dbSchema.cities.slug,
+      })
+      .from(dbSchema.projects)
+      .leftJoin(dbSchema.cities, eq(dbSchema.projects.cityId, dbSchema.cities.id))
+      .where(
+        and(
+          eq(dbSchema.projects.ownerMemberId, ownerMemberId),
+          eq(dbSchema.projects.publicationStatus, 'published'),
+          eq(dbSchema.projects.moderationState, 'clean'),
+        ),
+      );
+
+    for (const row of owned) {
+      if (!seen.has(row.id)) {
+        seen.add(row.id);
+        results.push({ id: row.id, slug: row.slug, title: row.title, summary: row.summary, citySlug: row.citySlug ?? null });
+      }
+    }
+  }
+
+  return results;
+}

@@ -5,7 +5,7 @@ import Section from '@/components/Section.astro';
 import PageIntro from '@/components/PageIntro.astro';
 import { site } from '@/data';
 import { formatDate } from '@/lib/datetime';
-import { asset } from '@/lib/images';
+import { resolveProjectCover } from '@/lib/project-cover';
 import { formatName } from '@/lib/status';
 import { titles, trail } from '@/lib/seo';
 
@@ -69,7 +69,7 @@ Astro.response.headers.set('Cache-Control', 'public, s-maxage=60, stale-while-re
 
 const makers = selectors.builderNamesOf(project as any);
 const bornAt = project.builtAtEventSlug ? selectors.eventBySlug.get(project.builtAtEventSlug) : undefined;
-const image = asset(project.image || undefined);
+const cover = resolveProjectCover(project.image);
 
 const schema = [
   {
@@ -100,7 +100,7 @@ const crumbs = trail(
   description={project.summary}
   active="/projects"
   breadcrumbs={crumbs}
-  image={image ? undefined : '/og-card.jpg'}
+  image={cover.kind !== 'none' ? undefined : '/og-card.jpg'}
   schema={schema}
 >
   {(!isAvailable && isModerator) && (
@@ -123,16 +123,25 @@ const crumbs = trail(
     <div class="project">
       <div class="project-main">
         {
-          image && (
+          cover.kind !== 'none' && (
             <div class="plate plate-framed project-image">
-              <Image
-                src={image}
-                alt={`${project.title} — screenshot`}
-                widths={[600, 1100]}
-                sizes="(max-width: 61.99em) 92vw, 680px"
-                loading="eager"
-                decoding="async"
-              />
+              {cover.kind === 'blob' ? (
+                <img
+                  src={cover.blobUrl}
+                  alt={`${project.title} — screenshot`}
+                  loading="eager"
+                  decoding="async"
+                />
+              ) : (
+                <Image
+                  src={cover.imageMetadata!}
+                  alt={`${project.title} — screenshot`}
+                  widths={[600, 1100]}
+                  sizes="(max-width: 61.99em) 92vw, 680px"
+                  loading="eager"
+                  decoding="async"
+                />
+              )}
             </div>
           )
         }

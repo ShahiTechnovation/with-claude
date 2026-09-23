@@ -8,15 +8,26 @@ export const prerender = false;
 
 const guard = await guardPage(Astro);
 let builderSlug: string | null = null;
-let citySlug: string = '';
+let cityName = '';
 
 if (guard.ok) {
   privateHeaders(Astro);
   builderSlug = await getBuilderSlug(guard.member.id, guard.db);
   if (guard.profile.cityId) {
-    citySlug = await citySlugFor(guard.profile.cityId, guard.db);
+    cityName = await citySlugFor(guard.profile.cityId, guard.db);
   }
 }
+
+const isPublished = guard.ok && Boolean(guard.profile.publishedAt);
+
+/** Missing publish-required fields for the profile. */
+const missingFields = guard.ok
+  ? [
+      !guard.profile.displayName && 'Name',
+      !guard.profile.cityId && 'City',
+      !guard.profile.primaryRole && 'Role',
+    ].filter(Boolean) as string[]
+  : [];
 ---
 
 {!guard.ok ? (
@@ -25,113 +36,302 @@ if (guard.ok) {
   </Base>
 ) : (
   <Base title="Your Builder Passport" description="View your profile." active="/me" noindex>
-    <main class="account-page">
-      <h1>Your Builder Passport</h1>
+    <main class="pp">
 
-      <dl class="profile-list">
-        <div class="list-item">
-          <dt>Name</dt>
-          <dd><strong>{guard.profile.displayName ?? 'Not added'}</strong> &middot; @{guard.profile.username}</dd>
+      {/* ── Passport header ──────────────────────────────────────────── */}
+      <header class="pp-header">
+        <div class="pp-head-top">
+          <div>
+            <p class="pp-eyebrow">Builder Passport</p>
+            <h1 class="pp-name">{guard.profile.displayName ?? guard.profile.username}</h1>
+            <p class="pp-handle">@{guard.profile.username}</p>
+          </div>
+          <span class={`pp-badge ${isPublished ? 'pp-badge--live' : 'pp-badge--draft'}`}>
+            {isPublished ? 'Published' : 'Draft'}
+          </span>
         </div>
-        <div class="list-item">
-          <dt>Headline</dt>
-          <dd>{guard.profile.headline ?? 'Not added'}</dd>
-        </div>
-        <div class="list-item">
+
+        {guard.profile.headline && (
+          <p class="pp-headline">{guard.profile.headline}</p>
+        )}
+
+        {!isPublished && missingFields.length > 0 && (
+          <div class="pp-missing">
+            <p class="pp-missing-head">Missing before publishing:</p>
+            <ul class="pp-missing-list">
+              {missingFields.map((f) => <li>{f}</li>)}
+            </ul>
+          </div>
+        )}
+      </header>
+
+      {/* ── Fields ───────────────────────────────────────────────────── */}
+      <dl class="pp-fields">
+        <div class="pp-field">
           <dt>City</dt>
-          <dd>{citySlug || 'Not added'}</dd>
+          <dd>{cityName || <span class="pp-empty">Not added</span>}</dd>
         </div>
-        <div class="list-item">
+        <div class="pp-field">
           <dt>Role</dt>
-          <dd>{guard.profile.primaryRole ?? 'Not added'}</dd>
+          <dd>{guard.profile.primaryRole || <span class="pp-empty">Not added</span>}</dd>
         </div>
-        <div class="list-item">
-          <dt>Bio</dt>
-          <dd>{guard.profile.bio ?? 'Not added'}</dd>
-        </div>
-        <div class="list-item">
-          <dt>Claude tools</dt>
-          <dd>{guard.profile.claudeSince ?? 'Not added'}</dd>
-        </div>
-        <div class="list-item">
-          <dt>Links</dt>
-          <dd>{guard.profile.website ? <a href={guard.profile.website}>Website</a> : 'Not added'}</dd>
-        </div>
-        <div class="list-item">
+        {guard.profile.bio && (
+          <div class="pp-field pp-field--wide">
+            <dt>Bio</dt>
+            <dd>{guard.profile.bio}</dd>
+          </div>
+        )}
+        {guard.profile.claudeSince && (
+          <div class="pp-field">
+            <dt>Claude tools</dt>
+            <dd>{guard.profile.claudeSince}</dd>
+          </div>
+        )}
+        <div class="pp-field">
           <dt>Visibility</dt>
           <dd>{guard.profile.visibility}</dd>
         </div>
+        {guard.profile.website && (
+          <div class="pp-field">
+            <dt>Website</dt>
+            <dd>
+              <a href={guard.profile.website} target="_blank" rel="noopener noreferrer">
+                {guard.profile.website.replace(/^https?:\/\//, '')}
+              </a>
+            </dd>
+          </div>
+        )}
       </dl>
 
-      <div class="actions">
-        <a href="/me/profile/edit/" class="btn-secondary">Edit profile</a>
-        {builderSlug && (
-           <a href={`/builders/${builderSlug}/`} class="btn-secondary">View public profile</a>
+      {/* ── Actions ──────────────────────────────────────────────────── */}
+      <div class="pp-actions">
+        <a href="/me/profile/edit/" class="pp-btn pp-btn--primary">
+          {isPublished ? 'Edit profile' : 'Complete & publish'}
+        </a>
+        {isPublished && builderSlug && (
+          <a
+            href={`/builders/${builderSlug}/`}
+            class="pp-btn pp-btn--secondary"
+            target="_blank"
+            rel="noopener"
+          >
+            View public profile →
+          </a>
         )}
+        <a href="/me/" class="pp-btn pp-btn--ghost">← Back to account</a>
       </div>
+
     </main>
   </Base>
 )}
 
 <style>
-  .account-page {
-    width: min(100% - 2rem, 42rem);
-    margin: 4rem auto;
+  .pp {
+    width: min(100% - 2rem, 36rem);
+    margin: 4rem auto 6rem;
     font-family: var(--font-sans);
   }
-  .account-page h1 {
-    font-family: var(--font-display);
-    font-size: 2.5rem;
-    font-weight: 500;
-    margin-bottom: 3rem;
+
+  /* ── Header ── */
+  .pp-header {
+    margin-bottom: 2.5rem;
+    padding-bottom: 2rem;
+    border-bottom: 2px solid var(--ink);
   }
-  .profile-list {
-    margin-bottom: 3rem;
-    border-top: 1px solid var(--rule);
-  }
-  .list-item {
+
+  .pp-head-top {
     display: flex;
-    padding: 1.5rem 0;
-    border-bottom: 1px solid var(--rule);
-  }
-  .list-item dt {
-    width: 25%;
-    font-family: var(--font-mono);
-    font-size: 0.9rem;
-    color: var(--ink-2);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-  .list-item dd {
-    width: 75%;
-    font-size: 1.1rem;
-    color: var(--ink);
-  }
-  .list-item dd a {
-    color: var(--ink);
-    text-decoration: underline;
-  }
-  .actions {
-    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
     gap: 1rem;
-    align-items: center;
+    margin-bottom: 0.75rem;
   }
-  .btn-secondary {
+
+  .pp-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--ink-3);
+    margin-bottom: 0.3rem;
+  }
+
+  .pp-name {
+    font-family: var(--font-display);
+    font-size: 2rem;
+    font-weight: 500;
+    line-height: 1.15;
+    margin-bottom: 0.15rem;
+  }
+
+  .pp-handle {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--ink-3);
+    letter-spacing: 0.03em;
+  }
+
+  .pp-badge {
     display: inline-flex;
     align-items: center;
-    padding: 0.5rem 1rem;
+    padding: 0.25rem 0.7rem;
     font-family: var(--font-mono);
-    font-size: 0.8rem;
+    font-size: 0.65rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
+    border-radius: 2px;
+    border: 1px solid currentColor;
+    flex-shrink: 0;
+  }
+
+  .pp-badge--live { color: #166534; border-color: #bbf7d0; background: #f0fdf4; }
+  .pp-badge--draft { color: var(--ink-3); border-color: var(--rule); background: var(--paper-sunk, #fafaf9); }
+
+  .pp-headline {
+    font-size: 1rem;
+    color: var(--ink-2);
+    line-height: 1.5;
+    margin-top: 0.75rem;
+  }
+
+  .pp-missing {
+    margin-top: 1rem;
+    padding: 0.875rem 1rem;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-left: 3px solid #f59e0b;
+  }
+
+  .pp-missing-head {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #92400e;
+    margin-bottom: 0.5rem;
+  }
+
+  .pp-missing-list {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 1rem;
+    padding: 0;
+    margin: 0;
+  }
+
+  .pp-missing-list li {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: #78350f;
+  }
+
+  .pp-missing-list li::before {
+    content: '✗ ';
+    color: #b45309;
+  }
+
+  /* ── Fields ── */
+  .pp-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-bottom: 2.5rem;
+    border-top: 1px solid var(--rule);
+  }
+
+  .pp-field {
+    display: grid;
+    grid-template-columns: 30% 70%;
+    gap: 0.5rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--rule);
+    font-size: 0.9rem;
+  }
+
+  .pp-field--wide {
+    grid-template-columns: 1fr;
+    gap: 0.4rem;
+  }
+
+  .pp-field dt {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-3);
+    padding-top: 0.1rem;
+  }
+
+  .pp-field dd {
+    color: var(--ink);
+    line-height: 1.5;
+  }
+
+  .pp-field dd a {
+    color: var(--ink);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .pp-empty {
+    color: var(--ink-3);
+    font-style: italic;
+    font-size: 0.85em;
+  }
+
+  /* ── Actions ── */
+  .pp-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .pp-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.6rem 1.25rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 500;
     letter-spacing: 0.05em;
+    text-transform: uppercase;
     text-decoration: none;
+    border-radius: 2px;
+    transition: all 0.15s;
+  }
+
+  .pp-btn--primary {
+    background: var(--ink);
+    color: var(--paper);
+    border: 1px solid var(--ink);
+  }
+  .pp-btn--primary:hover {
+    background: var(--clay-deep, #92400e);
+    border-color: var(--clay-deep, #92400e);
+  }
+
+  .pp-btn--secondary {
+    background: var(--paper);
     color: var(--ink);
     border: 1px solid var(--rule);
-    border-radius: 2px;
-    transition: all var(--dur-1) var(--ease-out);
   }
-  .btn-secondary:hover {
+  .pp-btn--secondary:hover {
     border-color: var(--ink);
-    background: var(--shade-1);
+    background: var(--shade-1, #f9fafb);
+  }
+
+  .pp-btn--ghost {
+    background: transparent;
+    color: var(--ink-3);
+    border: 1px solid transparent;
+    font-size: 0.7rem;
+    margin-left: auto;
+  }
+  .pp-btn--ghost:hover {
+    color: var(--ink);
   }
 </style>

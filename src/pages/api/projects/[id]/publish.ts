@@ -11,12 +11,27 @@
  * 2. A project that has been restricted or removed by a moderator. Publishing
  *    is not a way out of moderation (§29), so a restricted project cannot be
  *    re-published by its owner.
- * 3. A project that is not COMPLETE. This is the one that is easy to get
- *    wrong: migration 0010 made `city_id` and `summary` nullable so drafts
- *    could be saved, and `Project.citySlug` in `src/data/types.ts` is still a
- *    required string that the prerendered pages dereference. Publishing an
- *    incomplete project would therefore break the build rather than look
- *    untidy — so `publishBlockers()` runs here, and 422 is a real answer.
+ * 3. A project that is not COMPLETE. `publishBlockers()` enforces five
+ *    required fields (title, summary, description, claudeUsage, cityId) and
+ *    returns all of them at once so the editor can highlight every gap
+ *    simultaneously.
+ *
+ * ── OWNER ATTRIBUTION ────────────────────────────────────────────────────
+ *
+ * After publication, the owner's Builder record (builders.ownerMemberId =
+ * projects.ownerMemberId) is inserted into project_builders. This is what
+ * makes the "Made by" sidebar link and the builder profile project list work
+ * without a Git commit or nightly rebuild.
+ *
+ * The attribution uses ON CONFLICT DO NOTHING, so re-publishing or
+ * concurrent publishes do not duplicate rows. If the member has not yet
+ * published a Builder Passport (no row in builders for their memberId), the
+ * project still publishes — attribution is best-effort rather than a
+ * prerequisite. The member's builder row is inserted by the profile publish
+ * path, not here.
+ *
+ * The whole operation is transactional: if the project update, the builder
+ * attribution, or the audit log fails, none of the three commits.
  */
 import type { APIRoute } from 'astro';
 import { and, eq } from 'drizzle-orm';
@@ -43,6 +58,8 @@ export const POST: APIRoute = async ({ request, params }) => {
       slug: schema.projects.slug,
       title: schema.projects.title,
       summary: schema.projects.summary,
+      description: schema.projects.description,
+      claudeUsage: schema.projects.claudeUsage,
       cityId: schema.projects.cityId,
       ownerMemberId: schema.projects.ownerMemberId,
       publicationStatus: schema.projects.publicationStatus,
@@ -100,40 +117,88 @@ export const POST: APIRoute = async ({ request, params }) => {
   }
 
   const now = new Date();
-  await db
-    .update(schema.projects)
-    .set({
-      publicationStatus: 'published',
-      /**
-       * The curated archive's editorial status moves too, so the two
-       * vocabularies agree about a row that is on the website. It is NOT how
-       * visibility is decided — `src/data/source-db.ts` filters on
-       * `publicationStatus` and `moderationState` — but leaving it at `draft`
-       * would make the admin's own listings describe a live project as unwritten.
-       */
-      status: 'published',
-      updatedAt: now,
-    })
-    .where(eq(schema.projects.id, projectId));
 
-  await db.insert(schema.auditLog).values({
-    actorMemberId: member.id,
-    action: 'project.published',
-    entityType: 'project',
-    entityId: projectId,
-    fromStatus: project.publicationStatus,
-    toStatus: 'published',
-    note: project.slug,
-  });
+  // ── TRANSACTIONAL PUBLISH ───────────────────────────────────────────────
+  //
+  // Three writes, one transaction:
+  //   1. Set publicationStatus = published on the project
+  //   2. Insert owner → project_builders attribution (idempotent)
+  //   3. Write audit log entry
+  //
+  // If any step fails, none commit — no partial-published state.
+  try {
+    await db.transaction(async (tx) => {
+      // 1. Publish the project.
+      await tx
+        .update(schema.projects)
+        .set({
+          publicationStatus: 'published',
+          /**
+           * The curated archive's editorial status moves too, so the two
+           * vocabularies agree about a row that is on the website. It is NOT
+           * how visibility is decided — `src/data/source-db.ts` filters on
+           * `publicationStatus` and `moderationState` — but leaving it at
+           * `draft` would make the admin's own listings describe a live
+           * project as unwritten.
+           */
+          status: 'published',
+          updatedAt: now,
+        })
+        .where(eq(schema.projects.id, projectId));
+
+      // 2. Owner attribution: find the Builder record owned by this member and
+      //    link it to the project. ON CONFLICT DO NOTHING makes this safe for
+      //    re-publishes and concurrent requests.
+      //
+      //    If the member has no Builder Passport yet, the SELECT returns no row
+      //    and we simply skip the insert — the project still publishes. The
+      //    attribution appears automatically when they later publish their
+      //    profile (the profile publish path does NOT undo this: once the
+      //    Builder row exists, ON CONFLICT DO NOTHING is a no-op on the next
+      //    project publish).
+      if (project.ownerMemberId) {
+        const [ownerBuilder] = await tx
+          .select({ id: schema.builders.id })
+          .from(schema.builders)
+          .where(eq(schema.builders.ownerMemberId, project.ownerMemberId));
+
+        if (ownerBuilder) {
+          await tx
+            .insert(schema.projectBuilders)
+            .values({
+              projectId,
+              builderId: ownerBuilder.id,
+              position: 0,
+            })
+            .onConflictDoNothing();
+        }
+      }
+
+      // 3. Audit log.
+      await tx.insert(schema.auditLog).values({
+        actorMemberId: member.id,
+        action: 'project.published',
+        entityType: 'project',
+        entityId: projectId,
+        fromStatus: project.publicationStatus,
+        toStatus: 'published',
+        note: project.slug,
+      });
+    });
+  } catch (err) {
+    console.error('[project.publish] transaction failed', err);
+    return json({ error: 'Could not publish the project. Please try again.' }, 500);
+  }
 
   /**
    * WHEN IT ACTUALLY APPEARS, STATED HONESTLY.
    *
    * `/projects/[slug]` is server-rendered, so the detail page is live the
    * moment this returns — §14's requirement that a new project not need a Git
-   * push to exist. The LISTING and the search index are prerendered, so they
-   * pick it up at the next build, which the nightly rebuild guarantees. The
-   * response says so rather than letting the UI imply instant everywhere.
+   * push to exist. The listing page (`/projects/`) is also SSR (prerender =
+   * false) and queries Neon live, so it appears there immediately too. Search
+   * (`/discover`) likewise queries live. No rebuild is required for any of
+   * the primary surfaces.
    */
   return json(
     {
@@ -141,7 +206,7 @@ export const POST: APIRoute = async ({ request, params }) => {
       slug: project.slug,
       url: `/projects/${project.slug}/`,
       detailLive: true,
-      listingRefreshesOnNextBuild: true,
+      listingLive: true,
     },
     200,
   );

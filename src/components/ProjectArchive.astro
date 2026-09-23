@@ -2,7 +2,7 @@
 import { Image } from 'astro:assets';
 import * as staticData from '@/data';
 import type { RecordSelectors } from '@/data/selectors';
-import { asset } from '@/lib/images';
+import { resolveProjectCover } from '@/lib/project-cover';
 import { formatName } from '@/lib/status';
 
 /**
@@ -54,7 +54,7 @@ const entries = rows.map((project) => ({
   project,
   city: data.cityName(project.citySlug),
   makers: data.builderNamesOf(project),
-  image: asset(project.image),
+  cover: resolveProjectCover(project.image),
 }));
 
 // Filter facets are built from what is actually in the archive, so a category
@@ -157,16 +157,25 @@ const entryFields = [
               data-city={entry.project.citySlug}
             >
               <a href={`/projects/${entry.project.slug}`}>
-                {entry.image && (
+                {entry.cover.kind !== 'none' && (
                   <span class="plate plate-zoom card-image">
-                    <Image
-                      src={entry.image}
-                      alt=""
-                      widths={[400, 720]}
-                      sizes="(max-width: 47.99em) 90vw, 360px"
-                      loading="lazy"
-                      decoding="async"
-                    />
+                    {entry.cover.kind === 'blob' ? (
+                      <img
+                        src={entry.cover.blobUrl}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    ) : (
+                      <Image
+                        src={entry.cover.imageMetadata!}
+                        alt=""
+                        widths={[400, 720]}
+                        sizes="(max-width: 47.99em) 90vw, 360px"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    )}
                   </span>
                 )}
                 <span class="card-top">

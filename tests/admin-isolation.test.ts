@@ -135,6 +135,7 @@ describe("the public site does not share the admin's authentication", () => {
 
     expect(dynamic).toEqual(
       [
+        'src/pages/api/cities.ts',
         'src/pages/api/cron/events-sync.ts',
         'src/pages/api/cron/rebuild.ts',
         'src/pages/api/health.ts',
