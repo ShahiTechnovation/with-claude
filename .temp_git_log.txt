@@ -1,0 +1,118 @@
+commit 022ba8940f97ee7bc952e8d18e5420777e8ef15b
+Author: Punit Shahi <shahi.technovation@gmail.com>
+Date:   Sun Sep 13 23:54:54 2026 +0530
+
+    feat: ambassadors, host attribution and the activity index — one graph, not a second one
+    
+    Extends the existing record rather than adding a parallel system. `ambassadors`
+    already existed and already linked to `builders`; this gives it an identity a
+    source can be matched against, and gives events a host relationship that can
+    carry a role.
+    
+    ── `event_hosts` is canonical ─────────────────────────────────────────────
+    
+    `events.ambassador_id` records one host and nothing about them — no role, no
+    provenance, no confidence. Enough for the verified treatment on an event page,
+    not enough for a credit. Attribution now lives in `event_hosts`
+    (event_id, ambassador_id, role, source, confidence), and the column stays as a
+    denormalisation of that table's single `primary_host` row, because `RecordSet`,
+    `cityState()` and the prerendered pages read it with no null checks.
+    
+        events.ambassador_id == that event's single primary_host row, or NULL
+    
+    Every writer — the Luma sync, the repository importer, the admin — goes through
+    `setPrimaryHost()`/`clearPrimaryHost()` in `src/server/events/hosts.ts`.
+    Nothing else may write that column. `attributionDrift()` is the same query in
+    production that the tests run after every mutation. Two constraints do the rest:
+    PK (event, ambassador, role) makes double-counting unrepresentable, and a
+    partial unique index allows one primary host per event.
+    
+    ── matching is exact against a configured mapping, never fuzzy ────────────
+    
+    The Claude Community ICS feed's entire statement about who runs an event is
+    `ORGANIZER;CN="Some Name"` plus a generic MAILTO shared by all 317 events. So
+    matching is against `ambassadors.luma_display_name` — empty by default, holding
+    a string an admin has actually seen — exact on the normalised value, with a
+    unique index on `lower(btrim(...))` so one organiser string cannot map to two
+    people and the matcher never breaks a tie. Never `ambassadors.name`.
+    
+    Measured on the live capture: 317 events, 13 placed in India across 8 cities,
+    zero attributed until a mapping is configured. Three are hosted by "Aniket
+    Sahu" — so configuring one string attributes three real events. An
+    unattributed event is honest and fixable; a wrong one moves a leaderboard
+    quietly.
+    
+    Attribution is its own pass over every promoted record, not only over records
+    the feed changed. It was first written inside the promotion branch, which meant
+    an admin could configure a mapping, sync, and see nothing happen — the events
+    had not changed, so the code never looked at them. 0 attributed instead of 3.
+    
+    A sync will not overwrite a `curated` or `manual` attribution. A feed
+    reasserting its guess hourly would undo a moderator's correction every time.
+    
+    ── the activity index ─────────────────────────────────────────────────────
+    
+    Two public numbers with the formula printed on the page: host 1.0, organiser
+    1.0, co-host 0.5, partner 0.25, speaker 0. No model, no "importance"; `now` is
+    a parameter, and the sort is total down to the unique slug so "same state, same
+    ranking" is true on inputs with ties. Cancelled events count for nothing; an
+    attribution below full confidence is shown and not scored. Registrations,
+    attendance and reach are absent because the sources do not publish them.
+    
+    Derived on every build, never stored — which is what makes determinism
+    provable. The admin's "recalculate" is honestly a public rebuild, reusing
+    `triggerDeploy()` rather than a second deploy path (caught by
+    tests/admin-isolation.test.ts).
+    
+    ── UTM ────────────────────────────────────────────────────────────────────
+    
+    Canonical `utm_source` is the domain, exactly: `withclaude.in`. It was
+    `withclaude`, which is the kind of difference that does not look like a bug and
+    behaves like one — an organiser's referrer report showed two sources where
+    there was one. Embeds carry the same constant via `data-luma-utm-source`.
+    
+    ── elsewhere ──────────────────────────────────────────────────────────────
+    
+    /ambassadors and /ambassadors/[slug] prerendered from the same RecordSet as
+    events and cities, so no public page calls Luma. Event pages link the host to
+    their ambassador page; city pages list all their ambassadors; the sitemap
+    carries ambassadors on the same predicate the pages use; search indexes them
+    into the existing index and only when they have no builder record, so nobody
+    appears twice. Footer Discover, not the masthead. Account menu shows an
+    ambassador link only when one is linked.
+    
+    Admin gains a register (/ambassadors) and an attribution queue
+    (/attribution), both open to editor and admin, every mutation audited.
+    `verified_via` is required and rendered on the profile: this site records
+    ambassadors, it does not appoint them, and the index is labelled as an activity
+    index calculated here, not an Anthropic ranking.
+    
+    Migration 0012 is additive: four nullable columns, two enums, one table, one
+    backfill. Verified against production read-only — applied, 14 curated credits
+    backfilled, zero drift.
+    
+    Tests: 779 → 871 (31 files), including a Luma end-to-end against the real
+    317-event capture that asserts the zero as firmly as the three-after-mapping.
+    
+    Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+
+diff --git a/db/migrations/meta/_journal.json b/db/migrations/meta/_journal.json
+index f37569c..0b08f7d 100644
+--- a/db/migrations/meta/_journal.json
++++ b/db/migrations/meta/_journal.json
+@@ -85,6 +85,13 @@
+       "when": 1789601000000,
+       "tag": "0011_media_project_association",
+       "breakpoints": true
++    },
++    {
++      "idx": 12,
++      "version": "7",
++      "when": 1789602000000,
++      "tag": "0012_event_hosts_and_ambassador_identity",
++      "breakpoints": true
+     }
+   ]
+-}
+\ No newline at end of file
++}
