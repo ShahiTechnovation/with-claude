@@ -1,0 +1,37 @@
+{
+  "label": "Example Build Day \u2014 Month YYYY",
+  "event": {
+    "key": "evt-example-build-day",
+    "baserowRowId": 1
+  },
+  "sheets": [
+    {
+      "name": "Form responses 1",
+      "headerRow": 1,
+      "shape": "per-person",
+      "columns": {
+        "submissionId": "Submission ID",
+        "title": "Project name",
+        "summary": "One-line description",
+        "description": "Describe your project",
+        "category": "Track",
+        "tags": "Tools used",
+        "liveUrl": "Demo link",
+        "repoUrl": "GitHub repository",
+        "videoUrl": "Video link",
+        "claudeUsage": "How did you use Claude?",
+        "teamName": "Team name",
+        "personName": "Your name",
+        "personRole": "Your role in the team",
+        "personPublicUrl": "Public profile link (optional)",
+        "publicCreditConsent": "May we show your name publicly?"
+      },
+      "categoryMap": {
+        "AI Agents": "agent",
+        "Dev Tools": "developer-tool"
+      },
+      "defaultCategory": "experiment",
+      "creditPolicy": "consent-column"
+    }
+  ]
+}

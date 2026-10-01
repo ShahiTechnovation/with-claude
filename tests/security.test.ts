@@ -250,7 +250,7 @@ describe('the site stays static', () => {
       const isSitemap = route === 'src/pages/sitemap.xml.ts';
       // The homepage reads live data so it can never disagree with the
       // directory pages it links to; it is the one deliberate addition.
-      const isHome = route === 'src/pages/index.astro';
+      const isHome = route === 'src/pages/index.astro' || route === 'src/pages/not-found.astro';
       expect(isApi || isAccount || isDetail || isSitemap || isHome, `${route} is a public page rendered on demand`).toBe(true);
     }
   });

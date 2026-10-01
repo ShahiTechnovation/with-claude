@@ -1,0 +1,69 @@
+---
+/**
+ * PROJECT CLAIMS — members asking to own an imported project.
+ *
+ * Approve only on evidence you checked (the repository is theirs, an organiser
+ * confirms, a teammate vouches). A matching name or a credit on the page is
+ * not proof. Approval needs a note saying how it was verified.
+ */
+import Admin from '@/layouts/Admin.astro';
+import { pooledDb } from '@db/pool';
+import * as dbSchema from '@db/schema';
+import { desc, eq } from 'drizzle-orm';
+
+export const prerender = false;
+
+const db = pooledDb();
+const pending = await db
+  .select({
+    id: dbSchema.projectClaims.id,
+    evidence: dbSchema.projectClaims.evidence,
+    createdAt: dbSchema.projectClaims.createdAt,
+    projectTitle: dbSchema.projects.title,
+    projectSlug: dbSchema.projects.slug,
+    username: dbSchema.memberProfiles.username,
+    displayName: dbSchema.memberProfiles.displayName,
+  })
+  .from(dbSchema.projectClaims)
+  .innerJoin(dbSchema.projects, eq(dbSchema.projects.id, dbSchema.projectClaims.projectId))
+  .leftJoin(dbSchema.memberProfiles, eq(dbSchema.memberProfiles.memberId, dbSchema.projectClaims.memberId))
+  .where(eq(dbSchema.projectClaims.status, 'pending'))
+  .orderBy(desc(dbSchema.projectClaims.createdAt))
+  .limit(100);
+const note = Astro.url.searchParams.get('note');
+const publicSite = process.env.PUBLIC_SITE_URL ?? 'https://www.withclaude.in';
+---
+
+<Admin title="Project claims" active="/claims">
+  <div class="space-y-8">
+    <header>
+      <h1 class="text-2xl font-bold tracking-tight">Project claims ({pending.length})</h1>
+      <p class="text-neutral-500 mt-1">
+        Approving makes the member the owner and moves the project from Baserow to the website. It cannot be
+        undone from here; a mistaken approval is corrected by moderation and a new owner assignment.
+      </p>
+      {note && <p class="mt-4 p-3 border">{note}</p>}
+    </header>
+    {pending.length === 0 && <p>No claims are waiting.</p>}
+    {pending.map((c) => (
+      <article class="border p-4 space-y-3">
+        <h2 class="font-semibold">
+          <a href={`${publicSite}/projects/${c.projectSlug}/`} rel="noopener">{c.projectTitle}</a>
+          <span class="text-neutral-500">{` — claimed by ${c.displayName ?? c.username ?? 'a member'} (@${c.username ?? '?'})`}</span>
+        </h2>
+        <p class="whitespace-pre-wrap">{c.evidence}</p>
+        <p class="text-neutral-500 text-sm">{c.createdAt.toISOString().slice(0, 16).replace('T', ' ')} UTC</p>
+        <div class="flex gap-4">
+          <form method="post" action={`/api/claims/${c.id}/approve`} class="flex gap-2">
+            <input name="note" required placeholder="How you verified it" class="border px-2" />
+            <button class="btn" type="submit">Approve</button>
+          </form>
+          <form method="post" action={`/api/claims/${c.id}/reject`} class="flex gap-2">
+            <input name="note" placeholder="Reason (optional)" class="border px-2" />
+            <button class="btn" type="submit">Reject</button>
+          </form>
+        </div>
+      </article>
+    ))}
+  </div>
+</Admin>

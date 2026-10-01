@@ -36,10 +36,10 @@ import {
 } from '@/lib/status';
 
 const { slug } = Astro.params;
-if (!slug) return Astro.redirect('/404');
+if (!slug) return Astro.rewrite('/not-found/');
 
 const event = selectors.eventBySlug.get(slug);
-if (!event) return Astro.redirect('/404');
+if (!event) return Astro.rewrite('/not-found/');
 
 const lifecycle = lifecycleOf(event);
 const parts = dateParts(event.date);

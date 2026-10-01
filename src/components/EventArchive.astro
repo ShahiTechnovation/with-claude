@@ -87,6 +87,7 @@ const entries = rows.map((event) => {
 // Facets built from what is actually here.
 const formats = [...new Set(rows.map((e) => e.format))].sort();
 const cityList = [...new Set(rows.map((e) => e.citySlug))].sort();
+const years = [...new Set(rows.map((e) => e.date.slice(0, 4)))].sort().reverse();
 const hasUpcoming = entries.some((e) => e.mode === 'upcoming');
 const hasPast = entries.some((e) => e.mode === 'past');
 ---
@@ -157,6 +158,20 @@ const hasPast = entries.some((e) => e.mode === 'past');
           </div>
         )}
 
+        {years.length > 1 && (
+          <div class="filter-group" role="group" aria-label="Filter by year">
+            <span class="label filter-label">Year</span>
+            <button class="filter is-on" type="button" data-filter="year" data-value="all">
+              All
+            </button>
+            {years.map((year) => (
+              <button class="filter" type="button" data-filter="year" data-value={year}>
+                {year}
+              </button>
+            ))}
+          </div>
+        )}
+
         <p class="filter-count" data-filter-count aria-live="polite" />
       </div>
     )
@@ -180,6 +195,7 @@ const hasPast = entries.some((e) => e.mode === 'past');
             data-mode={entry.mode}
             data-format={entry.event.format}
             data-city={entry.event.citySlug}
+            data-year={entry.event.date.slice(0, 4)}
           >
             <a class="row" href={`/events/${entry.event.slug}`}>
               <span class="cell-vol">

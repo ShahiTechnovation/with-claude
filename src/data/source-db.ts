@@ -692,7 +692,9 @@ export async function loadRecordSet(db: ReadDatabase): Promise<RecordSet> {
       summary: row.summary,
       description: row.description ?? undefined,
       registrationUrl: row.registrationUrl ?? undefined,
-      statusOverride: row.statusOverride ?? undefined,
+      // A feed cancellation (`canceled_at`, set by ingestion) is the same fact
+      // as an authored `cancelled` override, and must stop Register too.
+      statusOverride: row.canceledAt ? 'cancelled' : (row.statusOverride ?? undefined),
       free: row.free,
       coverImage: row.coverImagePath ?? undefined,
       photos: optionalList(photos),

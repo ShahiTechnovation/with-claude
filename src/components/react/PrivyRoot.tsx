@@ -572,7 +572,7 @@ function AccountIslands() {
   );
 }
 
-function Inner() {
+function Inner({ openLogin = false }: { openLogin?: boolean }) {
   /**
    * Portal targets are DOM nodes React never rendered, so React never clears
    * their server fallback. Removing `.js-hydrate-hide` in a lazy initializer
@@ -594,6 +594,13 @@ function Inner() {
   });
 
   const account = useAccountMachine();
+  // The SDK was loaded because somebody pressed "Sign in": finish the gesture.
+  const opened = useRef(false);
+  useEffect(() => {
+    if (!openLogin || opened.current || account.state.status !== 'signed-out') return;
+    opened.current = true;
+    account.signIn();
+  }, [openLogin, account]);
   return (
     <AccountContextProvider value={account}>
       <AccountSlot />
@@ -677,9 +684,11 @@ function DegradedSlot() {
 interface Props {
   appId: string;
   loginMethods?: string[];
+  /** Open Privy's login once it is ready — the visitor clicked "Sign in". */
+  openLogin?: boolean;
 }
 
-export default function PrivyRoot({ appId, loginMethods }: Props) {
+export default function PrivyRoot({ appId, loginMethods, openLogin = false }: Props) {
   return (
     <ProviderBoundary fallback={<DegradedInner />}>
       <PrivyProvider
@@ -693,7 +702,7 @@ export default function PrivyRoot({ appId, loginMethods }: Props) {
           appearance: { theme: 'light' },
         }}
       >
-        <Inner />
+        <Inner openLogin={openLogin} />
       </PrivyProvider>
     </ProviderBoundary>
   );

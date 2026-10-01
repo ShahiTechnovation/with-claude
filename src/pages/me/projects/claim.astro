@@ -1,0 +1,105 @@
+---
+/**
+ * CLAIM AN IMPORTED PROJECT. Server-authorised; the request is reviewed by a
+ * moderator. Being credited on the public page does not make anybody the
+ * owner, and this page says so.
+ */
+import { guardPage, privateHeaders } from '@/server/http/page-guard';
+import AuthRequired from '@/components/AuthRequired.astro';
+import AccountNavTabs from '@/components/AccountNavTabs.astro';
+import Base from '@/layouts/Base.astro';
+import { getProjectDetail } from '@/server/public/projects';
+
+export const prerender = false;
+
+const guard = await guardPage(Astro);
+const slug = Astro.url.searchParams.get('project') ?? '';
+const project = guard.ok ? await getProjectDetail(guard.db, slug) : null;
+const claimable = Boolean(project && project.isPublic && project.contentAuthority === 'baserow');
+if (guard.ok) {
+  privateHeaders(Astro);
+  if (!claimable) Astro.response.status = 404;
+}
+---
+
+{
+  !guard.ok ? (
+    <Base title="Sign in" description="Sign in to continue" noindex>
+      <AuthRequired reason={guard.reason} />
+    </Base>
+  ) : (
+    <Base title="Claim a project" description="Ask to manage an imported project." active="/me" noindex>
+      <div class="account-shell account-shell--narrow">
+        <AccountNavTabs current="/me/projects/" />
+        {claimable && project ? (
+          <>
+            <header class="account-head">
+              <h1>Claim “{project.title}”</h1>
+              <p>
+                This project came from an event archive the organisers keep. If it is yours, tell us how —
+                a moderator checks every claim before anything changes. Once approved you become its owner
+                and edit it here; until then the organisers' record stays as it is.
+              </p>
+            </header>
+            <form class="panel" id="claim-form" data-project={project.slug}>
+              <div class="form-field">
+                <label class="field-label" for="claim-evidence">
+                  How are you connected to it? <span class="field-tag">required</span>
+                </label>
+                <textarea id="claim-evidence" class="input" name="evidence" rows="6" minlength="10" maxlength="2000" required></textarea>
+                <p class="field-hint">
+                  For example: the repository is under your GitHub account, you presented it at the event, or a
+                  teammate can confirm. Do not include passwords or private documents.
+                </p>
+              </div>
+              <div class="form-actions">
+                <button class="button button--primary" type="submit">Send claim for review</button>
+                <a class="button button--quiet" href={`/projects/${project.slug}/`}>Back to the project</a>
+              </div>
+              <div aria-live="polite" id="claim-result"></div>
+            </form>
+          </>
+        ) : (
+          <div class="panel">
+            <h1 class="account-head">This project cannot be claimed</h1>
+            <p>Only imported projects without an owner on the site can be claimed.</p>
+          </div>
+        )}
+      </div>
+    </Base>
+  )
+}
+
+<script>
+  // Sends JSON with the session cookie; the server derives who is asking.
+  const form = document.querySelector<HTMLFormElement>('#claim-form');
+  const result = document.querySelector<HTMLElement>('#claim-result');
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const evidence = (form.elements.namedItem('evidence') as HTMLTextAreaElement).value;
+    const button = form.querySelector<HTMLButtonElement>('button[type=submit]');
+    if (button) button.disabled = true;
+    try {
+      const response = await fetch('/api/projects/claims/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ projectSlug: form.dataset.project, evidence }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (result) {
+        result.className = `notice notice--${response.ok ? 'success' : 'error'}`;
+        result.textContent = response.ok
+          ? 'Claim sent. A moderator will review it; nothing changes on the project until then.'
+          : (body.error ?? 'The claim could not be sent.');
+      }
+    } catch {
+      if (result) {
+        result.className = 'notice notice--error';
+        result.textContent = 'We could not reach the server. Try again.';
+      }
+    } finally {
+      if (button) button.disabled = false;
+    }
+  });
+</script>

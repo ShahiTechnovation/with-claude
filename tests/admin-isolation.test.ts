@@ -136,9 +136,11 @@ describe("the public site does not share the admin's authentication", () => {
     expect(dynamic).toEqual(
       [
         'src/pages/api/cities.ts',
+        'src/pages/api/cron/baserow-reconcile.ts',
         'src/pages/api/cron/events-sync.ts',
         'src/pages/api/cron/rebuild.ts',
         'src/pages/api/health.ts',
+        'src/pages/api/integrations/baserow/webhook.ts',
         'src/pages/api/media/confirm.ts',
         'src/pages/api/media/upload.ts',
         'src/pages/api/member/bootstrap.ts',
@@ -151,6 +153,7 @@ describe("the public site does not share the admin's authentication", () => {
         'src/pages/api/projects/[id]/archive.ts',
         'src/pages/api/projects/[id]/publish.ts',
         'src/pages/api/projects/[id]/restore.ts',
+        'src/pages/api/projects/claims/index.ts',
         'src/pages/api/projects/index.ts',
         'src/pages/api/reports/index.ts',
         'src/pages/api/submit.ts',
@@ -169,9 +172,11 @@ describe("the public site does not share the admin's authentication", () => {
         'src/pages/me/profile/edit.astro',
         'src/pages/me/profile/index.astro',
         'src/pages/me/projects/[id]/edit.astro',
+        'src/pages/me/projects/claim.astro',
         'src/pages/me/projects/index.astro',
         'src/pages/me/projects/new.astro',
         'src/pages/me/settings.astro',
+        'src/pages/not-found.astro',
         'src/pages/projects/[slug].astro',
         'src/pages/projects/index.astro',
         'src/pages/sitemap.xml.ts'

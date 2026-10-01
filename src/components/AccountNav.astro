@@ -9,7 +9,6 @@
  * server-side by AccountMenu (it returns a stable placeholder during Privy
  * hydration to prevent layout shift).
  */
-import PrivyRoot from '@/components/react/PrivyRoot';
 
 const appId = import.meta.env.PUBLIC_PRIVY_APP_ID as string | undefined;
 const loginMethods = (import.meta.env.PUBLIC_PRIVY_LOGIN_METHODS as string | undefined)
@@ -27,10 +26,22 @@ const loginMethods = (import.meta.env.PUBLIC_PRIVY_LOGIN_METHODS as string | und
   static fallback and the live button would both stay in the DOM at once.
 -->
 <div id="account-slot-root" class="account-slot" data-account-state="anonymous">
-  <a class="account-join js-hydrate-hide" href="/join/">Sign in</a>
+  <a class="account-join js-hydrate-hide" href="/join/" data-account-signin>Sign in</a>
 </div>
 
-{appId && <PrivyRoot appId={appId} loginMethods={loginMethods} client:only="react" />}
+{/*
+  Where `PrivyRoot` mounts. Not an Astro island: `src/scripts/account-boot.ts`
+  loads it on demand (account pages, an existing session, or a click on
+  Sign in), so readers who never sign in never download the Privy SDK.
+*/}
+{
+  appId && (
+    <div id="privy-root" data-app-id={appId} data-login-methods={(loginMethods ?? []).join(',')}></div>
+  )
+}
+<script>
+  import '@/scripts/account-boot';
+</script>
 
 <style is:global>
   .account-slot {

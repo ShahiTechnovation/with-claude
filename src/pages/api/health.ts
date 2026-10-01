@@ -31,6 +31,7 @@ import { pooledDb } from '../../../db/pool';
 import { ingestionMode } from '@/server/events/registry';
 import { sourceHealth } from '@/server/events/sync';
 import { privyConfig } from '@/server/auth/privy';
+import { baserowSettings } from '@/server/integrations/baserow/config';
 
 export const prerender = false;
 
@@ -49,6 +50,7 @@ export const GET: APIRoute = async () => {
    * which is why `privyAppIdsMatch` is reported alongside.
    */
   const privy = privyConfig();
+  const baserow = baserowSettings();
   const publicAppId = process.env.PUBLIC_PRIVY_APP_ID?.trim();
   const configured = {
     database: Boolean(process.env.DATABASE_URL?.trim()),
@@ -76,6 +78,8 @@ export const GET: APIRoute = async () => {
     cron: Boolean(process.env.CRON_SECRET?.trim()),
     lumaApi: Boolean(process.env.LUMA_API_KEY?.trim()),
     lumaWebhook: Boolean(process.env.LUMA_WEBHOOK_SECRET?.trim()),
+    /** Coarse only. Sync diagnostics live behind the admin sign-in. */
+    baserow: baserow.enabled ? (baserow.problem ? 'misconfigured' : 'enabled') : 'disabled',
   };
 
   let database: { reachable: boolean; latencyMs?: number } = { reachable: false };

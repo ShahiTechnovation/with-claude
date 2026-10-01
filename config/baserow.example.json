@@ -1,0 +1,69 @@
+{
+  "_comment": "Template for BASEROW_CONFIG. Replace every number with the real table and field ids from your Baserow workspace (Table → ··· → API docs lists them). Field ids, not names: renaming a column in Baserow must not break the sync. Logical keys are defined in src/server/integrations/baserow/spec.ts. Put the final JSON on ONE line in the BASEROW_CONFIG environment variable; do not commit real ids for a private workspace if you treat them as sensitive.",
+  "tables": {
+    "cities": {
+      "tableId": 1001,
+      "fields": { "slug": 10011, "name": 10012 }
+    },
+    "events": {
+      "tableId": 1002,
+      "fields": {
+        "key": 10021,
+        "neonId": 10022,
+        "title": 10023,
+        "slug": 10024,
+        "summary": 10025,
+        "description": 10026,
+        "city": 10027,
+        "venueName": 10028,
+        "venueAddress": 10029,
+        "venuePrivate": 10030,
+        "date": 10031,
+        "startTime": 10032,
+        "endTime": 10033,
+        "timezone": 10034,
+        "format": 10035,
+        "registrationUrl": 10036,
+        "coverRef": 10037,
+        "lifecycle": 10038,
+        "editorialStatus": 10039,
+        "featured": 10040,
+        "featuredOrder": 10041,
+        "organiserLabels": 10042,
+        "sourceUrl": 10043,
+        "lumaId": 10044,
+        "recapUrl": 10045
+      }
+    },
+    "projects": {
+      "tableId": 1003,
+      "fields": {
+        "key": 10051,
+        "neonId": 10052,
+        "title": 10053,
+        "slug": 10054,
+        "summary": 10055,
+        "description": 10056,
+        "category": 10057,
+        "tags": 10058,
+        "liveUrl": 10059,
+        "repoUrl": 10060,
+        "videoUrl": 10061,
+        "coverRef": 10062,
+        "claudeUsage": 10063,
+        "event": 10064,
+        "city": 10065,
+        "teamName": 10066,
+        "editorialStatus": 10067,
+        "featured": 10068,
+        "featuredOrder": 10069,
+        "sourceBatch": 10070,
+        "sourceKey": 10071
+      }
+    },
+    "credits": {
+      "tableId": 1004,
+      "fields": { "project": 10081, "displayName": 10082, "role": 10083, "publicUrl": 10084, "displayOrder": 10085 }
+    }
+  }
+}

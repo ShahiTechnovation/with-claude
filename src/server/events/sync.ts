@@ -38,7 +38,7 @@
  * never fires on this feed. §23 still has to be satisfied, and absence is what
  * is left.
  */
-import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, ne, sql } from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import { createHash } from 'node:crypto';
 import * as schema from '../../../db/schema';
@@ -887,21 +887,36 @@ async function promote(options: {
     const updated = await db
       .update(schema.events)
       .set(values)
-      .where(and(eq(schema.events.id, existingEventId), eq(schema.events.sourceId, sourceId)))
+      .where(
+        and(
+          eq(schema.events.id, existingEventId),
+          eq(schema.events.sourceId, sourceId),
+          // An event the organisers adopted into Baserow is theirs to edit;
+          // the feed's copy stays in event_source_records for review.
+          ne(schema.events.contentAuthority, 'baserow'),
+        ),
+      )
       .returning({ id: schema.events.id });
     if (updated.length > 0) return updated[0].id;
+    if (await isAdopted(db, existingEventId)) return existingEventId;
     // The row is gone, or belongs to someone else. Fall through and insert.
   }
 
   // Already ingested under this source but not linked in staging — the
   // partial unique index makes this the authoritative check.
   const [linked] = await db
-    .select({ id: schema.events.id, slug: schema.events.slug })
+    .select({
+      id: schema.events.id,
+      slug: schema.events.slug,
+      contentAuthority: schema.events.contentAuthority,
+    })
     .from(schema.events)
     .where(and(eq(schema.events.sourceId, sourceId), eq(schema.events.externalId, event.externalId)));
 
   if (linked) {
-    await db.update(schema.events).set(values).where(eq(schema.events.id, linked.id));
+    if (linked.contentAuthority !== 'baserow') {
+      await db.update(schema.events).set(values).where(eq(schema.events.id, linked.id));
+    }
     return linked.id;
   }
 
@@ -915,6 +930,15 @@ async function promote(options: {
     .returning({ id: schema.events.id });
 
   return inserted?.id ?? null;
+}
+
+/** Has the organisers' Baserow taken over this event's details? */
+async function isAdopted(db: AnyDatabase, eventId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ authority: schema.events.contentAuthority })
+    .from(schema.events)
+    .where(eq(schema.events.id, eventId));
+  return row?.authority === 'baserow';
 }
 
 /**
@@ -937,7 +961,14 @@ async function withdrawEvent(
   const updated = await db
     .update(schema.events)
     .set({ canceledAt: now, statusOverride: 'cancelled', status: 'archived', updatedAt: now })
-    .where(and(eq(schema.events.id, eventId), eq(schema.events.sourceId, sourceId)))
+    .where(
+      and(
+        eq(schema.events.id, eventId),
+        eq(schema.events.sourceId, sourceId),
+        // Disappearing from the feed does not withdraw an adopted event.
+        ne(schema.events.contentAuthority, 'baserow'),
+      ),
+    )
     .returning({ id: schema.events.id });
 
   // Nothing matched: the event belongs to another source, or to no source at
