@@ -1,54 +1,30 @@
 ---
 /**
- * BUILDER DETAIL — SSR, always reads from Neon.
+ * BUILDER DETAIL — server-rendered, live from Neon.
  *
- * ── WHY THIS PAGE NO LONGER USES useLiveRecords() + publicBuilders.find() ──
+ * The builder's own row comes from `getPublicBuilderBySlug()`; their projects
+ * from `builderProjects()`, which applies the same public-project predicate as
+ * every list. Curated event credits and practice write-ups still come from the
+ * record selectors — those change on deployment, not on self-publish.
  *
- * The old flow was:
- *
- *   await useLiveRecords();       // mutates module-global cached RecordSet
- *   publicBuilders.find(b => b.slug === slug)  // reads that global
- *
- * This had two bugs:
- *
- *   1. A freshly self-published builder exists in Neon but was never in the
- *      build-time dataset.json snapshot, so publicBuilders.find() returned
- *      undefined → Astro.redirect('/404'). The publish flow appeared to work
- *      (POST returned 200, /builders/ showed the new entry via SSR), but the
- *      detail page always 404'd.
- *
- *   2. Under concurrent SSR, request B's useLiveRecords() call could overwrite
- *      the module-global `cached` between request A's load and its find(),
- *      causing request A to search the wrong dataset — a P0 isolation bug.
- *
- * The fix: query Neon directly via getPublicBuilderBySlug(). The result is
- * request-local and includes the correct row for any builder that exists in
- * the live database, including ones published seconds ago.
- *
- * The supplementary data — events, projects, ambassador links, etc. — still
- * comes from the build-time RecordSet via publicBuilders selectors. That data
- * is curated editorial content: it changes on deployment, not on self-publish,
- * and the build-time snapshot is the correct source for it. Only the builder's
- * own profile fields (name, bio, city, role, image) come from the live query.
+ * Non-public → a real 404 for everyone except a moderator, whose render is
+ * private. Moderation controls on a PUBLIC profile appear only with
+ * `?moderate=1`, a separate CDN cache key, so the plain URL is never rendered
+ * per viewer. See `src/server/http/cache.ts`.
  */
 export const prerender = false;
-
-Astro.response.headers.set(
-  'Cache-Control',
-  'public, max-age=0, s-maxage=60, stale-while-revalidate=86400',
-);
 
 import { Image } from 'astro:assets';
 import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
 import PageIntro from '@/components/PageIntro.astro';
+import NotFound from '@/components/NotFound.astro';
 import {
   ambassadorForBuilder,
   cityName,
   eventsHostedBy,
   eventsOf,
   guidesBy,
-  projectsOf,
   site,
   useCasesBy,
 } from '@/data';
@@ -57,153 +33,101 @@ import { asset } from '@/lib/images';
 import { formatName, lifecycleLabel, lifecycleOf, lifecycleTone } from '@/lib/status';
 import { profileSchema, titles, trail } from '@/lib/seo';
 import ClaimProfile from '@/components/ClaimProfile.astro';
-import {
-  getPublicBuilderBySlug,
-  getBuilderProjects,
-  isPublicBuilder,
-  type LiveBuilderProject,
-} from '@/server/directory';
+import { getPublicBuilderBySlug, isPublicBuilder } from '@/server/directory';
+import { builderProjects } from '@/server/public/pages';
 import { ReportModal } from '@/components/react/ReportModal';
 import ModeratorControls from '@/components/ModeratorControls.astro';
 import { isRequestModerator } from '@/server/moderation';
+import { privateCache, publicCache } from '@/server/http/cache';
 
-const { slug } = Astro.params;
-if (!slug) return Astro.redirect('/404');
+const slug = Astro.params.slug ?? '';
+const found = /^[a-z0-9][a-z0-9_-]{0,80}$/.test(slug) ? await getPublicBuilderBySlug(slug) : null;
+const isPublic = found ? isPublicBuilder(found) : false;
+const isModerator =
+  found && (!isPublic || Astro.url.searchParams.has('moderate'))
+    ? await isRequestModerator(Astro.request)
+    : false;
+const builderRow = found && (isPublic || isModerator) ? found : null;
 
-const isModerator = await isRequestModerator(Astro.request);
-
-/**
- * Fetch the builder row directly from Neon.
- *
- * This returns the row regardless of visibility state. The caller (this page)
- * decides whether to show it: non-moderators are redirected to /404 for
- * restricted/removed content; moderators see a banner.
- *
- * Previously this was `getBuilderRow(slug)` (bare DB row) followed by
- * `publicBuilders.find()` (build-time global). The new function returns the
- * full projected shape — city slug, image URL — so both the moderation check
- * and the template can use it without a second source.
- */
-const builderRow = await getPublicBuilderBySlug(slug);
-if (!builderRow) return Astro.redirect('/404');
-
-/**
- * Canonical visibility check.
- *
- * isPublicBuilder() = status === 'published' && moderationState === 'clean'
- *
- * 'reported' is NOT public. A reported builder awaits moderator action.
- * Previously this page admitted 'reported' as public (treated same as 'clean');
- * that was inconsistent with the stated moderation semantics.
- */
-const isPublic = isPublicBuilder(builderRow);
-
-// Non-moderators cannot see non-public builders.
-if (!isPublic && !isModerator) {
-  return Astro.redirect('/404');
+if (!builderRow) {
+  Astro.response.status = 404;
+  publicCache(Astro);
+} else if (isModerator || !isPublic) {
+  privateCache(Astro);
+} else {
+  publicCache(Astro);
 }
 
-/**
- * Supplementary editorial data — events, projects, ambassador links.
- *
- * These come from the build-time RecordSet via selectors in src/data/index.ts.
- * This is correct: the curated archive changes on deployment, not on
- * self-publish. A newly published builder has no event credits or projects in
- * the archive yet, and that is accurate.
- *
- * The builder's own profile fields (name, bio, city, role, image) come from
- * the live `builderRow` above.
- */
-const ambassador = ambassadorForBuilder({ slug: builderRow.slug } as any);
-const events = eventsOf({ slug: builderRow.slug } as any);
+const ref = { slug: builderRow?.slug ?? '' } as never;
+const ambassador = builderRow ? ambassadorForBuilder(ref) : undefined;
+const events = builderRow ? eventsOf(ref) : [];
 const hosted = ambassador ? eventsHostedBy(ambassador.slug) : [];
+const allProjects = builderRow ? await builderProjects(builderRow) : [];
 
 /**
- * LIVE + STATIC project merge — Bug F fix.
- *
- * The static RecordSet from `projectsOf()` knows about curated/editorial
- * projects that were imported at build time. It does NOT know about projects
- * a member published after the last deployment.
- *
- * `getBuilderProjects()` queries Neon live for both:
- *   - project_builders.builder_id = this builder's id (canonical)
- *   - projects.ownerMemberId = this builder's ownerMemberId (compatibility
- *     fallback for projects published before attribution insert was added)
- *
- * The two sets are merged here and deduplicated by project slug, so a project
- * that appears in both the static snapshot AND the live DB is not shown twice.
- * Static data takes precedence for display fields (richer shape); live-only
- * projects are shown with the narrower shape returned by the DB query.
+ * Portrait: an uploaded avatar is an absolute URL (rendered as `<img>`); a
+ * curated portrait is a repository asset key (rendered through `<Image>`).
+ * `builderImage()` in `src/server/directory.ts` produces one or the other.
  */
-const staticProjects = projectsOf({ slug: builderRow.slug } as any);
-const staticSlugs = new Set(staticProjects.map((p) => p.slug));
-
-const liveProjects: LiveBuilderProject[] = await getBuilderProjects(
-  builderRow.id,
-  builderRow.ownerMemberId,
-);
-const liveOnlyProjects = liveProjects.filter((p) => !staticSlugs.has(p.slug));
-
-// Unified display list: static first (richest data), then live-only.
-const allProjects = [...staticProjects, ...liveOnlyProjects];
-
-/**
- * Portrait: prefer the uploaded avatar (from the live Neon query) over the
- * repository image asset. For legacy/curated builders the image field is a
- * repository-relative path; for self-published builders it is a Blob URL from
- * the media table. `asset()` handles the former; the Blob URL is used directly
- * for the latter.
- */
-const uploadedImage = builderRow.image ?? null;
-const portrait = uploadedImage ? null : asset(undefined);
+const uploadedImage =
+  builderRow?.image && /^https?:\/\//.test(builderRow.image) ? builderRow.image : null;
+const portrait = builderRow?.image && !uploadedImage ? asset(builderRow.image) : undefined;
 
 // Everything this person is on the record for, deduplicated across the two
 // routes into the event list: speaking, and hosting as an Ambassador.
 const allEvents = [...new Set([...events, ...hosted])].sort((a, b) => (a.date < b.date ? 1 : -1));
 
-// The record is thin for most people. Say so plainly rather than dressing it up
-// or padding it with placeholders.
+// The record is thin for most people. Say so plainly rather than padding it.
 const missing = [
-  !builderRow.bio && 'a short bio',
-  !uploadedImage && 'a portrait',
+  !builderRow?.bio && 'a short bio',
+  !uploadedImage && !portrait && 'a portrait',
 ].filter(Boolean) as string[];
 
-const description =
-  builderRow.bio ?? `${builderRow.name} — ${builderRow.role} in ${cityName(builderRow.citySlug)}.`;
+const description = builderRow
+  ? builderRow.bio ?? `${builderRow.name} — ${builderRow.role} in ${cityName(builderRow.citySlug)}.`
+  : 'Not found.';
 
 // The practice half of this person's record. Empty until somebody writes one.
-const written = useCasesBy(builderRow.slug);
-const guides = guidesBy(builderRow.slug);
+const written = builderRow ? useCasesBy(builderRow.slug) : [];
+const guides = builderRow ? guidesBy(builderRow.slug) : [];
 
-const url = `${site.url}/builders/${builderRow.slug}`;
-const crumbs = trail(
-  { name: 'Builders', href: '/builders' },
-  { name: builderRow.name, href: `/builders/${builderRow.slug}` },
-);
+const url = `${site.url}/builders/${builderRow?.slug ?? ''}/`;
+const crumbs = builderRow
+  ? trail(
+      { name: 'Builders', href: '/builders/' },
+      { name: builderRow.name, href: `/builders/${builderRow.slug}/` },
+    )
+  : undefined;
 
 /**
- * `ProfilePage` → `Person`.
- *
- * Only what the page renders: the role it prints, the bio it shows, the links
- * it lists. The Ambassador title is passed as the job title ONLY when a
- * verified Ambassador record claims this person.
+ * `ProfilePage` → `Person`. Only what the page renders. The Ambassador title
+ * is the job title ONLY when a verified Ambassador record claims this person.
  */
-const schema = profileSchema(
-  {
-    name: builderRow.name,
-    slug: builderRow.slug,
-    city: cityName(builderRow.citySlug),
-    role: ambassador ? ambassador.title : builderRow.role,
-    bio: builderRow.bio,
-    links: undefined,
-    image: uploadedImage ?? undefined,
-  },
-  url,
-);
+const schema = builderRow
+  ? profileSchema(
+      {
+        name: builderRow.name,
+        slug: builderRow.slug,
+        city: cityName(builderRow.citySlug),
+        role: ambassador ? ambassador.title : builderRow.role,
+        bio: builderRow.bio,
+        links: undefined,
+        image: uploadedImage ?? undefined,
+      },
+      url,
+    )
+  : [];
 ---
 
+{
+  !builderRow ? (
+    <Base title="Not found" description="That profile is not part of the index." noindex>
+      <NotFound />
+    </Base>
+  ) : (
 <Base
   title={builderRow.name}
+  noindex={!isPublic || builderRow.profileVisibility === 'unlisted'}
   seoTitle={titles.builder(builderRow.name, cityName(builderRow.citySlug))}
   description={description}
   active="/builders"
@@ -278,7 +202,7 @@ const schema = profileSchema(
                   <ul class="list">
                     {allProjects.map((project) => (
                       <li>
-                        <a href={`/projects/${project.slug}`}>
+                        <a href={`/projects/${project.slug}/`}>
                           <span class="list-title">{project.title}</span>
                           <span class="list-meta">{project.summary}</span>
                         </a>
@@ -390,6 +314,8 @@ const schema = profileSchema(
     </a>
   </Section>
 </Base>
+  )
+}
 
 <style>
   .profile {

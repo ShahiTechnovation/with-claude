@@ -1,70 +1,47 @@
+/**
+ * MODERATE A BUILDER PROFILE — hide, remove or restore. Moderators and owners only.
+ *
+ * Through `guardMutation()` like every other member mutation: same-origin,
+ * JSON-only, bounded body, verified identity, strict schema. These routes used
+ * to read the body without an origin check. Role comes from the database row
+ * `requireMember()` returns, never from the request.
+ *
+ * The state change itself is `moderateBuilder()`, which only ever writes
+ * `moderationState` — see `src/server/moderation.ts`.
+ */
 import type { APIRoute } from 'astro';
-import { requireMember, statusFor } from '@/server/auth/member';
-import { hideBuilder, restoreBuilder, removeBuilder } from '@/server/moderation';
-import { pooledDb } from '../../../../../db/pool';
 import { z } from 'zod';
+import { pooledDb } from '../../../../../db/pool';
+import { guardMutation, json } from '@/server/http/guard';
+import { moderateBuilder } from '@/server/moderation';
 
 export const prerender = false;
 
-const Payload = z.object({
-  action: z.enum(['hide', 'restore', 'remove']),
-});
+const Payload = z.object({ action: z.enum(['hide', 'restore', 'remove']) }).strict();
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const PATCH: APIRoute = async ({ request, params }) => {
   const db = pooledDb();
-  const auth = await requireMember(request, db);
+  const guard = await guardMutation(request, db, { method: 'PATCH', schema: Payload });
+  if (!guard.ok) return guard.response;
 
-  if (!auth.ok) {
-    return new Response(JSON.stringify({ error: auth.reason }), {
-      status: statusFor(auth.reason),
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-
-  const { member } = auth;
+  const { member, body } = guard;
   if (member.role !== 'moderator' && member.role !== 'owner') {
-    return new Response(JSON.stringify({ error: 'forbidden' }), {
-      status: 403,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return json({ error: 'Only moderators can do that.' }, 403);
   }
 
-  const { id } = params;
-  if (!id) {
-    return new Response(JSON.stringify({ error: 'missing_id' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
-
-  let action: 'hide' | 'restore' | 'remove';
-  try {
-    const json = await request.json();
-    const parsed = Payload.parse(json);
-    action = parsed.action;
-  } catch (error) {
-    return new Response(JSON.stringify({ error: 'bad_request' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  }
+  const id = params.id;
+  if (!id || !UUID_RE.test(id)) return json({ error: 'Not found.' }, 404);
 
   try {
-    if (action === 'hide') {
-      await hideBuilder(id, member.id);
-    } else if (action === 'remove') {
-      await removeBuilder(id, member.id);
-    } else {
-      await restoreBuilder(id, member.id);
-    }
-    return new Response(JSON.stringify({ success: true }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const result = await moderateBuilder(id, body.action, member.id, db);
+    if (!result.ok) return json({ error: result.error }, result.status);
+    return json({ success: true, moderationState: result.to }, 200);
   } catch (error) {
-    return new Response(JSON.stringify({ error: 'internal_error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    console.error('[moderation.builders] failed', error instanceof Error ? error.message : error);
+    return json({ error: 'internal_error' }, 500);
   }
 };
+
+export const ALL: APIRoute = () => json({ error: 'Method not allowed' }, 405, { Allow: 'PATCH' });

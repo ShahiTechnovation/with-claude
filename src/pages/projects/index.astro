@@ -1,72 +1,440 @@
 ---
-import { titles, trail } from '@/lib/seo';
+/**
+ * THE PROJECT ARCHIVE — server-side search, filters, sort and pagination.
+ *
+ * It used to load the ENTIRE live RecordSet and then, separately, every row of
+ * `project_builders`, `builders` and `cities`, and filter in the browser. Now
+ * one bounded query module (`src/server/public/projects.ts`) answers: a count,
+ * one page of cards, one credits query for that page, and three small facet
+ * aggregates.
+ *
+ * Every control is a plain GET form or link — the URL is the state, it works
+ * without JavaScript, and a filtered view can be shared. The only script
+ * submits the form when a select changes.
+ */
+export const prerender = false;
+
 import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
 import PageIntro from '@/components/PageIntro.astro';
-import ProjectArchive from '@/components/ProjectArchive.astro';
-import SubmitPanel from '@/components/SubmitPanel.astro';
-import { getPublicProjects, loadLiveRecords } from '@/server/directory';
-import { RecordSelectors } from '@/data/selectors';
+import ProjectCard from '@/components/ProjectCard.astro';
+import { itemListSchema, titles, trail } from '@/lib/seo';
+import { formatName } from '@/lib/status';
+import { projectArchive } from '@/server/public/pages';
+import { publicCache } from '@/server/http/cache';
 
-export const prerender = false;
+const result = await projectArchive(Astro.url.searchParams);
+publicCache(Astro);
 
-const _rs = await loadLiveRecords();
-const selectors = new RecordSelectors(_rs);
+const { items, total, page, pageCount, pageSize, query, facets } = result;
+const filtered = Boolean(query.q || query.category || query.city || query.event);
+const archiveEmpty = total === 0 && !filtered;
 
-const { projectRows, allBuilderRows, allBuilders, allCities } = await getPublicProjects();
+/** A URL for this view with some parameters changed. Never carries `page` unless asked. */
+function hrefWith(changes: Record<string, string | number | undefined>): string {
+  const params = new URLSearchParams();
+  const merged: Record<string, string | number | undefined> = {
+    q: query.q,
+    category: query.category,
+    city: query.city,
+    event: query.event,
+    sort: query.sort === 'featured' ? undefined : query.sort,
+    ...changes,
+  };
+  for (const [key, value] of Object.entries(merged)) {
+    if (value !== undefined && value !== '' && !(key === 'page' && Number(value) <= 1)) {
+      params.set(key, String(value));
+    }
+  }
+  const qs = params.toString();
+  return `/projects/${qs ? `?${qs}` : ''}`;
+}
 
-const builderMap = new Map(allBuilders.map(b => [b.id, b.slug]));
-const cityMap = new Map(allCities.map(c => [c.id, c.slug]));
-const projectBuildersMap = new Map();
-allBuilderRows.forEach(row => {
-  if (!projectBuildersMap.has(row.projectId)) projectBuildersMap.set(row.projectId, []);
-  projectBuildersMap.get(row.projectId).push(builderMap.get(row.builderId));
-});
+const first = total === 0 ? 0 : (page - 1) * pageSize + 1;
+const last = Math.min(page * pageSize, total);
 
-const projects = projectRows.map(projectRow => ({
-  id: projectRow.id,
-  title: projectRow.title,
-  slug: projectRow.slug,
-  summary: projectRow.summary,
-  description: projectRow.description,
-  url: projectRow.url,
-  repoUrl: projectRow.repoUrl,
-  videoUrl: projectRow.videoUrl,
-  image: projectRow.imagePath,
-  claudeUsage: projectRow.claudeUsage,
-  builtAtEventSlug: undefined, // eventBySlug not strictly needed for archive cards
-  citySlug: projectRow.cityId ? cityMap.get(projectRow.cityId) : '',
-  category: projectRow.category,
-  tags: projectRow.tags,
-  builderSlugs: (projectBuildersMap.get(projectRow.id) || []).filter(Boolean),
-}));
+// A compact page list: first, last, and a window around the current page.
+const pageNumbers = [...new Set([1, page - 1, page, page + 1, pageCount])]
+  .filter((n) => n >= 1 && n <= pageCount)
+  .sort((a, b) => a - b);
 
-Astro.response.headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=86400');
+const activeFilters = [
+  query.q && { label: `“${query.q}”`, href: hrefWith({ q: undefined }) },
+  query.category && { label: formatName(query.category), href: hrefWith({ category: undefined }) },
+  query.city && {
+    label: facets.cities.find((c) => c.value === query.city)?.label ?? query.city,
+    href: hrefWith({ city: undefined }),
+  },
+  query.event && {
+    label: facets.events.find((e) => e.value === query.event)?.label ?? query.event,
+    href: hrefWith({ event: undefined }),
+  },
+].filter(Boolean) as { label: string; href: string }[];
+
+const schema = items.length
+  ? [itemListSchema(items.map((p) => ({ name: p.title, href: `/projects/${p.slug}/` })), 'Projects built with Claude')]
+  : [];
 ---
 
 <Base
   title="Projects"
   seoTitle={titles.projects()}
-  description="Made with Claude — an archive of what people across India have actually built."
+  description="Projects people across India have built with Claude — searchable by event, city and category."
   active="/projects"
-  breadcrumbs={trail({ name: 'Projects', href: '/projects' })}
+  breadcrumbs={trail({ name: 'Projects', href: '/projects/' })}
+  schema={schema}
+  noindex={filtered || page > 1}
 >
-  <PageIntro
-    eyebrow="Projects"
-    title="Projects Built With Claude"
-    stamp={`${String(projects.length).padStart(2, '0')} archived`}
-  >
-    <p><strong>Made with Claude.</strong></p>
+  <PageIntro eyebrow="Projects" title="Built with Claude" stamp={`${total} ${total === 1 ? 'project' : 'projects'}`}>
     <p>
-      An archive of projects, apps, and experiments built with Claude. Things people across India are actually making: every prototype from a build day, every weekend project, every thing someone shipped after a workshop — with how Claude was actually used, which is the part worth reading.
+      What people across India have made with Claude — at build days, after workshops and on their own
+      time — with who built it and how Claude was actually used.
+    </p>
+    <p class="intro-actions">
+      <a class="btn btn-clay" href="/me/projects/new/">
+        <span>Add your project</span>
+        <span class="arrow" aria-hidden="true">→</span>
+      </a>
     </p>
   </PageIntro>
 
-  <Section id="archive" tone="deep" size="lg" labelledby="projects-heading">
-    <ProjectArchive projects={projects as any} heading="The archive" eyebrow="Archive" filters selectors={selectors} />
-  </Section>
+  <Section id="archive" tone="sunk" labelledby="archive-heading">
+    <h2 id="archive-heading" class="visually-hidden">The archive</h2>
 
-  <Section id="submit" labelledby="build-heading">
-    <SubmitPanel formId="build" />
+    {
+      !archiveEmpty && (
+        <form class="filters" method="get" action="/projects/" role="search" data-auto-submit>
+          <div class="filter-field filter-field--search">
+            <label for="f-q">Search</label>
+            <input id="f-q" name="q" type="search" value={query.q ?? ''} maxlength="80" placeholder="Name, tagline or tool" />
+          </div>
+          <div class="filter-field">
+            <label for="f-event">Event</label>
+            <select id="f-event" name="event">
+              <option value="">All events</option>
+              {facets.events.map((f) => (
+                <option value={f.value} selected={query.event === f.value}>
+                  {f.label} ({f.count})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div class="filter-field">
+            <label for="f-city">City</label>
+            <select id="f-city" name="city">
+              <option value="">All cities</option>
+              {facets.cities.map((f) => (
+                <option value={f.value} selected={query.city === f.value}>
+                  {f.label} ({f.count})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div class="filter-field">
+            <label for="f-category">Category</label>
+            <select id="f-category" name="category">
+              <option value="">All categories</option>
+              {facets.categories.map((f) => (
+                <option value={f.value} selected={query.category === f.value}>
+                  {formatName(f.value)} ({f.count})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div class="filter-field">
+            <label for="f-sort">Sort</label>
+            <select id="f-sort" name="sort">
+              <option value="featured" selected={query.sort === 'featured'}>Featured first</option>
+              <option value="newest" selected={query.sort === 'newest'}>Newest</option>
+            </select>
+          </div>
+          <div class="filter-submit">
+            <button class="btn btn-solid btn-sm" type="submit">Apply</button>
+          </div>
+        </form>
+      )
+    }
+
+    {
+      !archiveEmpty && (
+        <div class="results-bar">
+          <p class="results-count" aria-live="polite">
+            {total === 0
+              ? 'No projects match.'
+              : pageCount > 1
+                ? `Showing ${first}–${last} of ${total}`
+                : `${total} ${total === 1 ? 'project' : 'projects'}`}
+          </p>
+          {activeFilters.length > 0 && (
+            <ul class="active-filters" aria-label="Active filters">
+              {activeFilters.map((f) => (
+                <li>
+                  <a href={f.href} aria-label={`Remove filter ${f.label}`}>
+                    {f.label} <span aria-hidden="true">×</span>
+                  </a>
+                </li>
+              ))}
+              <li>
+                <a class="clear-all" href="/projects/">Clear all</a>
+              </li>
+            </ul>
+          )}
+        </div>
+      )
+    }
+
+    {
+      archiveEmpty ? (
+        <div class="empty">
+          <p class="empty-title">No projects are published yet.</p>
+          <p>
+            The archive fills as builders publish their work and organisers add the projects from past
+            events. Built something with Claude?
+          </p>
+          <a class="btn btn-clay" href="/me/projects/new/">
+            <span>Add your project</span>
+            <span class="arrow" aria-hidden="true">→</span>
+          </a>
+        </div>
+      ) : items.length === 0 ? (
+        <div class="empty">
+          <p class="empty-title">Nothing matches those filters.</p>
+          <p>Try a broader search, or remove a filter.</p>
+          <a class="btn" href="/projects/">
+            <span>Show all projects</span>
+          </a>
+        </div>
+      ) : (
+        <ul class="grid" role="list">
+          {items.map((project, i) => (
+            <li>
+              <ProjectCard project={project} level="h3" eager={i < 3} />
+            </li>
+          ))}
+        </ul>
+      )
+    }
+
+    {
+      pageCount > 1 && (
+        <nav class="pager" aria-label="Pages">
+          {page > 1 ? (
+            <a href={hrefWith({ page: page - 1 })} rel="prev">
+              ← Previous
+            </a>
+          ) : (
+            <span aria-hidden="true" class="pager-off">
+              ← Previous
+            </span>
+          )}
+          <ol>
+            {pageNumbers.map((n, i) => (
+              <>
+                {i > 0 && n - pageNumbers[i - 1] > 1 && <li aria-hidden="true">…</li>}
+                <li>
+                  {n === page ? (
+                    <span aria-current="page">{n}</span>
+                  ) : (
+                    <a href={hrefWith({ page: n })}>{n}</a>
+                  )}
+                </li>
+              </>
+            ))}
+          </ol>
+          {page < pageCount ? (
+            <a href={hrefWith({ page: page + 1 })} rel="next">
+              Next →
+            </a>
+          ) : (
+            <span aria-hidden="true" class="pager-off">
+              Next →
+            </span>
+          )}
+        </nav>
+      )
+    }
   </Section>
 </Base>
+
+<script>
+  // Progressive enhancement only: a changed select submits the form. With
+  // scripts off, the Apply button does the same thing.
+  const form = document.querySelector<HTMLFormElement>('form[data-auto-submit]');
+  form?.querySelectorAll('select').forEach((select) => {
+    select.addEventListener('change', () => form.requestSubmit());
+  });
+</script>
+
+<style>
+  .intro-actions {
+    margin-top: var(--s-5);
+  }
+
+  .filters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+    gap: var(--s-3) var(--s-4);
+    align-items: end;
+    padding: var(--s-5);
+    background: var(--paper-raised);
+    border: var(--border-hair) solid var(--rule);
+  }
+
+  .filter-field {
+    display: grid;
+    gap: var(--s-1);
+    min-width: 0;
+  }
+
+  .filter-field--search {
+    grid-column: 1 / -1;
+  }
+
+  @media (min-width: 62em) {
+    .filter-field--search {
+      grid-column: span 2;
+    }
+  }
+
+  .filter-field label {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .filter-field input,
+  .filter-field select {
+    width: 100%;
+    min-height: 2.75rem;
+    padding: 0.5rem 0.65rem;
+    font: inherit;
+    font-size: var(--t-small);
+    color: var(--ink);
+    background: var(--paper);
+    border: var(--border-hair) solid var(--rule-strong);
+    border-radius: var(--radius-xs);
+  }
+
+  .filter-field input:focus-visible,
+  .filter-field select:focus-visible {
+    outline: 2px solid var(--clay);
+    outline-offset: 1px;
+  }
+
+  .filter-submit .btn {
+    width: 100%;
+    min-height: 2.75rem;
+    justify-content: center;
+  }
+
+  .results-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--s-3);
+    margin: var(--s-6) 0 var(--s-5);
+  }
+
+  .results-count {
+    font-family: var(--font-mono);
+    font-size: var(--t-small);
+    color: var(--ink-2);
+  }
+
+  .active-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+  }
+
+  .active-filters a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4ch;
+    min-height: 2rem;
+    padding: 0.2rem 0.6rem;
+    font-size: var(--t-small);
+    color: var(--ink);
+    text-decoration: none;
+    border: var(--border-hair) solid var(--rule-strong);
+    border-radius: 999px;
+    background: var(--paper);
+  }
+
+  .active-filters a:hover,
+  .active-filters a:focus-visible {
+    border-color: var(--ink);
+  }
+
+  .active-filters .clear-all {
+    border-color: transparent;
+    text-decoration: underline;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr));
+    gap: var(--s-8) var(--s-6);
+  }
+
+  .empty {
+    display: grid;
+    gap: var(--s-4);
+    justify-items: start;
+    max-width: 52ch;
+    padding: var(--s-8) 0;
+    color: var(--ink-2);
+  }
+
+  .empty-title {
+    font-family: var(--font-display);
+    font-size: var(--t-h3);
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .pager {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: var(--s-4);
+    margin-top: var(--s-9);
+    font-family: var(--font-mono);
+    font-size: var(--t-small);
+  }
+
+  .pager ol {
+    display: flex;
+    gap: var(--s-1);
+  }
+
+  .pager a,
+  .pager span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.5rem;
+    min-height: 2.5rem;
+    padding: 0 var(--s-2);
+    color: var(--ink);
+    text-decoration: none;
+  }
+
+  .pager a:hover,
+  .pager a:focus-visible {
+    text-decoration: underline;
+  }
+
+  .pager [aria-current='page'] {
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  .pager-off {
+    color: var(--ink-3) !important;
+  }
+</style>

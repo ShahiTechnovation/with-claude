@@ -1,909 +1,541 @@
 /**
- * PROJECT EDITOR — the member's project publishing composer.
+ * PROJECT EDITOR — create, edit, publish, archive and restore a project.
  *
- * Flow (deterministic):
- *   1. Member opens /me/projects/new (or /me/projects/{id}/edit for existing)
- *   2. Fill in fields
- *   3. "Save Draft" → POST /api/projects/ with ONLY the create payload fields
- *      → receives { id, slug } → URL changes to /me/projects/{id}/edit/
- *      → further saves use PUT /api/projects/{id}/
- *   4. Optionally upload cover (requires draft to exist first for projectId)
- *   5. "Publish" → PUT (save) then POST /api/projects/{id}/publish/
- *      → server returns publish blockers if any fields are missing
- *   6. Success → public URL shown, link to /projects/{slug}/
+ * Rendered by `PrivyRoot` beneath the one provider (`AccountIsland.astro`).
  *
- * ── BUGS THIS FILE FIXES ─────────────────────────────────────────────────
+ *   new project  POST /api/projects/ (title is enough) → a draft with an id
+ *   save         PUT  /api/projects/<id>/ — every field; empty means clear
+ *   cover        upload → confirm → `coverMediaId` in the next save
+ *   publish      save, then POST /publish/ — the server returns every
+ *                blocker at once, shown beside its field
+ *   archive      POST /archive/  — owner only
+ *   restore      POST /restore/  — owner only, back to draft
  *
- * A. CreateProjectSchema is .strict() and only accepts title, summary,
- *    description, claudeUsage, cityId, category. The old editor sent ALL form
- *    fields on create, including url/repoUrl/videoUrl/imagePath which the
- *    schema rejects. Fix: separate create payload from edit payload.
- *
- * B. Empty URL strings ("") fail httpUrl validation. Fix: server now coerces
- *    empty strings to null, and we omit blank URL fields from the payload.
- *
- * G. publishBlockers() returns all blockers at once. Fix: render all
- *    returned blockers next to the relevant fields.
- *
- * I. No city selector. Fix: city <select> from the authoritative cities list.
- *
- * J/K. UX quality: composer layout, clear action hierarchy, status badges,
- *    no "Advanced Settings" anti-pattern, upload progress, public link.
+ * What the editor offers follows the caller's role (owner / collaborator /
+ * contributor) as the SERVER resolved it; the server enforces the same matrix
+ * on every request regardless of what is offered here.
  */
-import React, { useEffect, useRef, useState } from 'react';
-import { upload } from '@vercel/blob/client';
-import { usePrivy } from '@privy-io/react-auth';
-import { accountFetch, describeAccountError } from '@/lib/account-fetch';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useAccount } from './account-context';
+import { uploadImage, UploadProblem } from './upload-image';
+
+type Role = 'owner' | 'collaborator' | 'contributor';
+
+export interface ProjectEditorData {
+  id?: string;
+  slug?: string;
+  title?: string;
+  summary?: string | null;
+  description?: string | null;
+  claudeUsage?: string | null;
+  cityId?: string | null;
+  category?: string;
+  url?: string | null;
+  repoUrl?: string | null;
+  videoUrl?: string | null;
+  tags?: string[];
+  coverMediaId?: string | null;
+  coverUrl?: string | null;
+  publicationStatus?: string;
+  moderationState?: string;
+  role?: Role;
+  contentAuthority?: string;
+}
 
 interface CityOption {
   id: string;
   name: string;
-  slug: string;
 }
 
-interface InitialData {
-  id?: string;
-  title?: string;
-  summary?: string;
-  description?: string;
-  claudeUsage?: string;
-  cityId?: string;
-  category?: string;
-  url?: string;
-  repoUrl?: string;
-  videoUrl?: string;
-  imagePath?: string;
-  publicationStatus?: string;
+const CATEGORIES: [string, string][] = [
+  ['product', 'Product'],
+  ['agent', 'Agent'],
+  ['developer-tool', 'Developer tool'],
+  ['research', 'Research'],
+  ['creative', 'Creative'],
+  ['campus', 'Campus'],
+  ['experiment', 'Experiment'],
+  ['startup', 'Startup'],
+];
+
+type Fields = {
+  title: string;
+  summary: string;
+  description: string;
+  claudeUsage: string;
+  cityId: string;
+  category: string;
+  url: string;
+  repoUrl: string;
+  videoUrl: string;
+  tags: string;
+  coverMediaId: string | null;
+};
+
+function fieldsFrom(d: ProjectEditorData): Fields {
+  return {
+    title: d.title ?? '',
+    summary: d.summary ?? '',
+    description: d.description ?? '',
+    claudeUsage: d.claudeUsage ?? '',
+    cityId: d.cityId ?? '',
+    category: d.category ?? 'product',
+    url: d.url ?? '',
+    repoUrl: d.repoUrl ?? '',
+    videoUrl: d.videoUrl ?? '',
+    tags: (d.tags ?? []).join(', '),
+    coverMediaId: d.coverMediaId ?? null,
+  };
 }
 
-interface PublishBlocker {
-  field: string;
-  message: string;
+function tagList(text: string): string[] {
+  return [...new Set(text.split(',').map((t) => t.trim()).filter(Boolean))].slice(0, 12);
 }
 
-export default function ProjectEditor({ initialData = {} }: { initialData?: InitialData }) {
-  const { getAccessToken } = usePrivy();
-  const [form, setForm] = useState({
-    title: initialData.title ?? '',
-    summary: initialData.summary ?? '',
-    description: initialData.description ?? '',
-    claudeUsage: initialData.claudeUsage ?? '',
-    cityId: initialData.cityId ?? '',
-    category: initialData.category ?? 'product',
-    url: initialData.url ?? '',
-    repoUrl: initialData.repoUrl ?? '',
-    videoUrl: initialData.videoUrl ?? '',
-    imagePath: initialData.imagePath ?? '',
-  });
+type Notice = { tone: 'success' | 'error' | 'info'; text: string; signIn?: boolean; link?: string } | null;
 
-  const [id, setId] = useState<string | undefined>(initialData.id);
+const STATUS_LABEL: Record<string, string> = {
+  draft: 'Draft — not public',
+  published: 'Published',
+  archived: 'Archived — not public',
+};
+
+export default function ProjectEditor({ initialData = {} }: { initialData?: ProjectEditorData }) {
+  const account = useAccount();
+  const role: Role = initialData.role ?? 'owner';
+  const editable = role !== 'contributor' && (initialData.contentAuthority ?? 'member') === 'member';
+  const isOwner = role === 'owner';
+
+  const [id, setId] = useState(initialData.id);
+  const [slug, setSlug] = useState(initialData.slug);
   const [status, setStatus] = useState(initialData.publicationStatus ?? 'draft');
-  const [slug, setSlug] = useState<string | undefined>();
-  const [cityOptions, setCityOptions] = useState<CityOption[]>([]);
-  const [loading, setLoading] = useState<'save' | 'publish' | 'archive' | 'restore' | null>(null);
-  const [error, setError] = useState('');
+  const [saved, setSaved] = useState<Fields>(() => fieldsFrom(initialData));
+  const [form, setForm] = useState<Fields>(() => fieldsFrom(initialData));
+  const [coverUrl, setCoverUrl] = useState(initialData.coverUrl ?? null);
+  const [cities, setCities] = useState<CityOption[] | null>(null);
+  const [busy, setBusy] = useState<'save' | 'publish' | 'archive' | 'restore' | 'upload' | null>(null);
+  const [notice, setNotice] = useState<Notice>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [successUrl, setSuccessUrl] = useState<string | undefined>(
-    initialData.publicationStatus === 'published' && initialData.id
-      ? `/projects/${initialData.id}/`
-      : undefined,
-  );
-  const [file, setFile] = useState<File | null>(null);
-  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
-  const [coverPreview, setCoverPreview] = useState<string | null>(form.imagePath || null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  // Fetch DB cities on mount — we need real DB UUIDs, not the static fixture IDs.
+  const dirty = useMemo(() => JSON.stringify(form) !== JSON.stringify(saved), [form, saved]);
+  const held = ['restricted', 'removed', 'archived'].includes(initialData.moderationState ?? 'clean');
+
   useEffect(() => {
-    fetch('/api/cities')
-      .then((r) => r.json())
-      .then((data: CityOption[]) => setCityOptions(data))
-      .catch(() => {
-        // Non-fatal: city selector shows empty but editor still works.
-        setCityOptions([]);
-      });
+    let cancelled = false;
+    fetch('/api/cities/')
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((rows: CityOption[]) => !cancelled && setCities(rows))
+      .catch(() => !cancelled && setCities([]));
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  /** A mutation to this project's own API, via accountFetch. */
-  const mutate = (path: string, init: RequestInit) =>
-    accountFetch(
-      path,
-      { ...init, headers: { 'Content-Type': 'application/json', ...init.headers } },
-      getAccessToken,
-    );
-
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
-  ) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-    // Clear the field-level error as the member types.
-    if (fieldErrors[name]) setFieldErrors((prev) => ({ ...prev, [name]: '' }));
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0] ?? null;
-    setFile(f);
-    if (f) {
-      const url = URL.createObjectURL(f);
-      setCoverPreview(url);
-    } else {
-      setCoverPreview(form.imagePath || null);
-    }
-  };
-
-  /**
-   * The create payload: ONLY the fields CreateProjectSchema accepts.
-   *
-   * CreateProjectSchema is .strict(), so sending any unknown key returns 422.
-   * url/repoUrl/videoUrl/imagePath are only accepted by EditProjectSchema (PUT)
-   * after the draft exists. This is the single place that decides what goes in
-   * the create POST.
-   */
-  const buildCreatePayload = () => {
-    const payload: Record<string, unknown> = { title: form.title };
-    if (form.summary.trim()) payload.summary = form.summary.trim();
-    if (form.description.trim()) payload.description = form.description.trim();
-    if (form.claudeUsage.trim()) payload.claudeUsage = form.claudeUsage.trim();
-    if (form.cityId) payload.cityId = form.cityId;
-    if (form.category) payload.category = form.category;
-    return payload;
-  };
-
-  /**
-   * The update payload: all fields, with empty URL strings omitted
-   * (server coerces "" to null, but it's cleaner not to send them).
-   */
-  const buildUpdatePayload = (overrides: Partial<typeof form> = {}) => {
-    const merged = { ...form, ...overrides };
-    const payload: Record<string, unknown> = {
-      title: merged.title,
-      summary: merged.summary || null,
-      description: merged.description || null,
-      claudeUsage: merged.claudeUsage || null,
-      cityId: merged.cityId || null,
-      category: merged.category,
+  useEffect(() => {
+    if (!dirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
     };
-    if (merged.url.trim()) payload.url = merged.url.trim();
-    if (merged.repoUrl.trim()) payload.repoUrl = merged.repoUrl.trim();
-    if (merged.videoUrl.trim()) payload.videoUrl = merged.videoUrl.trim();
-    if (merged.imagePath) payload.imagePath = merged.imagePath;
-    return payload;
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [dirty]);
+
+  const set = useCallback(<K extends keyof Fields>(key: K, value: Fields[K]) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+    setFieldErrors((prev) => (prev[key] ? { ...prev, [key]: '' } : prev));
+  }, []);
+
+  const call = (path: string, init: RequestInit) =>
+    account.fetch(path, { ...init, headers: { 'Content-Type': 'application/json', ...init.headers } });
+
+  const failure = async (response: Response): Promise<Notice> => {
+    const body = (await response.json().catch(() => ({}))) as {
+      error?: string;
+      field?: string;
+      blockers?: { field: string; message: string }[];
+    };
+    if (body.blockers?.length) {
+      setFieldErrors(Object.fromEntries(body.blockers.map((b) => [b.field, b.message])));
+      return { tone: 'error', text: 'A few things are needed before this can be published — see the marked fields.' };
+    }
+    if (body.field) setFieldErrors({ [body.field]: body.error ?? 'Check this field.' });
+    if (response.status === 401) {
+      return { tone: 'error', text: 'Your session has expired. Sign in again — your edits are still here.', signIn: true };
+    }
+    return { tone: 'error', text: body.error ?? 'That did not work. Try again.' };
   };
 
-  const handleSave = async (publish: boolean) => {
-    setLoading(publish ? 'publish' : 'save');
-    setError('');
-    setFieldErrors({});
-
-    try {
-      let currentId = id;
-      let currentSlug: string | undefined = slug;
-
-      // ── Step 1: Create draft if no id yet ─────────────────────────────────
-      if (!currentId) {
-        if (!form.title.trim()) {
-          setError('Give the project a name to save a draft.');
-          return;
-        }
-        const res = await mutate('/api/projects/', {
-          method: 'POST',
-          body: JSON.stringify(buildCreatePayload()),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || (await describeAccountError(res)));
-        currentId = data.id;
-        currentSlug = data.slug;
-        setId(currentId);
-        setSlug(currentSlug);
-        window.history.replaceState({}, '', `/me/projects/${currentId}/edit/`);
+  /** Create the draft if needed, then save every field. Returns the id. */
+  const save = async (): Promise<string | null> => {
+    let projectId = id;
+    if (!projectId) {
+      if (form.title.trim().length < 2) {
+        setFieldErrors({ title: 'Give the project a name (at least two characters) to save it.' });
+        return null;
       }
-
-      // ── Step 2: Upload cover if a file was selected ────────────────────────
-      let finalImagePath = form.imagePath;
-      if (file) {
-        setUploadProgress('Uploading cover…');
-        const originalFetch = window.fetch;
-        window.fetch = async (...args) => {
-          if (typeof args[0] === 'string' && args[0].includes('/api/media/upload')) {
-            args[1] = { ...args[1], credentials: 'include' };
-          }
-          return originalFetch(...args);
-        };
-
-        try {
-          const newBlob = await upload(file.name, file, {
-            access: 'public',
-            handleUploadUrl: '/api/media/upload',
-            clientPayload: JSON.stringify({
-              projectId: currentId,
-              alt: form.title || 'Project cover image',
-            }),
-          });
-          finalImagePath = newBlob.url;
-          setForm((prev) => ({ ...prev, imagePath: newBlob.url }));
-          setCoverPreview(newBlob.url);
-          setFile(null);
-        } catch (uploadErr: any) {
-          // Upload failure is non-fatal: show the error but continue saving
-          // the rest of the project data. The member can publish without a cover.
-          setError(uploadErr.message ?? 'Cover upload failed. The project was saved without it.');
-          finalImagePath = form.imagePath;
-        } finally {
-          window.fetch = originalFetch;
-          setUploadProgress(null);
-        }
-      }
-
-      // ── Step 3: Save all fields via PUT ───────────────────────────────────
-      const putRes = await mutate(`/api/projects/${currentId}/`, {
-        method: 'PUT',
-        body: JSON.stringify(buildUpdatePayload({ imagePath: finalImagePath })),
+      const created = await call('/api/projects/', {
+        method: 'POST',
+        body: JSON.stringify({ title: form.title.trim(), category: form.category }),
       });
-      if (!putRes.ok) {
-        const data = await putRes.json().catch(() => null);
-        throw new Error(data?.error || (await describeAccountError(putRes)));
+      if (!created.ok) {
+        setNotice(await failure(created));
+        return null;
       }
+      const body = (await created.json()) as { id: string; slug: string };
+      projectId = body.id;
+      setId(body.id);
+      setSlug(body.slug);
+      window.history.replaceState({}, '', `/me/projects/${body.id}/edit/`);
+    }
 
-      // ── Step 4: Publish if requested ──────────────────────────────────────
-      if (publish && status !== 'published') {
-        const pubRes = await mutate(`/api/projects/${currentId}/publish/`, {
-          method: 'POST',
-          body: '{}',
+    const response = await call(`/api/projects/${projectId}/`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        title: form.title.trim(),
+        summary: form.summary.trim() || null,
+        description: form.description.trim() || null,
+        claudeUsage: form.claudeUsage.trim() || null,
+        cityId: form.cityId || null,
+        category: form.category,
+        // Empty means remove. The server turns "" into NULL.
+        url: form.url.trim(),
+        repoUrl: form.repoUrl.trim(),
+        videoUrl: form.videoUrl.trim(),
+        tags: tagList(form.tags),
+        coverMediaId: form.coverMediaId,
+      }),
+    });
+    if (!response.ok) {
+      setNotice(await failure(response));
+      return null;
+    }
+    setSaved(form);
+    return projectId;
+  };
+
+  const run = async (kind: NonNullable<typeof busy>, work: () => Promise<void>) => {
+    setBusy(kind);
+    setNotice(null);
+    setFieldErrors({});
+    try {
+      await work();
+    } catch {
+      setNotice({ tone: 'error', text: 'We could not reach the server. Your edits are still here — try again.' });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const onSave = () =>
+    run('save', async () => {
+      if (await save()) {
+        setNotice({
+          tone: 'success',
+          text: status === 'published' ? 'Saved. The public page shows these changes now.' : 'Draft saved. Nothing is public yet.',
         });
-        const pubData = await pubRes.json().catch(() => null);
-        if (!pubRes.ok) {
-          // The server returns all blockers at once. Render them field-by-field.
-          if (pubData?.blockers) {
-            const fieldErr: Record<string, string> = {};
-            for (const blocker of pubData.blockers as PublishBlocker[]) {
-              fieldErr[blocker.field] = blocker.message;
-            }
-            setFieldErrors(fieldErr);
-            setError('Some required fields are missing. See the highlighted fields above.');
-            return;
-          }
-          throw new Error(pubData?.error || (await describeAccountError(pubRes)));
-        }
-        setStatus('published');
-        setSuccessUrl(`/projects/${pubData?.slug ?? currentSlug}/`);
-      } else if (!publish && status === 'published') {
-        // "Save changes" on a published project — just update, don't archive.
-        // Archiving is explicit via the archive action.
-      } else if (publish && status === 'published') {
-        // Update published project — PUT already done above.
-        setSuccessUrl(`/projects/${currentSlug}/`);
       }
-    } catch (err: any) {
-      setError(err.message ?? 'Something went wrong.');
-    } finally {
-      setLoading(null);
-    }
-  };
+    });
 
-  const handleArchive = async () => {
-    if (!id) return;
-    setLoading('archive');
-    setError('');
-    try {
-      const res = await mutate(`/api/projects/${id}/archive/`, { method: 'POST', body: '{}' });
-      if (!res.ok) throw new Error(await describeAccountError(res));
-      setStatus('archived');
-      setSuccessUrl(undefined);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(null);
-    }
-  };
+  const onPublish = () =>
+    run('publish', async () => {
+      const projectId = await save();
+      if (!projectId) return;
+      const response = await call(`/api/projects/${projectId}/publish/`, { method: 'POST', body: '{}' });
+      if (!response.ok) {
+        setNotice(await failure(response));
+        return;
+      }
+      const body = (await response.json()) as { slug: string; url: string };
+      setSlug(body.slug);
+      setStatus('published');
+      setNotice({ tone: 'success', text: 'Published. It is on the projects archive now.', link: body.url });
+    });
 
-  const handleRestore = async () => {
-    if (!id) return;
-    setLoading('restore');
-    setError('');
-    try {
-      const res = await mutate(`/api/projects/${id}/restore/`, { method: 'POST', body: '{}' });
-      if (!res.ok) throw new Error(await describeAccountError(res));
-      setStatus('draft');
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(null);
-    }
-  };
+  const onTransition = (action: 'archive' | 'restore') =>
+    run(action, async () => {
+      if (!id) return;
+      if (action === 'archive' && !window.confirm('Archive this project? It will be taken off the website. You can restore it later.')) {
+        return;
+      }
+      const response = await call(`/api/projects/${id}/${action}/`, { method: 'POST', body: '{}' });
+      if (!response.ok) {
+        setNotice(await failure(response));
+        return;
+      }
+      const body = (await response.json()) as { status: string };
+      setStatus(body.status);
+      setNotice({
+        tone: 'success',
+        text: action === 'archive' ? 'Archived. It is no longer on the website.' : 'Restored as a draft. Publish it again when ready.',
+      });
+    });
 
-  const isLoading = loading !== null;
+  const onCover = (file: File | undefined) =>
+    run('upload', async () => {
+      if (!file || !id) return;
+      try {
+        const { mediaId, url } = await uploadImage(account, file, {
+          purpose: 'cover',
+          projectId: id,
+          alt: `${form.title || 'Project'} — screenshot`,
+        });
+        set('coverMediaId', mediaId);
+        setCoverUrl(url);
+        setNotice({ tone: 'info', text: 'Cover uploaded. Save to keep it.' });
+      } catch (error) {
+        setNotice({
+          tone: 'error',
+          text: error instanceof UploadProblem ? error.message : 'The cover could not be uploaded.',
+        });
+      } finally {
+        if (fileRef.current) fileRef.current.value = '';
+      }
+    });
+
+  const sessionGone = account.state.status === 'signed-out';
+  const disabled = busy !== null || !editable || sessionGone;
+  const publicUrl = status === 'published' && slug ? `/projects/${slug}/` : null;
+
+  const field = (key: keyof Fields | 'cityId', label: string, tag: string, input: React.ReactNode, hint?: string) => (
+    <div className={`form-field${fieldErrors[key] ? ' form-field--error' : ''}${['description', 'claudeUsage', 'summary'].includes(key) ? ' form-field--wide' : ''}`}>
+      <label className="field-label" htmlFor={`pj-${key}`}>
+        {label} <span className="field-tag">{tag}</span>
+      </label>
+      {input}
+      {hint && (
+        <p className="field-hint" id={`pj-${key}-hint`}>
+          {hint}
+        </p>
+      )}
+      {fieldErrors[key] && (
+        <p className="field-error" id={`pj-${key}-error`}>
+          {fieldErrors[key]}
+        </p>
+      )}
+    </div>
+  );
+  const aria = (key: string, hint = false) => ({
+    'aria-invalid': Boolean(fieldErrors[key]),
+    'aria-describedby':
+      [fieldErrors[key] ? `pj-${key}-error` : '', hint ? `pj-${key}-hint` : ''].filter(Boolean).join(' ') || undefined,
+  });
 
   return (
-    <div className="pe">
-      {/* ── Status + Public Link ─────────────────────────────────────────── */}
-      <div className="pe-status-bar">
-        <span className={`pe-badge pe-badge--${status}`}>
-          {status === 'published' ? 'Published' : status === 'archived' ? 'Archived' : 'Draft'}
-        </span>
-        {successUrl && (
-          <a className="pe-public-link" href={successUrl} target="_blank" rel="noopener">
-            View public page →
-          </a>
+    <form
+      className="project-editor"
+      noValidate
+      onSubmit={(e) => {
+        e.preventDefault();
+        void onSave();
+      }}
+    >
+      <div className="panel">
+        <div className="panel-head">
+          <h2>Status</h2>
+          <span className={`status-badge status-badge--${held ? 'held' : status}`}>
+            {held ? 'Held by moderators' : (STATUS_LABEL[status] ?? status)}
+          </span>
+        </div>
+        <p className="panel-hint">
+          {publicUrl ? (
+            <>
+              Live at <a href={publicUrl}>{publicUrl}</a>. Saved edits appear there straight away.
+            </>
+          ) : status === 'archived' ? (
+            'Archived projects are not on the website. Restore to bring it back as a draft.'
+          ) : (
+            'Drafts are visible only to you and your collaborators.'
+          )}
+        </p>
+        {!editable && (
+          <div className="notice notice--info" style={{ marginTop: 'var(--s-4)' }}>
+            {role === 'contributor'
+              ? 'You are credited on this project. Only its owner and collaborators can edit it.'
+              : 'This project is managed by the organisers until it is claimed.'}
+          </div>
+        )}
+        {held && (
+          <div className="notice notice--error" style={{ marginTop: 'var(--s-4)' }}>
+            Moderators have taken this project off the website. You can still edit it; publishing is paused until they review it.
+          </div>
+        )}
+        {sessionGone && (
+          <div className="notice notice--error" role="alert" style={{ marginTop: 'var(--s-4)' }}>
+            You are signed out. Sign in again before saving — your edits stay on this page.{' '}
+            <button type="button" className="button button--quiet" onClick={account.signIn}>
+              Sign in
+            </button>
+          </div>
         )}
       </div>
 
-      {error && <div className="pe-error">{error}</div>}
-
-      {/* ── Basics ──────────────────────────────────────────────────────── */}
-      <section className="pe-section">
-        <h2 className="pe-section-head">Basics</h2>
-
-        <div className={`pe-field${fieldErrors.title ? ' pe-field--error' : ''}`}>
-          <label className="pe-label" htmlFor="pe-title">
-            Project name <span className="pe-req">required</span>
-          </label>
-          <input
-            className="pe-input"
-            id="pe-title"
-            name="title"
-            type="text"
-            value={form.title}
-            onChange={handleChange}
-            placeholder="What did you build?"
-          />
-          {fieldErrors.title && <p className="pe-field-error">{fieldErrors.title}</p>}
+      <fieldset className="panel" disabled={!editable}>
+        <div className="panel-head">
+          <h2>Basics</h2>
         </div>
-
-        <div className={`pe-field${fieldErrors.summary ? ' pe-field--error' : ''}`}>
-          <label className="pe-label" htmlFor="pe-summary">
-            Tagline <span className="pe-req">required</span>
-          </label>
-          <input
-            className="pe-input"
-            id="pe-summary"
-            name="summary"
-            type="text"
-            value={form.summary}
-            onChange={handleChange}
-            placeholder="One sentence that describes it."
-            maxLength={300}
-          />
-          {fieldErrors.summary && <p className="pe-field-error">{fieldErrors.summary}</p>}
+        <div className="form-grid form-grid--two">
+          {field(
+            'title',
+            'Project name',
+            'required',
+            <input id="pj-title" className="input" value={form.title} maxLength={100} onChange={(e) => set('title', e.target.value)} {...aria('title')} />,
+          )}
+          {field(
+            'category',
+            'Category',
+            'required',
+            <select id="pj-category" className="input" value={form.category} onChange={(e) => set('category', e.target.value)} {...aria('category')}>
+              {CATEGORIES.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>,
+          )}
+          {field(
+            'summary',
+            'Tagline',
+            'needed to publish',
+            <input id="pj-summary" className="input" value={form.summary} maxLength={300} placeholder="One sentence: what it does and who it is for." onChange={(e) => set('summary', e.target.value)} {...aria('summary', true)} />,
+            'Shown on project cards and in search. At least five characters.',
+          )}
+          {field(
+            'cityId',
+            'City',
+            'needed to publish',
+            <select id="pj-cityId" className="input" value={form.cityId} onChange={(e) => set('cityId', e.target.value)} {...aria('cityId')}>
+              <option value="">{cities === null ? 'Loading cities…' : 'Choose a city'}</option>
+              {(cities ?? []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>,
+          )}
+          {field(
+            'tags',
+            'Tools and tags',
+            'optional',
+            <input id="pj-tags" className="input" value={form.tags} placeholder="Claude Code, MCP, Next.js" onChange={(e) => set('tags', e.target.value)} {...aria('tags', true)} />,
+            'Comma-separated, up to 12.',
+          )}
         </div>
+      </fieldset>
 
-        <div className="pe-row">
-          <div className={`pe-field${fieldErrors.category ? ' pe-field--error' : ''}`}>
-            <label className="pe-label" htmlFor="pe-category">
-              Category
-            </label>
-            <select
-              className="pe-input"
-              id="pe-category"
-              name="category"
-              value={form.category}
-              onChange={handleChange}
-            >
-              <option value="product">Product</option>
-              <option value="agent">Agent</option>
-              <option value="developer-tool">Developer Tool</option>
-              <option value="research">Research</option>
-              <option value="creative">Creative</option>
-              <option value="campus">Campus</option>
-              <option value="experiment">Experiment</option>
-              <option value="startup">Startup</option>
-            </select>
-          </div>
-
-          <div className={`pe-field${fieldErrors.cityId ? ' pe-field--error' : ''}`}>
-            <label className="pe-label" htmlFor="pe-city">
-              City <span className="pe-req">required to publish</span>
-            </label>
-            <select
-              className="pe-input"
-              id="pe-city"
-              name="cityId"
-              value={form.cityId}
-              onChange={handleChange}
-            >
-              <option value="">Choose a city…</option>
-              {cityOptions.length === 0 ? (
-                <option value="" disabled>Loading cities…</option>
-              ) : (
-                cityOptions.map((city) => (
-                  <option key={city.id} value={city.id}>
-                    {city.name}
-                  </option>
-                ))
-              )}
-            </select>
-            {fieldErrors.cityId && <p className="pe-field-error">{fieldErrors.cityId}</p>}
-          </div>
+      <fieldset className="panel" disabled={!editable}>
+        <div className="panel-head">
+          <h2>The story</h2>
         </div>
-      </section>
-
-      {/* ── Story ───────────────────────────────────────────────────────── */}
-      <section className="pe-section">
-        <h2 className="pe-section-head">Project story</h2>
-
-        <div className={`pe-field${fieldErrors.description ? ' pe-field--error' : ''}`}>
-          <label className="pe-label" htmlFor="pe-description">
-            What it does <span className="pe-req">required to publish</span>
-          </label>
-          <textarea
-            className="pe-input pe-textarea"
-            id="pe-description"
-            name="description"
-            rows={5}
-            value={form.description}
-            onChange={handleChange}
-            placeholder="Describe the project in detail. What problem does it solve? Who is it for?"
-          />
-          {fieldErrors.description && <p className="pe-field-error">{fieldErrors.description}</p>}
+        <div className="form-grid">
+          {field(
+            'description',
+            'What it does',
+            'needed to publish',
+            <textarea id="pj-description" className="input" rows={6} value={form.description} maxLength={10000} placeholder="The problem, who it is for, and how it works." onChange={(e) => set('description', e.target.value)} {...aria('description')} />,
+          )}
+          {field(
+            'claudeUsage',
+            'How Claude was used',
+            'needed to publish',
+            <textarea id="pj-claudeUsage" className="input" rows={4} value={form.claudeUsage} maxLength={1000} placeholder="What Claude actually did, and what you did." onChange={(e) => set('claudeUsage', e.target.value)} {...aria('claudeUsage', true)} />,
+            `${form.claudeUsage.length}/1000`,
+          )}
         </div>
+      </fieldset>
 
-        <div className={`pe-field${fieldErrors.claudeUsage ? ' pe-field--error' : ''}`}>
-          <label className="pe-label" htmlFor="pe-claude-usage">
-            How Claude was used <span className="pe-req">required to publish</span>
-          </label>
-          <textarea
-            className="pe-input pe-textarea"
-            id="pe-claude-usage"
-            name="claudeUsage"
-            rows={4}
-            value={form.claudeUsage}
-            onChange={handleChange}
-            placeholder="The interesting part: what did Claude actually do in this project?"
-          />
-          {fieldErrors.claudeUsage && <p className="pe-field-error">{fieldErrors.claudeUsage}</p>}
+      <fieldset className="panel" disabled={!editable}>
+        <div className="panel-head">
+          <h2>Links</h2>
+          <span className="panel-hint">Optional. Full http(s) links. Leave empty to remove.</span>
         </div>
-      </section>
+        <div className="form-grid form-grid--two">
+          {field('url', 'Live project', 'optional', <input id="pj-url" className="input" type="url" inputMode="url" value={form.url} placeholder="https://" onChange={(e) => set('url', e.target.value)} {...aria('url')} />)}
+          {field('repoUrl', 'Source code', 'optional', <input id="pj-repoUrl" className="input" type="url" inputMode="url" value={form.repoUrl} placeholder="https://github.com/…" onChange={(e) => set('repoUrl', e.target.value)} {...aria('repoUrl')} />)}
+          {field('videoUrl', 'Demo video', 'optional', <input id="pj-videoUrl" className="input" type="url" inputMode="url" value={form.videoUrl} placeholder="https://" onChange={(e) => set('videoUrl', e.target.value)} {...aria('videoUrl')} />)}
+        </div>
+      </fieldset>
 
-      {/* ── Cover ───────────────────────────────────────────────────────── */}
-      <section className="pe-section">
-        <h2 className="pe-section-head">Cover image</h2>
-        <p className="pe-hint">Optional. JPEG, PNG, WebP or AVIF. Max 5 MB.</p>
-
-        {coverPreview && (
-          <div className="pe-cover-preview">
-            <img src={coverPreview} alt="Cover preview" />
-            <button
-              type="button"
-              className="pe-cover-remove"
-              onClick={() => {
-                setCoverPreview(null);
-                setFile(null);
-                setForm((prev) => ({ ...prev, imagePath: '' }));
-                if (fileInputRef.current) fileInputRef.current.value = '';
-              }}
-            >
-              Remove
+      <fieldset className="panel" disabled={!editable}>
+        <div className="panel-head">
+          <h2>Cover image</h2>
+          <span className="panel-hint">Optional · a real screenshot · JPEG, PNG, WebP · up to 5 MB</span>
+        </div>
+        <div className="image-picker">
+          {coverUrl && form.coverMediaId ? (
+            <img src={coverUrl} alt="Current cover" width={448} height={280} />
+          ) : (
+            <p className="panel-hint">No cover. Cards show a labelled placeholder instead.</p>
+          )}
+          {id ? (
+            <>
+              <label className="field-label" htmlFor="pj-cover">
+                {form.coverMediaId ? 'Replace cover' : 'Upload a cover'}
+              </label>
+              <input
+                id="pj-cover"
+                ref={fileRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+                disabled={disabled}
+                onChange={(e) => void onCover(e.target.files?.[0])}
+              />
+            </>
+          ) : (
+            <p className="panel-hint">Save the draft first, then add a cover.</p>
+          )}
+          {form.coverMediaId && (
+            <button type="button" className="button button--quiet" onClick={() => set('coverMediaId', null)}>
+              Remove cover
             </button>
-          </div>
-        )}
-
-        {uploadProgress && <p className="pe-upload-progress">{uploadProgress}</p>}
-
-        {!id && (
-          <p className="pe-hint pe-hint--notice">
-            Save a draft first to enable image upload.
-          </p>
-        )}
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          id="pe-image"
-          className="pe-file-input"
-          accept="image/jpeg,image/png,image/webp,image/avif"
-          disabled={!id}
-          onChange={handleFileChange}
-        />
-        <label htmlFor="pe-image" className={`pe-file-label${!id ? ' pe-file-label--disabled' : ''}`}>
-          {coverPreview ? 'Replace cover' : 'Choose cover'}
-        </label>
-      </section>
-
-      {/* ── Links ───────────────────────────────────────────────────────── */}
-      <section className="pe-section">
-        <h2 className="pe-section-head">Links</h2>
-
-        <div className="pe-field">
-          <label className="pe-label" htmlFor="pe-url">
-            Demo URL
-          </label>
-          <input
-            className="pe-input"
-            id="pe-url"
-            name="url"
-            type="url"
-            value={form.url}
-            onChange={handleChange}
-            placeholder="https://…"
-          />
+          )}
+          {busy === 'upload' && <p className="panel-hint" aria-live="polite">Uploading…</p>}
+          {fieldErrors.coverMediaId && <p className="field-error">{fieldErrors.coverMediaId}</p>}
         </div>
+      </fieldset>
 
-        <div className="pe-field">
-          <label className="pe-label" htmlFor="pe-repo-url">
-            Repository URL
-          </label>
-          <input
-            className="pe-input"
-            id="pe-repo-url"
-            name="repoUrl"
-            type="url"
-            value={form.repoUrl}
-            onChange={handleChange}
-            placeholder="https://github.com/…"
-          />
-        </div>
-
-        <div className="pe-field">
-          <label className="pe-label" htmlFor="pe-video-url">
-            Demo video URL
-          </label>
-          <input
-            className="pe-input"
-            id="pe-video-url"
-            name="videoUrl"
-            type="url"
-            value={form.videoUrl}
-            onChange={handleChange}
-            placeholder="https://youtube.com/…"
-          />
-        </div>
-      </section>
-
-      {/* ── Actions ─────────────────────────────────────────────────────── */}
-      <section className="pe-section pe-actions-section">
-        {status === 'archived' ? (
-          <button
-            type="button"
-            className="pe-btn pe-btn--secondary"
-            onClick={handleRestore}
-            disabled={isLoading}
-          >
-            {loading === 'restore' ? 'Restoring…' : 'Restore draft'}
+      {editable && (
+        <div className="form-actions form-actions--sticky">
+          {isOwner && status !== 'published' && status !== 'archived' && (
+            <button type="button" className="button button--primary" disabled={disabled || held} onClick={() => void onPublish()}>
+              {busy === 'publish' ? 'Publishing…' : 'Publish'}
+            </button>
+          )}
+          <button type="submit" className={`button${!isOwner || status === 'published' ? ' button--primary' : ''}`} disabled={disabled || (Boolean(id) && !dirty)}>
+            {busy === 'save' ? 'Saving…' : !id ? 'Save draft' : dirty ? 'Save changes' : 'Saved'}
           </button>
-        ) : status === 'published' ? (
-          <>
-            <button
-              type="button"
-              className="pe-btn pe-btn--primary"
-              onClick={() => handleSave(true)}
-              disabled={isLoading}
-            >
-              {loading === 'publish' ? 'Saving…' : 'Save changes'}
+          {publicUrl && (
+            <a className="button button--quiet" href={publicUrl}>
+              View public page
+            </a>
+          )}
+          {isOwner && id && status !== 'archived' && (
+            <button type="button" className="button button--danger" disabled={disabled} onClick={() => void onTransition('archive')}>
+              {busy === 'archive' ? 'Archiving…' : 'Archive'}
             </button>
-            <button
-              type="button"
-              className="pe-btn pe-btn--secondary"
-              onClick={() => handleSave(false)}
-              disabled={isLoading}
-            >
-              {loading === 'save' ? 'Saving…' : 'Save without republishing'}
+          )}
+          {isOwner && id && status === 'archived' && (
+            <button type="button" className="button" disabled={disabled} onClick={() => void onTransition('restore')}>
+              {busy === 'restore' ? 'Restoring…' : 'Restore as draft'}
             </button>
-            <button
-              type="button"
-              className="pe-btn pe-btn--danger"
-              onClick={handleArchive}
-              disabled={isLoading}
-            >
-              {loading === 'archive' ? 'Archiving…' : 'Archive project'}
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              type="button"
-              className="pe-btn pe-btn--primary"
-              onClick={() => handleSave(true)}
-              disabled={isLoading}
-            >
-              {loading === 'publish' ? 'Publishing…' : 'Publish project'}
-            </button>
-            <button
-              type="button"
-              className="pe-btn pe-btn--secondary"
-              onClick={() => handleSave(false)}
-              disabled={isLoading}
-            >
-              {loading === 'save' ? 'Saving…' : 'Save draft'}
-            </button>
-          </>
+          )}
+        </div>
+      )}
+
+      <div aria-live="polite">
+        {notice && (
+          <div className={`notice notice--${notice.tone}`} role={notice.tone === 'error' ? 'alert' : 'status'}>
+            {notice.text}{' '}
+            {notice.link && <a href={notice.link}>View it</a>}
+            {notice.signIn && (
+              <button type="button" className="button button--quiet" onClick={account.signIn}>
+                Sign in
+              </button>
+            )}
+          </div>
         )}
-
-        {successUrl && status === 'published' && (
-          <a className="pe-view-link" href={successUrl} target="_blank" rel="noopener">
-            View public project →
-          </a>
-        )}
-      </section>
-
-      <style>{`
-        .pe {
-          display: flex;
-          flex-direction: column;
-          gap: 0;
-          font-family: var(--font-sans);
-        }
-
-        /* Status bar */
-        .pe-status-bar {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          margin-bottom: 2rem;
-          flex-wrap: wrap;
-        }
-        .pe-badge {
-          display: inline-flex;
-          align-items: center;
-          padding: 0.25rem 0.75rem;
-          font-family: var(--font-mono);
-          font-size: 0.7rem;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          border-radius: 2px;
-          border: 1px solid currentColor;
-        }
-        .pe-badge--draft {
-          color: var(--ink-3);
-          border-color: var(--rule);
-          background: var(--paper-sunk);
-        }
-        .pe-badge--published {
-          color: #166534;
-          border-color: #bbf7d0;
-          background: #f0fdf4;
-        }
-        .pe-badge--archived {
-          color: var(--ink-3);
-          border-color: var(--rule);
-          background: var(--wash, #f3f4f6);
-          text-decoration: line-through;
-        }
-        .pe-public-link {
-          font-family: var(--font-mono);
-          font-size: 0.75rem;
-          color: var(--clay-deep, #92400e);
-          text-decoration: none;
-          letter-spacing: 0.03em;
-        }
-        .pe-public-link:hover { text-decoration: underline; }
-
-        /* Error banner */
-        .pe-error {
-          padding: 0.875rem 1rem;
-          margin-bottom: 1.5rem;
-          background: #fff1f0;
-          border: 1px solid #ffa39e;
-          border-left: 3px solid #ff4d4f;
-          color: #a8071a;
-          font-size: 0.9rem;
-          line-height: 1.5;
-        }
-
-        /* Sections */
-        .pe-section {
-          padding: 1.5rem 0;
-          border-top: 1px solid var(--rule);
-        }
-        .pe-section:first-of-type { border-top: none; padding-top: 0; }
-
-        .pe-section-head {
-          font-family: var(--font-mono);
-          font-size: 0.7rem;
-          font-weight: 500;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-          color: var(--ink-3);
-          margin-bottom: 1.25rem;
-        }
-
-        /* Fields */
-        .pe-field {
-          margin-bottom: 1.25rem;
-        }
-        .pe-field:last-child { margin-bottom: 0; }
-        .pe-field--error .pe-input {
-          border-color: #ff4d4f;
-          background: #fff1f0;
-        }
-        .pe-field-error {
-          margin-top: 0.35rem;
-          font-size: 0.8rem;
-          color: #a8071a;
-          font-family: var(--font-mono);
-        }
-
-        .pe-label {
-          display: block;
-          font-size: 0.85rem;
-          font-weight: 500;
-          color: var(--ink-2);
-          margin-bottom: 0.4rem;
-        }
-        .pe-req {
-          font-weight: 400;
-          color: var(--ink-3);
-          font-size: 0.75rem;
-          font-family: var(--font-mono);
-          margin-left: 0.25rem;
-        }
-
-        .pe-input {
-          display: block;
-          width: 100%;
-          padding: 0.7rem 0.875rem;
-          font-family: var(--font-sans);
-          font-size: 1rem;
-          color: var(--ink);
-          background: var(--paper);
-          border: 1px solid var(--rule);
-          border-radius: 2px;
-          transition: border-color 0.15s;
-          box-sizing: border-box;
-        }
-        .pe-input:focus {
-          outline: none;
-          border-color: var(--ink);
-        }
-        .pe-textarea {
-          resize: vertical;
-          min-height: 5rem;
-          line-height: 1.6;
-        }
-
-        .pe-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 1rem;
-        }
-        @media (max-width: 37.99em) {
-          .pe-row { grid-template-columns: 1fr; }
-        }
-
-        .pe-hint {
-          margin-bottom: 0.75rem;
-          font-size: 0.8rem;
-          color: var(--ink-3);
-          font-family: var(--font-mono);
-        }
-        .pe-hint--notice {
-          color: var(--clay, #b45309);
-        }
-
-        /* Cover preview */
-        .pe-cover-preview {
-          position: relative;
-          width: 100%;
-          max-width: 320px;
-          margin-bottom: 1rem;
-          border: 1px solid var(--rule);
-          border-radius: 2px;
-          overflow: hidden;
-        }
-        .pe-cover-preview img {
-          display: block;
-          width: 100%;
-          height: auto;
-          max-height: 180px;
-          object-fit: cover;
-        }
-        .pe-cover-remove {
-          position: absolute;
-          top: 0.5rem;
-          right: 0.5rem;
-          padding: 0.2rem 0.5rem;
-          font-size: 0.7rem;
-          font-family: var(--font-mono);
-          letter-spacing: 0.05em;
-          text-transform: uppercase;
-          background: rgba(0,0,0,0.65);
-          color: #fff;
-          border: none;
-          cursor: pointer;
-          border-radius: 2px;
-        }
-
-        .pe-upload-progress {
-          font-family: var(--font-mono);
-          font-size: 0.75rem;
-          color: var(--clay, #b45309);
-          margin-bottom: 0.75rem;
-        }
-
-        /* File input */
-        .pe-file-input {
-          position: absolute;
-          opacity: 0;
-          pointer-events: none;
-          width: 0;
-          height: 0;
-        }
-        .pe-file-label {
-          display: inline-flex;
-          align-items: center;
-          padding: 0.5rem 1rem;
-          font-family: var(--font-mono);
-          font-size: 0.75rem;
-          letter-spacing: 0.05em;
-          text-transform: uppercase;
-          border: 1px solid var(--rule);
-          border-radius: 2px;
-          cursor: pointer;
-          color: var(--ink);
-          background: var(--paper);
-          transition: border-color 0.15s, background 0.15s;
-        }
-        .pe-file-label:hover:not(.pe-file-label--disabled) {
-          border-color: var(--ink);
-          background: var(--shade-1, #f9fafb);
-        }
-        .pe-file-label--disabled {
-          opacity: 0.45;
-          cursor: not-allowed;
-        }
-
-        /* Actions */
-        .pe-actions-section {
-          display: flex;
-          flex-wrap: wrap;
-          align-items: center;
-          gap: 0.75rem;
-        }
-
-        .pe-btn {
-          display: inline-flex;
-          align-items: center;
-          padding: 0.7rem 1.4rem;
-          font-family: var(--font-mono);
-          font-size: 0.8rem;
-          font-weight: 500;
-          letter-spacing: 0.05em;
-          text-transform: uppercase;
-          border-radius: 2px;
-          border: 1px solid transparent;
-          cursor: pointer;
-          transition: background 0.15s, border-color 0.15s, color 0.15s;
-        }
-        .pe-btn:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-        .pe-btn--primary {
-          background: var(--ink);
-          color: var(--paper);
-          border-color: var(--ink);
-        }
-        .pe-btn--primary:hover:not(:disabled) {
-          background: var(--clay-deep, #92400e);
-          border-color: var(--clay-deep, #92400e);
-        }
-        .pe-btn--secondary {
-          background: var(--paper);
-          color: var(--ink);
-          border-color: var(--rule);
-        }
-        .pe-btn--secondary:hover:not(:disabled) {
-          border-color: var(--ink);
-          background: var(--shade-1, #f9fafb);
-        }
-        .pe-btn--danger {
-          background: var(--paper);
-          color: #a8071a;
-          border-color: #ffa39e;
-        }
-        .pe-btn--danger:hover:not(:disabled) {
-          background: #fff1f0;
-        }
-
-        .pe-view-link {
-          font-family: var(--font-mono);
-          font-size: 0.75rem;
-          color: var(--clay-deep, #92400e);
-          text-decoration: none;
-          letter-spacing: 0.03em;
-          margin-left: auto;
-        }
-        .pe-view-link:hover { text-decoration: underline; }
-      `}</style>
-    </div>
+      </div>
+    </form>
   );
 }

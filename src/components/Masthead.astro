@@ -352,6 +352,27 @@ const nav = [
   }
 
   /* On short viewports the drawer must not trap content off-screen. */
+  /*
+   * Narrow phones: brand, account control and menu toggle must all fit in
+   * ~335px. At 375px the 1.5rem gaps pushed the toggle 26px off-screen and
+   * made every page scroll sideways.
+   */
+  @media (max-width: 29.99em) {
+    .masthead-inner {
+      gap: var(--s-3);
+    }
+
+    .brand {
+      min-width: 0;
+      flex: 0 1 auto;
+    }
+
+    .masthead-inner :global(.account-join),
+    .masthead-inner :global(.account-link) {
+      padding-inline: 0.6rem;
+    }
+  }
+
   @media (max-width: 63.99em) and (max-height: 30rem) {
     .nav-drawer a {
       font-size: 1.5rem;

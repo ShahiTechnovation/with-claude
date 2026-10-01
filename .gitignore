@@ -26,3 +26,8 @@ scratch-*
 .env.*
 !.env.example
 .env*.local
+
+# Local-only test signing keys (scripts/dev/test-auth.mjs)
+.dev-auth/
+# Local import working files — real participant data never belongs in git
+/imports/

@@ -1,167 +1,67 @@
 ---
+/**
+ * EDIT YOUR PROFILE. Server-authorised; the editor itself is rendered by
+ * `PrivyRoot` beneath the one provider — see `AccountIsland.astro`.
+ */
 import { guardPage, privateHeaders } from '@/server/http/page-guard';
 import AuthRequired from '@/components/AuthRequired.astro';
+import AccountIsland from '@/components/AccountIsland.astro';
+import AccountNavTabs from '@/components/AccountNavTabs.astro';
 import Base from '@/layouts/Base.astro';
-import ProfileEditor from '@/components/react/ProfileEditor';
-import { citySlugFor, getBuilderSlug } from '@/server/members/profile';
+import { avatarUrlFor, citySlugFor, getBuilderSlug } from '@/server/members/profile';
 
 export const prerender = false;
 
 const guard = await guardPage(Astro);
-let citySlug = '';
-let builderSlug: string | null = null;
+let props: Record<string, unknown> = {};
 
 if (guard.ok) {
   privateHeaders(Astro);
   /**
-   * `ProfileRow` has `cityId`, not `citySlug` — this page used to pass
-   * `guard.profile` straight through to `ProfileEditor`, whose state
-   * initializer read a `citySlug` field that never existed on that object.
-   * The city dropdown silently opened blank, and saving without touching it
-   * sent `citySlug: ''`, which the server correctly reads as "clear the
-   * city" — a real member's city would be wiped on every save that didn't
-   * happen to re-select it.
-   *
-   * `citySlugFor()` is the same resolver `/me/profile` (the read-only page)
-   * already uses for the same field. One helper, one answer, imported here
-   * instead of duplicated.
+   * `ProfileRow` carries `cityId`; the editor works in slugs. Resolving it
+   * here is what stops a save from silently clearing a member's city.
    */
-  if (guard.profile.cityId) {
-    citySlug = await citySlugFor(guard.profile.cityId, guard.db);
-  }
-  builderSlug = await getBuilderSlug(guard.member.id, guard.db);
+  const [citySlug, builderSlug, avatarUrl] = await Promise.all([
+    citySlugFor(guard.profile.cityId, guard.db),
+    getBuilderSlug(guard.member.id, guard.db),
+    avatarUrlFor(guard.member.id, guard.profile.avatarMediaId, guard.db),
+  ]);
+  props = {
+    profile: {
+      username: guard.profile.username,
+      displayName: guard.profile.displayName,
+      citySlug,
+      primaryRole: guard.profile.primaryRole,
+      headline: guard.profile.headline,
+      bio: guard.profile.bio,
+      claudeSince: guard.profile.claudeSince,
+      website: guard.profile.website,
+      visibility: guard.profile.visibility,
+      publishedAt: guard.profile.publishedAt?.toISOString() ?? null,
+      builderSlug,
+      avatarMediaId: avatarUrl ? guard.profile.avatarMediaId : null,
+      avatarUrl,
+    },
+    uploadPrefix: `avatars/${guard.member.id}/`,
+  };
 }
 ---
 
-{!guard.ok ? (
-  <Base title="Sign in" description="Sign in to continue" noindex>
-    <AuthRequired reason={guard.reason} />
-  </Base>
-) : (
-  <Base title="Edit Profile" description="Edit your profile." active="/me" noindex>
-    <main class="account-page">
-      <h1>Edit Profile</h1>
-      <ProfileEditor
-        profile={{
-          username: guard.profile.username,
-          displayName: guard.profile.displayName,
-          citySlug,
-          primaryRole: guard.profile.primaryRole,
-          headline: guard.profile.headline,
-          bio: guard.profile.bio,
-          claudeSince: guard.profile.claudeSince,
-          website: guard.profile.website,
-          visibility: guard.profile.visibility,
-          publishedAt: guard.profile.publishedAt?.toISOString() ?? null,
-          builderSlug,
-        }}
-        client:only="react"
-      />
-    </main>
-  </Base>
-)}
-
-<style>
-  .account-page {
-    width: min(100% - 2rem, 42rem);
-    margin: 4rem auto;
-    font-family: var(--font-sans);
-  }
-  .account-page h1 {
-    font-family: var(--font-display);
-    font-size: 2.5rem;
-    font-weight: 500;
-    margin-bottom: 3rem;
-  }
-  
-  /* These global styles apply to the React ProfileEditor */
-  .account-page :global(.account-editor) {
-    margin-top: 2rem;
-  }
-  .account-page :global(.editor-grid) {
-    display: grid;
-    gap: 1.5rem;
-  }
-  .account-page :global(label) {
-    display: block;
-  }
-  .account-page :global(label span) {
-    display: block;
-    font-family: var(--font-mono);
-    font-size: 0.85rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--ink-2);
-    margin-bottom: 0.5rem;
-  }
-  .account-page :global(input),
-  .account-page :global(textarea),
-  .account-page :global(select) {
-    width: 100%;
-    padding: 0.75rem;
-    font-family: var(--font-sans);
-    font-size: 1rem;
-    border: 1px solid var(--rule);
-    border-radius: 2px;
-    background: var(--paper);
-    color: var(--ink);
-  }
-  .account-page :global(input:focus),
-  .account-page :global(textarea:focus),
-  .account-page :global(select:focus) {
-    outline: none;
-    border-color: var(--ink);
-  }
-  .account-page :global(.editor-actions) {
-    margin-top: 3rem;
-    padding-top: 2rem;
-    border-top: 1px solid var(--rule);
-    display: flex;
-    align-items: center;
-    gap: 1.5rem;
-  }
-  .account-page :global(.btn-primary),
-  .account-page :global(.btn-secondary) {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.75rem 1.5rem;
-    font-family: var(--font-mono);
-    font-size: 0.9rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-weight: 500;
-    border-radius: 2px;
-    cursor: pointer;
-    transition: background var(--dur-1) var(--ease-out);
-    border: 1px solid var(--rule);
-  }
-  .account-page :global(.btn-primary) {
-    color: var(--paper);
-    background: var(--ink);
-  }
-  .account-page :global(.btn-secondary) {
-    color: var(--ink);
-    background: var(--paper);
-  }
-  .account-page :global(.btn-primary:hover:not(:disabled)) {
-    background: var(--clay-deep, #92400e);
-  }
-  .account-page :global(.btn-secondary:hover:not(:disabled)) {
-    background: var(--wash, #f3f4f6);
-  }
-  .account-page :global(.btn-primary:disabled),
-  .account-page :global(.btn-secondary:disabled) {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-  .account-page :global(.editor-message) {
-    font-family: var(--font-mono);
-    font-size: 0.9rem;
-  }
-  .account-page :global(.editor-message.success) {
-    color: var(--clay, #b45309);
-  }
-  .account-page :global(.editor-message.error) {
-    color: red;
-  }
-</style>
+{
+  !guard.ok ? (
+    <Base title="Sign in" description="Sign in to continue" noindex>
+      <AuthRequired reason={guard.reason} />
+    </Base>
+  ) : (
+    <Base title="Edit profile" description="Edit your Builder Passport." active="/me" noindex>
+      <div class="account-shell account-shell--narrow">
+        <AccountNavTabs current="/me/profile/" />
+        <header class="account-head">
+          <h1>Edit your profile</h1>
+          <p>Save a draft at any time. Publishing puts it on your public builder page.</p>
+        </header>
+        <AccountIsland name="profile-editor" props={props} />
+      </div>
+    </Base>
+  )
+}

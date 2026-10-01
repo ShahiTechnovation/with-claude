@@ -35,6 +35,7 @@
 
 import { records } from '../data/dataset';
 import type { City, ModerationStatus } from '../data/types';
+import type { RecordSet } from '../data/source';
 
 const isPublic = (record: { status: ModerationStatus }): boolean =>
   record.status === 'published' || record.status === 'featured';
@@ -48,10 +49,13 @@ const isPublic = (record: { status: ModerationStatus }): boolean =>
  * is to exclude pages that say "nothing has happened here", not to gate
  * cities on volume.
  */
-export function isCityIndexable(city: City): boolean {
+export function isCityIndexable(city: City, set: RecordSet = records()): boolean {
   if (!isPublic(city)) return false;
 
-  const { ambassadors, builders, events, projects, stories } = records();
+  // A server-rendered city page passes the live record it already loaded, so
+  // "indexable" is decided by the same data the page shows — not by the
+  // build-time snapshot. The sitemap applies the same five signals in SQL.
+  const { ambassadors, builders, events, projects, stories } = set;
 
   return (
     ambassadors.filter(isPublic).some((a) => a.citySlug === city.slug) ||

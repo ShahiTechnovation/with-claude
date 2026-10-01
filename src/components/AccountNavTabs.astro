@@ -1,0 +1,27 @@
+---
+/**
+ * The account area's own navigation. Plain links, so it works before (and
+ * without) any client JavaScript; the server has already authorised the page.
+ */
+interface Props {
+  current: '/me/' | '/me/profile/' | '/me/projects/' | '/me/settings/';
+}
+
+const { current } = Astro.props;
+const items = [
+  { href: '/me/', label: 'Dashboard' },
+  { href: '/me/profile/', label: 'Profile' },
+  { href: '/me/projects/', label: 'Projects' },
+  { href: '/me/settings/', label: 'Settings' },
+] as const;
+---
+
+<nav class="account-nav" aria-label="Account">
+  {
+    items.map((item) => (
+      <a href={item.href} aria-current={item.href === current ? 'page' : undefined}>
+        {item.label}
+      </a>
+    ))
+  }
+</nav>

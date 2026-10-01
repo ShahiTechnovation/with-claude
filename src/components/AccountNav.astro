@@ -27,7 +27,7 @@ const loginMethods = (import.meta.env.PUBLIC_PRIVY_LOGIN_METHODS as string | und
   static fallback and the live button would both stay in the DOM at once.
 -->
 <div id="account-slot-root" class="account-slot" data-account-state="anonymous">
-  <a class="account-join js-hydrate-hide" href="/">Join WITH CLAUDE</a>
+  <a class="account-join js-hydrate-hide" href="/join/">Sign in</a>
 </div>
 
 {appId && <PrivyRoot appId={appId} loginMethods={loginMethods} client:only="react" />}
@@ -108,12 +108,32 @@ const loginMethods = (import.meta.env.PUBLIC_PRIVY_LOGIN_METHODS as string | und
     display: inline-flex;
     align-items: center;
     gap: 0.4ch;
+    margin-right: 0.5rem;
     font-family: var(--font-mono);
     font-size: 0.65rem;
     font-weight: 500;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     white-space: nowrap;
+    color: var(--clay-deep, #92400e);
+  }
+
+  a.account-nudge:hover,
+  a.account-nudge:focus-visible {
+    text-decoration: underline;
+  }
+
+  .account-slot[data-account-state] {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  @media (max-width: 40em) {
+    .account-nudge,
+    .account-name {
+      display: none;
+    }
   }
 
   .account-nudge a {

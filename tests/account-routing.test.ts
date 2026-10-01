@@ -113,12 +113,28 @@ describe('account routing', () => {
     }
   });
 
-  it('bootstrap failure distinguishes server-unavailable from auth-error', () => {
+  it('bootstrap failure distinguishes server configuration from a rejected session', () => {
     const root = source('src/components/react/PrivyRoot.tsx');
-    // The 503 path must show a service-unavailable message, not "signed you in" error.
-    expect(root).toContain("'server-unavailable'");
-    expect(root).toContain("'auth-error'");
-    expect(root).toContain('server-unavailable');
+    // A 503 is the deployment's fault and must never read as a sign-in error;
+    // a 401 is a session the server could not verify; a 403 is an account
+    // that may not act. Each is its own state with its own message.
+    expect(root).toContain("if (status === 503) return 'not-configured'");
+    expect(root).toContain("if (status === 401) return 'session-rejected'");
+    expect(root).toContain("if (status === 403) return 'account-unavailable'");
+    const context = source('src/components/react/account-context.tsx');
+    expect(context).toContain("case 'not-configured':");
+    expect(context).toContain('Nothing is wrong with your account');
+  });
+
+  it('breaks the sign-in redirect loop instead of reloading forever', () => {
+    const root = source('src/components/react/PrivyRoot.tsx');
+    // Signed in client-side, still unauthorised server-side: redirect at most
+    // once per guard window, then explain and offer retry / sign out.
+    expect(root).toContain('RETURN_GUARD_MS');
+    expect(root).toContain("describeAccountProblem('session-not-visible')");
+    // And an account page the server could NOT authorise never trusts the
+    // sessionStorage cache in place of a fresh bootstrap.
+    expect(root).toContain("const serverNeedsProof = Boolean(document.getElementById('join-cta-root'))");
   });
 });
 
@@ -145,25 +161,31 @@ describe('account routing', () => {
  * closed enum — do not silently return.
  */
 describe('the profile save regression', () => {
-  it('routes every mutation through accountFetch rather than calling getAccessToken() inline', () => {
+  it('renders the editors beneath the one provider, not as separate islands', () => {
     for (const file of [
       'src/components/react/ProfileEditor.tsx',
       'src/components/react/ProjectEditor.tsx',
     ]) {
-      // Code only — strip block comments first, so a historical explanation
-      // of the OLD bug (which necessarily quotes the broken call) cannot
-      // make this assertion pass or fail on prose rather than on code.
       const code = source(file).replace(/\/\*[\s\S]*?\*\//g, '');
-
-      // The call must go through the shared helper, not be inlined again —
-      // a second inlined copy of the same mistake is exactly how this
-      // regressed the first time (`ProfileEditor` and `ProjectEditor` each
-      // had their own copy of "call getAccessToken, build headers").
-      expect(code, `${file} must route auth through accountFetch`).toContain('accountFetch');
-      expect(code, `${file} must not call getAccessToken() directly`).not.toContain(
-        'await getAccessToken()',
-      );
+      // The account context comes from PrivyRoot's provider, so the request
+      // helper and the session state are real — never a default context.
+      expect(code, `${file} must use the provider-backed account API`).toContain('useAccount()');
+      expect(code, `${file} must not reach for Privy directly`).not.toContain('usePrivy');
+      expect(code, `${file} must not call getAccessToken() itself`).not.toContain('getAccessToken(');
     }
+    // No account page mounts an editor as its own React root any more.
+    for (const page of [
+      'src/pages/me/profile/edit.astro',
+      'src/pages/me/projects/new.astro',
+      'src/pages/me/projects/[id]/edit.astro',
+    ]) {
+      const text = source(page);
+      expect(text, `${page} mounts a separate island`).not.toContain('client:only');
+      expect(text).toContain('<AccountIsland');
+    }
+    const root = source('src/components/react/PrivyRoot.tsx');
+    expect(root).toContain("'profile-editor': lazy(() => import('./ProfileEditor'))");
+    expect(root).toContain("'project-editor': lazy(() => import('./ProjectEditor'))");
   });
 
   it('accountFetch swallows a missing-provider throw rather than surfacing it as a network error', () => {
@@ -195,7 +217,7 @@ describe('the profile save regression', () => {
     // Passed into the `profile` object literal as the shorthand `citySlug,`
     // — not the JSX attribute form, since it is a key inside that object
     // rather than a top-level prop of `<ProfileEditor>`.
-    expect(page).toMatch(/profile=\{\{[^}]*\bcitySlug,/);
+    expect(page).toMatch(/profile: \{[^}]*\bcitySlug,/);
     // Must not pass the raw row straight through — that is the exact
     // mismatch this test exists to catch.
     expect(page).not.toContain('profile={guard.profile}');
@@ -215,16 +237,20 @@ describe('the profile save regression', () => {
     // The regression, exactly: a free-text input bound to this field.
     expect(editor).not.toContain('<input value={form.primaryRole}');
     // The fix: a select over the same enum the server validates against.
-    expect(editor).toContain('<select value={form.primaryRole}');
+    expect(editor).toMatch(/<select[^>]*?value=\{form\.primaryRole\}/);
     expect(editor).toContain('SELECTABLE_ROLES.map');
     // The server re-exports the same module rather than declaring a second list.
     expect(server).toContain("from '../../lib/roles'");
   });
 
-  it('omits, rather than empties, the two fields that cannot be an empty string', () => {
+  it('sends an emptied website or role so it can actually be cleared', () => {
+    // The old editor deleted these keys when empty because the schema refused
+    // `""` — so a saved website or role could never be removed. Now the
+    // editor sends them, and the server reads empty as "clear".
     const editor = source('src/components/react/ProfileEditor.tsx');
-    expect(editor).toContain("if (body.primaryRole === '') delete body.primaryRole");
-    expect(editor).toContain("if (body.website === '') delete body.website");
+    expect(editor).toContain('primaryRole: form.primaryRole || null');
+    expect(editor).toContain('website: form.website.trim() || null');
+    expect(editor).not.toContain('delete body.website');
   });
 
   it('the settings sign-out button is a real, working slot, not an unwrapped island', () => {

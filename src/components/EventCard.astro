@@ -1,0 +1,151 @@
+---
+/**
+ * One event: date, title, where, when, and what you can do about it.
+ *
+ * The Register action is shown ONLY while registration is actually open —
+ * `isRegistrationOpen()` decides, from the clock and the door override. A
+ * past or cancelled event never shows an active Register button; a past one
+ * points at its archive (projects built there) instead.
+ */
+import type { PublicEventCard } from '@/server/public/events';
+import { asLifecycleEvent } from '@/server/public/events';
+import { dateParts, formatTimeRange } from '@/lib/datetime';
+import { formatName, isRegistrationOpen, lifecycleLabel, lifecycleOf, lifecycleTone } from '@/lib/status';
+
+interface Props {
+  event: PublicEventCard;
+  now?: Date;
+  level?: 'h2' | 'h3';
+}
+
+const { event, now = new Date(), level = 'h3' } = Astro.props;
+const Heading = level;
+const lifecycle = lifecycleOf(asLifecycleEvent(event), now);
+const open = isRegistrationOpen(asLifecycleEvent(event), now);
+const parts = dateParts(event.date);
+const where = event.venuePrivate ? `${event.city.name} · venue shared with registrants` : `${event.city.name} · ${event.venueName}`;
+---
+
+<article class:list={['ecard', `ecard--${lifecycleTone(lifecycle)}`]}>
+  <div class="ecard-date" aria-hidden="true">
+    <span class="ecard-day">{parts.dayPadded}</span>
+    <span class="ecard-month">{parts.monthDisplay}</span>
+  </div>
+  <div class="ecard-body">
+    <p class="ecard-meta">
+      <span class:list={['pip', `pip-${lifecycleTone(lifecycle)}`]}>{lifecycleLabel(lifecycle)}</span>
+      <span>{formatName(event.format)}</span>
+    </p>
+    <Heading class="ecard-title">
+      <a href={`/events/${event.slug}/`}>{event.title}</a>
+    </Heading>
+    <p class="ecard-where">{where}</p>
+    <p class="ecard-when">
+      <time datetime={`${event.date}T${event.startTime}:00+05:30`}>
+        {`${parts.day} ${parts.monthShort} · ${formatTimeRange(event.startTime, event.endTime)} IST`}
+      </time>
+    </p>
+    {
+      open && event.registrationUrl ? (
+        <p class="ecard-action">
+          <a class="btn btn-clay btn-sm" href={event.registrationUrl} target="_blank" rel="noopener noreferrer">
+            <span>Register</span>
+            <span class="arrow" aria-hidden="true">↗</span>
+          </a>
+        </p>
+      ) : lifecycle === 'past' && event.projectCount > 0 ? (
+        <p class="ecard-action">
+          <a class="link-arrow" href={`/projects/?event=${event.slug}`}>
+            <span>{`${event.projectCount} ${event.projectCount === 1 ? 'project' : 'projects'} built here`}</span>
+            <span class="arrow" aria-hidden="true">→</span>
+          </a>
+        </p>
+      ) : null
+    }
+  </div>
+</article>
+
+<style>
+  .ecard {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--s-4);
+    padding: var(--s-5);
+    background: var(--paper-raised);
+    border: var(--border-hair) solid var(--rule);
+  }
+
+  .ecard-date {
+    display: grid;
+    align-content: start;
+    justify-items: center;
+    min-width: 3.5rem;
+    padding-top: var(--s-1);
+    border-right: var(--border-hair) solid var(--rule);
+    padding-right: var(--s-4);
+  }
+
+  .ecard-day {
+    font-family: var(--font-display);
+    font-size: 2.2rem;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.03em;
+  }
+
+  .ecard-month {
+    margin-top: var(--s-1);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    color: var(--clay-deep);
+  }
+
+  .ecard-body {
+    display: grid;
+    gap: var(--s-2);
+    min-width: 0;
+  }
+
+  .ecard-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-3);
+    align-items: center;
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .ecard-title {
+    font-family: var(--font-display);
+    font-size: var(--t-h3);
+    font-weight: 600;
+    line-height: var(--lh-heading);
+    letter-spacing: -0.02em;
+  }
+
+  .ecard-title a {
+    color: var(--ink);
+    text-decoration: none;
+  }
+
+  .ecard-title a:hover,
+  .ecard-title a:focus-visible {
+    color: var(--clay-deep);
+    text-decoration: underline;
+  }
+
+  .ecard-where,
+  .ecard-when {
+    font-size: var(--t-small);
+    color: var(--ink-2);
+  }
+
+  .ecard-action {
+    margin-top: var(--s-2);
+  }
+</style>

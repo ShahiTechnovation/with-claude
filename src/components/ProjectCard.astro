@@ -1,0 +1,144 @@
+---
+/**
+ * One project in a grid: cover, name, tagline, credits, and where it came from.
+ *
+ * Takes the public DTO from `src/server/public/projects.ts` and nothing else,
+ * so every list on the site — archive, homepage, event, builder, related —
+ * renders the same card from the same eligible data.
+ */
+import ProjectCover from '@/components/ProjectCover.astro';
+import type { PublicProjectCard } from '@/server/public/projects';
+import { formatName } from '@/lib/status';
+import { formatDate } from '@/lib/datetime';
+
+interface Props {
+  project: PublicProjectCard;
+  /** Heading level for the title, so the card fits the page outline. */
+  level?: 'h2' | 'h3';
+  eager?: boolean;
+}
+
+const { project, level = 'h3', eager = false } = Astro.props;
+const Heading = level;
+const shownCredits = project.credits.slice(0, 4);
+const moreCredits = project.credits.length - shownCredits.length;
+---
+
+<article class="pcard">
+  <a class="pcard-cover" href={`/projects/${project.slug}/`} tabindex="-1" aria-hidden="true">
+    <ProjectCover image={project.image} title={project.title} category={project.category} eager={eager} zoom />
+  </a>
+  <div class="pcard-body">
+    <p class="pcard-meta">
+      <span class="pcard-category">{formatName(project.category)}</span>
+      {project.city && <span>{project.city.name}</span>}
+    </p>
+    <Heading class="pcard-title">
+      <a href={`/projects/${project.slug}/`}>{project.title}</a>
+    </Heading>
+    {project.summary && <p class="pcard-summary">{project.summary}</p>}
+    {
+      shownCredits.length > 0 && (
+        <p class="pcard-credits">
+          <span class="visually-hidden">Made by </span>
+          {shownCredits.map((c) => c.name).join(' · ')}
+          {moreCredits > 0 && ` + ${moreCredits}`}
+        </p>
+      )
+    }
+    {
+      project.event && (
+        <p class="pcard-event">
+          Built at {project.event.title}
+          <span aria-hidden="true"> · </span>
+          <time datetime={project.event.date}>{formatDate(project.event.date)}</time>
+        </p>
+      )
+    }
+  </div>
+</article>
+
+<style>
+  .pcard {
+    display: grid;
+    gap: var(--s-3);
+    align-content: start;
+  }
+
+  .pcard-body {
+    display: grid;
+    gap: var(--s-2);
+  }
+
+  .pcard-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--s-3);
+    padding-bottom: var(--s-2);
+    border-bottom: var(--border-rule) solid var(--ink);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+
+  .pcard-category {
+    color: var(--clay-deep);
+  }
+
+  .pcard-title {
+    margin-top: var(--s-1);
+    font-family: var(--font-display);
+    font-size: var(--t-h3);
+    font-weight: 600;
+    line-height: var(--lh-heading);
+    letter-spacing: -0.02em;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+  }
+
+  .pcard-title a {
+    color: var(--ink);
+    text-decoration: none;
+  }
+
+  /* The whole card is one target for a pointer, one link for a keyboard. */
+  .pcard-title a::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+  }
+
+  .pcard {
+    position: relative;
+  }
+
+  .pcard:hover .pcard-title a,
+  .pcard-title a:focus-visible {
+    color: var(--clay-deep);
+  }
+
+  .pcard-title a:focus-visible {
+    outline: 2px solid var(--clay);
+    outline-offset: 4px;
+  }
+
+  .pcard-summary {
+    font-size: var(--t-small);
+    color: var(--ink-2);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .pcard-credits,
+  .pcard-event {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.04em;
+    color: var(--ink-3);
+  }
+</style>

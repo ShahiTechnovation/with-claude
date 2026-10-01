@@ -1,14 +1,12 @@
 ---
+import { publicCache } from '@/server/http/cache';
 import { loadLiveRecords } from '@/server/directory';
 import { RecordSelectors } from '@/data/selectors';
 export const prerender = false;
 const _rs = await loadLiveRecords();
 const selectors = new RecordSelectors(_rs);
 
-Astro.response.headers.set(
-  'Cache-Control',
-  'public, max-age=0, s-maxage=60, stale-while-revalidate=86400',
-);
+publicCache(Astro);
 
 import { titles, trail } from '@/lib/seo';
 import Base from '@/layouts/Base.astro';

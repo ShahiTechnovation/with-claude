@@ -287,7 +287,7 @@ export async function transitionContent(
 
       const updated = await tx
         .update(table)
-        .set({ status: to, updatedAt: new Date() })
+        .set({ status: to, updatedAt: new Date(), ...projectPublicationFor(entityType, to) })
         .where(
           // The status is re-asserted so two editors clicking at the same
           // moment cannot both win. The loser updates zero rows and rolls back
@@ -328,6 +328,28 @@ export async function transitionContent(
   const deployOutcome = await deploy();
 
   return { ok: true, entityType, entityId, from, to, auditId, deploy: deployOutcome };
+}
+
+/**
+ * A PROJECT'S PUBLIC VISIBILITY FOLLOWS ITS EDITORIAL STATUS.
+ *
+ * Every public reader filters projects on `publication_status`, not on
+ * `status`. This transition used to move only `status`, so archiving a
+ * project here did not take it off the website, and publishing one did not
+ * put it on. The mapping is the same one the public site uses —
+ * `publicationStatusForLegacy()` in `src/server/projects/lifecycle.ts`;
+ * `tests/project-lifecycle.test.ts` asserts the two agree.
+ */
+export function projectPublicationFor(
+  entityType: EntityType,
+  to: ContentStatus,
+): { publicationStatus?: 'draft' | 'published' | 'archived'; publishedAt?: ReturnType<typeof sql> } {
+  if (entityType !== 'project') return {};
+  if (to === 'published') {
+    return { publicationStatus: 'published', publishedAt: sql`coalesce(${schema.projects.publishedAt}, now())` };
+  }
+  if (to === 'archived' || to === 'rejected') return { publicationStatus: 'archived' };
+  return { publicationStatus: 'draft' };
 }
 
 /** Signals a lost race, so the catch above can tell it from a real fault. */

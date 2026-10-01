@@ -234,6 +234,22 @@ export const claimStatus = pgEnum('claim_status', ['pending', 'approved', 'rejec
 /** Where a record came from. Decides which publish path may touch it. */
 export const contentSource = pgEnum('content_source', ['legacy', 'user']);
 
+/**
+ * WHO IS ALLOWED TO WRITE A PROJECT'S CONTENT. Exactly one writer per row.
+ *
+ *   member   the website's own workflow: the owner (and collaborators) edit it
+ *            through `/api/projects`. Every member-created project, and every
+ *            imported project after an approved claim.
+ *   curated  the editorial archive (`src/data/*.ts` import, admin promotion).
+ *            No member may edit it.
+ *   baserow  organiser-curated content projected from Baserow. Members cannot
+ *            edit it; the projection cannot touch a row that is not `baserow`.
+ *
+ * The default is `curated` so that an insert path which forgets to say fails
+ * CLOSED — nobody can edit it — rather than open.
+ */
+export const contentAuthority = pgEnum('content_authority', ['member', 'curated', 'baserow']);
+
 // =========================================================================
 // PEOPLE WHO REVIEW
 // =========================================================================
@@ -1260,6 +1276,16 @@ export const projects = pgTable(
     moderationState: moderationState('moderation_state').notNull().default('clean'),
     status: contentStatus('status').notNull().default('draft'),
     featured: boolean('featured').notNull().default(false),
+    /** Ordering among featured projects. Lower first; ties break on slug. */
+    featuredOrder: smallint('featured_order'),
+    /** See `contentAuthority`. Changed only by a claim or an explicit adoption. */
+    contentAuthority: contentAuthority('content_authority').notNull().default('curated'),
+    /**
+     * When this project first went public, or — for an imported archive
+     * entry — when it was imported. "Newest" sorts on this. Never a guessed
+     * build date: an imported project's real build date is the event's date.
+     */
+    publishedAt: timestamp('published_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }),
     updatedAt: timestamp('updated_at', { withTimezone: true }),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
@@ -1267,6 +1293,16 @@ export const projects = pgTable(
     deletionReason: text('deletion_reason'),
   },
   (table) => [
+    /**
+     * The public listing's access path: every public read filters on these
+     * three and orders by recency. Measured need, not speculation — the
+     * paginated archive query is `WHERE publication_status = 'published' AND
+     * moderation_state = 'clean' AND deleted_at IS NULL ORDER BY published_at`.
+     */
+    index('projects_public_recent_idx')
+      .on(table.publishedAt, table.slug)
+      .where(sql`publication_status = 'published' AND moderation_state = 'clean' AND deleted_at IS NULL`),
+    index('projects_owner_idx').on(table.ownerMemberId),
     index('projects_publication_idx').on(table.publicationStatus),
     index('projects_moderation_idx').on(table.moderationState),
     index('projects_city_idx').on(table.cityId),
@@ -1286,7 +1322,11 @@ export const projectBuilders = pgTable(
       .references(() => builders.id, { onDelete: 'restrict' }),
     position: smallint('position').notNull().default(0),
   },
-  (table) => [primaryKey({ columns: [table.projectId, table.builderId] })],
+  (table) => [
+    primaryKey({ columns: [table.projectId, table.builderId] }),
+    /** A builder page lists that builder's projects: the reverse lookup. */
+    index('project_builders_builder_idx').on(table.builderId),
+  ],
 );
 
 export const projectMembers = pgTable(
@@ -1302,7 +1342,51 @@ export const projectMembers = pgTable(
     position: smallint('position').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [primaryKey({ columns: [table.projectId, table.memberId] })],
+  (table) => [
+    primaryKey({ columns: [table.projectId, table.memberId] }),
+    /** "My projects" looks a member up across every project they are on. */
+    index('project_members_member_idx').on(table.memberId),
+  ],
+);
+
+/**
+ * PUBLIC TEAM CREDITS that are not (yet) builder profiles.
+ *
+ * An imported event project credits a team as the organisers recorded it:
+ * display names, sometimes a role. Those names are a public credit and
+ * NOTHING ELSE — a row here creates no member, grants no permission and is
+ * never matched to an account by name. `builder_id` is set only by an
+ * application-side verified association (an approved claim), and only then
+ * does the credit link to a profile.
+ *
+ * Distinct from `project_builders` (curated builder credits) so that a team
+ * of four with one claimed profile is four credits, not one person.
+ */
+export const projectCredits = pgTable(
+  'project_credits',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    displayName: text('display_name').notNull(),
+    role: text('role'),
+    /** Only an explicitly public social/profile URL. Never an email. */
+    publicUrl: text('public_url'),
+    position: smallint('position').notNull().default(0),
+    builderId: uuid('builder_id').references(() => builders.id, { onDelete: 'set null' }),
+    /** Where the credit came from, e.g. `baserow:<table>:<row>`. Private. */
+    sourceKey: text('source_key'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check('project_credits_name_present', sql`length(trim(${table.displayName})) > 0`),
+    index('project_credits_project_idx').on(table.projectId, table.position),
+    uniqueIndex('project_credits_source_unique')
+      .on(table.sourceKey)
+      .where(sql`${table.sourceKey} IS NOT NULL`),
+  ],
 );
 
 // =========================================================================

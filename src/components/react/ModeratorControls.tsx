@@ -17,7 +17,8 @@ export function ModeratorControls({ entityType, entityId, initialState }: Modera
     
     setLoading(true);
     try {
-      const res = await fetch(`/api/moderation/${entityType}/${entityId}`, {
+      const res = await fetch(`/api/moderation/${entityType}/${entityId}/`, {
+        credentials: 'same-origin',
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action }),

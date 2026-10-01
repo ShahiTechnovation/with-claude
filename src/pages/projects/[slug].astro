@@ -1,330 +1,363 @@
 ---
-import { Image } from 'astro:assets';
+/**
+ * PROJECT DETAIL — server-rendered from four bounded queries.
+ *
+ * What changed, and why:
+ *
+ *   · "Built at" resolves through the project's event UUID. It used to look
+ *     the UUID up in a map keyed by SLUG, so it never resolved.
+ *   · Public means `published` + `clean` + not deleted — the same predicate as
+ *     every list (`publicProjectWhere()`). `reported` used to be admitted here
+ *     and excluded from the listing.
+ *   · A missing or non-public project answers a real 404, not a redirect to a
+ *     page that answers 200.
+ *   · A moderator's render (controls, banner, possibly non-public content) is
+ *     `private, no-store`. It used to carry the public CDN header, so the first
+ *     moderator to view a restricted project could seed the CDN with it.
+ *   · Public renders use the bounded TTL in `src/server/http/cache.ts`.
+ */
+export const prerender = false;
+
 import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
 import PageIntro from '@/components/PageIntro.astro';
+import NotFound from '@/components/NotFound.astro';
+import ProjectCover from '@/components/ProjectCover.astro';
+import ProjectCard from '@/components/ProjectCard.astro';
+import ModeratorControls from '@/components/ModeratorControls.astro';
+import { ReportModal } from '@/components/react/ReportModal';
 import { site } from '@/data';
 import { formatDate } from '@/lib/datetime';
 import { resolveProjectCover } from '@/lib/project-cover';
 import { formatName } from '@/lib/status';
 import { titles, trail } from '@/lib/seo';
-
-import { getProjectData, loadLiveRecords } from '@/server/directory';
-import { RecordSelectors } from '@/data/selectors';
-import { ReportModal } from '@/components/react/ReportModal';
-import ModeratorControls from '@/components/ModeratorControls.astro';
+import { projectPage } from '@/server/public/pages';
 import { isRequestModerator } from '@/server/moderation';
+import { privateCache, publicCache } from '@/server/http/cache';
 
-export const prerender = false;
+const slug = Astro.params.slug ?? '';
+const loaded = await projectPage(slug);
+/**
+ * Who is asking matters only for a moderator, and only when they ask: on a
+ * non-public record, or with `?moderate=1`. The query string is part of the
+ * CDN cache key, so the plain public URL is never rendered per viewer and a
+ * moderator's private render can never be cached under it.
+ */
+const wantsModeration = Astro.url.searchParams.has('moderate');
+const isModerator =
+  loaded && (!loaded.project.isPublic || wantsModeration)
+    ? await isRequestModerator(Astro.request)
+    : false;
+const visible = loaded && (loaded.project.isPublic || isModerator);
 
-const _rs = await loadLiveRecords();
-const selectors = new RecordSelectors(_rs);
-
-const { slug } = Astro.params;
-if (!slug) return Astro.redirect('/404');
-
-const isModerator = await isRequestModerator(Astro.request);
-
-
-const data = await getProjectData(slug);
-if (!data) return Astro.redirect('/404');
-
-const { projectRow, builderSlugs, citySlug } = data;
-if (projectRow.publicationStatus !== 'published') return Astro.redirect('/404');
-
-const isAvailable = projectRow.moderationState === 'clean' || projectRow.moderationState === 'reported';
-
-if (!isAvailable && !isModerator) {
-  return Astro.redirect('/404');
+if (!visible) {
+  Astro.response.status = 404;
+  publicCache(Astro);
+} else if (isModerator || !loaded.project.isPublic) {
+  privateCache(Astro);
+} else {
+  publicCache(Astro);
 }
 
-// Construct the project object matching what the page expects
-const project = {
-  id: projectRow.id,
-  title: projectRow.title,
-  slug: projectRow.slug,
-  /**
-   * Nullable in the column, non-null by the time a project is published —
-   * `publishBlockers()` refuses to publish without it, and this page has
-   * already 404ed anything that is not published. The fallback exists so a row
-   * that reached `published` by some other route degrades to a title rather
-   * than printing `null` into a meta description.
-   */
-  summary: projectRow.summary ?? projectRow.title,
-  description: projectRow.description,
-  url: projectRow.url,
-  repoUrl: projectRow.repoUrl,
-  videoUrl: projectRow.videoUrl,
-  image: projectRow.imagePath,
-  claudeUsage: projectRow.claudeUsage,
-  builtAtEventSlug: projectRow.builtAtEventId ? selectors.eventBySlug.get(projectRow.builtAtEventId)?.slug : undefined,
-  citySlug,
-  category: projectRow.category,
-  tags: projectRow.tags,
-  builderSlugs,
-};
+const project = loaded?.project;
+const related = loaded?.related ?? [];
+const cover = resolveProjectCover(project?.image);
+const shareImage =
+  cover.kind === 'blob' ? cover.blobUrl : cover.kind === 'asset' ? cover.imageMetadata!.src : undefined;
 
-// Vercel ISR Cache Control
-Astro.response.headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=86400');
+const documented = (text: string | null | undefined) => Boolean(text && text.trim());
+/** Blank-line-separated paragraphs. Rendered as text, so nothing is markup. */
+const paragraphs = (text: string | null | undefined) =>
+  (text ?? '').split(/\r?\n\s*\r?\n/).map((p) => p.trim()).filter(Boolean);
 
-const makers = selectors.builderNamesOf(project as any);
-const bornAt = project.builtAtEventSlug ? selectors.eventBySlug.get(project.builtAtEventSlug) : undefined;
-const cover = resolveProjectCover(project.image);
+const schema = project
+  ? [
+      {
+        '@type': 'CreativeWork',
+        name: project.title,
+        description: project.summary ?? project.title,
+        url: `${site.url}/projects/${project.slug}/`,
+        ...(project.url ? { sameAs: [project.url] } : {}),
+        ...(project.credits.length > 0
+          ? { creator: project.credits.map((c) => ({ '@type': 'Person', name: c.name })) }
+          : {}),
+        ...(project.city ? { locationCreated: { '@type': 'Place', name: project.city.name } } : {}),
+        ...(project.event ? { dateCreated: project.event.date } : {}),
+        ...(project.tags.length > 0 ? { keywords: project.tags.join(', ') } : {}),
+      },
+    ]
+  : [];
 
-const schema = [
-  {
-    '@type': 'CreativeWork',
-    name: project.title,
-    description: project.summary,
-    url: `${site.url}/projects/${project.slug}`,
-    ...(project.url ? { sameAs: [project.url] } : {}),
-    ...(makers.length > 0
-      ? { creator: makers.map((maker) => ({ '@type': 'Person', name: maker.name })) }
-      : {}),
-    locationCreated: { '@type': 'Place', name: selectors.cityName(project.citySlug) },
-  },
-];
-
-// How this project was actually made, where somebody has written it up.
-const practice = selectors.useCasesForProject(project.slug);
-
-const crumbs = trail(
-  { name: 'Projects', href: '/projects' },
-  { name: project.title, href: `/projects/${project.slug}` },
-);
+const crumbs = project
+  ? trail(
+      { name: 'Projects', href: '/projects/' },
+      { name: project.title, href: `/projects/${project.slug}/` },
+    )
+  : undefined;
 ---
 
-<Base
-  title={project.title}
-  seoTitle={titles.project(project.title, selectors.cityName(project.citySlug))}
-  description={project.summary}
-  active="/projects"
-  breadcrumbs={crumbs}
-  image={cover.kind !== 'none' ? undefined : '/og-card.jpg'}
-  schema={schema}
->
-  {(!isAvailable && isModerator) && (
-    <div class="moderator-banner" style="background-color: var(--clay-deep); color: white; padding: 1rem; text-align: center; font-weight: bold; margin-bottom: 2rem;">
-      RESTRICTED / REMOVED — not visible to the public.
-    </div>
-  )}
+{
+  !project || !visible ? (
+    <Base title="Not found" description="That project is not part of the archive." noindex>
+      <NotFound />
+    </Base>
+  ) : (
+    <Base
+      title={project.title}
+      seoTitle={titles.project(project.title, project.city?.name ?? 'India')}
+      description={project.summary ?? `${project.title} — made with Claude.`}
+      active="/projects"
+      breadcrumbs={crumbs}
+      image={shareImage}
+      ogImageAlt={`${project.title} — ${shareImage ? 'screenshot' : 'WITH CLAUDE'}`}
+      schema={schema}
+      noindex={!project.isPublic}
+    >
+      {!project.isPublic && (
+        <div class="mod-banner" role="status">
+          Not visible to the public — {project.publicationStatus} · {project.moderationState}.
+          You are seeing it because you are a moderator.
+        </div>
+      )}
 
-  <PageIntro
-    eyebrow={`${formatName(project.category)} · ${selectors.cityName(project.citySlug)}`}
-    title={project.title}
-    size="lg"
-  >
-    <p>{project.summary}</p>
-  </PageIntro>
+      <PageIntro
+        eyebrow={[formatName(project.category), project.city?.name].filter(Boolean).join(' · ')}
+        title={project.title}
+        size="lg"
+      >
+        {project.summary && <p>{project.summary}</p>}
+      </PageIntro>
 
-  <Section id="detail" tone="sunk" labelledby="detail-heading">
-    <h2 id="detail-heading" class="visually-hidden">About {project.title}</h2>
+      <Section id="detail" tone="sunk" labelledby="detail-heading">
+        <h2 id="detail-heading" class="visually-hidden">About {project.title}</h2>
 
-    <div class="project">
-      <div class="project-main">
-        {
-          cover.kind !== 'none' && (
-            <div class="plate plate-framed project-image">
-              {cover.kind === 'blob' ? (
-                <img
-                  src={cover.blobUrl}
-                  alt={`${project.title} — screenshot`}
-                  loading="eager"
-                  decoding="async"
-                />
+        <div class="project">
+          <div class="project-main">
+            <ProjectCover
+              image={project.image}
+              title={project.title}
+              category={project.category}
+              ratio="16/10"
+              eager
+              sizes="(max-width: 61.99em) 92vw, 760px"
+            />
+
+            {(project.url || project.repoUrl || project.videoUrl) && (
+              <div class="project-actions">
+                {project.url && (
+                  <a class="btn btn-clay" href={project.url} target="_blank" rel="noopener noreferrer">
+                    <span>Open the project</span>
+                    <span class="arrow" aria-hidden="true">↗</span>
+                  </a>
+                )}
+                {project.repoUrl && (
+                  <a class="btn" href={project.repoUrl} target="_blank" rel="noopener noreferrer">
+                    <span>Source code</span>
+                    <span class="arrow" aria-hidden="true">↗</span>
+                  </a>
+                )}
+                {project.videoUrl && (
+                  <a class="btn btn-quiet" href={project.videoUrl} target="_blank" rel="noopener noreferrer">
+                    <span>Watch the demo</span>
+                    <span class="arrow" aria-hidden="true">↗</span>
+                  </a>
+                )}
+              </div>
+            )}
+
+            <section class="block" aria-labelledby="about-heading">
+              <h3 id="about-heading" class="label block-head">About the project</h3>
+              {documented(project.description) ? (
+                <div class="project-body">
+                  {paragraphs(project.description).map((para) => <p>{para}</p>)}
+                </div>
               ) : (
-                <Image
-                  src={cover.imageMetadata!}
-                  alt={`${project.title} — screenshot`}
-                  widths={[600, 1100]}
-                  sizes="(max-width: 61.99em) 92vw, 680px"
-                  loading="eager"
-                  decoding="async"
-                />
+                <p class="not-documented">
+                  {project.imported
+                    ? 'The archive entry has a summary only. A longer description has not been documented.'
+                    : 'A longer description has not been added yet.'}
+                </p>
               )}
-            </div>
-          )
-        }
+            </section>
 
-        <h3 class="label usage-head">ABOUT THE PROJECT</h3>
-        {project.description ? (
-          <p class="project-body">{project.description}</p>
-        ) : (
-          <p class="project-body quiet-placeholder">Detailed project description not yet added.</p>
-        )}
+            <section class="block usage" aria-labelledby="usage-heading">
+              <h3 id="usage-heading" class="label block-head">How Claude was used</h3>
+              {documented(project.claudeUsage) ? (
+                <div class="usage-body">
+                  {paragraphs(project.claudeUsage).map((para) => <p>{para}</p>)}
+                </div>
+              ) : (
+                <p class="not-documented">Not documented.</p>
+              )}
+            </section>
+          </div>
 
-        {
-          project.claudeUsage && (
-            <div class="usage">
-              <h3 class="label usage-head">CLAUDE IN PRACTICE</h3>
-              <p class="usage-body">{project.claudeUsage}</p>
-            </div>
-          )
-        }
-
-        <div class="project-actions">
-          {
-            project.url && (
-              <a class="btn btn-clay" href={project.url} target="_blank" rel="noopener">
-                <span>Open it</span>
-                <span class="arrow" aria-hidden="true">
-                  ↗
-                </span>
-              </a>
-            )
-          }
-          {
-            project.repoUrl && (
-              <a class="btn" href={project.repoUrl} target="_blank" rel="noopener">
-                <span>Source</span>
-                <span class="arrow" aria-hidden="true">
-                  ↗
-                </span>
-              </a>
-            )
-          }
-          {
-            project.videoUrl && (
-              <a class="link-arrow" href={project.videoUrl} target="_blank" rel="noopener">
-                <span>Demo</span>
-                <span class="arrow" aria-hidden="true">
-                  ↗
-                </span>
-              </a>
-            )
-          }
-        </div>
-      </div>
-
-      <aside class="project-side">
-        <dl class="facts">
-          {
-            bornAt && (
+          <aside class="project-side" aria-label="Project facts">
+            <dl class="facts">
+              {project.event && (
+                <div>
+                  <dt>Built at</dt>
+                  <dd>
+                    <a href={`/events/${project.event.slug}/`}>{project.event.title}</a>
+                    <span class="fact-sub">
+                      <time datetime={project.event.date}>{formatDate(project.event.date)}</time>
+                    </span>
+                  </dd>
+                </div>
+              )}
               <div>
-                <dt>Built at</dt>
+                <dt>{project.credits.length === 1 ? 'Made by' : 'Team'}</dt>
                 <dd>
-                  <a href={`/events/${bornAt.slug}`}>{bornAt.title}</a>
-                  <span class="fact-sub">{formatDate(bornAt.date)}</span>
+                  {project.credits.length > 0 ? (
+                    <ul class="makers">
+                      {project.credits.map((credit) => (
+                        <li>
+                          {credit.href ? <a href={credit.href}>{credit.name}</a> : <span>{credit.name}</span>}
+                          {credit.role && <span class="fact-sub">{credit.role}</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <span class="quiet">Not credited</span>
+                  )}
                 </dd>
               </div>
-            )
-          }
-          <div>
-            <dt>Made by</dt>
-            <dd>
-              {
-                makers.length > 0 ? (
-                  <ul class="makers">
-                    {makers.map((maker) => (
-                      <li>
-                        {maker.isPublic ? (
-                          <a href={`/builders/${maker.slug}`}>{maker.name}</a>
-                        ) : (
-                          <span>{maker.name}</span>
-                        )}
-                      </li>
+              {project.city && (
+                <div>
+                  <dt>City</dt>
+                  <dd>
+                    <a href={`/cities/${project.city.slug}/`}>{project.city.name}</a>
+                  </dd>
+                </div>
+              )}
+              <div>
+                <dt>Category</dt>
+                <dd>
+                  <a href={`/projects/?category=${project.category}`}>{formatName(project.category)}</a>
+                </dd>
+              </div>
+              {project.useCases.length > 0 && (
+                <div>
+                  <dt>Written up</dt>
+                  <dd>
+                    {project.useCases.map((useCase) => (
+                      <a href={`/use-cases/${useCase.slug}/`}>{useCase.title}</a>
                     ))}
-                  </ul>
-                ) : (
-                  <span class="quiet">Not credited</span>
-                )
-              }
-            </dd>
-          </div>
-          <div>
-            <dt>City</dt>
-            <dd><a href={`/cities/${project.citySlug}`}>{selectors.cityName(project.citySlug)}</a></dd>
-          </div>
-          <div>
-            <dt>Category</dt>
-            <dd>{formatName(project.category)}</dd>
-          </div>
-          {
-            /* Closes the project → practice edge: the write-up of how this
-              was actually made, when one exists. */
-          }
-          {
-            practice.length > 0 && (
-              <div>
-                <dt>Written up</dt>
-                <dd>
-                  {practice.map((useCase) => (
-                    <a href={`/use-cases/${useCase.slug}`}>{useCase.title}</a>
-                  ))}
-                </dd>
-              </div>
-            )
-          }
-        </dl>
+                  </dd>
+                </div>
+              )}
+            </dl>
 
-        {project.tags && project.tags.length > 0 && <p class="tags">{project.tags.join(' · ')}</p>}
-        
-        <div class="mt-8 pt-6 border-t border-neutral-100">
-          <ReportModal client:load entityType="project" entityId={project.id} />
-          <ModeratorControls entityType="projects" entityId={project.id} initialState={projectRow.moderationState} isModerator={isModerator} />
+            {project.tags.length > 0 && (
+              <ul class="tags" aria-label="Tools and tags">
+                {project.tags.map((tag) => (
+                  <li>{tag}</li>
+                ))}
+              </ul>
+            )}
+
+            {project.imported && (
+              <p class="provenance">
+                From an event archive, as the organisers recorded it. Not yet claimed by its team.{' '}
+                <a href={`/me/projects/claim/?project=${project.slug}`}>Is this your project?</a>
+              </p>
+            )}
+
+            <div class="side-actions">
+              <ReportModal client:load entityType="project" entityId={project.id} />
+              <ModeratorControls
+                entityType="projects"
+                entityId={project.id}
+                initialState={project.moderationState}
+                isModerator={isModerator}
+              />
+            </div>
+          </aside>
         </div>
-      </aside>
-    </div>
-  </Section>
+      </Section>
 
-  <Section id="back" size="sm">
-    <a class="link-arrow" href="/projects">
-      <span>The whole archive</span>
-      <span class="arrow" aria-hidden="true">→</span>
-    </a>
-  </Section>
+      {related.length > 0 && (
+        <Section id="related" labelledby="related-heading">
+          <div class="section-head">
+            <p class="eyebrow">Keep exploring</p>
+            <h2 id="related-heading">
+              {project.event ? `More from ${project.event.title}` : `More from ${project.city?.name ?? 'the archive'}`}
+            </h2>
+          </div>
+          <div class="related">
+            {related.map((item) => (
+              <ProjectCard project={item} />
+            ))}
+          </div>
+        </Section>
+      )}
 
-</Base>
+      <Section id="back" size="sm">
+        <a class="link-arrow" href="/projects/">
+          <span>All projects</span>
+          <span class="arrow" aria-hidden="true">→</span>
+        </a>
+      </Section>
+    </Base>
+  )
+}
 
 <style>
+  .mod-banner {
+    padding: var(--s-3) var(--gutter);
+    background: var(--clay-deep);
+    color: var(--paper-raised);
+    font-family: var(--font-mono);
+    font-size: var(--t-small);
+    text-align: center;
+  }
+
   .project {
     display: grid;
     gap: var(--s-8);
   }
 
-  .project-image {
-    aspect-ratio: 16 / 10;
-    margin-bottom: var(--s-6);
+  .project-main {
+    display: grid;
+    gap: var(--s-6);
+    align-content: start;
+    min-width: 0;
   }
 
-  .project-body {
-    max-width: 62ch;
-    font-size: var(--t-lead);
+  .project-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-3);
+  }
+
+  .block-head {
+    margin-bottom: var(--s-3);
+    color: var(--clay-deep);
+  }
+
+  .project-body,
+  .usage-body {
+    display: grid;
+    gap: var(--s-4);
+    max-width: 64ch;
     color: var(--ink-2);
   }
 
-  .quiet-placeholder {
-    font-family: var(--font-mono);
-    font-size: var(--t-small);
-    font-style: italic;
-    color: var(--ink-3);
+  .project-body {
+    font-size: var(--t-lead);
   }
 
   .usage {
-    margin-top: var(--s-7);
     padding: var(--s-5);
     border: var(--border-hair) solid var(--rule-strong);
     border-left: 2px solid var(--clay);
     background: var(--paper-raised);
   }
 
-  .usage-head {
-    color: var(--clay-deep);
-    margin-bottom: var(--s-3);
-  }
-
-  .usage-body {
-    max-width: 58ch;
+  .not-documented {
+    font-family: var(--font-mono);
     font-size: var(--t-small);
-    color: var(--ink-2);
-  }
-
-  .project-actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--s-5);
-    margin-top: var(--s-7);
+    color: var(--ink-3);
   }
 
   .facts {
@@ -343,26 +376,31 @@ const crumbs = trail(
   }
 
   .facts dd {
+    display: grid;
+    gap: var(--s-1);
     margin-top: var(--s-2);
     font-family: var(--font-display);
-    font-size: 1.2rem;
+    font-size: 1.15rem;
     font-weight: 500;
-    font-variation-settings:
-      'SOFT' 0,
-      'WONK' 1;
   }
 
   .facts a {
     text-decoration: none;
   }
 
-  .facts a:hover {
+  .facts a:hover,
+  .facts a:focus-visible {
     color: var(--clay-deep);
+    text-decoration: underline;
+  }
+
+  .makers {
+    display: grid;
+    gap: var(--s-2);
   }
 
   .fact-sub {
     display: block;
-    margin-top: 2px;
     font-family: var(--font-mono);
     font-size: var(--t-micro);
     font-weight: 400;
@@ -376,16 +414,46 @@ const crumbs = trail(
   }
 
   .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
     margin-top: var(--s-5);
+  }
+
+  .tags li {
+    padding: 0.2rem 0.55rem;
+    border: var(--border-hair) solid var(--rule-strong);
+    border-radius: var(--radius-xs);
     font-family: var(--font-mono);
     font-size: var(--t-micro);
-    letter-spacing: 0.06em;
-    color: var(--ink-3);
+    letter-spacing: 0.04em;
+    color: var(--ink-2);
+  }
+
+  .provenance {
+    margin-top: var(--s-5);
+    padding-top: var(--s-4);
+    border-top: var(--border-hair) solid var(--rule);
+    font-size: var(--t-small);
+    color: var(--ink-2);
+  }
+
+  .side-actions {
+    margin-top: var(--s-6);
+    padding-top: var(--s-5);
+    border-top: var(--border-hair) solid var(--rule);
+  }
+
+  .related {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+    gap: var(--s-7) var(--s-6);
+    margin-top: var(--s-6);
   }
 
   @media (min-width: 62em) {
     .project {
-      grid-template-columns: minmax(0, 1.35fr) minmax(240px, 0.65fr);
+      grid-template-columns: minmax(0, 1.4fr) minmax(260px, 0.6fr);
       gap: var(--s-9);
       align-items: start;
     }

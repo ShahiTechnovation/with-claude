@@ -1,179 +1,116 @@
 ---
+/** EVERY PROJECT YOU OWN, COLLABORATE ON OR ARE CREDITED ON — by state. */
 import { guardPage, privateHeaders } from '@/server/http/page-guard';
 import AuthRequired from '@/components/AuthRequired.astro';
+import AccountNavTabs from '@/components/AccountNavTabs.astro';
 import Base from '@/layouts/Base.astro';
 import { getMemberProjects } from '@/server/members/projects';
 
 export const prerender = false;
 
 const guard = await guardPage(Astro);
-let allProjects: any[] = [];
+const projects = guard.ok ? await getMemberProjects(guard.member.id, guard.db) : [];
+if (guard.ok) privateHeaders(Astro);
 
-if (guard.ok) {
-  privateHeaders(Astro);
-  allProjects = await getMemberProjects(guard.member.id, guard.db);
-}
-
-const list = (status: string) => allProjects.filter((p) => p.publicationStatus === status);
-const statuses = ['published', 'draft', 'archived'] as const;
+const groups = [
+  { status: 'draft', title: 'Drafts', note: 'Only you and your collaborators can see these.' },
+  { status: 'published', title: 'Published', note: 'On the projects archive now.' },
+  { status: 'archived', title: 'Archived', note: 'Off the website. Restore one to bring it back as a draft.' },
+]
+  .map((g) => ({ ...g, items: projects.filter((p) => p.publicationStatus === g.status) }))
+  .filter((g) => g.items.length > 0);
+const ROLE: Record<string, string> = { owner: 'Owner', collaborator: 'Collaborator', contributor: 'Credited' };
+const held = (state: string) => ['restricted', 'removed', 'archived'].includes(state);
 ---
 
-{!guard.ok ? (
-  <Base title="Sign in" description="Sign in to continue" noindex>
-    <AuthRequired reason={guard.reason} />
-  </Base>
-) : (
-  <Base title="Your Projects" description="Manage your projects." active="/me" noindex>
-    <main class="account-page">
-      <div class="page-header">
-        <h1>Your Projects</h1>
-        <a href="/me/projects/new/" class="btn-primary">Add a project</a>
-      </div>
+{
+  !guard.ok ? (
+    <Base title="Sign in" description="Sign in to continue" noindex>
+      <AuthRequired reason={guard.reason} />
+    </Base>
+  ) : (
+    <Base title="Your projects" description="Your projects." active="/me" noindex>
+      <div class="account-shell">
+        <AccountNavTabs current="/me/projects/" />
+        <header class="account-head">
+          <h1>Your projects</h1>
+          <p>
+            <a class="button button--primary" href="/me/projects/new/">
+              Add a project
+            </a>
+          </p>
+        </header>
 
-      {statuses.map((status) => {
-        const items = list(status);
-        return (
-          <section class="account-section">
-            <h2>{status === 'draft' ? 'Drafts' : status[0].toUpperCase() + status.slice(1)}</h2>
-            {items.length > 0 ? (
-              <ul class="project-list">
-                {items.map(project => (
-                  <li class="project-item">
-                    <div class="project-info">
-                      <strong>{project.title}</strong>
-                      <span class="summary">{project.summary ?? 'No short description'}</span>
+        {projects.length === 0 ? (
+          <div class="panel">
+            <p class="panel-hint">
+              You have no projects yet. Start one with just a name, then publish it when it is complete.
+            </p>
+          </div>
+        ) : (
+          groups.map((g) => (
+            <section class="panel" aria-labelledby={`g-${g.status}`}>
+              <div class="panel-head">
+                <h2 id={`g-${g.status}`}>{`${g.title} (${g.items.length})`}</h2>
+                <span class="panel-hint">{g.note}</span>
+              </div>
+              <ul class="plist">
+                {g.items.map((p) => (
+                  <li>
+                    <div class="plist-main">
+                      <a href={`/me/projects/${p.id}/edit/`}>{p.title}</a>
+                      {p.summary && <span class="plist-summary">{p.summary}</span>}
                     </div>
-                    <div class="project-meta">
-                      <span class="status-badge">{project.publicationStatus}</span>
-                      <a href={`/me/projects/${project.id}/edit/`} class="btn-secondary">
-                        {status === 'draft' ? 'Continue draft' : 'Edit'}
+                    <span class="plist-role">{ROLE[p.role]}</span>
+                    {held(p.moderationState) && (
+                      <span class="status-badge status-badge--held">Held by moderators</span>
+                    )}
+                    {p.publicationStatus === 'published' && !held(p.moderationState) && (
+                      <a class="plist-public" href={`/projects/${p.slug}/`}>
+                        Public page
                       </a>
-                    </div>
+                    )}
                   </li>
                 ))}
               </ul>
-            ) : (
-              <p class="empty-state">No {status} projects.</p>
-            )}
-          </section>
-        );
-      })}
-    </main>
-  </Base>
-)}
+            </section>
+          ))
+        )}
+      </div>
+    </Base>
+  )
+}
 
 <style>
-  .account-page {
-    width: min(100% - 2rem, 42rem);
-    margin: 4rem auto;
-    font-family: var(--font-sans);
-  }
-  .page-header {
+  .plist li {
     display: flex;
-    justify-content: space-between;
+    flex-wrap: wrap;
     align-items: center;
-    margin-bottom: 3rem;
+    gap: var(--s-3);
+    padding-block: var(--s-3);
+    border-bottom: var(--border-hair) solid var(--rule);
   }
-  .account-page h1 {
-    font-family: var(--font-display);
-    font-size: 2.5rem;
-    font-weight: 500;
+
+  .plist-main {
+    display: grid;
+    flex: 1 1 16rem;
+    min-width: 0;
   }
-  .account-section {
-    margin-bottom: 3rem;
-  }
-  .account-section h2 {
-    font-size: 0.9rem;
-    font-family: var(--font-mono);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--ink-2);
-    margin-bottom: 1rem;
-    border-bottom: 1px solid var(--rule);
-    padding-bottom: 0.5rem;
-  }
-  .project-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-  }
-  .project-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1.5rem 0;
-    border-bottom: 1px dashed var(--rule);
-  }
-  .project-item:last-child {
-    border-bottom: none;
-  }
-  .project-info {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-  }
-  .project-info strong {
-    font-size: 1.1rem;
-  }
-  .summary {
-    color: var(--ink-2);
-    font-size: 0.95rem;
-  }
-  .project-meta {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-  }
-  .status-badge {
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    padding: 0.2rem 0.5rem;
-    background: var(--wash);
-    border-radius: 2px;
-  }
-  .empty-state {
-    color: var(--ink-2);
-    font-style: italic;
-    padding: 1rem 0;
-  }
-  .btn-primary {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.75rem 1.5rem;
-    font-family: var(--font-mono);
-    font-size: 0.9rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-weight: 500;
-    color: var(--paper);
-    background: var(--ink);
-    border: none;
-    border-radius: 2px;
-    cursor: pointer;
-    text-decoration: none;
-    transition: background var(--dur-1) var(--ease-out);
-  }
-  .btn-primary:hover {
-    background: var(--clay-deep, #92400e);
-  }
-  .btn-secondary {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.4rem 0.8rem;
-    font-family: var(--font-mono);
-    font-size: 0.8rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    text-decoration: none;
+
+  .plist-main a {
+    font-weight: 600;
     color: var(--ink);
-    border: 1px solid var(--rule);
-    border-radius: 2px;
-    transition: all var(--dur-1) var(--ease-out);
   }
-  .btn-secondary:hover {
-    border-color: var(--ink);
-    background: var(--shade-1);
+
+  .plist-summary {
+    font-size: var(--t-small);
+    color: var(--ink-3);
+  }
+
+  .plist-role,
+  .plist-public {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    color: var(--ink-3);
   }
 </style>

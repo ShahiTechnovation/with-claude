@@ -1,6 +1,6 @@
 {
-  "id": "038a67ba-b8b0-4764-9ccb-1084d3acba22",
-  "prevId": "eaf84cd1-08a7-4534-bf37-05e425ad6cd8",
+  "id": "3c82c21c-f45b-4277-89b5-52241806861f",
+  "prevId": "038a67ba-b8b0-4764-9ccb-1084d3acba22",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -3761,7 +3761,23 @@
           "default": 0
         }
       },
-      "indexes": {},
+      "indexes": {
+        "project_builders_builder_idx": {
+          "name": "project_builders_builder_idx",
+          "columns": [
+            {
+              "expression": "builder_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "project_builders_project_id_projects_id_fk": {
           "name": "project_builders_project_id_projects_id_fk",
@@ -3804,6 +3820,153 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.project_credits": {
+      "name": "project_credits",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "public_url": {
+          "name": "public_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "position": {
+          "name": "position",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "builder_id": {
+          "name": "builder_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_key": {
+          "name": "source_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "project_credits_project_idx": {
+          "name": "project_credits_project_idx",
+          "columns": [
+            {
+              "expression": "project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "position",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "project_credits_source_unique": {
+          "name": "project_credits_source_unique",
+          "columns": [
+            {
+              "expression": "source_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"project_credits\".\"source_key\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "project_credits_project_id_projects_id_fk": {
+          "name": "project_credits_project_id_projects_id_fk",
+          "tableFrom": "project_credits",
+          "tableTo": "projects",
+          "columnsFrom": [
+            "project_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "project_credits_builder_id_builders_id_fk": {
+          "name": "project_credits_builder_id_builders_id_fk",
+          "tableFrom": "project_credits",
+          "tableTo": "builders",
+          "columnsFrom": [
+            "builder_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "project_credits_name_present": {
+          "name": "project_credits_name_present",
+          "value": "length(trim(\"project_credits\".\"display_name\")) > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.project_members": {
       "name": "project_members",
       "schema": "",
@@ -3843,7 +4006,23 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "project_members_member_idx": {
+          "name": "project_members_member_idx",
+          "columns": [
+            {
+              "expression": "member_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "project_members_project_id_projects_id_fk": {
           "name": "project_members_project_id_projects_id_fk",
@@ -4026,6 +4205,26 @@
           "notNull": true,
           "default": false
         },
+        "featured_order": {
+          "name": "featured_order",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "content_authority": {
+          "name": "content_authority",
+          "type": "content_authority",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'curated'"
+        },
+        "published_at": {
+          "name": "published_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -4058,6 +4257,43 @@
         }
       },
       "indexes": {
+        "projects_public_recent_idx": {
+          "name": "projects_public_recent_idx",
+          "columns": [
+            {
+              "expression": "published_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "slug",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "publication_status = 'published' AND moderation_state = 'clean' AND deleted_at IS NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "projects_owner_idx": {
+          "name": "projects_owner_idx",
+          "columns": [
+            {
+              "expression": "owner_member_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "projects_publication_idx": {
           "name": "projects_publication_idx",
           "columns": [
@@ -5832,6 +6068,15 @@
         "approved",
         "rejected",
         "cancelled"
+      ]
+    },
+    "public.content_authority": {
+      "name": "content_authority",
+      "schema": "public",
+      "values": [
+        "member",
+        "curated",
+        "baserow"
       ]
     },
     "public.content_source": {

@@ -206,6 +206,18 @@ const pad = (n: number) => String(n).padStart(2, '0');
     gap: var(--s-7);
   }
 
+  .with-body > * {
+    min-width: 0;
+  }
+
+  /* Four columns and three gaps did not fit a 375px phone. */
+  @media (max-width: 29.99em) {
+    .with-link {
+      grid-template-columns: auto minmax(0, 1fr) auto 0;
+      gap: var(--s-2);
+    }
+  }
+
   /* --- The strands -------------------------------------------------------
      Set at display size, because these are the five nouns the whole site is
      an index of. */

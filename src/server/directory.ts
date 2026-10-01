@@ -1,9 +1,10 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import { pooledDb } from '../../db/pool';
 import * as dbSchema from '../../db/schema';
 import { loadRecordSet } from '../data/source-db';
 import type { RecordSet } from '../data/source';
+import { publicProjectWhere } from './projects/lifecycle';
 
 /**
  * The connection type every query in this module accepts.
@@ -23,55 +24,6 @@ import type { RecordSet } from '../data/source';
  */
 type Db = PgDatabase<PgQueryResultHKT, typeof dbSchema>;
 
-export async function getBuilderRow(slug: string) {
-  const db = pooledDb();
-  const [row] = await db.select().from(dbSchema.builders).where(eq(dbSchema.builders.slug, slug));
-  return row;
-}
-
-export async function getProjectData(slug: string) {
-  const db = pooledDb();
-  
-  const [projectRow] = await db
-    .select()
-    .from(dbSchema.projects)
-    .where(eq(dbSchema.projects.slug, slug));
-    
-  if (!projectRow) return null;
-
-  const builderRows = await db
-    .select({ builderId: dbSchema.projectBuilders.builderId })
-    .from(dbSchema.projectBuilders)
-    .where(eq(dbSchema.projectBuilders.projectId, projectRow.id));
-
-  const builderSlugs = [];
-  for (const row of builderRows) {
-    const [b] = await db.select({ slug: dbSchema.builders.slug }).from(dbSchema.builders).where(eq(dbSchema.builders.id, row.builderId));
-    if (b) builderSlugs.push(b.slug);
-  }
-
-  const citySlug = projectRow.cityId 
-    ? (await db.select({slug: dbSchema.cities.slug}).from(dbSchema.cities).where(eq(dbSchema.cities.id, projectRow.cityId)))[0]?.slug 
-    : '';
-
-  return { projectRow, builderSlugs, citySlug };
-}
-
-export async function getPublicProjects() {
-  const db = pooledDb();
-  const projectRows = await db
-    .select()
-    .from(dbSchema.projects)
-    .where(and(eq(dbSchema.projects.publicationStatus, 'published'), eq(dbSchema.projects.moderationState, 'clean')))
-    .orderBy(dbSchema.projects.position);
-
-  const allBuilderRows = await db.select({ projectId: dbSchema.projectBuilders.projectId, builderId: dbSchema.projectBuilders.builderId }).from(dbSchema.projectBuilders);
-  const allBuilders = await db.select({ id: dbSchema.builders.id, slug: dbSchema.builders.slug }).from(dbSchema.builders);
-  const allCities = await db.select({ id: dbSchema.cities.id, slug: dbSchema.cities.slug }).from(dbSchema.cities);
-
-  return { projectRows, allBuilderRows, allBuilders, allCities };
-}
-
 /**
  * The canonical public-builder predicate.
  *
@@ -87,8 +39,12 @@ export async function getPublicProjects() {
  * This is the only place that decides what is public for the builders
  * surface. All queries must use it or call `isPublicBuilder()` directly.
  */
-export function isPublicBuilder(b: { status: string; moderationState: string }): boolean {
-  return b.status === 'published' && b.moderationState === 'clean';
+export function isPublicBuilder(b: {
+  status: string;
+  moderationState: string;
+  deletedAt?: Date | string | null;
+}): boolean {
+  return b.status === 'published' && b.moderationState === 'clean' && !b.deletedAt;
 }
 
 /**
@@ -121,6 +77,8 @@ export interface PublicBuilderRow {
   ownerMemberId: string | null;
   source: string;
   image: string | undefined;
+  /** Set when soft-deleted; `isPublicBuilder()` treats that as not public. */
+  deletedAt?: Date | null;
 }
 
 export async function getPublicBuilderList(db: Db = pooledDb()): Promise<PublicBuilderRow[]> {
@@ -139,6 +97,7 @@ export async function getPublicBuilderList(db: Db = pooledDb()): Promise<PublicB
       and(
         eq(dbSchema.builders.status, 'published'),
         eq(dbSchema.builders.moderationState, 'clean'),
+        isNull(dbSchema.builders.deletedAt),
       )
     );
 
@@ -179,8 +138,27 @@ export async function getPublicBuilderList(db: Db = pooledDb()): Promise<PublicB
      * Gated on `status === 'published'`: a `staged` upload (mid-crop, not yet
      * confirmed) has no business appearing on a public index.
      */
-    image: row.media?.status === 'published' ? row.media.blobUrl ?? undefined : undefined,
+    image: builderImage(row.builder.imagePath, row.media),
   }));
+}
+
+/**
+ * A builder's portrait: a PUBLISHED uploaded avatar, else the curated
+ * repository asset key, else nothing.
+ *
+ * The projection used to return only the uploaded avatar, which dropped every
+ * curated builder's repository portrait — and the detail page then called
+ * `asset(undefined)` for its fallback, so no legacy portrait ever rendered.
+ * `BuilderIndex` and the detail page both tell the two apart by scheme: an
+ * absolute URL is an upload, anything else is an asset key.
+ */
+export function builderImage(
+  imagePath: string | null,
+  media: { status: string; blobUrl: string | null } | null,
+): string | undefined {
+  if (media?.status === 'published' && media.blobUrl) return media.blobUrl;
+  if (imagePath && !/^[a-z][a-z0-9+.-]*:/i.test(imagePath)) return imagePath;
+  return undefined;
 }
 
 /**
@@ -230,7 +208,8 @@ export async function getPublicBuilderBySlug(
     featured: row.builder.featured,
     ownerMemberId: row.builder.ownerMemberId ?? null,
     source: row.builder.source,
-    image: row.media?.status === 'published' ? row.media.blobUrl ?? undefined : undefined,
+    image: builderImage(row.builder.imagePath, row.media),
+    deletedAt: row.builder.deletedAt ?? null,
   };
 }
 
@@ -263,7 +242,13 @@ export async function loadLiveRecords(db: Db = pooledDb()): Promise<RecordSet> {
 export function getPublicSearchData(rs: RecordSet) {
   const isVisible = (r: { status: string }) => r.status === 'published' || r.status === 'featured';
   return {
-    builders: rs.builders.filter(b => isIndexableBuilder(b as any)),
+    /**
+     * RecordSet builders carry no `moderationState` — the reader already
+     * withholds held builders and demotes `reported` ones to `pending` — so
+     * `isIndexableBuilder()` (which requires `moderationState === 'clean'`)
+     * rejected every builder here and search never listed anybody.
+     */
+    builders: rs.builders.filter((b) => isVisible(b) && b.profileVisibility !== 'unlisted'),
     projects: rs.projects.filter(isVisible),
     events: rs.events.filter(isVisible),
     ambassadors: rs.ambassadors.filter(isVisible),
@@ -326,8 +311,7 @@ export async function getBuilderProjects(
     .where(
       and(
         eq(dbSchema.projectBuilders.builderId, builderId),
-        eq(dbSchema.projects.publicationStatus, 'published'),
-        eq(dbSchema.projects.moderationState, 'clean'),
+        publicProjectWhere(),
       ),
     );
 
@@ -356,8 +340,7 @@ export async function getBuilderProjects(
       .where(
         and(
           eq(dbSchema.projects.ownerMemberId, ownerMemberId),
-          eq(dbSchema.projects.publicationStatus, 'published'),
-          eq(dbSchema.projects.moderationState, 'clean'),
+          publicProjectWhere(),
         ),
       );
 

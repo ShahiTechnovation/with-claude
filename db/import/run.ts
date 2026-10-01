@@ -7,10 +7,16 @@
  */
 import 'dotenv/config';
 import { db } from '../client';
+import { databaseUrl } from '../env';
+import { isNeonUrl, pooledDb } from '../pool';
 import { importRecords } from './index';
 
 async function main(): Promise<void> {
-  const summary = await importRecords(db());
+  // Neon's HTTP driver for Neon; node-postgres for a local or self-hosted
+  // database — the same choice `db/migrate.ts` makes. The HTTP driver cannot
+  // reach `localhost`, which made the README's local-database path fail here.
+  const target = isNeonUrl(databaseUrl()) ? db() : pooledDb();
+  const summary = await importRecords(target as never);
 
   const lines = Object.entries(summary).map(([key, value]) => `  ${key.padEnd(28)} ${value}`);
   console.log('Imported:\n' + lines.join('\n'));
@@ -24,7 +30,7 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((error: unknown) => {
+main().then(() => process.exit(0)).catch((error: unknown) => {
   console.error('\nImport failed. Nothing was left half-written that a re-run will not repair.\n');
   console.error(error);
   process.exit(1);
