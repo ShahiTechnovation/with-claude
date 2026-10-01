@@ -371,6 +371,18 @@ const nav = [
     .masthead-inner :global(.account-link) {
       padding-inline: 0.6rem;
     }
+
+    /* The wordmark yields first, so the account control never overlaps it. */
+    .masthead-inner .brand :global(.wm-text) {
+      font-size: 0.92rem;
+      white-space: nowrap;
+    }
+  }
+
+  @media (max-width: 22.49em) {
+    .masthead-inner .brand :global(.wm-text) {
+      display: none;
+    }
   }
 
   @media (max-width: 63.99em) and (max-height: 30rem) {
