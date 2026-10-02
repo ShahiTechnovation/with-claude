@@ -13,13 +13,14 @@
 import type { APIRoute } from 'astro';
 import { json } from '@/server/http/guard';
 import { CRON_BUDGET_MS, runSync } from '@/server/integrations/baserow/runtime';
+import { secretMatches } from '@/server/integrations/baserow/webhook';
 
 export const prerender = false;
 
 export const GET: APIRoute = async ({ request }) => {
   const secret = process.env.CRON_SECRET;
   if (!secret) return json({ error: 'Not configured.' }, 503);
-  if (request.headers.get('authorization') !== `Bearer ${secret}`) return json({ error: 'Not authorised.' }, 401);
+  if (!secretMatches(request.headers.get('authorization'), `Bearer ${secret}`)) return json({ error: 'Not authorised.' }, 401);
 
   const result = await runSync('reconcile', { reconcileFirst: true, budgetMs: CRON_BUDGET_MS });
   return json(result, result.ran || result.reason === 'disabled' ? 200 : 503);

@@ -31,6 +31,7 @@
  * deployment is a free way to burn somebody's build minutes.
  */
 import type { APIRoute } from 'astro';
+import { secretMatches } from '@/server/integrations/baserow/webhook';
 
 export const prerender = false;
 
@@ -51,7 +52,7 @@ async function trigger(request: Request): Promise<Response> {
     return json({ error: 'Not configured.' }, 503);
   }
 
-  if (request.headers.get('authorization') !== `Bearer ${secret}`) {
+  if (!secretMatches(request.headers.get('authorization'), `Bearer ${secret}`)) {
     return json({ error: 'Not authorised.' }, 401);
   }
 
