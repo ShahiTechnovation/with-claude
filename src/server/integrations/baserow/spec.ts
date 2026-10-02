@@ -13,6 +13,12 @@
  * recaps and media come later, when a page actually renders them.
  */
 
+/**
+ * Link fields may be created with "Allow multiple relationships" on (Baserow's
+ * default), and URL fields as plain text. Neither is trusted: the DTO layer
+ * enforces exactly one linked event / project, and validates every URL value
+ * (scheme, host, credentials) whatever the field type.
+ */
 export type BaserowFieldType =
   | 'text'
   | 'long_text'
@@ -107,7 +113,7 @@ export const SPEC = {
     endTime: { label: 'End time', types: ['text'], required: false },
     timezone: { label: 'Timezone', types: ['text'], required: false },
     format: { label: 'Format', types: ['single_select'], required: true, options: EVENT_FORMATS },
-    registrationUrl: { label: 'Registration URL', types: ['url'], required: false },
+    registrationUrl: { label: 'Registration URL', types: ['url', 'text'], required: false },
     coverRef: { label: 'Cover', types: ['text'], required: false },
     lifecycle: { label: 'Lifecycle', types: ['single_select'], required: false, options: EVENT_LIFECYCLES },
     editorialStatus: {
@@ -132,9 +138,9 @@ export const SPEC = {
     description: { label: 'Description', types: ['long_text'], required: false },
     category: { label: 'Category', types: ['single_select'], required: true, options: PROJECT_CATEGORIES },
     tags: { label: 'Tags / tech', types: ['multiple_select', 'text'], required: false },
-    liveUrl: { label: 'Live URL', types: ['url'], required: false },
-    repoUrl: { label: 'Repo URL', types: ['url'], required: false },
-    videoUrl: { label: 'Video URL', types: ['url'], required: false },
+    liveUrl: { label: 'Live URL', types: ['url', 'text'], required: false },
+    repoUrl: { label: 'Repo URL', types: ['url', 'text'], required: false },
+    videoUrl: { label: 'Video URL', types: ['url', 'text'], required: false },
     coverRef: { label: 'Cover', types: ['text'], required: false },
     claudeUsage: { label: 'How Claude was used', types: ['long_text'], required: false },
     problem: { label: 'The problem', types: ['long_text'], required: false },
@@ -146,9 +152,9 @@ export const SPEC = {
       required: false,
       options: BUILD_STATUSES,
     },
-    downloadUrl: { label: 'Download URL', types: ['url'], required: false },
-    artifactUrl: { label: 'Other artifact URL', types: ['url'], required: false },
-    altVideoUrl: { label: 'Second demo video URL', types: ['url'], required: false },
+    downloadUrl: { label: 'Download URL', types: ['url', 'text'], required: false },
+    artifactUrl: { label: 'Other artifact URL', types: ['url', 'text'], required: false },
+    altVideoUrl: { label: 'Second demo video URL', types: ['url', 'text'], required: false },
     logoRef: { label: 'Logo', types: ['text'], required: false },
     event: { label: 'Event', types: ['link_row'], required: false, linksTo: 'events' },
     city: { label: 'City', types: ['link_row', 'text'], required: false, linksTo: 'cities' },
@@ -172,7 +178,7 @@ export const SPEC = {
     project: { label: 'Project', types: ['link_row'], required: true, linksTo: 'projects' },
     displayName: { label: 'Display name', types: ['text'], required: true },
     role: { label: 'Role', types: ['text'], required: false },
-    publicUrl: { label: 'Public profile URL', types: ['url'], required: false },
+    publicUrl: { label: 'Public profile URL', types: ['url', 'text'], required: false },
     displayOrder: { label: 'Display order', types: ['number'], required: false },
   },
 } as const satisfies Record<TableKey, Record<string, FieldSpec>>;

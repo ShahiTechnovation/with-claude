@@ -122,9 +122,11 @@ export function mapFields(live: Record<Table, LiveField[]>, ids: Record<Table, n
       if (extra.long_text_enable_rich_text) problems.push(`${table}: "${hit.name}" has rich text formatting on — turn it off (plain long text)`);
       // A held date is a calendar day; a time component would shift it by zone.
       if (want.type === 'date' && extra.date_include_time) problems.push(`${table}: "${hit.name}" includes a time — untick "Include time"`);
-      // One project, one event; one credit, one project.
+      // One project, one event; one credit, one project. Accepted with
+      // "Allow multiple relationships" on: the sync quarantines a row that
+      // links more than one (dto.ts), so it is reported, not refused.
       if (want.type === 'link_row' && extra.link_row_multiple_relationships === true) {
-        problems.push(`${table}: "${hit.name}" allows multiple relationships — untick "Allow multiple relationships"`);
+        notes.push(`${table}: "${hit.name}" allows multiple relationships — the sync enforces exactly one`);
       }
       if (want.type === 'number' && (extra.number_decimal_places ?? 0) > 0) notes.push(`${table}: "${hit.name}" shows decimals — 0 decimal places is cleaner (not required)`);
       fields[want.key] = hit.id;

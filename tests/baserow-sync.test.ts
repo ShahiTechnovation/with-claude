@@ -15,7 +15,7 @@ import { applyRow, archiveContractBlockers, tombstoneRow } from '../src/server/i
 import { claim, enqueue, reconcile, retryFailed, runQueue, type RowSource } from '../src/server/integrations/baserow/sync';
 import { parseWebhook, secretMatches } from '../src/server/integrations/baserow/webhook';
 import { validateSchema } from '../src/server/integrations/baserow/spec';
-import { parseProject } from '../src/server/integrations/baserow/dto';
+import { parseCredit, parseProject } from '../src/server/integrations/baserow/dto';
 import { listPublicProjects, getProjectDetail } from '../src/server/public/projects';
 
 const T = { cities: 101, events: 102, projects: 103, credits: 104 };
@@ -539,5 +539,43 @@ describe('Baserow publication intent never outranks moderation or a claim', () =
     await resync();
     expect((await project()).publicationStatus).toBe('published');
     expect((await mapping(T.projects, 3)).status).toBe('released');
+  });
+});
+
+describe('values the field type no longer guarantees', () => {
+  it('quarantines a project linked to two events; many projects may share one event', () => {
+    expect(parseProject(projectRow(3, { field_42: [...link(2), ...link(5)] }), config)).toMatchObject({
+      ok: false,
+      problems: ['event must link to exactly one event (links 2)'],
+    });
+    expect(parseProject(projectRow(7, { field_42: link(2) }), config).ok).toBe(true);
+    expect(parseProject(projectRow(8, { field_42: link(2) }), config).ok).toBe(true);
+  });
+
+  it('quarantines a credit linked to two projects', () => {
+    expect(parseCredit({ ...creditRow(4, 3, 'Asha Rao'), field_50: [...link(3), ...link(9)] }, config)).toMatchObject({
+      ok: false,
+      problems: ['project must link to exactly one project (links 2)'],
+    });
+  });
+
+  it('validates URL values held in plain-text fields', () => {
+    const bad: Record<string, string> = {
+      'http://localhost:8765/repo': 'repoUrl points at a local or private host',
+      'https://192.168.1.4/app': 'repoUrl points at a local or private host',
+      'javascript:alert(1)': 'repoUrl is not a valid http(s) link',
+      'ftp://files.example.com/x': 'repoUrl is not a valid http(s) link',
+      'https://user:pw@example.com/repo': 'repoUrl carries credentials',
+      'https://app.example.com/admin?key=abc123': 'repoUrl carries a credential or access parameter',
+      'https://demo.vercel.app/?_vercel_share=abc': 'repoUrl carries a credential or access parameter',
+      'not a link at all': 'repoUrl is not a valid http(s) link',
+    };
+    for (const [value, problem] of Object.entries(bad)) {
+      const parsed = parseProject(projectRow(3, { field_39: value }), config);
+      expect(parsed.ok, value).toBe(false);
+      if (!parsed.ok) expect(parsed.problems, value).toContain(problem);
+    }
+    const good = parseProject(projectRow(3, { field_39: 'https://github.com/team/repo' }), config);
+    expect(good.ok && good.dto.repoUrl).toBe('https://github.com/team/repo');
   });
 });

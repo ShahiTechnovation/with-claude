@@ -16,6 +16,7 @@
  * quarantines it: the last valid version stays live.
  */
 import { createHash } from 'node:crypto';
+import { ACCESS_PARAM, CREDENTIAL_PARAM, isPrivateHost } from '../../../lib/url-safety';
 import type { BaserowConfig } from './config';
 import {
   BUILD_STATUSES,
@@ -71,18 +72,38 @@ class Reader {
     return s;
   }
 
+  /**
+   * A public link. The field may be a Baserow URL field or plain text — the
+   * value is validated here either way: http(s) only, a real public host,
+   * no embedded credentials, no credential-bearing or access-granting query
+   * parameter. A bad value quarantines the row; it is never published.
+   */
   url(key: string): string | null {
     const s = this.text(key, 500);
     if (!s) return null;
+    let u: URL;
     try {
-      const u = new URL(s);
-      if (u.protocol !== 'https:' && u.protocol !== 'http:') throw new Error('scheme');
-      if (u.username || u.password) throw new Error('credentials');
-      return u.toString();
+      u = new URL(s);
     } catch {
       this.problems.push(`${key} is not a valid http(s) link`);
       return null;
     }
+    const host = u.hostname.toLowerCase();
+    const reason =
+      u.protocol !== 'https:' && u.protocol !== 'http:'
+        ? 'is not a valid http(s) link'
+        : u.username || u.password
+          ? 'carries credentials'
+          : isPrivateHost(host) || (!host.includes('.') && !host.includes(':'))
+            ? 'points at a local or private host'
+            : [...u.searchParams.keys()].some((k) => CREDENTIAL_PARAM.test(k) || ACCESS_PARAM.test(k))
+              ? 'carries a credential or access parameter'
+              : null;
+    if (reason) {
+      this.problems.push(`${key} ${reason}`);
+      return null;
+    }
+    return u.toString();
   }
 
   bool(key: string): boolean {
@@ -344,6 +365,9 @@ export function parseProject(row: RawRow, config: BaserowConfig): Parsed<Project
   const summary = r.text('summary', 300, true);
   if (summary && summary.length < 5) r.problems.push('summary needs at least five characters');
   const city = r.cityRef('city');
+  // The link field may allow several rows; a project belongs to ONE event.
+  const events = r.links('event');
+  if (events.length > 1) r.problems.push(`event must link to exactly one event (links ${events.length})`);
   const dto: ProjectDTO = {
     rowId: row.id,
     key: r.text('key', 160, true) ?? '',
@@ -367,7 +391,7 @@ export function parseProject(row: RawRow, config: BaserowConfig): Parsed<Project
     artifactUrl: r.url('artifactUrl'),
     altVideoUrl: r.url('altVideoUrl'),
     logoRef,
-    eventRowId: r.links('event')[0] ?? null,
+    eventRowId: events[0] ?? null,
     cityRowId: city.rowId,
     citySlug: city.slug,
     teamName: r.text('teamName', 120),
@@ -381,7 +405,9 @@ export function parseProject(row: RawRow, config: BaserowConfig): Parsed<Project
 
 export function parseCredit(row: RawRow, config: BaserowConfig): Parsed<CreditDTO> {
   const r = new Reader(row, fieldsOf(config, 'credits'));
-  const [projectRowId] = r.links('project', true);
+  const projects = r.links('project', true);
+  if (projects.length > 1) r.problems.push(`project must link to exactly one project (links ${projects.length})`);
+  const [projectRowId] = projects;
   const dto: CreditDTO = {
     rowId: row.id,
     projectRowId: projectRowId ?? 0,

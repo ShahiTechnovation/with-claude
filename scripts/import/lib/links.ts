@@ -21,6 +21,10 @@
  *   · Nothing here makes a network request.
  */
 
+import { ACCESS_PARAM, CREDENTIAL_PARAM, isPrivateHost } from '../../../src/lib/url-safety';
+
+export { isPrivateHost };
+
 export type LinkKind = 'live' | 'repo' | 'video' | 'download' | 'artifact' | 'post' | 'profile';
 
 export type LinkFlag =
@@ -66,8 +70,6 @@ export interface CellLinks {
 /** The kind of form field the cell came from — it decides ambiguous cases. */
 export type FieldRole = 'live' | 'repo' | 'video' | 'attachment' | 'showcase';
 
-const CREDENTIAL_PARAM = /^(key|apikey|api[_-]?key|token|access[_-]?token|auth|secret|password|passwd|pass|sig|signature|session|sessionid|code)$/i;
-const ACCESS_PARAM = /^_vercel_share$/i;
 const TUNNEL_HOST = /(^|\.)(trycloudflare\.com|ngrok-free\.(dev|app)|ngrok\.(io|app)|loca\.lt|serveo\.net)$/i;
 /** TLDs that appear in these submissions as bare domains. Deliberately short. */
 const BARE_TLD = 'com|in|dev|app|io|me|ai|tech|fun|net|org|co|xyz|so|page|site|link|cc';
@@ -77,30 +79,6 @@ const URL_IN_TEXT = new RegExp(
 );
 const SHORTHAND_REPO = /^([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))\/([A-Za-z0-9._-]{1,100})$/;
 
-export function isPrivateHost(host: string): boolean {
-  const h = host.toLowerCase().replace(/^\[|\]$/g, '');
-  if (h === 'localhost' || h.endsWith('.localhost') || h.endsWith('.local') || h.endsWith('.internal')) return true;
-  if (h === '0.0.0.0' || h === '::' || h === '::1') return true;
-  const v4 = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-  if (v4) {
-    const [a, b] = [Number(v4[1]), Number(v4[2])];
-    return (
-      a === 10 ||
-      a === 127 ||
-      a === 0 ||
-      (a === 169 && b === 254) ||
-      (a === 172 && b >= 16 && b <= 31) ||
-      (a === 192 && b === 168) ||
-      (a === 100 && b >= 64 && b <= 127) ||
-      a >= 224
-    );
-  }
-  if (h.includes(':')) {
-    // IPv6 literal: unique-local, link-local, mapped v4.
-    return /^(fc|fd|fe8|fe9|fea|feb)/i.test(h) || h.startsWith('::ffff:');
-  }
-  return false;
-}
 
 /** Pull URL-ish tokens out of free text, splitting pasted-twice URLs apart. */
 export function extractUrlTokens(text: string): { tokens: string[]; embedded: boolean; duplicated: boolean } {

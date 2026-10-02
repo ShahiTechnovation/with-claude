@@ -113,7 +113,7 @@ describe('field discovery is forgiving about names, strict about types', () => {
 });
 
 describe('field discovery catches what an assistant may get wrong', () => {
-  it('refuses duplicate names, a date with time, and a multi-relationship link', () => {
+  it('refuses duplicate names and a date with time; accepts multi-relationship links and text URLs', () => {
     const dup = workspace();
     const key = dup.events.find((f) => f.name.trim() === 'KEY')!;
     dup.events.push({ ...key, id: 99_999 });
@@ -123,9 +123,16 @@ describe('field discovery catches what an assistant may get wrong', () => {
     Object.assign(timed.events.find((f) => f.name.trim() === 'DATE')!, { date_include_time: true });
     expect(mapFields(timed, IDS).problems.join('\n')).toContain('includes a time');
 
+    // Accepted: the sync enforces exactly one link (see baserow-sync.test.ts).
     const multi = workspace();
     Object.assign(multi.projects.find((f) => f.name.trim() === 'EVENT')!, { link_row_multiple_relationships: true });
-    expect(mapFields(multi, IDS).problems.join('\n')).toContain('allows multiple relationships');
+    expect(mapFields(multi, IDS).problems).toEqual([]);
+    expect(mapFields(multi, IDS).notes.join('\n')).toContain('the sync enforces exactly one');
+
+    // URL fields created as plain text are accepted; values are validated by the DTO.
+    const textUrls = workspace();
+    for (const f of textUrls.projects) if (/URL\s*$/.test(f.name.trim())) f.type = 'text';
+    expect(mapFields(textUrls, IDS).problems).toEqual([]);
 
     const single = workspace();
     Object.assign(single.projects.find((f) => f.name.trim() === 'EVENT')!, { link_row_multiple_relationships: false });
