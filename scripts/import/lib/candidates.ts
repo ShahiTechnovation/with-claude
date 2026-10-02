@@ -113,9 +113,31 @@ export interface Candidate {
   videoUrl: string | null;
   claudeUsage: string | null;
   teamName: string | null;
+  /** The submission narrative, verbatim. Null from the generic mapping. */
+  problem: string | null;
+  solution: string | null;
+  builtWith: string | null;
+  buildStatus: 'functional' | 'partial' | 'prototype' | null;
+  downloadUrl: string | null;
+  artifactUrl: string | null;
+  altVideoUrl: string | null;
   credits: CandidateCredit[];
   sources: { sheet: string; rows: number[] }[];
   problems: string[];
+  /**
+   * The slug this project already has in Neon (from an earlier projection),
+   * so a re-import keeps its URL. Null for a project never projected.
+   */
+  slug?: string | null;
+  /** Original worksheet rows, for organisers: `<event> · <sheet> rows 12, 75`. */
+  sourceRows?: string | null;
+  /** Privacy-safe review notes for organisers: holds first, then import notes. */
+  reviewNotes?: string | null;
+  /**
+   * A source adapter's editorial verdict. `hold` is written to Baserow as a
+   * draft (so it can be resolved there) and is never published by `--publish`.
+   */
+  editorial?: { disposition: 'publish' | 'hold'; reasons: string[] };
 }
 
 export interface BuildStats {
@@ -292,6 +314,13 @@ export function buildCandidates(workbook: Workbook, mapping: Mapping): BuildResu
         videoUrl,
         claudeUsage: publicText(cell(row, 'claudeUsage'), 'claudeUsage')?.slice(0, 1_000) ?? null,
         teamName: teamName?.slice(0, 120) ?? null,
+        problem: null,
+        solution: null,
+        builtWith: null,
+        buildStatus: null,
+        downloadUrl: null,
+        artifactUrl: null,
+        altVideoUrl: null,
         credits: credit ? [credit] : [],
         sources: [{ sheet: sheet.name, rows: [rowNumber] }],
         problems,

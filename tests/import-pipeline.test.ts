@@ -15,7 +15,7 @@ import { reconcile, runQueue } from '../src/server/integrations/baserow/sync';
 import { buildCandidates, MappingSchema, type Mapping } from '../scripts/import/lib/candidates';
 import { buildPlan } from '../scripts/import/lib/plan';
 import { applyPlan, rollbackBatch, type Writer } from '../scripts/import/lib/apply';
-import { fieldOptionsFrom, loadBaserowProjects, loadCrosswalk, loadNeonProjects } from '../scripts/import/lib/existing';
+import { fieldOptionsFrom, loadBaserowProjects, loadCrosswalk, loadLastWritten, loadNeonProjects } from '../scripts/import/lib/existing';
 import { candidateIdentity } from '../scripts/import/lib/normalise';
 import type { Workbook } from '../scripts/import/lib/workbook';
 
@@ -191,6 +191,7 @@ async function planFor(wb: Workbook) {
   const plan = buildPlan({
     label: MAPPING.label, file: 'synthetic.xlsx', checksum: wb.checksum, candidates: built.candidates, stats: built.stats, errors: built.errors,
     crosswalk: await loadCrosswalk(db), baserowRows: await loadBaserowProjects(baserow, config), neonProjects: await loadNeonProjects(db),
+    lastWritten: await loadLastWritten(db, config, fieldOptionsFrom(baserow.fields(), config)),
   });
   const [batch] = await db.insert(schema.importBatches).values({ label: MAPPING.label, sourceFile: 'synthetic.xlsx', checksum: wb.checksum, mapping: MAPPING }).returning();
   return { built, plan, batchId: batch.id };
@@ -299,6 +300,33 @@ describe('plan → apply → project', () => {
     expect(report).toMatchObject({ created: 1, updated: 1 });
     const clinic = projectRows().find((r) => r.field_32 === 'Clinic Queue')!;
     expect(clinic.field_34).toBe('Shortens clinic waiting lines.');
+  });
+
+  it('an organiser edit in Baserow stands: a re-import updates only fields it still owns', async () => {
+    await applyAll(workbook(ROWS, DAY2));
+    const kisan = projectRows().find((r) => r.field_32 === 'Kisan Price' && JSON.stringify(r.field_42).includes('900'))!;
+    // An organiser rewrites the summary in Baserow after the import.
+    await baserow.updateRow(T.projects, kisan.id as number, { field_34: 'Organiser-written summary.' });
+    const revised = ROWS.map((r) => [...r]);
+    revised[0][2] = 'Helps farmers price crops fairly.'; // the sheet changed too
+    const { plan, report } = await applyAll(workbook(revised, DAY2));
+    const item = plan.items.find((i) => i.targetRowId === (kisan.id as number))!;
+    expect(item.action).toBe('unchanged');
+    expect(item.kept).toEqual([{ field: 'summary', current: 'Organiser-written summary.', source: 'Helps farmers price crops fairly.' }]);
+    expect(plan.totals.keptEdits).toBe(1);
+    expect(report.updated).toBe(0);
+    expect(projectRows().find((r) => r.id === kisan.id)!.field_34).toBe('Organiser-written summary.');
+  });
+
+  it('a create interrupted before it was recorded is adopted on resume, not repeated', async () => {
+    // The row lands, but the process "dies" before the ledger says applied.
+    baserow.failCreateAt = { n: 1, error: new Error('process killed') as never, landed: true };
+    const first = await applyAll(workbook(ROWS, DAY2));
+    expect(first.report.failed).toHaveLength(1);
+    baserow.failCreateAt = null;
+    const { report } = await applyAll(workbook(ROWS, DAY2));
+    expect(report.failed).toHaveLength(0);
+    expect(projectRows()).toHaveLength(4);
   });
 
   it('a failed apply resumes without duplicates', async () => {

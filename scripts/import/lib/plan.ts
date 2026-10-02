@@ -32,6 +32,14 @@ export interface ExistingNeonProject {
   artifacts: (string | null)[];
   /** The Baserow row this project is projected from, if any. */
   baserowRowId: number | null;
+  /** …and that row's table, so a row id from another table never matches. */
+  baserowTableId?: number | null;
+  /**
+   * The import candidate this project was projected from, when the import
+   * ledger says so. A project that IS an earlier import of the same
+   * submission is a match, not a duplicate.
+   */
+  candidateKey?: string | null;
   contentAuthority: string;
 }
 
@@ -46,8 +54,21 @@ export const DIFF_FIELDS = [
   'videoUrl',
   'claudeUsage',
   'teamName',
+  'problem',
+  'solution',
+  'builtWith',
+  'buildStatus',
+  'downloadUrl',
+  'artifactUrl',
+  'altVideoUrl',
+  'slug',
+  'sourceRows',
+  'reviewNotes',
 ] as const;
 export type DiffField = (typeof DIFF_FIELDS)[number];
+
+/** Field values this importer last wrote to a Baserow row, from the ledger. */
+export type LastWritten = Map<number, Partial<Record<DiffField, string>>>;
 
 export type Action = 'create' | 'update' | 'unchanged' | 'review';
 
@@ -58,6 +79,13 @@ export interface PlannedItem {
   basis: string;
   targetRowId: number | null;
   diff: { field: DiffField; before: string; after: string }[];
+  /**
+   * Fields an organiser changed in Baserow after the import wrote them (or
+   * that were never the import's): the organiser's value stands.
+   */
+  kept: { field: DiffField; current: string; source: string }[];
+  /** The existing Neon project this candidate already is (an earlier import). */
+  matchedProject: string | null;
   newCredits: string[];
   missing: string[];
   publishable: boolean;
@@ -74,6 +102,10 @@ export interface PlanTotals {
   update: number;
   unchanged: number;
   review: number;
+  /** Candidates that are already a Neon project through an earlier import. */
+  matchedExisting: number;
+  /** Fields kept as an organiser edited them. */
+  keptEdits: number;
   suspectedDuplicates: number;
   weakIdentity: number;
   missing: Record<string, number>;
@@ -103,8 +135,7 @@ export function candidateValue(c: Candidate, field: DiffField): string {
 export function missingForArchive(c: Candidate): string[] {
   return [
     !c.summary && 'summary',
-    !c.teamName && c.credits.length === 0 && 'team credit',
-    !c.liveUrl && !c.repoUrl && !c.videoUrl && 'artifact link',
+    !c.liveUrl && !c.repoUrl && !c.videoUrl && !c.downloadUrl && 'artifact link',
   ].filter(Boolean) as string[];
 }
 
@@ -118,7 +149,24 @@ export function buildPlan(input: {
   crosswalk: Map<string, number | null>;
   baserowRows: ExistingBaserowProject[];
   neonProjects: ExistingNeonProject[];
+  /** What the importer last wrote per row; without it, only empty fields are filled. */
+  lastWritten?: LastWritten;
 }): Plan {
+  // One key, one row. Two Baserow rows claiming the same key — or two
+  // candidates with the same key — would make every later write ambiguous.
+  const seenKeys = new Map<string, number>();
+  for (const r of input.baserowRows) {
+    if (!r.key) continue;
+    if (seenKeys.has(r.key)) {
+      throw new Error(`Baserow rows ${seenKeys.get(r.key)} and ${r.rowId} carry the same key ${r.key} — resolve the duplicate before importing`);
+    }
+    seenKeys.set(r.key, r.rowId);
+  }
+  const candidateKeys = new Set<string>();
+  for (const c of input.candidates) {
+    if (candidateKeys.has(c.key)) throw new Error(`two candidates share the key ${c.key} — the source adapter must merge or distinguish them`);
+    candidateKeys.add(c.key);
+  }
   const byKey = new Map(input.baserowRows.filter((r) => r.key).map((r) => [r.key!, r]));
   const byRowId = new Map(input.baserowRows.map((r) => [r.rowId, r]));
   const neonByArtifact = new Map<string, ExistingNeonProject>();
@@ -137,9 +185,12 @@ export function buildPlan(input: {
     const crossRow = input.crosswalk.get(c.key) ?? null;
     const existing = (crossRow ? byRowId.get(crossRow) : undefined) ?? byKey.get(c.key);
 
+    // The earlier projection of this same submission: a match, not a duplicate.
+    const matched = input.neonProjects.find((p) => p.candidateKey === c.key) ?? null;
     // Possible duplicate: an artifact we already have, under a different row.
     for (const a of [c.repoUrl, c.liveUrl, c.videoUrl].map(artifactKey)) {
       const hit = a ? neonByArtifact.get(a) : undefined;
+      if (hit && hit.candidateKey === c.key) continue;
       if (hit && (!existing || hit.baserowRowId !== existing.rowId)) {
         reasons.push(
           `possible duplicate of /projects/${hit.slug}/ (${hit.contentAuthority === 'member' ? 'a member-owned project' : 'an existing project'}) — same artifact ${a}`,
@@ -155,32 +206,48 @@ export function buildPlan(input: {
     }
 
     const missing = missingForArchive(c);
+    if (c.editorial?.disposition === 'hold') {
+      reasons.push(...c.editorial.reasons.map((r) => `held: ${r}`));
+    }
     const base = {
       key: c.key,
       title: c.title,
       basis: c.basis,
+      matchedProject: matched?.slug ?? null,
       missing,
-      publishable: missing.length === 0,
+      publishable: missing.length === 0 && c.editorial?.disposition !== 'hold',
       sources: c.sources,
       problems: c.problems,
     };
 
     if (existing) {
-      const diff = DIFF_FIELDS.flatMap((field) => {
+      // THREE-WAY: a field is updated only when it is empty in Baserow, or
+      // still holds exactly what this importer last wrote there. Anything else
+      // is an organiser's edit (or was never ours) and stands.
+      const last = input.lastWritten?.get(existing.rowId);
+      const diff: PlannedItem['diff'] = [];
+      const kept: PlannedItem['kept'] = [];
+      for (const field of DIFF_FIELDS) {
         const after = candidateValue(c, field);
         const before = existing.values[field] ?? '';
         // Missing in the sheet is not a request to clear.
-        return after && after !== before ? [{ field, before, after }] : [];
-      });
+        if (!after || after === before) continue;
+        if (!before || (last?.[field] !== undefined && last[field] === before)) diff.push({ field, before, after });
+        else kept.push({ field, current: before, source: after });
+      }
       const known = new Set(existing.creditNames.map((n) => n.toLowerCase()));
       const newCredits = c.credits.map((cr) => cr.displayName).filter((n) => !known.has(n.toLowerCase()));
-      const action: Action = reasons.length ? 'review' : diff.length || newCredits.length ? 'update' : 'unchanged';
-      return { ...base, action, targetRowId: existing.rowId, diff, newCredits, reasons };
+      // An editorial hold is information on an existing row, not a blocker:
+      // the row is already a draft, and updates never change its status.
+      const blocking = reasons.filter((r) => !r.startsWith('held:'));
+      const action: Action = blocking.length ? 'review' : diff.length || newCredits.length ? 'update' : 'unchanged';
+      return { ...base, action, targetRowId: existing.rowId, diff, kept, newCredits, reasons };
     }
     return {
       ...base,
       action: reasons.length ? 'review' : 'create',
       targetRowId: null,
+      kept: [],
       diff: DIFF_FIELDS.flatMap((field) => {
         const after = candidateValue(c, field);
         return after ? [{ field, before: '', after }] : [];
@@ -210,6 +277,8 @@ export function buildPlan(input: {
       update: count('update'),
       unchanged: count('unchanged'),
       review: count('review'),
+      matchedExisting: items.filter((i) => i.matchedProject).length,
+      keptEdits: items.reduce((n, i) => n + i.kept.length, 0),
       suspectedDuplicates: items.filter((i) => i.reasons.some((r) => r.startsWith('possible duplicate'))).length,
       weakIdentity: items.filter((i) => i.reasons.some((r) => r.startsWith('weak identity'))).length,
       missing: missingCounts,
@@ -235,6 +304,8 @@ export function renderPlan(plan: Plan): string {
     `| --- | --- | --- | --- | --- | --- | --- |`,
     `| ${t.sourceRows} | ${t.candidates} | ${t.groupedRows} | ${t.create} | ${t.update} | ${t.unchanged} | ${t.review} |`,
     '',
+    `- Already a project through an earlier import (matched by source key, not duplicated): ${t.matchedExisting ?? 0}`,
+    `- Fields kept as an organiser edited them in Baserow: ${t.keptEdits ?? 0}`,
     `- Suspected duplicates: ${t.suspectedDuplicates}`,
     `- Weak identities (title + team only): ${t.weakIdentity}`,
     `- Missing for publication: ${Object.entries(t.missing).map(([k, v]) => `${k} ${v}`).join(', ') || 'none'}`,
@@ -255,7 +326,9 @@ export function renderPlan(plan: Plan): string {
       lines.push(`### ${item.title}`, '');
       lines.push(`- key \`${item.key}\` · ${item.basis}${item.targetRowId ? ` · Baserow row ${item.targetRowId}` : ''}`);
       lines.push(`- from ${item.sources.map((s) => `${s.sheet} rows ${s.rows.join(', ')}`).join('; ')}`);
+      if (item.matchedProject) lines.push(`- matches the existing project /projects/${item.matchedProject}/ (earlier import of this submission)`);
       if (item.reasons.length) lines.push(...item.reasons.map((r) => `- **review:** ${r}`));
+      if (item.kept.length) lines.push(...item.kept.map((k) => `- kept organiser edit: ${k.field}`));
       if (item.missing.length) lines.push(`- missing for publication: ${item.missing.join(', ')}`);
       if (item.problems.length) lines.push(...item.problems.map((p) => `- note: ${p}`));
       if (section !== 'create' && item.diff.length) {

@@ -17,6 +17,11 @@
  * rollback  reverts this batch's Baserow rows that nobody has edited or
  *           claimed since
  *
+ * The September 2026 Bhopal event archive (two organiser workbooks with
+ * their own source adapter — see `scripts/import/archive.ts`):
+ *
+ *   archive-plan | verify-links | archive-report | fixture-seed | sync | enrich-logos
+ *
  * Environment: DATABASE_URL (ledger, crosswalk), BASEROW_CONFIG, BASEROW_API_URL,
  * and BASEROW_IMPORT_TOKEN — a database token with create/update/delete on the
  * Projects and Credits tables ONLY. It is never used by the website.
@@ -31,55 +36,18 @@ import { basename, join } from 'node:path';
 import { eq } from 'drizzle-orm';
 import { pooledDb } from '../../db/pool';
 import * as schema from '../../db/schema';
-import { createBaserowClient } from '../../src/server/integrations/baserow/client';
-import { baserowSettings } from '../../src/server/integrations/baserow/config';
 import { readWorkbook } from './lib/workbook';
 import { maskForDisplay } from './lib/normalise';
 import { buildCandidates, MappingSchema } from './lib/candidates';
 import { buildPlan, renderPlan, type Plan } from './lib/plan';
 import { applyPlan, rollbackBatch, type Decision } from './lib/apply';
 import { fieldOptionsFrom, loadBaserowProjects, loadCrosswalk, loadNeonProjects } from './lib/existing';
+import { fail, flag, guardDatabase, option, positional as firstPositional, writer } from './lib/cli-env';
+import { ARCHIVE_COMMANDS, runArchiveCommand } from './archive';
+import { writeManifest } from './lib/workspace';
 
-const [command, ...rest] = process.argv.slice(2);
-const flag = (name: string) => rest.includes(`--${name}`);
-const option = (name: string) => {
-  const i = rest.indexOf(`--${name}`);
-  return i >= 0 ? rest[i + 1] : undefined;
-};
-const positional = rest.find((a, i) => !a.startsWith('--') && !rest[i - 1]?.startsWith('--'));
-
-function fail(message: string): never {
-  console.error(`\n${message}\n`);
-  process.exit(1);
-}
-
-function guardDatabase() {
-  const url = process.env.DATABASE_URL ?? '';
-  let host = '';
-  try {
-    host = new URL(url).hostname;
-  } catch {
-    fail('DATABASE_URL is not set or not a URL.');
-  }
-  const local = host === '127.0.0.1' || host === 'localhost';
-  console.log(`Database: ${host}${local ? ' (local)' : ''}`);
-  if (!local && !flag('allow-remote-db')) {
-    fail('Refusing to use a non-local database without --allow-remote-db. Rehearse against a local or staging copy first.');
-  }
-}
-
-function settings() {
-  const s = baserowSettings();
-  if (!s.config) fail(s.problem ?? 'BASEROW_CONFIG is not set (see config/baserow.example.json).');
-  return s;
-}
-
-function writer() {
-  const s = settings();
-  const token = process.env.BASEROW_IMPORT_TOKEN?.trim();
-  if (!token) fail('BASEROW_IMPORT_TOKEN is not set. Use a token scoped to the Projects and Credits tables.');
-  return { client: createBaserowClient({ baseUrl: s.apiUrl, token, maxConcurrency: 3 }), config: s.config! };
-}
+const [command] = process.argv.slice(2);
+const positional = firstPositional();
 
 async function inspect(file: string) {
   const wb = await readWorkbook(file);
@@ -150,17 +118,25 @@ async function apply() {
   if (!batch) fail(`batch ${saved.batchId} is not in this database`);
   const { client, config } = writer();
   const options = fieldOptionsFrom(await client.listFields(config.tables.projects.tableId), config);
-  const report = await applyPlan({
-    db,
-    writer: client,
-    config,
-    batchId: saved.batchId,
-    plan: saved.plan,
-    candidates: saved.candidates,
-    decisions,
-    options,
-    publish: flag('publish'),
-  });
+  let report: Awaited<ReturnType<typeof applyPlan>> | null = null;
+  try {
+    report = await applyPlan({
+      db,
+      writer: client,
+      config,
+      batchId: saved.batchId,
+      plan: saved.plan,
+      candidates: saved.candidates,
+      decisions,
+      options,
+      publish: flag('publish'),
+    });
+  } finally {
+    // The recoverable manifest — every row this batch created or changed —
+    // is written even when the run stops part-way; a re-run resumes.
+    const manifest = await writeManifest(db, saved.batchId, join(planPath, '..'), { kind: 'projects', report });
+    console.log(`Manifest: ${join(planPath, '..', 'apply-manifest.json')} ${JSON.stringify(manifest.counts)}`);
+  }
   console.log(JSON.stringify(report, null, 2));
   console.log('\nThe website picks these rows up through the normal sync (webhook, or "Reconcile now" in the admin).');
   process.exit(report.failed.length ? 2 : 0);
@@ -190,5 +166,12 @@ switch (command) {
     await rollback();
     break;
   default:
-    fail('Usage: import inspect <file> | plan <file> --mapping <m.json> | apply --plan <plan.json> --yes [--publish] | rollback --batch <id> --yes');
+    if (command && (ARCHIVE_COMMANDS as readonly string[]).includes(command)) {
+      await runArchiveCommand(command as (typeof ARCHIVE_COMMANDS)[number]);
+      break;
+    }
+    fail(
+      'Usage: import inspect <file> | plan <file> --mapping <m.json> | apply --plan <plan.json> --yes [--publish] | rollback --batch <id> --yes\n' +
+        `       import ${ARCHIVE_COMMANDS.join(' | ')}  (see scripts/import/archive.ts)`,
+    );
 }

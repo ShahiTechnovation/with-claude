@@ -38,7 +38,7 @@ export interface Writer {
 }
 
 /** Select option ids by value, per logical field, from the live schema. */
-export type FieldOptions = Partial<Record<'category' | 'tags' | 'editorialStatus', Map<string, number>>> & {
+export type FieldOptions = Partial<Record<'category' | 'tags' | 'editorialStatus' | 'buildStatus', Map<string, number>>> & {
   tagsAreText?: boolean;
 };
 
@@ -103,9 +103,23 @@ export function projectFields(
   if (c.videoUrl) put('videoUrl', c.videoUrl);
   if (c.claudeUsage) put('claudeUsage', c.claudeUsage);
   if (c.teamName) put('teamName', c.teamName);
+  if (c.problem) put('problem', c.problem);
+  if (c.solution) put('solution', c.solution);
+  if (c.builtWith) put('builtWith', c.builtWith);
+  if (c.downloadUrl) put('downloadUrl', c.downloadUrl);
+  if (c.artifactUrl) put('artifactUrl', c.artifactUrl);
+  if (c.altVideoUrl) put('altVideoUrl', c.altVideoUrl);
+  if (c.buildStatus) {
+    const status = options.buildStatus?.get(c.buildStatus);
+    if (status !== undefined) put('buildStatus', status);
+    else if (!only || only.has('buildStatus')) warnings.push(`build status "${c.buildStatus}" is not an option in Baserow`);
+  }
+  if (c.slug) put('slug', c.slug);
   put('event', [c.eventRowId]);
   put('sourceBatch', batchLabel);
   put('sourceKey', c.key);
+  if (c.sourceRows) put('sourceRows', c.sourceRows);
+  if (c.reviewNotes) put('reviewNotes', c.reviewNotes);
   if (editorial) {
     const id = options.editorialStatus?.get(editorial);
     if (id === undefined) warnings.push(`editorial status "${editorial}" is not an option in Baserow`);
@@ -252,7 +266,33 @@ export async function applyPlan(input: {
       const done = await ledgerFor(db, batchId, c.key, 'project', projectsTable);
       if (done?.status === 'applied' && done.rowId) return done.rowId;
 
-      const existingRowId = item.targetRowId ?? known.get(c.key) ?? null;
+      // RESUME. A create that was sent but never recorded (the process died,
+      // or the call was ambiguous) left a `pending` ledger row. If a row with
+      // this key now exists, it is that create: adopt it, do not make another.
+      if (done?.status === 'pending' && done.before === null && !item.targetRowId) {
+        const landed = known.get(c.key);
+        if (landed) {
+          const row = await writer.getRow(projectsTable, landed);
+          const fields = (done.after ?? {}) as Record<string, unknown>;
+          await upsertLedger(db, {
+            batchId, candidateKey: c.key, action: 'project', tableId: projectsTable, rowId: landed,
+            before: null, after: fields, afterHash: writtenHash(fields, row), status: 'applied', appliedAt: new Date(),
+          });
+          await rememberCrosswalk(db, c, projectsTable, landed, batchId);
+          report.adoptedAfterAmbiguousFailure += 1;
+          report.created += 1;
+          return landed;
+        }
+      }
+
+      // The plan said "create", yet a row with this key exists and it is not
+      // ours from this batch: somebody (or another run) made it after the plan
+      // was read. Writing the planned fields over it could erase their work.
+      if (!item.targetRowId && known.get(c.key)) {
+        throw new Error(`a row with key ${c.key} (row ${known.get(c.key)}) appeared after planning — re-run the plan`);
+      }
+
+      const existingRowId = item.targetRowId ?? null;
       if (existingRowId) {
         // UPDATE: only the fields the plan says differ; never editorial status.
         const only = new Set(item.diff.map((d) => d.field));
@@ -273,7 +313,9 @@ export async function applyPlan(input: {
       }
 
       // CREATE: draft unless publishing was requested and the contract is met.
-      const publishable = input.publish && missingForArchive(c).length === 0;
+      // An editorial hold is written as a draft so it can be resolved in
+      // Baserow, and is never published by --publish.
+      const publishable = input.publish && missingForArchive(c).length === 0 && c.editorial?.disposition !== 'hold';
       if (publishable) report.publishedRequested += 1;
       const { fields } = projectFields(c, config, input.options, null, publishable ? 'published' : 'draft', plan.label);
       await upsertLedger(db, { batchId, candidateKey: c.key, action: 'project', tableId: projectsTable, before: null, after: fields, status: 'pending' });
@@ -322,7 +364,20 @@ export async function applyPlan(input: {
         if (url && credit.publicUrl) fields[url] = credit.publicUrl;
         if (order) fields[order] = i;
         await upsertLedger(db, { batchId, candidateKey: c.key, action, tableId: creditsTable, before: null, after: fields, status: 'pending' });
-        const row = await writer.createRow(creditsTable, fields);
+        let row: Row;
+        try {
+          row = await writer.createRow(creditsTable, fields);
+        } catch (error) {
+          if (!ambiguous(error)) throw error;
+          // The credit may have landed: look for it on this project by name.
+          const again = (await writer.listAllRows(creditsTable, { pageSize: 200 })).rows.find((r) => {
+            const ids = comparable(r[linkField]);
+            return Array.isArray(ids) && ids.includes(projectRowId) && String(r[nameField] ?? '').toLowerCase() === credit.displayName.toLowerCase();
+          });
+          if (!again) throw error;
+          row = again;
+          report.adoptedAfterAmbiguousFailure += 1;
+        }
         await upsertLedger(db, {
           batchId, candidateKey: c.key, action, tableId: creditsTable, rowId: row.id, before: null, after: fields,
           afterHash: writtenHash(fields, row), status: 'applied', appliedAt: new Date(),

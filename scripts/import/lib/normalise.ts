@@ -57,16 +57,26 @@ export function cleanUrl(value: string | undefined | null): { url: string | null
 
 /**
  * The comparison form of an artifact URL: scheme-less, `www.`-less, lower-case
- * host, no trailing slash or `.git`, no query or fragment (tracking params
- * differ between copies of the same link).
+ * host, no trailing slash or `.git`, no fragment, and no query — tracking
+ * params differ between copies of the same link — EXCEPT the parameter that
+ * IS the identity on hosts that put it there. `drive.google.com/open?id=A` and
+ * `?id=B` are different files, and `youtube.com/watch?v=…` different videos;
+ * dropping those made every Drive "open" link and every YouTube watch link
+ * look like the same artifact. `youtu.be/<id>` and `/watch?v=<id>` agree.
  */
 export function artifactKey(url: string | null): string | null {
   if (!url) return null;
   try {
     const u = new URL(url);
-    const host = u.hostname.toLowerCase().replace(/^www\./, '');
+    const host = u.hostname.toLowerCase().replace(/^www\.|^m\./, '');
     const path = u.pathname.replace(/\/+$/, '').replace(/\.git$/, '');
     const lowerPath = /(^|\.)github\.com$|(^|\.)gitlab\.com$/.test(host) ? path.toLowerCase() : path;
+    if (host === 'youtube.com' && path === '/watch' && u.searchParams.get('v')) return `youtube:${u.searchParams.get('v')}`;
+    if (host === 'youtu.be' && path.length > 1) return `youtube:${path.slice(1)}`;
+    if (host === 'drive.google.com') {
+      const id = u.searchParams.get('id') ?? path.match(/\/d\/([^/]+)/)?.[1];
+      if (id) return `drive:${id}`;
+    }
     return `${host}${lowerPath}`;
   } catch {
     return null;
