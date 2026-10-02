@@ -662,6 +662,16 @@ export async function syncSource(source: EventSource, db: AnyDatabase): Promise<
       .where(eq(schema.eventSourceRecords.id, link.recordId));
   }
 
+  // Events promoted before end times were stored never pass through promote() again; fill them with its guards.
+  await db.execute(sql`
+    update events e
+       set end_time = (r.ends_at at time zone 'Asia/Kolkata')::time, updated_at = ${now}
+      from event_source_records r
+     where r.event_id = e.id and r.source_id = ${sourceRow.id} and r.state = 'promoted'
+       and e.source_id = ${sourceRow.id} and e.content_authority <> 'baserow' and e.end_time is null
+       and (r.ends_at at time zone 'Asia/Kolkata')::date = e.date
+       and (r.ends_at at time zone 'Asia/Kolkata')::time > e.start_time`);
+
   /**
    * ── PHASE 5: WHO RAN THEM ────────────────────────────────────────────────
    *

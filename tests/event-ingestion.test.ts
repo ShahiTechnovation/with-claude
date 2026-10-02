@@ -374,6 +374,38 @@ describe('the sync', () => {
     });
   });
 
+  it('fills in the end time of an event published before end times were stored', async () => {
+    const [city] = await db.select({ id: schema.cities.id }).from(schema.cities).limit(1);
+    await db.insert(schema.events).values({
+      slug: 'curated-full-day', title: 'Curated Full Day', format: 'workshop', cityId: city.id, date: '2026-12-09',
+      startTime: '09:00:00', venueName: 'A Real Venue', summary: 'Authored by a person.', status: 'published',
+      registrationUrl: 'https://luma.com/curated-full-day',
+    } as never);
+    const ends = (start: string, end: string) => ({ startsAt: new Date(start), endsAt: new Date(end) });
+    const source = new ManualEventSource(
+      [
+        event({ externalId: 'evt-old-day', title: 'Bhopal | Old Day', ...ends('2026-12-07T03:30:00Z', '2026-12-07T12:30:00Z') }),
+        event({ externalId: 'evt-old-night', title: 'Bhopal | Old Night', ...ends('2026-12-08T14:30:00Z', '2026-12-08T20:30:00Z') }),
+        event({
+          externalId: 'evt-curated-day', registrationUrl: 'https://luma.com/curated-full-day',
+          ...ends('2026-12-09T03:30:00Z', '2026-12-09T12:30:00Z'),
+        }),
+      ],
+      { key: 'test:end-backfill', complete: true },
+    );
+    await syncSource(source, db);
+    // As main left it: promoted, and no end time.
+    await db.update(schema.events).set({ endTime: null }).where(eq(schema.events.externalId, 'evt-old-day'));
+
+    // Nothing in the feed changed, so promote() does not run again.
+    expect(await syncSource(source, db)).toMatchObject({ ok: true, unchanged: 3, withdrawn: 0 });
+    expect((await eventRow('evt-old-day')).endTime).toBe('18:00:00');
+    // The same guards as promote(): no end on a later day, and never a curated event.
+    expect((await eventRow('evt-old-night')).endTime).toBeNull();
+    const [curated] = await db.select().from(schema.events).where(eq(schema.events.slug, 'curated-full-day'));
+    expect(curated.endTime).toBeNull();
+  });
+
   it('never publishes a foreign event', async () => {
     const source = new ManualEventSource(
       [event({ externalId: 'evt-zrh', title: 'Zurich | Claude', location: 'Bahnhofstrasse 75, Zürich, Switzerland', latitude: 47.37, longitude: 8.53 })],
