@@ -163,23 +163,19 @@
 }
 
 /* --- DIRECTORY SURFACES ------------------------------------------------
-   The Project Directory is a dense, scannable tool rather than an editorial
-   spread, so its panels and controls get their own (still warm, still
-   restrained) vocabulary: softly rounded panels on an off-white ground, thin
-   neutral borders, Inter for the controls. Used by `src/styles/directory.css`
-   only — the rest of the site keeps its near-square editorial edges. */
+   The Project Directory is a dense, scannable tool, and it is set in the same
+   language as the rest of the record: the paper ground, hairline rules,
+   near-square edges, mono uppercase metadata. These are the directory's names
+   for the site's own values, so its panels cannot drift from them again, plus
+   the box sizes it needs. Used by `src/styles/directory.css`, the project
+   page and `ProjectLogo`. */
 :root {
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-chip: 6px;
-  --panel: #fffdf9;
-  --panel-border: #e3dccf;
-  --panel-hover: #faf6ee;
-  --chip-bg: #f1ece2;
-  --chip-ink: #4d473e;
-  --badge-event-bg: #f7e3d8;
-  --badge-event-ink: #8a3a1e; /* 6.0:1 on --badge-event-bg */
-  --focus-ring: 0 0 0 3px rgb(217 119 87 / 0.35);
+  --radius-md: var(--radius-xs);
+  --radius-lg: var(--radius-sm);
+  --radius-chip: var(--radius-none);
+  --panel: var(--paper);
+  --panel-border: var(--rule);
+  --panel-hover: var(--paper-raised);
   --dir-measure: 1280px;
   --dir-sidebar: 272px;
   --logo-row: 76px;

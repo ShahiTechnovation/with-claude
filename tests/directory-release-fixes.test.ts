@@ -115,6 +115,29 @@ describe('the directory and event pages after review', () => {
     expect(rule).not.toMatch(/z-index|position/);
   });
 
+  it("the directory is set in the site's editorial language, not a vocabulary of its own", () => {
+    const css = readFileSync('src/styles/directory.css', 'utf8').replace(/\r\n/g, '\n');
+    const tokens = readFileSync('src/styles/tokens.css', 'utf8').replace(/\r\n/g, '\n');
+    const surfaces = tokens.slice(tokens.indexOf('DIRECTORY SURFACES'));
+
+    // Colours and radii come from the site's tokens: no raw hex (the select's
+    // chevron data-URI aside), no pill, and no radius the site does not have.
+    expect(css.replace(/url\("data:[^"]*"\)/g, '')).not.toMatch(/#[0-9a-f]{3,8}\b/i);
+    expect(css).not.toMatch(/border-radius:\s*(\d+px|999)/);
+    expect(surfaces).toMatch(/--radius-lg: var\(--radius-sm\);/);
+    expect(surfaces).toMatch(/--panel: var\(--paper\);/);
+    expect(surfaces).not.toMatch(/#[0-9a-f]{3,8}\b/i);
+
+    // Counts are mono tabular figures with no pill behind them.
+    const count = css.match(/\n\.fopt-count,\n\.fall-count \{([^}]*)\}/)?.[1] ?? '';
+    expect(count).toContain('font-family: var(--font-mono)');
+    expect(count).toContain('tabular-nums');
+    expect(count).not.toMatch(/background|border-radius/);
+
+    // The card title takes the title face when the fonts change, Inter until then.
+    expect(css.match(/\n\.prow-title \{([^}]*)\}/)?.[1]).toContain('font-family: var(--font-title, var(--font-body))');
+  });
+
   it('an event page whose projects could not be read is never stored by the CDN', () => {
     const page = readFileSync('src/pages/events/[slug].astro', 'utf8').replace(/\r\n/g, '\n');
     expect(page).toMatch(/eventProjects\(event\.id, 12\)\.catch\([\s\S]{0,500}privateCache\(Astro, false\);\s*projectsFailed = true;/);
