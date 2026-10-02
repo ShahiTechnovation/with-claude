@@ -123,6 +123,70 @@ describe('the directory and event pages after review', () => {
     expect(rule).not.toMatch(/z-index|position/);
   });
 
+  it("the directory is set in the site's editorial language, not a vocabulary of its own", () => {
+    const css = readFileSync('src/styles/directory.css', 'utf8').replace(/\r\n/g, '\n');
+    const tokens = readFileSync('src/styles/tokens.css', 'utf8').replace(/\r\n/g, '\n');
+    const surfaces = tokens.slice(tokens.indexOf('DIRECTORY SURFACES'));
+
+    // Colours and radii come from the site's tokens: no raw hex (the select's
+    // chevron data-URI aside), no pill, and no radius the site does not have.
+    expect(css.replace(/url\("data:[^"]*"\)/g, '')).not.toMatch(/#[0-9a-f]{3,8}\b/i);
+    expect(css).not.toMatch(/border-radius:\s*(\d+px|999)/);
+    expect(surfaces).toMatch(/--radius-lg: var\(--radius-sm\);/);
+    expect(surfaces).toMatch(/--panel: var\(--paper\);/);
+    expect(surfaces).not.toMatch(/#[0-9a-f]{3,8}\b/i);
+
+    // Counts are mono tabular figures with no pill behind them.
+    const count = css.match(/\n\.fopt-count,\n\.fall-count \{([^}]*)\}/)?.[1] ?? '';
+    expect(count).toContain('font-family: var(--font-mono)');
+    expect(count).toContain('tabular-nums');
+    expect(count).not.toMatch(/background|border-radius/);
+
+    // The card title takes the title face when the fonts change, Inter until then.
+    expect(css.match(/\n\.prow-title \{([^}]*)\}/)?.[1]).toContain('font-family: var(--font-title, var(--font-body))');
+  });
+
+  it('small bold headings use the title face, because the display serif only ships light', () => {
+    const css = readFileSync('src/styles/directory.css', 'utf8').replace(/\r\n/g, '\n');
+    for (const selector of ['.dir-empty h2', '.js .dir-drawer-head h2']) {
+      const rule = css.match(new RegExp(`\\n\\s*${selector.replace(/\./g, '\\.')} \\{([^}]*)\\}`))?.[1] ?? '';
+      expect(rule, selector).toContain('font-family: var(--font-title, var(--font-body))');
+    }
+    // The display face is left to the page title alone.
+    expect(css.match(/font-family: var\(--font-display\)/g)).toHaveLength(1);
+  });
+
+  it('mono text asks only for the weights IBM Plex Mono is loaded in', () => {
+    const css = readFileSync('src/styles/directory.css', 'utf8').replace(/\r\n/g, '\n');
+    const base = readFileSync('src/layouts/Base.astro', 'utf8');
+    const loaded = [...base.matchAll(/ibm-plex-mono\/(\d+)\.css/g)].map((m) => m[1]);
+    expect(loaded).toEqual(['400', '500']);
+
+    for (const [, selector, body] of css.matchAll(/\n\s*([^{}\n]+) \{([^}]*)\}/g)) {
+      if (!body.includes('font-family: var(--font-mono)')) continue;
+      const weight = body.match(/font-weight: (\d+)/)?.[1];
+      if (weight) expect(loaded, selector).toContain(weight);
+    }
+    // The event badge is mono, so its emphasis is 500 on 400, not a 600 that does not exist.
+    expect(css.match(/\n\.badge-event \{([^}]*)\}/)?.[1]).toContain('font-weight: 400');
+    expect(css.match(/\n\.badge-event strong \{([^}]*)\}/)?.[1]).toContain('font-weight: 500');
+  });
+
+  it('the "Clear all" spacing stays in the filter chips, off the shared back and "See all" links', () => {
+    const css = readFileSync('src/styles/directory.css', 'utf8').replace(/\r\n/g, '\n');
+    expect(css.match(/\n\.dir-clear \{([^}]*)\}/)?.[1]).not.toContain('margin');
+    expect(css.match(/\n\.dir-chips \.dir-clear \{([^}]*)\}/)?.[1]).toContain('margin-left');
+  });
+
+  it('the sticky filter column leaves room for a focus ring inside its scroll box', () => {
+    const css = readFileSync('src/styles/directory.css', 'utf8').replace(/\r\n/g, '\n');
+    const sticky = css.match(/@media \(min-width: 64em\) and \(min-height: 40em\) \{\n  \.dir-filters \{([^}]*)\}/)?.[1] ?? '';
+    expect(sticky).toContain('overflow: auto');
+    // An outline is 2px at a 2px offset; a scroll container clips what falls outside it.
+    expect(sticky).toMatch(/padding-inline: 4px;/);
+    expect(sticky).toMatch(/margin-inline: -4px;/);
+  });
+
   it('an event page whose projects could not be read is never stored by the CDN', () => {
     const page = readFileSync('src/pages/events/[slug].astro', 'utf8').replace(/\r\n/g, '\n');
     expect(page).toMatch(/eventProjects\(event\.id, 12\)\.catch\([\s\S]{0,500}privateCache\(Astro, false\);\s*projectsFailed = true;/);
