@@ -362,6 +362,29 @@ describe('claiming', () => {
     expect(claims).toHaveLength(1);
   });
 
+  /**
+   * TWO TABS, ONE MEMBER. Both submissions get past any read of "is one
+   * already waiting", so only `profile_claims_one_open_per_member` separates
+   * them. The second is a 409, never an unhandled error.
+   */
+  it('answers 409 to the second of two simultaneous ambiguous claims', async () => {
+    await fixtureBuilder('zz-two-tabs');
+    const claimant = await member('did:privy:zz-two-tabs');
+
+    const results = await Promise.all([
+      attemptClaim(claimant, 'zz-two-tabs', privyUser([]), db),
+      attemptClaim(claimant, 'zz-two-tabs', privyUser([]), db),
+    ]);
+
+    expect(results.filter((r) => r.ok)).toHaveLength(1);
+    expect(results.find((r) => !r.ok)).toEqual({
+      ok: false,
+      status: 409,
+      error: 'You already have a claim waiting on this profile.',
+    });
+    expect(await db.select().from(schema.profileClaims)).toHaveLength(1);
+  });
+
   it('refuses a member who already owns a different record', async () => {
     await fixtureBuilder('zz-first-owned', [
       { label: 'GitHub', url: 'https://github.com/zz-multi' },

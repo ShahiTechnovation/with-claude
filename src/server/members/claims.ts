@@ -326,21 +326,9 @@ export async function attemptClaim(
 
   // ── Ambiguous: a pending row, and a human decides ─────────────────────
   if (!decision.resolves) {
-    const [existing] = await db
-      .select({ id: schema.profileClaims.id })
-      .from(schema.profileClaims)
-      .where(
-        and(
-          eq(schema.profileClaims.memberId, member.id),
-          eq(schema.profileClaims.builderId, builder.id),
-          eq(schema.profileClaims.status, 'pending'),
-        ),
-      );
-
-    if (existing) {
-      return { ok: false, status: 409, error: 'You already have a claim waiting on this profile.' };
-    }
-
+    // "Is one already waiting?" is asked by the insert itself, against
+    // `profile_claims_one_open_per_member`. Reading first and inserting after
+    // let two tabs both read "no" and the second insert fail on the index.
     const [claim] = await db
       .insert(schema.profileClaims)
       .values({
@@ -350,7 +338,15 @@ export async function attemptClaim(
         status: 'pending',
         note: 'No deterministic identity match. Awaiting moderator review.',
       })
+      .onConflictDoNothing({
+        target: [schema.profileClaims.memberId, schema.profileClaims.builderId],
+        where: sql`${schema.profileClaims.status} = 'pending'`,
+      })
       .returning({ id: schema.profileClaims.id });
+
+    if (!claim) {
+      return { ok: false, status: 409, error: 'You already have a claim waiting on this profile.' };
+    }
 
     return { ok: true, status: 'pending', claimId: claim.id, slug: builder.slug };
   }
