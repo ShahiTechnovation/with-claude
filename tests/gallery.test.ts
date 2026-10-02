@@ -48,10 +48,19 @@ describe.each<[string, RecordSet]>([
 });
 
 describe('the /gallery/ page', () => {
-  it('renders that selector over the live record, with each photo’s alt text', () => {
-    const page = readFileSync('src/pages/gallery.astro', 'utf8');
-    expect(page).toContain('await loadLiveRecords()');
-    expect(page).toContain('selectors.photoRecordByEvent()');
+  const page = readFileSync('src/pages/gallery.astro', 'utf8');
+
+  it('renders that live gallery, with each photo’s alt text', () => {
+    expect(page).toContain('await galleryRooms()');
     expect(page).toContain('alt={plate.alt}');
+    // Resolved inside the guarded read, where a missing file is a 503 rather than a raw 500.
+    expect(page).not.toContain('requireAsset');
+  });
+
+  it('answers a failed read with an uncached 503, as the homepage does', () => {
+    expect(page).toContain("logReadFailure('gallery', error)");
+    expect(page).toContain('Astro.response.status = 503');
+    expect(page).toContain("Astro.response.headers.set('Retry-After', '30')");
+    expect(page).toContain('privateCache(Astro)');
   });
 });
