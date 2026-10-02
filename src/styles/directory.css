@@ -34,7 +34,7 @@
   padding: 0.28em 0.62em;
   font-family: var(--font-mono);
   font-size: calc(var(--t-micro) * var(--dir-text));
-  font-weight: 500;
+  font-weight: 400;
   line-height: 1.5;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -45,8 +45,9 @@
   transition: color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out);
 }
 
+/* IBM Plex Mono is loaded at 400 and 500, so the emphasis is 500 on 400. */
 .badge-event strong {
-  font-weight: 600;
+  font-weight: 500;
   color: var(--ink);
 }
 
@@ -370,6 +371,11 @@
     overflow: auto;
     overscroll-behavior: contain;
     scrollbar-width: thin;
+    /* A scroll container clips what falls outside it, and a focus ring is 2px
+       at a 2px offset. The column grows by that much each side and pulls back
+       by the same, so its content stays where it was. */
+    padding-inline: 4px;
+    margin-inline: -4px;
   }
 }
 
@@ -492,6 +498,9 @@
   min-width: 1.6rem;
   font-family: var(--font-mono);
   font-size: calc(var(--t-micro) * var(--dir-text));
+  /* Set, not inherited: the current "All events" row is 600, a weight the
+     mono face is not loaded in. */
+  font-weight: 400;
   font-variant-numeric: tabular-nums;
   line-height: 1.7;
   letter-spacing: 0.06em;
@@ -778,13 +787,16 @@
 }
 
 .dir-clear {
-  margin-left: 0.35rem;
   font-family: var(--font-mono);
   font-size: calc(var(--t-micro) * var(--dir-text));
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--clay-deep);
   text-underline-offset: 3px;
+}
+
+.dir-chips .dir-clear {
+  margin-left: 0.35rem;
 }
 
 .dir-status {
