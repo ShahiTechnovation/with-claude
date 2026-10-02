@@ -111,3 +111,24 @@ describe('field discovery is forgiving about names, strict about types', () => {
     expect(mapFields(live, IDS).problems.join('\n')).toContain('rich text formatting on');
   });
 });
+
+describe('field discovery catches what an assistant may get wrong', () => {
+  it('refuses duplicate names, a date with time, and a multi-relationship link', () => {
+    const dup = workspace();
+    const key = dup.events.find((f) => f.name.trim() === 'KEY')!;
+    dup.events.push({ ...key, id: 99_999 });
+    expect(mapFields(dup, IDS).problems.join('\n')).toContain('2 fields are named "Key"');
+
+    const timed = workspace();
+    Object.assign(timed.events.find((f) => f.name.trim() === 'DATE')!, { date_include_time: true });
+    expect(mapFields(timed, IDS).problems.join('\n')).toContain('includes a time');
+
+    const multi = workspace();
+    Object.assign(multi.projects.find((f) => f.name.trim() === 'EVENT')!, { link_row_multiple_relationships: true });
+    expect(mapFields(multi, IDS).problems.join('\n')).toContain('allows multiple relationships');
+
+    const single = workspace();
+    Object.assign(single.projects.find((f) => f.name.trim() === 'EVENT')!, { link_row_multiple_relationships: false });
+    expect(mapFields(single, IDS).problems).toEqual([]);
+  });
+});

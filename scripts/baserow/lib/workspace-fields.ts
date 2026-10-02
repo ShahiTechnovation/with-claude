@@ -107,10 +107,26 @@ export function mapFields(live: Record<Table, LiveField[]>, ids: Record<Table, n
         (want.required ? problems : notes).push(`${table}: no field named "${s.label}"${want.required ? '' : ' (optional — skipped)'}`);
         continue;
       }
-      // Rich text would store the teams' answers as escaped markdown.
-      if ((hit as LiveField & { long_text_enable_rich_text?: boolean }).long_text_enable_rich_text) {
-        problems.push(`${table}: "${hit.name}" has rich text formatting on — turn it off (plain long text)`);
+      const extra = hit as LiveField & {
+        long_text_enable_rich_text?: boolean;
+        date_include_time?: boolean;
+        link_row_multiple_relationships?: boolean;
+        number_decimal_places?: number;
+      };
+      // Two fields answering to one name: which one is the data in? Refuse.
+      const twins = want.key === PRIMARY[table] ? [] : list.filter((f) => named(f, s.label));
+      if (twins.length > 1) {
+        problems.push(`${table}: ${twins.length} fields are named "${s.label}" (${twins.map((f) => `field_${f.id}`).join(', ')}) — delete the extra one`);
       }
+      // Rich text would store the teams' answers as escaped markdown.
+      if (extra.long_text_enable_rich_text) problems.push(`${table}: "${hit.name}" has rich text formatting on — turn it off (plain long text)`);
+      // A held date is a calendar day; a time component would shift it by zone.
+      if (want.type === 'date' && extra.date_include_time) problems.push(`${table}: "${hit.name}" includes a time — untick "Include time"`);
+      // One project, one event; one credit, one project.
+      if (want.type === 'link_row' && extra.link_row_multiple_relationships === true) {
+        problems.push(`${table}: "${hit.name}" allows multiple relationships — untick "Allow multiple relationships"`);
+      }
+      if (want.type === 'number' && (extra.number_decimal_places ?? 0) > 0) notes.push(`${table}: "${hit.name}" shows decimals — 0 decimal places is cleaner (not required)`);
       fields[want.key] = hit.id;
     }
     config.tables[table] = { tableId: ids[table], fields };

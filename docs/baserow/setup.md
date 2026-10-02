@@ -35,6 +35,10 @@ the sync uses field ids, so renaming later is safe. A name may drop its
 bracketed part (`Short title` for `Short title (badges)`). Long text fields:
 leave **rich text formatting off**. Date fields: **no time**. Number fields:
 **0 decimal places**. Select options are lower-case exactly as written.
+Links are one-way and single: the sync reads only the link it owns, and a
+reciprocal field in the other table is not needed (if one exists, keep just
+that one — it is harmless). `baserow:discover` refuses duplicate field names,
+rich text, a date with time and a link that allows several rows.
 
 **Events** (22 fields; *Luma event id* optional)
 
@@ -71,7 +75,7 @@ leave **rich text formatting off**. Date fields: **no time**. Number fields:
 | Slug | Single line text | |
 | Summary | Long text | |
 | Category | Single select | `product`, `agent`, `developer-tool`, `research`, `creative`, `campus`, `experiment`, `startup` |
-| Event | Link to table → **Events** | untick "allow multiple relationships"; the related field in Events is optional |
+| Event | Link to table → **Events** | one-way: untick "Create related field in linked table" and "Allow multiple relationships" |
 | Team name | Single line text | |
 | The problem | Long text | |
 | The solution | Long text | |
@@ -99,7 +103,7 @@ Neon ID (text).
 
 | Field | Type | Options / notes |
 | --- | --- | --- |
-| Project | Link to table → **Projects** | |
+| Project | Link to table → **Projects** | one-way: untick "Create related field in linked table" and "Allow multiple relationships" |
 | Role | Single line text | |
 | Public profile URL | URL | |
 | Display order | Number | 0 decimal places |
