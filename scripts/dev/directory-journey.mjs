@@ -151,9 +151,9 @@ try {
     // dev toolbar's shadow DOM (dev only), which has headings of its own.
     const h1s = await page.evaluate(() => [...document.querySelectorAll('h1')].map((h) => h.innerText.trim()));
     check('one h1 reading "Project Directory"', h1s.join('|') === 'Project Directory', h1s.join('|'));
-    check('20 rows on the first page', (await rows(page).count()) === 20);
+    check('60 rows on the first page (the largest bounded page)', (await rows(page).count()) === 60);
     const badges = await page.locator('.dir-list .badge-event').allInnerTexts();
-    check('every row on page 1 has a "Built at" badge with a date', badges.length === 20 && badges.every((b) => /^Built at .+ · \d{1,2} \w{3} 2026$/.test(b.trim())), badges.slice(0, 3).join(' / '));
+    check('every row on page 1 has a "Built at" badge with a date', badges.length === 60 && badges.every((b) => /^Built at .+ · \d{1,2} \w{3} 2026$/.test(b.trim())), badges.slice(0, 3).join(' / '));
     check('default sort is newest event first (Fable 5.1 first)', badges[0]?.includes('Fable 5.1 Build Day · 20 Sep 2026'), badges[0]);
     check('sidebar visible beside results', await page.locator('#dir-filters').isVisible());
     check('search field and first result above the fold', await page.evaluate(() => {
@@ -168,7 +168,7 @@ try {
     // Event filter.
     await page.locator('input[data-facet="events:claude-impact-lab-september"]').check();
     await page.waitForURL(/event=claude-impact-lab-september/);
-    await page.waitForFunction(() => !document.querySelector('[data-dir-results]')?.hasAttribute('aria-busy'));
+    await page.waitForFunction(() => !document.querySelector('[data-dir-swap]')?.hasAttribute('aria-busy'));
     const ilBadges = await page.locator('.dir-list .badge-event').allInnerTexts();
     check(`Impact Lab 2 filter: ${IL} projects`, saysCount(await countText(page), IL), await countText(page));
     check('Impact Lab 2 filter: every badge says Impact Lab 2 · 15 Sep 2026', ilBadges.length === Math.min(IL, 20) && ilBadges.every((b) => b.includes('Impact Lab 2 · 15 Sep 2026')), ilBadges[0]);
@@ -177,12 +177,12 @@ try {
     // OR within the group.
     await page.locator('input[data-facet="events:bhopal-claude-code-build-day-fable-5-1"]').check();
     await page.waitForURL(/event=bhopal-claude-code-build-day-fable-5-1/);
-    await page.waitForFunction(() => !document.querySelector('[data-dir-results]')?.hasAttribute('aria-busy'));
+    await page.waitForFunction(() => !document.querySelector('[data-dir-swap]')?.hasAttribute('aria-busy'));
     check(`two events (OR): ${BOTH} projects`, saysCount(await countText(page), BOTH), await countText(page));
     // AND across groups.
     await page.locator('input[data-facet="has:video"]').check();
     await page.waitForURL(/has=video/);
-    await page.waitForFunction(() => !document.querySelector('[data-dir-results]')?.hasAttribute('aria-busy'));
+    await page.waitForFunction(() => !document.querySelector('[data-dir-swap]')?.hasAttribute('aria-busy'));
     const withVideo = await countText(page);
     const [{ n: expectVideo }] = await pick(
       `select count(*)::int n from projects p join events e on e.id=p.built_at_event_id where p.publication_status='published' and p.moderation_state='clean' and p.deleted_at is null and p.video_url is not null and e.slug in ('claude-impact-lab-september','bhopal-claude-code-build-day-fable-5-1')`,
@@ -193,43 +193,48 @@ try {
     // Remove one chip.
     await page.locator('.dir-chips .dir-chip', { hasText: 'Has demo video' }).click();
     await page.waitForURL((u) => !u.search.includes('has=video'));
-    await page.waitForFunction(() => !document.querySelector('[data-dir-results]')?.hasAttribute('aria-busy'));
+    await page.waitForFunction(() => !document.querySelector('[data-dir-swap]')?.hasAttribute('aria-busy'));
     check('removing a chip removes only that filter', saysCount(await countText(page), BOTH) && !(await page.locator('input[data-facet="has:video"]').isChecked()));
     // Back / forward.
     await page.goBack();
     await page.waitForURL(/has=video/);
-    await page.waitForFunction(() => !document.querySelector('[data-dir-results]')?.hasAttribute('aria-busy'));
+    await page.waitForFunction(() => !document.querySelector('[data-dir-swap]')?.hasAttribute('aria-busy'));
     check('back restores the previous filters and results', (await page.locator('input[data-facet="has:video"]').isChecked()) && (await countText(page)).includes(String(expectVideo)));
     await page.goForward();
     await page.waitForURL((u) => !u.search.includes('has=video'));
-    await page.waitForFunction(() => !document.querySelector('[data-dir-results]')?.hasAttribute('aria-busy'));
+    await page.waitForFunction(() => !document.querySelector('[data-dir-swap]')?.hasAttribute('aria-busy'));
     check('forward re-applies the later state', !(await page.locator('input[data-facet="has:video"]').isChecked()));
     // Clear all.
     await page.locator('.dir-clear', { hasText: 'Clear all' }).click();
     await page.waitForURL(`${BASE}/projects/`);
-    await page.waitForFunction(() => !document.querySelector('[data-dir-results]')?.hasAttribute('aria-busy'));
+    await page.waitForFunction(() => !document.querySelector('[data-dir-swap]')?.hasAttribute('aria-busy'));
     check('clear all returns the whole directory', (await page.locator('.dir-chips').count()) === 0);
 
     // Search (debounced, replaceState).
     await page.locator('[data-dir-q]').fill('traffic');
     await page.waitForURL(/q=traffic/);
-    await page.waitForFunction(() => !document.querySelector('[data-dir-results]')?.hasAttribute('aria-busy'));
+    await page.waitForFunction(() => !document.querySelector('[data-dir-swap]')?.hasAttribute('aria-busy'));
     const titles = await page.locator('.prow-title').allInnerTexts();
-    // Fable rows 31/80 (BhopalFlow AI, BHOPAL//FLOW) are held for an organiser's
-    // duplicate decision: drafts, so search must not surface either.
+    // Held rows (Fable 31/80, BhopalFlow AI and BHOPAL//FLOW, wait on a
+    // duplicate decision) are drafts: whichever drafts match, search must not
+    // surface them. Read from the database so a stale copy cannot pass or fail
+    // this by accident.
     const [{ n: trafficPublic }] = await pick(
       `select count(*)::int n from projects where publication_status='published' and moderation_state='clean' and deleted_at is null and (title ilike '%traffic%' or summary ilike '%traffic%')`,
     );
-    check('search "traffic" never shows the held drafts BhopalFlow AI / BHOPAL//FLOW', !titles.includes('BhopalFlow AI') && !titles.includes('BHOPAL//FLOW'), titles.join(', '));
+    const trafficDrafts = (await pick(
+      `select title from projects where publication_status<>'published' and deleted_at is null and (title ilike '%traffic%' or summary ilike '%traffic%' or title ilike '%bhopal%flow%')`,
+    )).map((r) => r.title);
+    check(`search "traffic" never shows a draft (${trafficDrafts.join(', ') || 'none in this database'})`, trafficDrafts.every((t) => !titles.includes(t)), titles.join(', '));
     check(`search "traffic" returns results only when a public project matches (${trafficPublic} by title/summary)`, trafficPublic === 0 || titles.length > 0, titles.join(', '));
     check('search keeps focus in the field', await page.evaluate(() => document.activeElement?.matches('[data-dir-q]')));
     await page.locator('[data-dir-q]').fill('Matmulattention');
     await page.waitForURL(/q=Matmulattention/);
-    await page.waitForFunction(() => !document.querySelector('[data-dir-results]')?.hasAttribute('aria-busy'));
+    await page.waitForFunction(() => !document.querySelector('[data-dir-swap]')?.hasAttribute('aria-busy'));
     check('search matches a team label', (await page.locator('.prow-title').allInnerTexts()).includes('Disha'));
     await page.locator('[data-dir-q]').fill('zz-no-such-project');
     await page.waitForURL(/q=zz-no-such-project/);
-    await page.waitForFunction(() => !document.querySelector('[data-dir-results]')?.hasAttribute('aria-busy'));
+    await page.waitForFunction(() => !document.querySelector('[data-dir-swap]')?.hasAttribute('aria-busy'));
     check('no-results state is distinct', (await page.locator('.dir-empty h2').innerText()).includes('No projects match these filters'));
     await page.locator('[data-dir-q]').fill('');
     await page.waitForURL(`${BASE}/projects/`);
@@ -237,16 +242,16 @@ try {
     // Sort + pagination.
     await page.locator('[data-dir-sort]').selectOption('name');
     await page.waitForURL(/sort=name/);
-    await page.waitForFunction(() => !document.querySelector('[data-dir-results]')?.hasAttribute('aria-busy'));
+    await page.waitForFunction(() => !document.querySelector('[data-dir-swap]')?.hasAttribute('aria-busy'));
     const sorted = await page.locator('.prow-title').allInnerTexts();
     // The server orders lower(title) by byte (COLLATE "C"): compare the same way.
     const outOfOrder = sorted.findIndex((t, i) => i > 0 && Buffer.from(sorted[i - 1].toLowerCase()).compare(Buffer.from(t.toLowerCase())) > 0);
     check('Name A–Z is alphabetical (case-insensitive)', outOfOrder === -1, outOfOrder > 0 ? `${sorted[outOfOrder - 1]} > ${sorted[outOfOrder]}` : '');
     await page.locator('.dir-pager a', { hasText: '2' }).first().click();
     await page.waitForURL(/page=2/);
-    await page.waitForFunction(() => !document.querySelector('[data-dir-results]')?.hasAttribute('aria-busy'));
+    await page.waitForFunction(() => !document.querySelector('[data-dir-swap]')?.hasAttribute('aria-busy'));
     const page2 = await page.locator('.prow-title').allInnerTexts();
-    check('page 2 keeps the sort and shows the next 20', /sort=name/.test(page.url()) && page2.length === 20 && !page2.includes(sorted[0]));
+    check('page 2 keeps the sort and shows the rest', /sort=name/.test(page.url()) && page2.length > 0 && page2.length <= 60 && !page2.includes(sorted[0]));
     check('current page is marked', (await page.locator('.dir-pager [aria-current="page"]').innerText()).includes('2'));
     // Into a project and back: filters/sort preserved.
     await page.locator('.prow-link').first().click();
@@ -301,7 +306,7 @@ try {
     check('the drawer does not apply until Apply', !page.url().includes('event='));
     await page.locator('[data-apply]').click();
     await page.waitForURL(/event=claude-impact-lab-september/);
-    await page.waitForFunction(() => !document.querySelector('[data-dir-results]')?.hasAttribute('aria-busy'));
+    await page.waitForFunction(() => !document.querySelector('[data-dir-swap]')?.hasAttribute('aria-busy'));
     check('Apply filters and closes the drawer', saysCount(await countText(page), IL) && !(await page.locator('#dir-filters.is-open').count()));
     check('"Filters (1)" shows the active count', /Filters \(1\)/.test(await page.locator('[data-open-filters]').innerText()));
     await shot(page, 'directory-375-filtered');

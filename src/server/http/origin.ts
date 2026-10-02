@@ -37,9 +37,11 @@
  *
  * Both hosts, because both answer — `withclaude.in` redirects to `www`, but a
  * request that arrives on the apex is still served, and a page loaded there
- * posts with that `Origin`.
+ * posts with that `Origin`. `projects.withclaude.in` serves the Project
+ * Directory and project pages from this same deployment, and a project page's
+ * "Report" form posts from there (`src/lib/directory-host.ts`).
  */
-const PRODUCTION_ORIGINS = ['https://www.withclaude.in', 'https://withclaude.in'];
+const PRODUCTION_ORIGINS = ['https://www.withclaude.in', 'https://withclaude.in', 'https://projects.withclaude.in'];
 
 /**
  * This project's own namespace on `vercel.app`.

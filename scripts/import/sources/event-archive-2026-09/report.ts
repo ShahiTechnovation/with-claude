@@ -64,7 +64,7 @@ export function renderReconciliation(result: AdapterResult, options: { generated
   lines.push('');
 
   const held = result.rows.filter((r) => r.outcome.kind === 'candidate' && r.outcome.disposition === 'hold');
-  lines.push('## Open decisions (held as drafts)', '', '| Source | Row | Proposed title | What is needed |', '| --- | ---: | --- | --- |');
+  lines.push('## Open decisions (not public)', '', 'Held rows are written to Baserow as drafts, except any the planner flags itself (a possible duplicate of an existing project, or no artifact to identify it by), which wait in `decisions.json`.', '', '| Source | Row | Proposed title | What is needed |', '| --- | ---: | --- | --- |');
   for (const r of held) {
     const c = r.outcome.kind === 'candidate' ? byKey.get(r.outcome.key) : undefined;
     lines.push(`| ${SOURCES[r.source].event} | ${r.row} | ${esc(c?.title ?? '')} | ${esc((c?.editorial?.reasons ?? []).join('; '))} |`);

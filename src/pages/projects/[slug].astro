@@ -21,6 +21,7 @@
  */
 export const prerender = false;
 
+import { Image } from 'astro:assets';
 import Base from '@/layouts/Base.astro';
 import NotFound from '@/components/NotFound.astro';
 import ProjectLogo from '@/components/ProjectLogo.astro';
@@ -382,6 +383,17 @@ const iconFor = (kind: string) =>
                 <h2 id="demo-h">Demo and screenshots</h2>
                 {cover.kind === 'blob' && (
                   <img class="pd-shot" src={cover.blobUrl} alt={`Screenshot of ${project.title}`} loading="lazy" decoding="async" width="1600" height="1000" />
+                )}
+                {cover.kind === 'asset' && (
+                  <Image
+                    class="pd-shot"
+                    src={cover.imageMetadata!}
+                    alt={`Screenshot of ${project.title}`}
+                    widths={[640, 1100, 1600]}
+                    sizes="(max-width: 63.99em) 92vw, 760px"
+                    loading="lazy"
+                    decoding="async"
+                  />
                 )}
                 {videos.length > 0 && (
                   <ul class="pd-videos">

@@ -277,11 +277,40 @@ const NOT_USAGE = /#claude\w*|claude (code )?impact lab|claude community|claude 
  * says nothing about use. Verbatim apart from markdown emphasis; never
  * paraphrased, never inferred from the event the project came from.
  */
+/**
+ * Sentences, split on . ! ? followed by space and on line breaks — but never
+ * inside parentheses or brackets, where a "?" is part of the sentence
+ * ("cross-field logic (does the income match the statement?)").
+ */
+export function splitSentences(text: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let current = '';
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i]!;
+    if (ch === '(' || ch === '[') depth += 1;
+    else if ((ch === ')' || ch === ']') && depth > 0) depth -= 1;
+    if (ch === '\n') {
+      out.push(current);
+      current = '';
+      depth = 0;
+      continue;
+    }
+    current += ch;
+    if (depth === 0 && /[.!?]/.test(ch) && /\s/.test(text[i + 1] ?? ' ')) {
+      out.push(current);
+      current = '';
+    }
+  }
+  out.push(current);
+  return out.map((s) => s.trim()).filter(Boolean);
+}
+
 export function claudeUsageFrom(solution: string | null, stack: string | null = null): string | null {
   const sentences: string[] = [];
   const consider = (text: string | null, strict: boolean) => {
     if (!text) return;
-    for (const raw of text.replace(/\*\*|__/g, '').split(/(?<=[.!?])\s+|\n+/)) {
+    for (const raw of splitSentences(text.replace(/\*\*|__/g, ''))) {
       const s = raw
         .trim()
         .replace(/^#{1,6}\s+/, '')
@@ -290,6 +319,10 @@ export function claudeUsageFrom(solution: string | null, stack: string | null = 
         .replace(/^\*|\*$/g, '')
         .trim();
       if (s.length < 4 || !MODEL_WORDS.test(s.replace(NOT_USAGE, ''))) continue;
+      // A lead-in to a list ("…tools, including:") is not a statement on its own.
+      if (/[:;,]$/.test(s)) continue;
+      // Unbalanced brackets mean a fragment.
+      if ((s.match(/\(/g)?.length ?? 0) !== (s.match(/\)/g)?.length ?? 0)) continue;
       if (strict && (s.split(/\s+/).length < 10 || !STACK_USAGE.test(s))) continue;
       if (!sentences.includes(s)) sentences.push(s);
     }
@@ -388,14 +421,14 @@ function pickLinks(rows: RowRecord[], order: number[], verified: LinkVerificatio
     if (check && !check.ok) {
       const gone = check.status === 404 || check.status === 410;
       const wall = check.status !== undefined && check.status < 400;
-      const where = `${l.role} link in row ${l.row} (${l.host})`;
       if (gone || wall) {
+        // Withheld links are cited by field and row only — not even their host.
         notes.push(
-          `${where} is not publicly reachable (${gone ? `${check.status} — private or removed` : 'redirects to a sign-in page'}) on ${istDay(check.checkedAt)} — withheld; ask the team for a public link`,
+          `${l.role} link in row ${l.row} is not publicly reachable (${gone ? `${check.status} — private or removed` : 'redirects to a sign-in page'}) on ${istDay(check.checkedAt)} — withheld; ask the team for a public link`,
         );
         return false;
       }
-      notes.push(`${where} did not respond normally (${check.status ?? 'timeout'}) on ${istDay(check.checkedAt)} — kept; recheck`);
+      notes.push(`${l.role} link in row ${l.row} (${l.host}) did not respond normally (${check.status ?? 'timeout'}) on ${istDay(check.checkedAt)} — kept; recheck`);
     }
     return true;
   });

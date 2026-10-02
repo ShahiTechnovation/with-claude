@@ -82,8 +82,14 @@ const cover = asset(event.coverImage);
  * badge can never disagree about which projects, or how many.
  */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+let projectsFailed = false;
 const built = UUID.test(event.id)
-  ? await eventProjects(event.id, 12).catch(() => ({ items: [], total: 0 }))
+  ? await eventProjects(event.id, 12).catch(() => {
+      // Unknown is not "none": the empty-room invitation below must not claim
+      // there are no projects when we simply could not read them.
+      projectsFailed = true;
+      return { items: [], total: 0 };
+    })
   : { items: [], total: 0 };
 const outputs = built.items;
 const recaps = selectors.storiesForEvent(event.slug);
@@ -112,7 +118,11 @@ const schema = [
     eventStatus:
       lifecycle === 'cancelled'
         ? 'https://schema.org/EventCancelled'
-        : 'https://schema.org/EventScheduled',
+        : event.rescheduledFrom
+          ? 'https://schema.org/EventRescheduled'
+          : 'https://schema.org/EventScheduled',
+    // schema.org's own field for a moved event: the date it was announced for.
+    ...(event.rescheduledFrom ? { previousStartDate: event.rescheduledFrom } : {}),
     eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
     isAccessibleForFree: event.free,
     location: {
@@ -216,8 +226,9 @@ const crumbs = trail(
         {
           event.rescheduledFrom && (
             <p class="detail-rescheduled">
-              {isPast ? 'Held on' : 'Now on'} {formatDateLong(event.date)}, rescheduled from{' '}
-              {formatDateLong(event.rescheduledFrom).replace(/ \d{4}$/, '')}.
+              {lifecycle === 'cancelled'
+                ? `Moved to ${formatDateLong(event.date)} from ${formatDateLong(event.rescheduledFrom).replace(/ \d{4}$/, '')}.`
+                : `${isPast ? 'Held on' : 'Now on'} ${formatDateLong(event.date)}, rescheduled from ${formatDateLong(event.rescheduledFrom).replace(/ \d{4}$/, '')}.`}
             </p>
           )
         }
@@ -401,7 +412,7 @@ const crumbs = trail(
         }
 
         {
-          isPast && outputs.length === 0 && (
+          isPast && outputs.length === 0 && !projectsFailed && (
             <div class="detail-block detail-open">
               <h3 class="label detail-block-head">Build something here?</h3>
               <p class="detail-open-copy">
@@ -515,6 +526,20 @@ const crumbs = trail(
               </li>
             ))}
           </ul>
+        </div>
+      </Section>
+    )
+  }
+
+  {
+    projectsFailed && (
+      <Section id="projects" labelledby="projects-heading">
+        <div class="dir event-projects">
+          <h2 id="projects-heading">Projects built here</h2>
+          <p class="dir-status" data-state="error" role="status">
+            The projects from this event could not be loaded right now.{' '}
+            <a href={directoryHref({ events: [event.slug] })}>Try the Project Directory</a>
+          </p>
         </div>
       </Section>
     )
