@@ -138,6 +138,16 @@ describe('the directory and event pages after review', () => {
     expect(css.match(/\n\.prow-title \{([^}]*)\}/)?.[1]).toContain('font-family: var(--font-title, var(--font-body))');
   });
 
+  it('small bold headings use the title face, because the display serif only ships light', () => {
+    const css = readFileSync('src/styles/directory.css', 'utf8').replace(/\r\n/g, '\n');
+    for (const selector of ['.dir-empty h2', '.js .dir-drawer-head h2']) {
+      const rule = css.match(new RegExp(`\\n\\s*${selector.replace(/\./g, '\\.')} \\{([^}]*)\\}`))?.[1] ?? '';
+      expect(rule, selector).toContain('font-family: var(--font-title, var(--font-body))');
+    }
+    // The display face is left to the page title alone.
+    expect(css.match(/font-family: var\(--font-display\)/g)).toHaveLength(1);
+  });
+
   it('an event page whose projects could not be read is never stored by the CDN', () => {
     const page = readFileSync('src/pages/events/[slug].astro', 'utf8').replace(/\r\n/g, '\n');
     expect(page).toMatch(/eventProjects\(event\.id, 12\)\.catch\([\s\S]{0,500}privateCache\(Astro, false\);\s*projectsFailed = true;/);

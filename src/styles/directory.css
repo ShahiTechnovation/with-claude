@@ -815,10 +815,10 @@
 
 .dir-empty h2 {
   margin: 0;
-  font-family: var(--font-display);
+  font-family: var(--font-title, var(--font-body));
   font-size: calc(1.25rem * var(--dir-text));
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
 }
 
 .dir-empty p {
@@ -940,10 +940,10 @@
 
   .js .dir-drawer-head h2 {
     margin: 0;
-    font-family: var(--font-display);
+    font-family: var(--font-title, var(--font-body));
     font-size: calc(1.25rem * var(--dir-text));
     font-weight: 600;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.01em;
   }
 }
 
