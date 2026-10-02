@@ -1,10 +1,11 @@
 /**
  * THE HOMEPAGE AND THE ROUTES AROUND IT.
  *
- * `/` is the deployed composition (production at 83a8f41): the cover, then
- * eleven sections in a fixed order. A redesign once replaced it with a
- * five-section page and moved three of those sections to /about and
- * /community; this pins the restored shape so that cannot happen quietly.
+ * `/` is the deployed composition (production at 83a8f41, minus the use
+ * cases section 2699a4f removed): the cover, then ten sections in a fixed
+ * order. A redesign once replaced it with a five-section page and moved
+ * three of those sections to /about and /community; this pins the restored
+ * shape so that cannot happen quietly.
  *
  * Source-level, like `account-routing.test.ts`: the guarantees are about which
  * file renders which route, what it links to and where its data comes from,
@@ -32,7 +33,6 @@ describe('the homepage at /', () => {
       'atlas',
       'builders',
       'projects',
-      'practice',
       'stories',
       'with',
       'join',
@@ -65,7 +65,6 @@ describe('the homepage at /', () => {
       'CityAtlas',
       'BuilderIndex',
       'ProjectArchive',
-      'PracticeLibrary',
       'StoryStrip',
       'WithIndex',
       'Manifesto',

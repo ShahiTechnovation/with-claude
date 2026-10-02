@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # Type-checks (`astro check`) and builds from the TypeScript record, so no
+      # database or secret is needed. The security tests inspect this build.
+      - run: npm run build
+
+      # Two workers: the database tests each start a PGlite instance, and more
+      # of them at once run the runner out of memory. The minimum is set too,
+      # because vitest refuses a maximum below its default minimum.
+      - run: npx vitest run --maxWorkers=2 --minWorkers=1
