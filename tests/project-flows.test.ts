@@ -137,26 +137,6 @@ describe('httpUrl normalisation', () => {
   });
 });
 
-// ── Bug B: URL normalisation ──────────────────────────────────────────────────
-
-describe('httpUrl normalisation', () => {
-  it('normalises empty and whitespace-only strings to null', () => {
-    expect(httpUrl.parse('')).toBeNull();
-    expect(httpUrl.parse('   ')).toBeNull();
-    expect(httpUrl.parse('\t\n')).toBeNull();
-  });
-
-  it('accepts and trims valid URLs', () => {
-    expect(httpUrl.parse('https://example.com')).toBe('https://example.com');
-    expect(httpUrl.parse(' https://example.com/ ')).toBe('https://example.com/');
-  });
-
-  it('rejects invalid URLs', () => {
-    expect(() => httpUrl.parse('foo')).toThrow();
-    expect(() => httpUrl.parse('javascript:alert(1)')).toThrow();
-  });
-});
-
 // ── Bug D: project_builders attribution on publish ────────────────────────────
 
 describe('project publish owner attribution', () => {
