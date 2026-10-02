@@ -601,6 +601,8 @@ connected).
 a prefix or a length. It also reports database reachability, latency, region,
 and per-source sync freshness, because a feed that stopped parsing three weeks
 ago looks exactly like a quiet community until someone checks `lastSyncedAt`.
+These details need `Authorization: Bearer $CRON_SECRET`; anyone else gets
+`{ "ok": true }` and no database round trip.
 
 ---
 

@@ -32,10 +32,18 @@ import { ingestionMode } from '@/server/events/registry';
 import { sourceHealth } from '@/server/events/sync';
 import { privyConfig } from '@/server/auth/privy';
 import { baserowSettings } from '@/server/integrations/baserow/config';
+import { secretMatches } from '@/server/integrations/baserow/webhook';
+import { json } from '@/server/http/guard';
 
 export const prerender = false;
 
-export const GET: APIRoute = async () => {
+export const GET: APIRoute = async ({ request }) => {
+  const secret = process.env.CRON_SECRET;
+  // Liveness for anyone; the details and the database round trip only for the cron bearer.
+  if (!secret || !secretMatches(request.headers.get('authorization'), `Bearer ${secret}`)) {
+    return json({ ok: true }, 200);
+  }
+
   const mode = ingestionMode();
 
   /**
