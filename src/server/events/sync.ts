@@ -841,12 +841,16 @@ async function promote(options: {
     timeZone: 'Asia/Kolkata',
     year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
-  }).formatToParts(event.startsAt);
-  const part = (type: string) => ist.find((p) => p.type === type)?.value ?? '00';
-  const date = `${part('year')}-${part('month')}-${part('day')}`;
-  // `en-CA` renders midnight as `24`; Postgres `time` will not accept it.
-  const hour = part('hour') === '24' ? '00' : part('hour');
-  const startTime = `${hour}:${part('minute')}:${part('second')}`;
+  });
+  const wallClock = (instant: Date) => {
+    const parts = ist.formatToParts(instant);
+    const part = (type: string) => parts.find((p) => p.type === type)?.value ?? '00';
+    // `en-CA` renders midnight as `24`; Postgres `time` will not accept it.
+    const hour = part('hour') === '24' ? '00' : part('hour');
+    return { date: `${part('year')}-${part('month')}-${part('day')}`, time: `${hour}:${part('minute')}:${part('second')}` };
+  };
+  const { date, time: startTime } = wallClock(event.startsAt);
+  const end = event.endsAt ? wallClock(event.endsAt) : null;
 
   const values = {
     sourceId,
@@ -856,6 +860,8 @@ async function promote(options: {
     cityId,
     date,
     startTime,
+    // `end_time` is a time on `date`, so an end on a later day is left out.
+    endTime: end && end.date === date && end.time > startTime ? end.time : null,
     /**
      * `venueName` is NOT NULL and the feed frequently has no venue — the
      * registrant-only events say "Check event page for more details."

@@ -297,6 +297,27 @@ describe('the sync', () => {
     expect(events[0].startTime).toBe('10:00:00');
   });
 
+  it('stores the end time on the IST wall clock, and none when it is not on the same day', async () => {
+    const source = new ManualEventSource(
+      [
+        // 09:00–18:00 IST. Without an end it would read "Past" from 11:00.
+        event({ externalId: 'evt-day', title: 'Bhopal | Full Day', startsAt: new Date('2026-12-02T03:30:00Z'), endsAt: new Date('2026-12-02T12:30:00Z') }),
+        // 20:00–02:00 IST: 02:00 on the start date would break `events_end_after_start`.
+        event({ externalId: 'evt-overnight', title: 'Bhopal | Overnight', startsAt: new Date('2026-12-03T14:30:00Z'), endsAt: new Date('2026-12-03T20:30:00Z') }),
+        event({ externalId: 'evt-two-days', title: 'Bhopal | Two Days', startsAt: new Date('2026-12-04T03:30:00Z'), endsAt: new Date('2026-12-05T12:30:00Z') }),
+      ],
+      { key: 'test:end', complete: true },
+    );
+    expect(await syncSource(source, db)).toMatchObject({ ok: true, promoted: 3 });
+
+    const endOf = async (externalId: string) =>
+      (await db.select({ endTime: schema.events.endTime }).from(schema.events).where(eq(schema.events.externalId, externalId)))[0]
+        .endTime;
+    expect(await endOf('evt-day')).toBe('18:00:00');
+    expect(await endOf('evt-overnight')).toBeNull();
+    expect(await endOf('evt-two-days')).toBeNull();
+  });
+
   it('holds a confidently-Indian event with no atlas city for review', async () => {
     const source = new ManualEventSource(
       [event({ externalId: 'evt-pny', title: 'Puducherry | Claude', location: 'Puducherry, India', latitude: 11.9416, longitude: 79.8083 })],
