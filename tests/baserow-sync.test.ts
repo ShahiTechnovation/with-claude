@@ -498,3 +498,46 @@ describe('diagnostics survive a no-op re-sync', () => {
     expect((await mapping(T.projects, 3)).lastError).toMatch(/publish held/);
   });
 });
+
+describe('Baserow publication intent never outranks moderation or a claim', () => {
+  const resync = async () => {
+    await enqueue(db, config, [{ kind: 'row.sync', tableId: T.projects, rowId: 3 }]);
+    await runQueue(db, source, config, { budgetMs: 5_000, trigger: 'webhook' });
+  };
+
+  it('a restricted project that Baserow (re)publishes stays off the directory and its page', async () => {
+    source.set(T.projects, projectRow(3, { field_45: sel('draft') }));
+    await syncAll();
+    const p = await project();
+    for (const state of ['reported', 'restricted', 'archived', 'removed'] as const) {
+      await db.update(schema.projects).set({ moderationState: state }).where(eq(schema.projects.id, p.id));
+      // The organisers flip the row to published, and edit it.
+      source.set(T.projects, projectRow(3, { field_45: sel('published'), field_32: `Published while ${state}` }));
+      await resync();
+      const after = await project();
+      expect(after.moderationState).toBe(state); // the projection never writes moderation
+      expect((await listPublicProjects(db)).total).toBe(0);
+      // The detail loader reports visibility; the page answers 404 unless isPublic (or a verified moderator asks).
+      expect((await getProjectDetail(db, after.slug))?.isPublic).toBe(false);
+      source.set(T.projects, projectRow(3, { field_45: sel('draft') }));
+      await resync();
+    }
+  });
+
+  it('a claimed project keeps the member’s publication state whatever Baserow says', async () => {
+    await syncAll();
+    const p = await project();
+    // The member owns it now; they unpublished it on the website.
+    await db.update(schema.projects).set({ contentAuthority: 'member', publicationStatus: 'draft' }).where(eq(schema.projects.id, p.id));
+    source.set(T.projects, projectRow(3, { field_45: sel('published') }));
+    await resync();
+    expect((await project()).publicationStatus).toBe('draft');
+    expect((await listPublicProjects(db)).total).toBe(0);
+    // …and republished it; Baserow archiving the row cannot take it down.
+    await db.update(schema.projects).set({ publicationStatus: 'published' }).where(eq(schema.projects.id, p.id));
+    source.set(T.projects, projectRow(3, { field_45: sel('archived') }));
+    await resync();
+    expect((await project()).publicationStatus).toBe('published');
+    expect((await mapping(T.projects, 3)).status).toBe('released');
+  });
+});
