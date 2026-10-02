@@ -20,7 +20,7 @@ import SearchPrompt from '@/components/SearchPrompt.astro';
 import NextEvent from '@/components/NextEvent.astro';
 import CityAtlas from '@/components/CityAtlas.astro';
 import BuilderIndex from '@/components/BuilderIndex.astro';
-import ProjectArchive from '@/components/ProjectArchive.astro';
+import LatestEventProjects from '@/components/LatestEventProjects.astro';
 import StoryStrip from '@/components/StoryStrip.astro';
 import WithIndex from '@/components/WithIndex.astro';
 import Participation from '@/components/Participation.astro';
@@ -185,7 +185,7 @@ const eventSchema = (selectors?.upcomingEvents(now) ?? []).map((event) => ({
 
         {/* 07 — MADE WITH CLAUDE. What are they making? The deepest ground. ----- */}
         <Section id="projects" tone="deep" size="lg" labelledby="projects-heading">
-          <ProjectArchive limit={6} selectors={selectors} />
+          <LatestEventProjects selectors={selectors} />
         </Section>
 
         {/* 09 — FROM THE COMMUNITY (full bleed) -------------------------------- */}
