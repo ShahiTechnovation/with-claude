@@ -7,7 +7,7 @@
  *   BASE=http://127.0.0.1:4321 OUT=shots/review node scripts/dev/visual-review.mjs
  *   TOKEN=<access token> … also captures the signed-in account pages
  *   STRICT=1 … exits 1 when a page fails (see `strictFailures`) — the preview smoke check
- *   EXTRA_HEADERS="name: value" … one per line, sent to BASE's own origin only
+ *   EXTRA_HEADERS="name: value" … one per line, sent to BASE's own origin only (see `scopeHeaders`)
  *
  * Writes PNGs and a `report.json` to OUT. A development tool, and the script
  * `.github/workflows/preview-smoke.yml` runs against each preview deployment.
@@ -45,6 +45,33 @@ export function parseHeaders(raw) {
   );
 }
 
+/**
+ * Adds `headers` to requests for `origin`, and to nothing else: a
+ * deployment-protection secret must not ride along to fonts, embeds or
+ * analytics, or to wherever a redirect points. `route.continue({ headers })`
+ * would carry them across a redirect to any origin, so each request is
+ * fetched with redirects off and the answer handed to the browser, which then
+ * follows a redirect itself, without them. That holds for a redirect back to
+ * `origin` as well (Playwright does not route redirect hops). On Vercel, also
+ * sending `x-vercel-set-bypass-cookie: true` gives the browser a cookie for
+ * the preview's host alone, and the cookie carries those hops.
+ */
+export function scopeHeaders(context, origin, headers) {
+  return context.route(
+    (url) => url.origin === origin,
+    async (route) => {
+      try {
+        const response = await route.fetch({ headers: { ...route.request().headers(), ...headers }, maxRedirects: 0 });
+        await route.fulfill({ response });
+      } catch {
+        // The network failed, or the page closed mid-request. The browser
+        // reports the aborted request, and the page view records it.
+        await route.abort().catch(() => {});
+      }
+    },
+  );
+}
+
 async function main() {
   // Imported here so the helpers above can be tested without a browser installed.
   const { chromium } = await import('playwright');
@@ -76,14 +103,7 @@ async function main() {
       if (signedIn && TOKEN) {
         await context.addCookies([{ name: 'privy-token', value: TOKEN, domain: hostname, path: '/' }]);
       }
-      // Only to the site itself: a deployment-protection secret must not ride
-      // along on requests to fonts, embeds or analytics.
-      if (Object.keys(HEADERS).length > 0) {
-        await context.route(
-          (url) => url.origin === origin,
-          (route) => route.continue({ headers: { ...route.request().headers(), ...HEADERS } }),
-        );
-      }
+      if (Object.keys(HEADERS).length > 0) await scopeHeaders(context, origin, HEADERS);
       const page = await context.newPage();
       const errors = [];
       let pageErrors = 0;

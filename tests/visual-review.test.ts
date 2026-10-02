@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseHeaders, strictFailures } from '../scripts/dev/visual-review.mjs';
+import { parseHeaders, scopeHeaders, strictFailures } from '../scripts/dev/visual-review.mjs';
 
 /**
  * The preview smoke check is a merge gate, so what it fails on is pinned here.
@@ -43,5 +43,47 @@ describe('EXTRA_HEADERS', () => {
     // An unset secret arrives as an empty value; no header is sent for it.
     expect(parseHeaders('x-vercel-protection-bypass: ')).toEqual({});
     expect(parseHeaders(undefined)).toEqual({});
+  });
+
+  it("go to BASE's origin only, and never along a redirect", async () => {
+    let matches!: (url: URL) => boolean;
+    let handle!: (route: unknown) => Promise<void>;
+    const context = {
+      route: async (m: typeof matches, h: typeof handle) => {
+        matches = m;
+        handle = h;
+      },
+    };
+    await scopeHeaders(context, ORIGIN, { 'x-vercel-protection-bypass': 's3cret' });
+
+    expect(matches(new URL(`${ORIGIN}/_astro/app.js`))).toBe(true);
+    expect(matches(new URL('https://fonts.gstatic.com/s/inter.woff2'))).toBe(false);
+    expect(matches(new URL('https://vercel.com/login'))).toBe(false);
+
+    // Fetched with redirects off and handed to the browser as it came: the
+    // browser follows a redirect itself, and that request goes out without
+    // the headers. `route.continue({ headers })` would carry them across.
+    const calls: unknown[] = [];
+    const redirect = { status: () => 302 };
+    await handle({
+      request: () => ({ headers: () => ({ accept: 'text/html' }) }),
+      fetch: async (options: unknown) => {
+        calls.push(['fetch', options]);
+        return redirect;
+      },
+      fulfill: async (options: unknown) => {
+        calls.push(['fulfill', options]);
+      },
+      continue: async (options: unknown) => {
+        calls.push(['continue', options]);
+      },
+      abort: async () => {
+        calls.push(['abort']);
+      },
+    });
+    expect(calls).toEqual([
+      ['fetch', { headers: { accept: 'text/html', 'x-vercel-protection-bypass': 's3cret' }, maxRedirects: 0 }],
+      ['fulfill', { response: redirect }],
+    ]);
   });
 });
