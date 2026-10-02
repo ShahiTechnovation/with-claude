@@ -17,13 +17,14 @@
  *   · ROLLBACK IS GUARDED. It reverts a row only if it still holds exactly what
  *     this batch wrote AND its project has not been claimed. Later work wins.
  */
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import * as schema from '../../../db/schema';
 import { contentHash } from '../../../src/server/integrations/baserow/dto';
 import type { BaserowConfig } from '../../../src/server/integrations/baserow/config';
 import type { Candidate } from './candidates';
 import { missingForArchive, type Plan, type PlannedItem } from './plan';
+import { readTable } from './workspace';
 
 type AnyDatabase = PgDatabase<PgQueryResultHKT, typeof schema>;
 type Row = { id: number } & Record<string, unknown>;
@@ -154,19 +155,29 @@ function writtenHash(fields: Record<string, unknown>, row: Record<string, unknow
 
 async function takeLock(db: AnyDatabase, batchId: string): Promise<void> {
   const now = new Date();
-  const [existing] = await db.select().from(schema.integrationState).where(eq(schema.integrationState.key, LOCK_KEY));
-  const held = existing?.value as { batchId?: string; at?: string } | undefined;
-  if (held?.at && held.batchId !== batchId && now.getTime() - Date.parse(held.at) < LOCK_TTL_MS) {
-    throw new Error(`another import (${held.batchId}) is running; wait for it or remove the stale lock after 30 minutes`);
-  }
-  await db
+  const value = { batchId, at: now.toISOString() };
+  const held = schema.integrationState.value;
+  // One statement, so two imports cannot both find it free; a lock that is ours already or stale is taken over.
+  const [taken] = await db
     .insert(schema.integrationState)
-    .values({ key: LOCK_KEY, value: { batchId, at: now.toISOString() } })
-    .onConflictDoUpdate({ target: schema.integrationState.key, set: { value: { batchId, at: now.toISOString() }, updatedAt: now } });
+    .values({ key: LOCK_KEY, value })
+    .onConflictDoUpdate({
+      target: schema.integrationState.key,
+      set: { value, updatedAt: now },
+      setWhere: sql`${held}->>'batchId' = ${batchId} or (${held}->>'at')::timestamptz <= ${new Date(now.getTime() - LOCK_TTL_MS).toISOString()}::timestamptz`,
+    })
+    .returning({ key: schema.integrationState.key });
+  if (!taken) {
+    const [existing] = await db.select().from(schema.integrationState).where(eq(schema.integrationState.key, LOCK_KEY));
+    const other = (existing?.value as { batchId?: string } | undefined)?.batchId;
+    throw new Error(`another import (${other}) is running; wait for it or remove the stale lock after 30 minutes`);
+  }
 }
 
-async function releaseLock(db: AnyDatabase) {
-  await db.delete(schema.integrationState).where(eq(schema.integrationState.key, LOCK_KEY));
+async function releaseLock(db: AnyDatabase, batchId: string) {
+  await db
+    .delete(schema.integrationState)
+    .where(and(eq(schema.integrationState.key, LOCK_KEY), sql`${schema.integrationState.value}->>'batchId' = ${batchId}`));
 }
 
 async function ledgerFor(db: AnyDatabase, batchId: string, key: string, action: string, tableId: number) {
@@ -242,8 +253,8 @@ export async function applyPlan(input: {
   try {
     // Rows that already carry a key — used to recover ambiguous creates.
     const keyIndex = async () => {
-      const scan = await writer.listAllRows(projectsTable, { pageSize: 200 });
-      return new Map(scan.rows.filter((r) => keyField && r[keyField]).map((r) => [String(r[keyField!]), r.id]));
+      const rows = await readTable(writer, projectsTable);
+      return new Map(rows.filter((r) => keyField && r[keyField]).map((r) => [String(r[keyField!]), r.id]));
     };
     let known = await keyIndex();
 
@@ -346,7 +357,7 @@ export async function applyPlan(input: {
       const nameField = fid(config, 'credits', 'displayName');
       if (!linkField || !nameField || c.credits.length === 0) return;
       // Credits already on the row (from any batch, or typed by an organiser).
-      const existing = (await writer.listAllRows(creditsTable, { pageSize: 200 })).rows.filter((r) => {
+      const existing = (await readTable(writer, creditsTable)).filter((r) => {
         const ids = comparable(r[linkField]);
         return Array.isArray(ids) && ids.includes(projectRowId);
       });
@@ -370,7 +381,7 @@ export async function applyPlan(input: {
         } catch (error) {
           if (!ambiguous(error)) throw error;
           // The credit may have landed: look for it on this project by name.
-          const again = (await writer.listAllRows(creditsTable, { pageSize: 200 })).rows.find((r) => {
+          const again = (await readTable(writer, creditsTable)).find((r) => {
             const ids = comparable(r[linkField]);
             return Array.isArray(ids) && ids.includes(projectRowId) && String(r[nameField] ?? '').toLowerCase() === credit.displayName.toLowerCase();
           });
@@ -393,7 +404,7 @@ export async function applyPlan(input: {
       .where(eq(schema.importBatches.id, batchId));
     return report;
   } finally {
-    await releaseLock(db);
+    await releaseLock(db, batchId);
   }
 }
 
@@ -464,6 +475,6 @@ export async function rollbackBatch(input: {
       .where(eq(schema.importBatches.id, batchId));
     return report;
   } finally {
-    await releaseLock(db);
+    await releaseLock(db, batchId);
   }
 }
