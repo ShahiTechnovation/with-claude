@@ -11,9 +11,11 @@ import '@/styles/base.css';
 import '@/styles/primitives.css';
 import '@/styles/forms.css';
 
-// Preload the two faces that paint the first screen. Importing the file gives
-// us the hashed build URL, so the preload can never point at a stale name.
+// Preload the faces that paint the first screen: the headline serif, body text, and the
+// wordmark's Fraunces. Importing the file gives us the hashed build URL, so the preload can
+// never point at a stale name.
 import serifUrl from '@/assets/fonts/anthropic-serif-display-light.woff2?url';
+import frauncesUrl from '@fontsource-variable/fraunces/files/fraunces-latin-wonk-normal.woff2?url';
 import interUrl from '@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url';
 
 import Masthead from '@/components/Masthead.astro';
@@ -108,6 +110,7 @@ const graph = [
     {noindex && <meta name="robots" content="noindex, follow" />}
 
     <link rel="preload" as="font" type="font/woff2" href={serifUrl} crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href={frauncesUrl} crossorigin />
     <link rel="preload" as="font" type="font/woff2" href={interUrl} crossorigin />
 
     <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png" />
