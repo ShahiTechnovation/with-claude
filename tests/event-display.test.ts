@@ -41,6 +41,16 @@ describe('stripCityPrefix', () => {
   it('matches the aliases a feed writes for the same city', () => {
     expect(stripCityPrefix('Bangalore | Claude Fable Build Day', 'Bengaluru')).toBe('Claude Fable Build Day');
     expect(stripCityPrefix('Bombay | Claude Meetup', 'Mumbai')).toBe('Claude Meetup');
+    expect(stripCityPrefix('Delhi NCR | Claude Meetup', 'Delhi')).toBe('Claude Meetup');
+    expect(stripCityPrefix('New  Delhi | Claude Meetup', 'Delhi')).toBe('Claude Meetup');
+  });
+
+  it('keeps a suburb or satellite city: that is a place, not a second spelling', () => {
+    expect(stripCityPrefix('Gandhinagar | Claude Meetup', 'Ahmedabad')).toBe('Gandhinagar | Claude Meetup');
+    expect(stripCityPrefix('Thane | Claude Meetup', 'Mumbai')).toBe('Thane | Claude Meetup');
+    expect(stripCityPrefix('Navi Mumbai | Claude Meetup', 'Mumbai')).toBe('Navi Mumbai | Claude Meetup');
+    expect(stripCityPrefix('Secunderabad | Claude Meetup', 'Hyderabad')).toBe('Secunderabad | Claude Meetup');
+    expect(stripCityPrefix('Mohali | Claude Meetup', 'Chandigarh')).toBe('Mohali | Claude Meetup');
   });
 
   it('leaves a prefix that is not the event city', () => {

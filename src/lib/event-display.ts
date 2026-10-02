@@ -1,5 +1,4 @@
 import type { CommunityEvent } from '@/data/types';
-import { canonicalCityName } from '@/server/events/india';
 
 /**
  * WHAT THE PUBLIC RECORD CLEANS ON THE WAY OUT.
@@ -23,20 +22,45 @@ export function isVenuePlaceholder(value: string | null | undefined): boolean {
 }
 
 /**
+ * Other spellings of the SAME city, keyed by the name the record uses.
+ *
+ * Deliberately not the metro map in `src/server/events/india.ts`. That one
+ * folds Thane into Mumbai and Gandhinagar into Ahmedabad, which is right for
+ * deciding which city page an event belongs to and wrong here: a suburb in a
+ * title is a real place the organiser chose to name, and it stays.
+ */
+const CITY_SPELLINGS: Record<string, string[]> = {
+  ahmedabad: ['amdavad'],
+  bengaluru: ['bangalore'],
+  chennai: ['madras'],
+  delhi: ['new delhi', 'delhi ncr', 'dilli'],
+  gurugram: ['gurgaon'],
+  kochi: ['cochin'],
+  kolkata: ['calcutta'],
+  mumbai: ['bombay'],
+  mysuru: ['mysore'],
+  puducherry: ['pondicherry'],
+  pune: ['poona'],
+  thiruvananthapuram: ['trivandrum'],
+  vadodara: ['baroda'],
+  visakhapatnam: ['vizag'],
+};
+
+const cityKey = (value: string) => value.trim().toLowerCase().replace(/\s+/g, ' ');
+
+/**
  * Drop a leading "<city> |" when it names the event's own city.
  *
- * Only the event's city, or an alias of it, is removed: "Claude Code | Build
- * Day" has a pipe too, and that prefix is part of the name.
+ * Only the event's city, or another spelling of it, is removed: "Claude Code |
+ * Build Day" has a pipe too, and that prefix is part of the name.
  */
 export function stripCityPrefix(title: string, cityName: string | undefined): string {
   const match = /^([^|]{2,40})\|\s*(\S.*)$/.exec(title);
   if (!match || !cityName) return title;
 
-  const prefix = match[1].trim();
-  const canonical = canonicalCityName(prefix);
-  const sameCity =
-    prefix.toLowerCase() === cityName.toLowerCase() ||
-    (canonical !== undefined && canonical === canonicalCityName(cityName));
+  const prefix = cityKey(match[1]);
+  const city = cityKey(cityName);
+  const sameCity = prefix === city || (CITY_SPELLINGS[city] ?? []).includes(prefix);
   return sameCity ? match[2].trim() : title;
 }
 
