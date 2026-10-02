@@ -47,6 +47,16 @@ export const events: CommunityEvent[] = [
     registrationUrl: 'https://luma.com/hphplrbx',
     free: true,
     coverImage: 'covers/cover-vol01.jpg',
+    photos: [
+      {
+        src: 'events/vol01-1.jpg',
+        alt: 'Attendees of Claude Code for Builders standing behind the classroom desks for a group photo, with the Claude Bhopal banner at the right',
+      },
+      {
+        src: 'events/vol01-2.jpg',
+        alt: 'A speaker in a striped shirt presenting in front of the projected speaker card for Claude Code for Builders',
+      },
+    ],
   },
   {
     id: 'evt-bhopal-02',
@@ -77,6 +87,10 @@ export const events: CommunityEvent[] = [
         src: 'events/vol02-3.jpg',
         alt: 'A speaker in a plaid shirt addressing the room at the Claude Meetup',
       },
+      {
+        src: 'events/vol02-4.jpg',
+        alt: 'The lounge venue of the Claude Meetup seen from the balcony, attendees at tables facing the host beside the Claude Bhopal banner and the screen',
+      },
     ],
   },
   {
@@ -96,6 +110,20 @@ export const events: CommunityEvent[] = [
     free: true,
     coverImage: 'covers/cover-vol03.jpg',
     outcomes: ['168 people signed up'],
+    photos: [
+      {
+        src: 'events/vol03-1.jpg',
+        alt: 'Attendees of the Claude Community Conversation posing on a staircase beside the orange Claude Bhopal banner',
+      },
+      {
+        src: 'events/vol03-2.jpg',
+        alt: 'Attendees seated across a coworking room with a colourful mural wall, facing the front',
+      },
+      {
+        src: 'events/vol03-3.jpg',
+        alt: 'A speaker with a microphone beside the Claude Bhopal title slide, attendees at desks in the foreground',
+      },
+    ],
   },
   {
     id: 'evt-bhopal-04',
@@ -117,6 +145,20 @@ export const events: CommunityEvent[] = [
     registrationUrl: 'https://luma.com/claude-9g93',
     free: true,
     coverImage: 'covers/cover-vol04.jpg',
+    photos: [
+      {
+        src: 'events/vol04-1.jpg',
+        alt: 'Workshop participants gathered for a group photo at the front of a lab classroom, under two Thank You slides',
+      },
+      {
+        src: 'events/vol04-2.jpg',
+        alt: 'A speaker standing between two screens showing the Claude Bhopal title slide while the room follows along on laptops',
+      },
+      {
+        src: 'events/vol04-3.jpg',
+        alt: 'Rows of participants working on laptops in the lab classroom, with slides and code on the two screens at the front',
+      },
+    ],
   },
   {
     id: 'evt-bhopal-05',
@@ -135,6 +177,20 @@ export const events: CommunityEvent[] = [
     free: true,
     coverImage: 'covers/cover-vol05.jpg',
     speakerSlugs: ['aniket-sahu', 'vishal-kumar'],
+    photos: [
+      {
+        src: 'events/vol05-1.jpg',
+        alt: 'Claude Code Workshop participants posing at the front of the classroom, with the Claude Bhopal banner on the left',
+      },
+      {
+        src: 'events/vol05-2.jpg',
+        alt: 'Participants at laptops while a speaker presents a slide at the front of the classroom, between two Claude Bhopal banners',
+      },
+      {
+        src: 'events/vol05-3.jpg',
+        alt: 'A full classroom of builders working on laptops, seen from the front corner',
+      },
+    ],
   },
   {
     id: 'evt-bhopal-06',
@@ -164,6 +220,10 @@ export const events: CommunityEvent[] = [
       {
         src: 'events/vol06-3.jpg',
         alt: 'Group photo of around sixty Claude Code Workshop participants standing among the desks of the classroom venue',
+      },
+      {
+        src: 'events/vol06-4.jpg',
+        alt: 'Participants working on laptops along the rows of desks in the lab classroom',
       },
     ],
   },
@@ -196,6 +256,20 @@ export const events: CommunityEvent[] = [
     summary: 'An evening on what Claude changes for people running a business.',
     registrationUrl: 'https://luma.com/claude-ssrl',
     free: true,
+    photos: [
+      {
+        src: 'events/claude-for-businesses-1.jpg',
+        alt: 'Attendees of Claude for Businesses posing in a glass-walled lounge beside the Claude Community Welcome easel',
+      },
+      {
+        src: 'events/claude-for-businesses-2.jpg',
+        alt: 'A host speaking in front of a Claude for Business slide, Claude Community banners on either side and attendees listening',
+      },
+      {
+        src: 'events/claude-for-businesses-3.jpg',
+        alt: 'A speaker addressing attendees at lounge tables, with city lights through the glass wall behind them',
+      },
+    ],
   },
   {
     id: 'evt-bhopal-07',
@@ -219,6 +293,24 @@ export const events: CommunityEvent[] = [
       'Sold out',
       '$100 in Claude API credits for every attendee',
       'The winning team took home Claude Max 20x for up to 5 members',
+    ],
+    photos: [
+      {
+        src: 'events/vol07-1.jpg',
+        alt: 'Impact Lab participants in orange lanyards crowding together for a group photo in the hackathon workspace',
+      },
+      {
+        src: 'events/vol07-2.jpg',
+        alt: 'The winning team posing with the Winner cheque beside the Claude Community Bhopal Impact Lab board',
+      },
+      {
+        src: 'events/vol07-3.jpg',
+        alt: 'A speaker with a microphone addressing participants on beanbags and the floor of the hackathon workspace',
+      },
+      {
+        src: 'events/vol07-4.jpg',
+        alt: 'Teams building at iMacs and laptops under the orange hexagon ceiling of the workspace',
+      },
     ],
     projectSlugs: [
       'navdisha',
@@ -266,6 +358,16 @@ export const events: CommunityEvent[] = [
     free: true,
     coverImage: 'covers/cover-vol08.jpg',
     outcomes: ['$50 in Claude credits and swag for participants'],
+    photos: [
+      {
+        src: 'events/vol08-1.jpg',
+        alt: 'Students gathered for a group photo at the front of a college auditorium, under the Claude Community Bhopal workshop slide',
+      },
+      {
+        src: 'events/vol08-2.jpg',
+        alt: 'A packed auditorium of students on laptops facing a Meet Claude slide, with a speaker between two Claude Bhopal banners',
+      },
+    ],
   },
   {
     id: 'evt-bhopal-09',
@@ -330,6 +432,20 @@ export const events: CommunityEvent[] = [
       'A small, focused evening for founders and builders around one question. The room picks a real problem worth solving — and the Impact Lab builds the answer.',
     registrationUrl: 'https://luma.com/claude-6khk',
     free: true,
+    photos: [
+      {
+        src: 'events/vol10-1.jpg',
+        alt: 'Attendees of the Claude Conversation posing for a group photo in a banquet hall under a chandelier',
+      },
+      {
+        src: 'events/vol10-2.jpg',
+        alt: 'The host speaking with a microphone between the Claude Community Welcome banner and the Bhopal Conversation board, seen from behind the audience',
+      },
+      {
+        src: 'events/vol10-3.jpg',
+        alt: 'The host walking among round tables of attendees in the banquet hall',
+      },
+    ],
   },
   {
     id: 'evt-bhopal-11',
@@ -354,6 +470,20 @@ export const events: CommunityEvent[] = [
       'Teams take the problem that came out of the Claude Conversation, prototype a solution with Claude, test it, and demo by evening.',
     registrationUrl: 'https://luma.com/claude-r61u',
     free: true,
+    photos: [
+      {
+        src: 'events/vol11-1.jpg',
+        alt: 'Impact Lab participants in orange lanyards posing for a group photo, the front rows sitting on the floor',
+      },
+      {
+        src: 'events/vol11-2.jpg',
+        alt: 'The host presenting in front of the Claude Community Claude Impact Lab Bhopal slide to a room of participants',
+      },
+      {
+        src: 'events/vol11-3.jpg',
+        alt: 'Two builders in orange lanyards concentrating on their laptops',
+      },
+    ],
     projectSlugs: [
       'bhasha-hire',
       'civictrace',
@@ -388,6 +518,36 @@ export const events: CommunityEvent[] = [
     summary: 'A full day building with Claude Code and Fable 5.1.',
     registrationUrl: 'https://luma.com/claude-z01j',
     free: true,
+    photos: [
+      {
+        src: 'events/vol12-1.jpg',
+        alt: 'Hundreds of Build Day participants filling the front of an auditorium for a group photo, under the Claude Community title screen',
+      },
+      {
+        src: 'events/vol12-2.jpg',
+        alt: 'A speaker on stage beside a slide headed We went Viral on Twitter, showing a news item on Anthropic’s Fable 5.1 Buildathons with a Bhopal spotlight',
+      },
+      {
+        src: 'events/vol12-3.jpg',
+        alt: 'Teams working on laptops at tables in the open hall of the venue',
+      },
+      {
+        src: 'events/vol12-4.jpg',
+        alt: 'Two builders coding side by side, one laptop covered in stickers including a Claude sticker',
+      },
+      {
+        src: 'events/vol12-5.jpg',
+        alt: 'A builder demoing RoadWatch MP, a pothole-reporting app, on the auditorium screen',
+      },
+      {
+        src: 'events/vol12-6.jpg',
+        alt: 'Winners and participants cheering on stage with the prize cheques, under the Claude Community globe',
+      },
+      {
+        src: 'events/vol12-7.jpg',
+        alt: 'A pile of Claude stickers on a table',
+      },
+    ],
     projectSlugs: [
       'nyaya',
       'fly-invaders',
