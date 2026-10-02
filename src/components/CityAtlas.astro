@@ -46,20 +46,27 @@ const LABEL_LEFT = new Set([
   'chandigarh',
   'jaipur',
   'ahmedabad',
-  'indore',
   'mumbai',
   'bengaluru',
   'kochi',
 ]);
 
+/**
+ * Indore sits between Ahmedabad's dot and Bhopal's station, close enough that
+ * a label on either side runs into one of them. Its label hangs under the dot.
+ */
+const LABEL_BELOW = new Set(['indore']);
+
 const nodes = signals.map((signal) => {
   const point = project(signal.city.lat, signal.city.lon);
   const left = LABEL_LEFT.has(signal.city.slug);
+  const below = LABEL_BELOW.has(signal.city.slug);
   return {
     signal,
     point,
-    left,
-    labelX: left ? point.x - 12 : point.x + 12,
+    below,
+    anchor: below ? 'middle' : left ? 'end' : 'start',
+    labelX: below ? point.x : left ? point.x - 12 : point.x + 12,
   };
 });
 
@@ -207,8 +214,9 @@ const legend = CITY_STATE_ORDER.map((state: CityState) => ({
                 <text
                   class="node-label"
                   x={n.labelX}
-                  y={n.point.y + 4}
-                  text-anchor={n.left ? 'end' : 'start'}
+                  y={n.below ? n.point.y + 14 : n.point.y + 4}
+                  text-anchor={n.anchor}
+                  dominant-baseline={n.below ? 'hanging' : undefined}
                 >
                   {n.signal.city.name}
                 </text>
@@ -273,9 +281,10 @@ const legend = CITY_STATE_ORDER.map((state: CityState) => ({
                 {!led && <circle class="node-dot" cx={n.point.x} cy={n.point.y} r="5.6" />}
                 <text
                   class="node-label node-label-lit"
-                  x={led ? n.labelX + 6 : n.labelX}
-                  y={n.point.y + 5}
-                  text-anchor={n.left ? 'end' : 'start'}
+                  x={led && !n.below ? n.labelX + 6 : n.labelX}
+                  y={n.below ? n.point.y + (led ? 20 : 14) : n.point.y + 5}
+                  text-anchor={n.anchor}
+                  dominant-baseline={n.below ? 'hanging' : undefined}
                 >
                   {n.signal.city.name}
                 </text>
