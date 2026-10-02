@@ -37,7 +37,7 @@
  * `REFRESH-INTERVAL:PT12H`.
  */
 import { parseIcs, parseIcsDate, text, type IcsEvent } from './ics';
-import type { EventSource, FetchResult, NormalizedEvent } from './source';
+import { isCancelledStatus, type EventSource, type FetchResult, type NormalizedEvent } from './source';
 
 /** The calendar this community actually runs on. */
 export const CLAUDE_COMMUNITY_CALENDAR_ID = 'cal-TOpA5LAFfuDeFpu';
@@ -180,6 +180,7 @@ export function normalizeLumaIcsEvent(event: IcsEvent): NormalizedEvent | null {
     description,
     startsAt: start.date,
     endsAt: end?.date,
+    dateOnly: start.dateOnly,
     // Only when the source actually named a zone. All events in this feed are
     // absolute UTC, so this is normally undefined rather than guessed.
     timezone: start.zone,
@@ -261,20 +262,23 @@ export class LumaIcsSource implements EventSource {
     if (calendar.events.length === 0) return { ok: false, reason: 'EMPTY_CALENDAR' };
 
     const events: NormalizedEvent[] = [];
-    let skipped = 0;
+    const unreadable: string[] = [];
     for (const raw of calendar.events) {
       const normalized = normalizeLumaIcsEvent(raw);
       if (normalized) events.push(normalized);
-      else skipped += 1;
+      // Kept from withdrawal, unless the feed itself says it is cancelled.
+      else if (!isCancelledStatus(text(raw, 'STATUS'))) unreadable.push(lumaExternalId(text(raw, 'UID') ?? ''));
     }
+    const unusable = calendar.events.length - events.length;
 
     return {
       ok: true,
       events,
+      unreadable,
       // The ICS endpoint serves the entire calendar in one response, with no
       // pagination — so absence from this list is meaningful.
       complete: true,
-      note: `ics ${events.length} events${skipped ? `, ${skipped} unusable` : ''}${
+      note: `ics ${events.length} events${unusable ? `, ${unusable} unusable` : ''}${
         calendar.refreshInterval ? `, refresh ${calendar.refreshInterval}` : ''
       }`,
     };
