@@ -9,7 +9,7 @@
 import ProjectCover from '@/components/ProjectCover.astro';
 import type { PublicProjectCard } from '@/server/public/projects';
 import { formatName } from '@/lib/status';
-import { formatDate } from '@/lib/datetime';
+import { formatDateCompact } from '@/lib/datetime';
 
 interface Props {
   project: PublicProjectCard;
@@ -22,6 +22,7 @@ const { project, level = 'h3', eager = false } = Astro.props;
 const Heading = level;
 const shownCredits = project.credits.slice(0, 4);
 const moreCredits = project.credits.length - shownCredits.length;
+const place = project.event?.city?.name ?? project.city?.name;
 ---
 
 <article class="pcard">
@@ -31,12 +32,15 @@ const moreCredits = project.credits.length - shownCredits.length;
   <div class="pcard-body">
     <p class="pcard-meta">
       <span class="pcard-category">{formatName(project.category)}</span>
-      {project.city && <span>{project.city.name}</span>}
+      {place && <span>{place}</span>}
     </p>
     <Heading class="pcard-title">
       <a href={`/projects/${project.slug}/`}>{project.title}</a>
     </Heading>
     {project.summary && <p class="pcard-summary">{project.summary}</p>}
+    {
+      shownCredits.length === 0 && project.team && <p class="pcard-credits">{project.team}</p>
+    }
     {
       shownCredits.length > 0 && (
         <p class="pcard-credits">
@@ -49,9 +53,9 @@ const moreCredits = project.credits.length - shownCredits.length;
     {
       project.event && (
         <p class="pcard-event">
-          Built at {project.event.title}
+          Built at {project.event.label}
           <span aria-hidden="true"> · </span>
-          <time datetime={project.event.date}>{formatDate(project.event.date)}</time>
+          <time datetime={project.event.date}>{formatDateCompact(project.event.date)}</time>
         </p>
       )
     }

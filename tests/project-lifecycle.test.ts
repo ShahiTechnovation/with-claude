@@ -36,7 +36,7 @@ import {
 import {
   getProjectDetail,
   listPublicProjects,
-  normaliseProjectQuery,
+  normaliseDirectoryQuery,
   publicCover,
   publicProjectsForEvent,
   relatedPublicProjects,
@@ -450,15 +450,15 @@ describe('public project reads', () => {
         publishedAt: new Date(2026, 0, i + 1),
       });
     }
-    const page1 = await listPublicProjects(db, { sort: 'newest', pageSize: 2, page: 1 });
-    const page2 = await listPublicProjects(db, { sort: 'newest', pageSize: 2, page: 2 });
-    const page3 = await listPublicProjects(db, { sort: 'newest', pageSize: 2, page: 3 });
+    const page1 = await listPublicProjects(db, { sort: 'recent', pageSize: 2, page: 1 });
+    const page2 = await listPublicProjects(db, { sort: 'recent', pageSize: 2, page: 2 });
+    const page3 = await listPublicProjects(db, { sort: 'recent', pageSize: 2, page: 3 });
     expect(page1.total).toBe(5);
     expect(page1.pageCount).toBe(3);
     const all = [...page1.items, ...page2.items, ...page3.items].map((p) => p.title);
     expect(all).toEqual(['Page 4', 'Page 3', 'Page 2', 'Page 1', 'Page 0']);
 
-    const agents = await listPublicProjects(db, { category: 'agent' });
+    const agents = await listPublicProjects(db, { categories: ['agent'] });
     expect(agents.total).toBe(2);
     expect(agents.facets.categories).toEqual(
       expect.arrayContaining([
@@ -495,10 +495,12 @@ describe('public project reads', () => {
   });
 
   it('normalises untrusted query strings', () => {
-    const q = normaliseProjectQuery(
+    const q = normaliseDirectoryQuery(
       new URLSearchParams('category=nope&city=Bad Slug&event=ok-1&sort=evil&page=-4&q=  hi  '),
     );
-    expect(q).toEqual({ q: 'hi', event: 'ok-1', sort: 'featured', page: 1 });
+    expect(q).toEqual({ q: 'hi', events: ['ok-1'], categories: [], cities: [], statuses: [], has: [], sort: 'event', page: 1 });
+    // The old sort name still works for shared links.
+    expect(normaliseDirectoryQuery(new URLSearchParams('sort=newest')).sort).toBe('recent');
   });
 
   it('credits: archived builders are not credited, pending are unlinked, organiser credits are names', async () => {

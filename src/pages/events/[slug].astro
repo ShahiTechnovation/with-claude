@@ -1,5 +1,9 @@
 ---
 import { publicCache } from '@/server/http/cache';
+import { eventProjects } from '@/server/public/pages';
+import ProjectRow from '@/components/directory/ProjectRow.astro';
+import { directoryHref } from '@/server/public/projects';
+import '@/styles/directory.css';
 import { loadLiveRecords } from '@/server/directory';
 import { RecordSelectors } from '@/data/selectors';
 export const prerender = false;
@@ -21,6 +25,7 @@ import {
   isoDateTime,
   relativeDay,
   istInstant,
+  formatDateLong,
 } from '@/lib/datetime';
 import { registrationLink } from '@/lib/attribution';
 import { CREDIT_ROLE_LABEL } from '@/lib/credits';
@@ -70,7 +75,17 @@ const canRegister = isRegistrationOpen(event);
  */
 const registerHref = registrationLink(event.registrationUrl);
 const cover = asset(event.coverImage);
-const outputs = selectors.projectsFromEvent(event.slug);
+/**
+ * Projects built here: the SAME query and visibility predicate as the
+ * Project Directory (`publicProjectsForEvent`), joined on this event's UUID —
+ * so the event page, its directory filter and every project's "Built at"
+ * badge can never disagree about which projects, or how many.
+ */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const built = UUID.test(event.id)
+  ? await eventProjects(event.id, 12).catch(() => ({ items: [], total: 0 }))
+  : { items: [], total: 0 };
+const outputs = built.items;
 const recaps = selectors.storiesForEvent(event.slug);
 const isPast = lifecycle === 'past';
 
@@ -165,7 +180,10 @@ const crumbs = trail(
     <p>{event.description ?? event.summary}</p>
     
     <div class="intro-facts">
-      <p><strong>Date:</strong> <time datetime={isoDateTime(event.date, event.startTime)}>{formatDate(event.date)}</time></p>
+      <p>
+        <strong>Date:</strong> <time datetime={isoDateTime(event.date, event.startTime)}>{formatDate(event.date)}</time>
+        {event.rescheduledFrom && <span class="rescheduled"> · rescheduled from {formatDateLong(event.rescheduledFrom).replace(/ \d{4}$/, '')}</span>}
+      </p>
       <p><strong>Location:</strong> <a href={`/cities/${event.citySlug}`}>{selectors.cityName(event.citySlug)}</a></p>
       {ambassador && (
         <p><strong>Host:</strong> <a href={`/builders/${ambassador.builderSlug ?? ambassador.slug}`}>{ambassador.name}</a></p>
@@ -195,6 +213,14 @@ const crumbs = trail(
           <time datetime={isoDateTime(event.date, event.startTime)}>{formatDate(event.date)}</time>
         </p>
         <p class="detail-time">{formatTimeRange(event.startTime, event.endTime)}</p>
+        {
+          event.rescheduledFrom && (
+            <p class="detail-rescheduled">
+              {isPast ? 'Held on' : 'Now on'} {formatDateLong(event.date)}, rescheduled from{' '}
+              {formatDateLong(event.rescheduledFrom).replace(/ \d{4}$/, '')}.
+            </p>
+          )
+        }
 
         {
           ambassador && (
@@ -335,21 +361,6 @@ const crumbs = trail(
           )
         }
 
-        {
-          outputs.length > 0 && (
-            <div class="detail-block">
-              <h3 class="label detail-block-head">Built here</h3>
-              <ul class="detail-people">
-                {outputs.map((project) => (
-                  <li>
-                    <a href={`/projects/${project.slug}`}>{project.title}</a>
-                    <span class="detail-sub">{project.summary}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )
-        }
 
         {
           recaps.length > 0 && (
@@ -485,6 +496,30 @@ const crumbs = trail(
     </div>
   </Section>
 
+  {
+    built.total > 0 && (
+      <Section id="projects" labelledby="projects-heading">
+        <div class="dir event-projects">
+          <div class="event-projects-head">
+            <h2 id="projects-heading">
+              Projects built here <span class="event-projects-count">{built.total}</span>
+            </h2>
+            <a class="dir-clear" href={directoryHref({ events: [event.slug] })}>
+              {built.total > outputs.length ? `See all ${built.total} in the Project Directory →` : 'Open in the Project Directory →'}
+            </a>
+          </div>
+          <ul class="dir-list">
+            {outputs.map((project) => (
+              <li>
+                <ProjectRow project={project} />
+              </li>
+            ))}
+          </ul>
+        </div>
+      </Section>
+    )
+  }
+
   <Section id="around" size="sm">
     <nav class="around" aria-label="Other events">
       {
@@ -540,6 +575,47 @@ const crumbs = trail(
 </Base>
 
 <style>
+  .event-projects {
+    display: grid;
+    gap: 1rem;
+    padding-inline: 0;
+  }
+
+  .event-projects-head {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.5rem 1rem;
+  }
+
+  .event-projects-head h2 {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: 1.375rem;
+    font-weight: 650;
+  }
+
+  .event-projects-count {
+    margin-left: 0.35rem;
+    padding: 0.05rem 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--chip-ink);
+    background: var(--chip-bg);
+    border-radius: 6px;
+    vertical-align: middle;
+  }
+
+  .detail-rescheduled,
+  .rescheduled {
+    color: var(--ink-3);
+  }
+
+  .detail-rescheduled {
+    margin: 0;
+    font-size: var(--t-small);
+  }
   .intro-facts {
     margin-top: var(--s-6);
     padding-top: var(--s-4);

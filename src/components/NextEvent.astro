@@ -1,5 +1,7 @@
 ---
-import { cityBySlug, cityName, communityChannel, hostAmbassador, upcomingEvents } from '@/data';
+import * as staticData from '@/data';
+import { communityChannel } from '@/data';
+import type { RecordSelectors } from '@/data/selectors';
 import { registrationLink } from '@/lib/attribution';
 import { dateParts, formatTimeRange, isoDateTime, relativeDay } from '@/lib/datetime';
 import { formatCoords } from '@/lib/geo';
@@ -21,15 +23,21 @@ import {
  * The host line is doing governance work, not decoration: an event carries the
  * verified chip because its host resolves to a published Ambassador record.
  */
-const queue = upcomingEvents();
+interface Props {
+  selectors?: RecordSelectors;
+}
+
+const { selectors } = Astro.props;
+const data = selectors ?? staticData;
+const queue = data.upcomingEvents();
 const [featured, ...rest] = queue;
 const then = rest.slice(0, 2);
 
 const parts = featured ? dateParts(featured.date) : undefined;
 const lifecycle = featured ? lifecycleOf(featured) : undefined;
-const city = featured ? cityBySlug.get(featured.citySlug) : undefined;
+const city = featured ? data.cityBySlug.get(featured.citySlug) : undefined;
 const canRegister = featured ? isRegistrationOpen(featured) : false;
-const ambassador = featured ? hostAmbassador(featured) : undefined;
+const ambassador = featured ? data.hostAmbassador(featured) : undefined;
 const organisations = featured?.host.organisations ?? [];
 ---
 
@@ -77,7 +85,7 @@ const organisations = featured?.host.organisations ?? [];
             <div>
               <dt class="label">City</dt>
               <dd>
-                <a href={`/cities/${featured.citySlug}`}>{cityName(featured.citySlug)}</a>
+                <a href={`/cities/${featured.citySlug}`}>{data.cityName(featured.citySlug)}</a>
                 {city && <span class="coords next-coords">{formatCoords(city.lat, city.lon)}</span>}
               </dd>
             </div>
@@ -148,7 +156,7 @@ const organisations = featured?.host.organisations ?? [];
                   <span class="next-then-label">Then</span>
                   <span class="next-then-date">{`${p.dayPadded} ${p.monthDisplay}`}</span>
                   <span class="next-then-title">{event.title}</span>
-                  <span class="next-then-city">{cityName(event.citySlug)}</span>
+                  <span class="next-then-city">{data.cityName(event.citySlug)}</span>
                   <span class="arrow" aria-hidden="true">
                     →
                   </span>

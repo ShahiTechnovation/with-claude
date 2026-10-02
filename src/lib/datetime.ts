@@ -125,3 +125,31 @@ export function relativeDay(date: IsoDate, now: Date = new Date()): string {
 export function isoDateTime(date: IsoDate, time: ClockTime = '00:00'): string {
   return `${date}T${time}:00${IST_OFFSET}`;
 }
+
+const MONTHS_LONG = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+] as const;
+
+/** `15 Sep 2026` — the compact form used on directory badges. */
+export function formatDateCompact(date: IsoDate): string {
+  const p = dateParts(date);
+  return `${p.day} ${p.monthShort} ${p.year}`;
+}
+
+/** `15 September 2026` */
+export function formatDateLong(date: IsoDate): string {
+  const p = dateParts(date);
+  const month = MONTHS_LONG[MONTHS_SHORT.indexOf(p.monthShort as (typeof MONTHS_SHORT)[number])];
+  return `${p.day} ${month} ${p.year}`;
+}

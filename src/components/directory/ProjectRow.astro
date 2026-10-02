@@ -1,0 +1,80 @@
+---
+/**
+ * ONE DIRECTORY ROW — the Project Directory's unit, modelled on a compact
+ * company row: logo, name, team, a two-line summary, the event badge and
+ * metadata chips, then the project's own links.
+ *
+ * Links are siblings, never nested: the title is the row's primary link
+ * (and stretches over the row for pointer users), while the event badge and
+ * every artifact action are separate, keyboard-reachable links layered above
+ * it. Order of importance when space is tight: title, summary, event —
+ * secondary chips and actions wrap or drop below them, never the event.
+ */
+import ProjectLogo from '@/components/ProjectLogo.astro';
+import EventBadge from './EventBadge.astro';
+import Icon from './Icon.astro';
+import type { PublicProjectCard } from '@/server/public/projects';
+import { artifactAction, buildStatusLabel, categoryLabel } from '@/lib/project-display';
+
+interface Props {
+  project: PublicProjectCard;
+  eager?: boolean;
+  /** Heading level for the title within the page outline. */
+  level?: 'h2' | 'h3';
+}
+
+const { project, eager = false, level = 'h3' } = Astro.props;
+const Heading = level;
+const status = buildStatusLabel(project.buildStatus);
+const actions = [
+  artifactAction('live', project.links.live),
+  artifactAction('repo', project.links.repo),
+  artifactAction('video', project.links.video),
+  artifactAction('download', project.links.download),
+].filter((a) => a !== null);
+const eventCity = project.event?.city?.name;
+---
+
+<article class="prow" data-project={project.slug}>
+  <ProjectLogo logo={project.logo} size="row" eager={eager} />
+  <div class="prow-body">
+    <div class="prow-head">
+      <Heading class="prow-title">
+        <a class="prow-link" href={`/projects/${project.slug}/`}>{project.title}</a>
+      </Heading>
+      {project.team && <span class="prow-team">{project.team}</span>}
+    </div>
+    {project.summary && <p class="prow-summary">{project.summary}</p>}
+    <div class="prow-meta">
+      {project.event && <EventBadge event={project.event} />}
+      <span class="meta-chip">{categoryLabel(project.category)}</span>
+      {eventCity && (
+        <span class="meta-chip" title="Event city">
+          <Icon name="pin" size={12} />
+          {eventCity}
+        </span>
+      )}
+      {status && (
+        <span class="meta-chip meta-chip--status" title="Self-reported by the team">
+          {status}
+          <span class="visually-hidden"> (self-reported)</span>
+        </span>
+      )}
+    </div>
+  </div>
+  {
+    actions.length > 0 && (
+      <ul class="prow-actions" aria-label={`Links for ${project.title}`}>
+        {actions.map((a) => (
+          <li>
+            <a class="prow-action" href={a.href} target="_blank" rel="noopener noreferrer nofollow ugc">
+              <Icon name={a.kind === 'live' ? 'live' : a.kind === 'repo' ? 'repo' : a.kind === 'download' ? 'download' : 'video'} size={14} />
+              <span>{a.short}</span>
+              <span class="visually-hidden">: {a.label} for {project.title} (opens {a.host} in a new tab)</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+</article>

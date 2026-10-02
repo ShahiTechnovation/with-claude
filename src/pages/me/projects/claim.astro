@@ -25,7 +25,8 @@ if (guard.ok) {
 {
   !guard.ok ? (
     <Base title="Sign in" description="Sign in to continue" noindex>
-      <AuthRequired reason={guard.reason} />
+      {/* The project is in the query, so signing in must come back with it. */}
+      <AuthRequired reason={guard.reason} next={Astro.url.pathname + Astro.url.search} />
     </Base>
   ) : (
     <Base title="Claim a project" description="Ask to manage an imported project." active="/me" noindex>

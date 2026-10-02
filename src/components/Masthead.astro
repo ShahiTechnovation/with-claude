@@ -443,7 +443,9 @@ const nav = [
   });
 
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeDrawer();
+    if (e.key !== 'Escape' || toggle?.getAttribute('aria-expanded') !== 'true') return;
+    closeDrawer();
+    toggle.focus();
   });
 
   // Close drawer when a link inside it is clicked

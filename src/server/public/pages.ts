@@ -9,10 +9,10 @@
  */
 import { pooledDb } from '../../../db/pool';
 import {
-  featuredPublicProjects,
   getProjectDetail,
   listPublicProjects,
-  normaliseProjectQuery,
+  normaliseDirectoryQuery,
+  publicProjectCountForEvent,
   publicProjectsForBuilder,
   publicProjectsForEvent,
   relatedPublicProjects,
@@ -20,13 +20,11 @@ import {
   type PublicProjectCard,
   type PublicProjectDetail,
 } from './projects';
-import { latestPastEvents, upcomingPublicEvents, type PublicEventCard } from './events';
-import { communityCounts, featuredPublicBuilders, type PublicBuilderCard } from './builders';
 
 export type { ProjectListResult, PublicProjectCard, PublicProjectDetail };
 
 export function projectArchive(params: URLSearchParams): Promise<ProjectListResult> {
-  return listPublicProjects(pooledDb(), normaliseProjectQuery(params));
+  return listPublicProjects(pooledDb(), normaliseDirectoryQuery(params));
 }
 
 export async function projectPage(
@@ -39,12 +37,11 @@ export async function projectPage(
   return { project, related };
 }
 
-export function homepageProjects(limit = 6): Promise<PublicProjectCard[]> {
-  return featuredPublicProjects(pooledDb(), limit);
-}
-
-export function eventProjects(eventId: string): Promise<PublicProjectCard[]> {
-  return publicProjectsForEvent(pooledDb(), eventId);
+/** An event's public projects and their true count — the same predicate as the directory. */
+export async function eventProjects(eventId: string, limit = 60): Promise<{ items: PublicProjectCard[]; total: number }> {
+  const db = pooledDb();
+  const [items, total] = await Promise.all([publicProjectsForEvent(db, eventId, limit), publicProjectCountForEvent(db, eventId)]);
+  return { items, total };
 }
 
 export function builderProjects(builder: {
@@ -52,35 +49,4 @@ export function builderProjects(builder: {
   ownerMemberId: string | null;
 }): Promise<PublicProjectCard[]> {
   return publicProjectsForBuilder(pooledDb(), builder);
-}
-
-// ── the homepage ─────────────────────────────────────────────────────────
-
-
-export type { PublicEventCard, PublicBuilderCard };
-
-export interface HomeData {
-  upcoming: PublicEventCard[];
-  /** Shown only when nothing is upcoming. */
-  latest: PublicEventCard | null;
-  projects: PublicProjectCard[];
-  builders: PublicBuilderCard[];
-  counts: Awaited<ReturnType<typeof communityCounts>>;
-}
-
-/**
- * Everything the homepage renders, live, in one call. Each part is a bounded
- * query; nothing reads the build-time snapshot, so the homepage can no longer
- * disagree with the directory pages it links to.
- */
-export async function homeData(now: Date = new Date()): Promise<HomeData> {
-  const db = pooledDb();
-  const [upcoming, projects, builders, counts] = await Promise.all([
-    upcomingPublicEvents(db, now, 3),
-    featuredPublicProjects(db, 6),
-    featuredPublicBuilders(db, 6),
-    communityCounts(db),
-  ]);
-  const latest = upcoming.length === 0 ? ((await latestPastEvents(db, now, 1))[0] ?? null) : null;
-  return { upcoming, latest, projects, builders, counts };
 }

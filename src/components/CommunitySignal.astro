@@ -1,5 +1,6 @@
 ---
-import { cityName, communitySignal, nationalSignal } from '@/data';
+import * as staticData from '@/data';
+import type { RecordSelectors } from '@/data/selectors';
 import { dateParts } from '@/lib/datetime';
 
 /**
@@ -16,8 +17,14 @@ import { dateParts } from '@/lib/datetime';
  * The feed is generated, not authored. There is no file of activity items to
  * pad, so a quiet week reads as a quiet week.
  */
-const signal = nationalSignal();
-const feed = communitySignal(5);
+interface Props {
+  selectors?: RecordSelectors;
+}
+
+const { selectors } = Astro.props;
+const data = selectors ?? staticData;
+const signal = data.nationalSignal();
+const feed = data.communitySignal(5);
 
 const counts = [
   { value: signal.eventsHeld, label: 'Events held', note: 'on the record' },
@@ -67,7 +74,7 @@ const counts = [
                       <span class="feed-subject">{item.subject}</span>
                       <span class="feed-action">{item.action}</span>
                     </span>
-                    {item.citySlug && <span class="feed-city">{cityName(item.citySlug)}</span>}
+                    {item.citySlug && <span class="feed-city">{data.cityName(item.citySlug)}</span>}
                   </a>
                 </li>
               );

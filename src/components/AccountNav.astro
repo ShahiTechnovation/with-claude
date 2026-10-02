@@ -44,6 +44,13 @@ const loginMethods = (import.meta.env.PUBLIC_PRIVY_LOGIN_METHODS as string | und
 </script>
 
 <style is:global>
+  /* The mount point must not be a flex item of the masthead: an empty block
+     still takes a gap, which pushed the account control off the column edge.
+     The island it replaced was `display: contents` for the same reason. */
+  #privy-root {
+    display: contents;
+  }
+
   .account-slot {
     display: flex;
     align-items: center;

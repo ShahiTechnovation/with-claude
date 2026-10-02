@@ -2,8 +2,6 @@
 import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
 import PageIntro from '@/components/PageIntro.astro';
-import WithIndex from '@/components/WithIndex.astro';
-import Manifesto from '@/components/Manifesto.astro';
 import { cities, nationalSignal, official, publicAmbassadors, site, stewardship } from '@/data';
 import { CITY_STATE_LABEL, CITY_STATE_NOTE, CITY_STATE_ORDER } from '@/lib/city';
 import { titles, trail } from '@/lib/seo';
@@ -266,14 +264,6 @@ const isNot = [
     </ul>
 
     <p class="affiliation">{site.affiliation}</p>
-  </Section>
-  <!-- Moved here from the homepage, which now only introduces the site. -->
-  <Section id="with" tone="sunk" size="lg" labelledby="with-heading">
-    <WithIndex />
-  </Section>
-
-  <Section id="record" tone="night" size="lg" labelledby="manifesto-heading">
-    <Manifesto />
   </Section>
 </Base>
 

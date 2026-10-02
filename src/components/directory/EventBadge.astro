@@ -1,0 +1,23 @@
+---
+/**
+ * "Built at Impact Lab 2 · 15 Sep 2026" — the conspicuous, linked event
+ * attribution. Built from the shared `PublicEventRef`, so the label and the
+ * date can only ever be the event's own (the date it was HELD). Never a
+ * tooltip: the full text is always visible and wraps on narrow screens.
+ */
+import type { PublicEventRef } from '@/server/public/projects';
+import { formatDateCompact } from '@/lib/datetime';
+import Icon from './Icon.astro';
+
+interface Props {
+  event: PublicEventRef;
+  size?: 'sm' | 'md';
+}
+const { event, size = 'sm' } = Astro.props;
+const date = formatDateCompact(event.date);
+---
+
+<a class:list={['badge-event', `badge-event--${size}`]} href={`/events/${event.slug}/`}>
+  <Icon name="calendar" size={size === 'md' ? 15 : 13} />
+  <span>Built at <strong>{event.label}</strong> · <time datetime={event.date}>{date}</time></span>
+</a>

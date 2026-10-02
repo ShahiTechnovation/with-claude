@@ -28,7 +28,9 @@
  * None of the reasons expose internal detail to the browser. The reason code
  * itself is not emitted into the HTML. `data-next` emits the server's pathname,
  * not anything accepted from the client, so the post-login redirect cannot
- * become an open redirect.
+ * become an open redirect. A page whose content lives in its query (the claim
+ * page) passes `pathname + search`: the query is appended to the server's own
+ * path, so the destination still cannot leave it.
  */
 import type { PageGuardFailureReason } from '@/server/http/page-guard';
 

@@ -3,7 +3,6 @@ import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
 import PageIntro from '@/components/PageIntro.astro';
 import Participation from '@/components/Participation.astro';
-import CommunitySignal from '@/components/CommunitySignal.astro';
 import { faq, official, partners, publicAmbassadors, site } from '@/data';
 import { CITY_STATE_LABEL, CITY_STATE_NOTE, CITY_STATE_ORDER } from '@/lib/city';
 import { trail } from '@/lib/seo';
@@ -61,11 +60,6 @@ const entities = [
       {site.positioning} It is organised by volunteers, it is free, and it is not an Anthropic programme.
     </p>
   </PageIntro>
-
-  <!-- Moved here from the homepage: the national signal belongs with the community model. -->
-  <Section id="signal" size="sm" labelledby="signal-heading">
-    <CommunitySignal />
-  </Section>
 
   <Section id="model" tone="sunk" labelledby="model-heading">
     <div class="section-head">

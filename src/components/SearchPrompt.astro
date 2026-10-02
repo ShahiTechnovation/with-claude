@@ -1,6 +1,6 @@
 ---
-import { citySignalsRanked, eventsChronological, nationalSignal, publicBuilders } from '@/data';
-import { claudeSurfaces } from '@/data';
+import * as staticData from '@/data';
+import type { RecordSelectors } from '@/data/selectors';
 import { formatName } from '@/lib/status';
 
 /**
@@ -14,13 +14,19 @@ import { formatName } from '@/lib/status';
  * record that exists, so every suggestion on this page returns something —
  * a suggested search that comes back empty is worse than no suggestion.
  */
-const signal = nationalSignal();
-const ranked = citySignalsRanked();
+interface Props {
+  selectors?: RecordSelectors;
+}
+
+const { selectors } = Astro.props;
+const data = selectors ?? staticData;
+const signal = data.nationalSignal();
+const ranked = data.citySignalsRanked();
 
 const liveCity = ranked.find((s) => s.state === 'ambassador-led' || s.state === 'event-activity');
-const formats = [...new Set(eventsChronological.map((event) => event.format))];
-const surface = claudeSurfaces()[0];
-const person = publicBuilders[0];
+const formats = [...new Set(data.eventsChronological.map((event) => event.format))];
+const surface = data.claudeSurfaces()[0];
+const person = data.publicBuilders[0];
 
 // Built in order of what the record can actually support, then trimmed to
 // three so the row stays a suggestion rather than a menu.
