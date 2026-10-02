@@ -39,9 +39,14 @@ export const prerender = false;
 
 export const GET: APIRoute = async ({ request }) => {
   const secret = process.env.CRON_SECRET;
-  // Liveness for anyone; the details and the database round trip only for the cron bearer.
+  // Anyone gets up or down from a bare ping, so monitors still see an outage; the details need the cron bearer.
   if (!secret || !secretMatches(request.headers.get('authorization'), `Bearer ${secret}`)) {
-    return json({ ok: true }, 200);
+    try {
+      await pooledDb().execute(sql`select 1`);
+      return json({ ok: true }, 200);
+    } catch {
+      return json({ ok: false }, 503);
+    }
   }
 
   const mode = ingestionMode();

@@ -157,7 +157,7 @@ restoring a database backup.
 - `/api/health/` with `Authorization: Bearer $CRON_SECRET` → `ok: true`,
   `privy: true`, `privyVerification` as expected, `privyAppIdsMatch: true`,
   `baserow: "disabled"` (or `"enabled"`). Without the header it answers only
-  `{ "ok": true }`.
+  `{ "ok": true }` (or `{ "ok": false }` and 503 if the database is down).
 - `curl -I` a project page: `s-maxage=30, stale-while-revalidate=30`; a
   missing slug answers **404**.
 - Hide a project as a moderator, then request it anonymously every 10 s and
