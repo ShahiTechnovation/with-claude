@@ -237,8 +237,8 @@ export function text(event: IcsEvent, name: string): string | undefined {
  *   `20251009`          a date, for an all-day event.
  *
  * A `TZID` is resolved with `Intl`, which carries the zone database; an
- * unknown one is unreadable (null). A floating time is read as IST. A date has
- * no time of day, and `dateOnly` tells the caller not to invent one.
+ * unknown one is unreadable (null). A floating time is read as IST. A date is
+ * the whole day in IST: it starts at midnight IST, and `dateOnly` says so.
  */
 export interface IcsInstant {
   date: Date;
@@ -257,8 +257,8 @@ export function parseIcsDate(property: IcsProperty | undefined): IcsInstant | nu
   const dateOnly = /^(\d{4})(\d{2})(\d{2})$/.exec(value);
   if (dateOnly) {
     const [, y, m, d] = dateOnly;
-    const date = new Date(Date.UTC(Number(y), Number(m) - 1, Number(d)));
-    return Number.isNaN(date.getTime()) ? null : { date, utc: false, dateOnly: true };
+    const day = Date.UTC(Number(y), Number(m) - 1, Number(d));
+    return Number.isNaN(day) ? null : { date: new Date(inZone(day, 'Asia/Kolkata')!), utc: false, dateOnly: true };
   }
 
   const dateTime = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z)?$/.exec(value);

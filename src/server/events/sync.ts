@@ -451,9 +451,6 @@ export async function syncSource(source: EventSource, db: AnyDatabase): Promise<
     } else if (!cityId) {
       state = 'review';
       reason = 'city-not-in-atlas';
-    } else if (event.dateOnly) {
-      state = 'review';
-      reason = 'no-start-time';
     } else {
       state = 'promoted';
     }
@@ -860,8 +857,8 @@ async function promote(options: {
     cityId,
     date,
     startTime,
-    // `end_time` is a time on `date`, so an end on a later day is left out.
-    endTime: end && end.date === date && end.time > startTime ? end.time : null,
+    // `end_time` is a time on `date`: a date-only event fills the day, and a later-day end is left out.
+    endTime: event.dateOnly ? '23:59:59' : end && end.date === date && end.time > startTime ? end.time : null,
     /**
      * `venueName` is NOT NULL and the feed frequently has no venue — the
      * registrant-only events say "Check event page for more details."

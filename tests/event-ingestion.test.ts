@@ -116,6 +116,8 @@ describe('the ICS parser', () => {
     // Floating: no Z and no TZID is read as IST, without claiming a zone.
     expect(at('20260912T180000', {})).toBe('2026-09-12T12:30:00.000Z');
     expect(parseIcsDate({ value: '20260912T180000', params: {} })?.zone).toBeUndefined();
+    // A date is the whole day in IST, so it starts at midnight IST rather than 05:30.
+    expect(at('20261205', {})).toBe('2026-12-04T18:30:00.000Z');
     expect(parseIcsDate({ value: '20260912T180000', params: { TZID: 'Not/A_Zone' } })).toBeNull();
   });
 
@@ -336,22 +338,40 @@ describe('the sync', () => {
     expect(record.eventId).toBeNull();
   });
 
-  it('holds a date-only event for review rather than inventing a start time', async () => {
-    const calendar = parseIcs(
-      [
-        'BEGIN:VCALENDAR', 'BEGIN:VEVENT', 'UID:evt-allday@events.lu.ma', 'SUMMARY:Bhopal | Claude Day',
-        'DTSTART;VALUE=DATE:20261205', 'LOCATION:Bhopal, Madhya Pradesh, India', 'END:VEVENT', 'END:VCALENDAR',
-      ].join('\n'),
-    );
-    const allDay = normalizeLumaIcsEvent(calendar.events[0])!;
-    const summary = await syncSource(new ManualEventSource([allDay], { key: 'test:allday', complete: true }), db);
-    expect(summary).toMatchObject({ ok: true, review: 1, promoted: 0 });
+  /** One VEVENT through the real parser and normaliser. */
+  const lumaEvent = (...lines: string[]) =>
+    normalizeLumaIcsEvent(parseIcs(['BEGIN:VCALENDAR', 'BEGIN:VEVENT', ...lines, 'END:VEVENT', 'END:VCALENDAR'].join('\n')).events[0])!;
+  const eventRow = async (externalId: string) =>
+    (await db.select().from(schema.events).where(eq(schema.events.externalId, externalId)))[0];
 
-    const [record] = await db
-      .select()
-      .from(schema.eventSourceRecords)
-      .where(eq(schema.eventSourceRecords.externalId, 'evt-allday'));
-    expect(record).toMatchObject({ state: 'review', stateReason: 'no-start-time', eventId: null });
+  it('publishes a date-only event on its own date as the whole day, not at 05:30', async () => {
+    const allDay = lumaEvent(
+      'UID:evt-allday@events.lu.ma', 'SUMMARY:Bhopal | Claude Day', 'DTSTART;VALUE=DATE:20261205',
+      'LOCATION:Bhopal, Madhya Pradesh, India',
+    );
+    const summary = await syncSource(new ManualEventSource([allDay], { key: 'test:allday', complete: true }), db);
+    expect(summary).toMatchObject({ ok: true, promoted: 1, review: 0 });
+    expect(await eventRow('evt-allday')).toMatchObject({
+      status: 'published', date: '2026-12-05', startTime: '00:00:00', endTime: '23:59:59',
+    });
+  });
+
+  it('keeps a published date-only event published when it is synced again', async () => {
+    // As main published it: the date read as midnight UTC, so 05:30 IST.
+    const key = 'test:allday-resync';
+    const before = event({ externalId: 'evt-allday-2', title: 'Bhopal | Build Weekend', startsAt: new Date('2026-12-06T00:00:00Z') });
+    await syncSource(new ManualEventSource([before], { key, complete: true }), db);
+    expect(await eventRow('evt-allday-2')).toMatchObject({ status: 'published', startTime: '05:30:00' });
+
+    const edited = lumaEvent(
+      'UID:evt-allday-2@events.lu.ma', 'SUMMARY:Bhopal | Build Weekend (edited)', 'DTSTART;VALUE=DATE:20261206',
+      'DTEND;VALUE=DATE:20261208', 'LOCATION:Bhopal, Madhya Pradesh, India',
+    );
+    const summary = await syncSource(new ManualEventSource([edited], { key, complete: true }), db);
+    expect(summary).toMatchObject({ ok: true, promoted: 1, withdrawn: 0 });
+    expect(await eventRow('evt-allday-2')).toMatchObject({
+      status: 'published', canceledAt: null, date: '2026-12-06', startTime: '00:00:00', endTime: '23:59:59',
+    });
   });
 
   it('never publishes a foreign event', async () => {
