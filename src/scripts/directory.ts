@@ -36,6 +36,8 @@ function enhance(root: HTMLElement, form: HTMLFormElement) {
 
   let controller: AbortController | null = null;
   let sequence = 0;
+  /** The search box's debounce timer. */
+  let typing: number | undefined;
 
   const urlFromForm = (): string => {
     const data = new FormData(form);
@@ -59,6 +61,10 @@ function enhance(root: HTMLElement, form: HTMLFormElement) {
   };
 
   async function navigate(url: string, mode: 'push' | 'replace' | 'none', after?: () => void) {
+    // A search still waiting on its debounce is out of date the moment anything
+    // else navigates. Left running, it would abort this request and, after a
+    // Back, replace the history entry the visitor had just returned to.
+    window.clearTimeout(typing);
     controller?.abort();
     controller = new AbortController();
     const mine = ++sequence;
@@ -164,7 +170,6 @@ function enhance(root: HTMLElement, form: HTMLFormElement) {
     if (t instanceof HTMLSelectElement && t.matches('[data-dir-sort]')) void navigate(urlFromForm(), 'push');
   });
 
-  let typing: number | undefined;
   root.addEventListener('input', (event) => {
     const t = event.target;
     if (!(t instanceof HTMLInputElement) || !t.matches('[data-dir-q]')) return;
@@ -174,7 +179,6 @@ function enhance(root: HTMLElement, form: HTMLFormElement) {
 
   form.addEventListener('submit', (event) => {
     event.preventDefault();
-    window.clearTimeout(typing);
     const wasOpen = drawerOpen();
     void navigate(urlFromForm(), 'push', () => {
       if (wasOpen) closeDrawer();

@@ -100,6 +100,14 @@ describe('the directory and event pages after review', () => {
     expect(script).toMatch(/if \(here === rendered\) return;[\s\S]{0,200}rendered = here;\s*void navigate\(here, 'none'/);
   });
 
+  it('any navigation cancels a pending search debounce, so it cannot abort a Back and overwrite its entry', () => {
+    // Declared before navigate(), and cleared before navigate() does anything else.
+    expect(script).toMatch(/let typing: number \| undefined;[\s\S]*async function navigate\([^{]*\{\s*(?:\/\/[^\n]*\s*)*window\.clearTimeout\(typing\);/);
+    // And it is that same timer the search box sets: a handler keeping its
+    // debounce in another variable would pass the line above and miss the fix.
+    expect(script).toMatch(/matches\('\[data-dir-q\]'\)\) return;[\s\S]{0,120}typing = window\.setTimeout\(/);
+  });
+
   it('a failed update never takes focus out of the search box', () => {
     expect(script).toContain("if (!document.activeElement?.matches('[data-dir-q]')) link.focus();");
   });
