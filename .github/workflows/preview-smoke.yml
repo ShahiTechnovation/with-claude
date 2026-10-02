@@ -1,0 +1,51 @@
+name: Preview smoke
+
+# Vercel reports each deployment back to GitHub. When a preview succeeds, open
+# its core pages in a real browser and fail on what a visitor would hit.
+on: deployment_status
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    # `Preview` is the environment name Vercel uses for a repository linked to
+    # one project. With several projects it is `Preview – <project>`: set the
+    # repository variable PREVIEW_ENVIRONMENT to the public site's name.
+    if: >-
+      github.event.deployment_status.state == 'success' &&
+      github.event.deployment.environment == (vars.PREVIEW_ENVIRONMENT || 'Preview')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # The default branch, not the deployed commit: this job holds the
+      # deployment-protection secret, so it only ever runs the script on main.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx playwright install --with-deps chromium
+
+      - name: Review the preview
+        env:
+          BASE: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}
+          # Empty when the secret is not set, and the script then sends no header.
+          EXTRA_HEADERS: 'x-vercel-protection-bypass: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}'
+          PAGES: /,/events/,/cities/,/projects/,/about/
+          OUT: shots/preview
+          STRICT: '1'
+        run: node scripts/dev/visual-review.mjs
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: preview-screenshots
+          path: shots/preview
+          retention-days: 14
