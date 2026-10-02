@@ -12,7 +12,6 @@ import { titles, trail } from '@/lib/seo';
 import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
 import PageIntro from '@/components/PageIntro.astro';
-import EventSignal from '@/components/EventSignal.astro';
 import EventRecord from '@/components/EventRecord.astro';
 import EventArchive from '@/components/EventArchive.astro';
 import { formatDate } from '@/lib/datetime';
@@ -59,10 +58,6 @@ const description = next
       An archive of Claude community events, meetups, and workshops across India. Free, open, and run by volunteers. Status below is computed from the calendar every time this site builds — never from a badge someone forgot to change.
     </p>
   </PageIntro>
-
-  <Section id="wild" tone="sunk" labelledby="wild-heading">
-    <EventSignal selectors={selectors} />
-  </Section>
 
   <Section id="calendar" size="lg" labelledby="calendar-heading">
     <div style="display: flex; flex-direction: column; align-items: center; width: 100%; gap: 2rem;">
