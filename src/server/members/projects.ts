@@ -30,6 +30,7 @@
 import { and, desc, eq, or, sql } from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import * as schema from '../../../db/schema';
+import { memberCan, projectAccess, type ProjectRole } from '../projects/lifecycle';
 
 type AnyDatabase = PgDatabase<PgQueryResultHKT, typeof schema>;
 
@@ -47,6 +48,9 @@ const projectColumns = {
   repoUrl: schema.projects.repoUrl,
   videoUrl: schema.projects.videoUrl,
   imagePath: schema.projects.imagePath,
+  imageId: schema.projects.imageId,
+  tags: schema.projects.tags,
+  contentAuthority: schema.projects.contentAuthority,
   ownerMemberId: schema.projects.ownerMemberId,
   publicationStatus: schema.projects.publicationStatus,
   moderationState: schema.projects.moderationState,
@@ -56,28 +60,32 @@ const projectColumns = {
 
 export type MemberProject = {
   [K in keyof typeof projectColumns]: (typeof projectColumns)[K]['_']['data'];
-};
+} & { role: ProjectRole };
 
 /**
- * Every project a member owns or collaborates on.
+ * Every project a member owns or is credited on, with their role on each.
  *
- * `deleted` is excluded — a soft-deleted project is gone as far as its owner is
+ * `deleted` is excluded — a soft-delete is gone as far as its owner is
  * concerned, and §29 keeps the row only so a moderator can restore it.
  *
- * ONE QUERY, and the `leftJoin` + `DISTINCT` matter: joining `project_members`
- * multiplies a project by its collaborator count, so without the distinct a
- * project with three collaborators appears three times. The deleted module
- * de-duplicated in JavaScript after the fact, which works but pages the extra
- * rows over the wire.
+ * The `project_members` join is constrained to THIS member in the join
+ * condition, so it can match at most one row per project and no DISTINCT is
+ * needed — a project with three collaborators still appears once.
  */
 export async function getMemberProjects(
   memberId: string,
   db: AnyDatabase,
 ): Promise<MemberProject[]> {
-  return (await db
-    .selectDistinct(projectColumns)
+  const rows = await db
+    .select({ ...projectColumns, memberRole: schema.projectMembers.role })
     .from(schema.projects)
-    .leftJoin(schema.projectMembers, eq(schema.projectMembers.projectId, schema.projects.id))
+    .leftJoin(
+      schema.projectMembers,
+      and(
+        eq(schema.projectMembers.projectId, schema.projects.id),
+        eq(schema.projectMembers.memberId, memberId),
+      ),
+    )
     .where(
       and(
         or(
@@ -87,66 +95,47 @@ export async function getMemberProjects(
         sql`${schema.projects.publicationStatus} <> 'deleted'`,
       ),
     )
-    .orderBy(desc(schema.projects.updatedAt))) as MemberProject[];
+    .orderBy(desc(schema.projects.updatedAt));
+  return rows.map(({ memberRole, ...row }) => ({
+    ...row,
+    role: row.ownerMemberId === memberId ? 'owner' : (memberRole ?? 'contributor'),
+  })) as MemberProject[];
 }
 
 /**
- * One project, if this member may edit it.
+ * One project, if this member may at least READ it in the account area.
  *
  * Returns null rather than throwing, and null means BOTH "no such project" and
  * "not yours" — deliberately indistinguishable, so this cannot be used to
- * enumerate which project ids exist.
+ * enumerate which project ids exist. The caller checks `can(project.role, …)`
+ * before offering any action.
  */
-/**
- * `projects.id` is `uuid`. Postgres refuses to compare it against a string
- * that is not one — `invalid input syntax for type uuid`, thrown from the
- * database rather than caught here — which turns a malformed id into a 500
- * instead of the 403/404 every other "not yours" or "not found" path returns.
- *
- * Every route that reaches `getMemberProject` already validates its id with
- * `z.string().uuid()` before calling it (see `src/pages/api/media/upload.ts`
- * and the sibling project routes), so this can never fire in production. It
- * is here anyway because this function, not its callers, is what makes "not
- * a real id" and "not your project" the same answer — `null` — rather than a
- * third failure mode a caller has to remember to guard against separately.
- */
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 export async function getMemberProject(
   memberId: string,
   projectId: string,
   db: AnyDatabase,
 ): Promise<MemberProject | null> {
-  if (!UUID_RE.test(projectId)) return null;
-
-  const rows = (await db
-    .selectDistinct(projectColumns)
+  const access = await projectAccess(memberId, projectId, db);
+  if (!access) return null;
+  const [row] = await db
+    .select(projectColumns)
     .from(schema.projects)
-    .leftJoin(schema.projectMembers, eq(schema.projectMembers.projectId, schema.projects.id))
-    .where(
-      and(
-        eq(schema.projects.id, projectId),
-        or(
-          eq(schema.projects.ownerMemberId, memberId),
-          eq(schema.projectMembers.memberId, memberId),
-        ),
-        sql`${schema.projects.publicationStatus} <> 'deleted'`,
-      ),
-    )) as MemberProject[];
-  return rows[0] ?? null;
+    .where(eq(schema.projects.id, projectId));
+  return row ? ({ ...row, role: access.role } as MemberProject) : null;
 }
 
 /**
- * Whether this member may edit a project, without fetching it.
+ * Whether this member may edit a project's content, without fetching it.
  *
- * Used by the mutation routes, which need the answer and not the row.
+ * Owner or collaborator. A contributor is credited, not an editor — see the
+ * matrix in `src/server/projects/lifecycle.ts`.
  */
 export async function canEditProject(
   memberId: string,
   projectId: string,
   db: AnyDatabase,
 ): Promise<boolean> {
-  return (await getMemberProject(memberId, projectId, db)) !== null;
+  return (await memberCan(memberId, projectId, 'edit', db)) !== null;
 }
 
 /** What a project is missing before it can go public. */

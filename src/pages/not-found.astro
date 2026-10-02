@@ -1,0 +1,23 @@
+---
+/**
+ * THE ON-DEMAND NOT-FOUND PAGE.
+ *
+ * Server-rendered routes `return Astro.rewrite('/not-found/')` when a record is
+ * missing or not public. Rewriting to the prerendered `/404` fails at runtime,
+ * and the old `Astro.redirect('/404')` answered 302 then 200 — so a removed
+ * page looked live to crawlers and link checkers. This answers a real 404 with
+ * the same body as `/404`, cached briefly like any other public response.
+ */
+export const prerender = false;
+
+import Base from '@/layouts/Base.astro';
+import NotFound from '@/components/NotFound.astro';
+import { publicCache } from '@/server/http/cache';
+
+Astro.response.status = 404;
+publicCache(Astro);
+---
+
+<Base title="Not found" description="That page is not part of the record." noindex>
+  <NotFound />
+</Base>

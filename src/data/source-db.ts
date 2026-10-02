@@ -76,7 +76,7 @@
  * see `loadRecordSet()`. The visitor pays for none of it, because none of it
  * happens at request time.
  */
-import { and, eq, inArray, ne } from 'drizzle-orm';
+import { and, eq, inArray, isNull, ne } from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import * as schema from '../../db/schema';
 import type { RecordSet } from './source';
@@ -279,10 +279,38 @@ export async function loadRecordSet(db: ReadDatabase): Promise<RecordSet> {
     memberProfileRows,
   ] = await Promise.all([
     db.select().from(schema.cities).where(eq(schema.cities.status, published)),
-    db.select().from(schema.builders).where(ne(schema.builders.status, WITHHELD_BUILDER_STATUS)),
+    /**
+     * A moderator's hold is a takedown too. `restricted`/`removed` builders,
+     * and soft-deleted ones, are not loaded at all — otherwise a restricted
+     * builder whose `status` is still `published` stayed in `publicBuilders`
+     * (the directory, city pages, credits). `reported` is loaded but demoted
+     * to `pending` below: credited by name, never shown as a profile.
+     */
+    db
+      .select()
+      .from(schema.builders)
+      .where(
+        and(
+          ne(schema.builders.status, WITHHELD_BUILDER_STATUS),
+          inArray(schema.builders.moderationState, ['clean', 'reported']),
+          isNull(schema.builders.deletedAt),
+        ),
+      ),
     db.select().from(schema.ambassadors).where(eq(schema.ambassadors.status, published)),
     db.select().from(schema.events).where(eq(schema.events.status, published)),
-    db.select().from(schema.projects).where(and(eq(schema.projects.publicationStatus, 'published'), eq(schema.projects.moderationState, 'clean'))),
+    // The canonical public-project predicate — `publicProjectWhere()` in
+    // `src/server/projects/lifecycle.ts`, inlined because this reader also runs
+    // under the prebuild, outside the server module graph.
+    db
+      .select()
+      .from(schema.projects)
+      .where(
+        and(
+          eq(schema.projects.publicationStatus, 'published'),
+          eq(schema.projects.moderationState, 'clean'),
+          isNull(schema.projects.deletedAt),
+        ),
+      ),
     db.select().from(schema.stories).where(eq(schema.stories.status, published)),
     db.select().from(schema.useCases).where(eq(schema.useCases.status, published)),
     db.select().from(schema.guides).where(eq(schema.guides.status, published)),
@@ -527,7 +555,11 @@ export async function loadRecordSet(db: ReadDatabase): Promise<RecordSet> {
       // A builder may be `pending` here — see the file header. Its own status
       // is reported honestly so `isPublic()` can keep it off every surface
       // except an attribution.
-      status: (row.status === published ? moderationOf(row) : row.status) as ModerationStatus,
+      status: (row.moderationState !== 'clean'
+        ? 'pending'
+        : row.status === published
+          ? moderationOf(row)
+          : row.status) as ModerationStatus,
       createdAt: isoDate(row.createdAt),
       updatedAt: isoDate(row.updatedAt),
       name: row.name,
@@ -649,6 +681,8 @@ export async function loadRecordSet(db: ReadDatabase): Promise<RecordSet> {
         ),
       }),
       date: requiredDate(row.date),
+      rescheduledFrom: row.rescheduledFrom ? requiredDate(row.rescheduledFrom) : undefined,
+      shortTitle: row.shortTitle ?? undefined,
       startTime: clockTime(row.startTime)!,
       endTime: clockTime(row.endTime),
       venue: compact({
@@ -660,7 +694,9 @@ export async function loadRecordSet(db: ReadDatabase): Promise<RecordSet> {
       summary: row.summary,
       description: row.description ?? undefined,
       registrationUrl: row.registrationUrl ?? undefined,
-      statusOverride: row.statusOverride ?? undefined,
+      // A feed cancellation (`canceled_at`, set by ingestion) is the same fact
+      // as an authored `cancelled` override, and must stop Register too.
+      statusOverride: row.canceledAt ? 'cancelled' : (row.statusOverride ?? undefined),
       free: row.free,
       coverImage: row.coverImagePath ?? undefined,
       photos: optionalList(photos),

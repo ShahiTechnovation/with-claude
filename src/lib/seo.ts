@@ -243,3 +243,29 @@ export function itemListSchema(
     })),
   };
 }
+
+/**
+ * JSON for an inline `<script type="application/ld+json">`.
+ *
+ * `JSON.stringify` does not escape `<`, so a member-written project title
+ * containing `</script>` would close the script element and run whatever
+ * followed — stored XSS through structured data. Escaping `<`, `>` and `&` as
+ * JSON unicode escapes keeps the JSON identical to a parser and inert to the
+ * HTML tokenizer. U+2028/U+2029 are escaped for old JS engines.
+ */
+const JSON_LD_ESCAPES: [string, string][] = [
+  ['<', '003c'],
+  ['>', '003e'],
+  ['&', '0026'],
+  [String.fromCharCode(0x2028), '2028'],
+  [String.fromCharCode(0x2029), '2029'],
+];
+
+export function safeJsonLd(value: unknown): string {
+  let json = JSON.stringify(value);
+  for (const [char, code] of JSON_LD_ESCAPES) {
+    // A JSON unicode escape: backslash, `u`, four hex digits.
+    json = json.split(char).join(`\\u${code}`);
+  }
+  return json;
+}

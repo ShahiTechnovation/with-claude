@@ -1,0 +1,193 @@
+---
+/**
+ * THE LOGO BOX — one square, always the same size, never empty.
+ *
+ * Used by the directory row, the project header and the facts card, so a
+ * project looks the same everywhere. What goes in it is decided by
+ * `resolveLogoSource()` (`src/lib/project-logo.ts`); this component only
+ * renders that decision:
+ *
+ *   logo         contained, centred, on a light ground (transparent and wide
+ *                marks keep their shape)
+ *   cover        a screenshot cropped to the square
+ *   favicon      shown no larger than twice its own pixels, centred — a tiny
+ *                icon is never blown up into a blurry block
+ *   placeholder  the directory's plush mascot on a per-project tint
+ *
+ * A remote image that fails to load is swapped ONCE for the placeholder (a
+ * capture-phase listener; the image is never retried, so there is no loop).
+ * The box has fixed dimensions either way, so nothing shifts.
+ *
+ * Accessibility: a real logo next to the project's name is decorative
+ * (`alt=""`). The placeholder says what it is — artwork, not the project's
+ * logo — so a screen reader is never told a mascot is somebody's brand.
+ */
+import { Image } from 'astro:assets';
+import { asset } from '@/lib/images';
+import type { LogoSource } from '@/lib/project-logo';
+import mascot from '@/assets/brand/project-placeholder.svg?raw';
+
+interface Props {
+  logo: LogoSource;
+  /** Rendered square size: row (≈76px, 60px on phones), header (≈96px), card (128px). */
+  size?: 'row' | 'header' | 'card';
+  eager?: boolean;
+  class?: string;
+}
+
+const { logo, size = 'row', eager = false, class: className } = Astro.props;
+const px = size === 'card' ? 128 : size === 'header' ? 96 : 76;
+const placeholderLabel = 'Placeholder artwork — no project logo supplied';
+const variant = logo.kind === 'placeholder' ? logo.variant : 0;
+const isRemote = (logo.kind === 'logo' || logo.kind === 'cover') && /^https:\/\//i.test(logo.src);
+const assetMeta = !isRemote && (logo.kind === 'logo' || logo.kind === 'cover') ? asset(logo.src) : undefined;
+// An asset key that no longer resolves falls back like a broken image.
+const effective: LogoSource = !isRemote && (logo.kind === 'logo' || logo.kind === 'cover') && !assetMeta ? { kind: 'placeholder', variant } : logo;
+const favicon = effective.kind === 'logo' && effective.origin === 'favicon';
+const faviconMax = favicon ? Math.min(px * 0.7, Math.max(16, (effective.width ?? 32) * 2)) : undefined;
+---
+
+<span
+  class:list={['plogo', `plogo--${size}`, `plogo--${effective.kind}`, { 'plogo--favicon': favicon }, className]}
+  data-variant={variant}
+  style={faviconMax ? `--favicon-max:${faviconMax}px` : undefined}
+>
+  {
+    effective.kind === 'placeholder' ? (
+      <span class="plogo-art" role="img" aria-label={placeholderLabel} set:html={mascot} />
+    ) : isRemote ? (
+      <>
+        <img
+          src={effective.src}
+          alt=""
+          width={px * 2}
+          height={px * 2}
+          loading={eager ? 'eager' : 'lazy'}
+          decoding="async"
+          referrerpolicy="no-referrer"
+          data-plogo-img
+        />
+        <span class="plogo-art" role="img" aria-label={placeholderLabel} set:html={mascot} hidden />
+      </>
+    ) : (
+      <Image src={assetMeta!} alt="" widths={[px, px * 2]} sizes={`${px}px`} loading={eager ? 'eager' : 'lazy'} decoding="async" />
+    )
+  }
+</span>
+
+<script>
+  // One-shot fallback for remote logo images. Errors do not bubble, so the
+  // listener runs in the capture phase; images that failed before this ran
+  // are caught by the sweep. The failed <img> is hidden, never re-requested.
+  const swap = (img: HTMLImageElement) => {
+    if (img.dataset.plogoFailed) return;
+    img.dataset.plogoFailed = '1';
+    img.hidden = true;
+    const art = img.nextElementSibling as HTMLElement | null;
+    if (art) art.hidden = false;
+    img.closest('.plogo')?.classList.add('plogo--placeholder');
+  };
+  document.addEventListener(
+    'error',
+    (e) => {
+      const t = e.target;
+      if (t instanceof HTMLImageElement && t.matches('[data-plogo-img]')) swap(t);
+    },
+    true,
+  );
+  const sweep = () =>
+    document.querySelectorAll<HTMLImageElement>('img[data-plogo-img]').forEach((img) => {
+      if (img.complete && img.naturalWidth === 0 && img.getAttribute('src')) swap(img);
+    });
+  sweep();
+  document.addEventListener('directory:updated', sweep);
+</script>
+
+<style>
+  .plogo {
+    --box: var(--logo-row);
+    position: relative;
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: var(--box);
+    height: var(--box);
+    overflow: hidden;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--panel-border);
+    background: var(--panel);
+  }
+
+  .plogo--header {
+    --box: var(--logo-header);
+    border-radius: var(--radius-lg);
+  }
+
+  .plogo--card {
+    --box: var(--logo-lg);
+    border-radius: var(--radius-lg);
+  }
+
+  @media (max-width: 40em) {
+    .plogo--row {
+      --box: var(--logo-row-sm);
+    }
+
+    .plogo--header {
+      --box: 76px;
+    }
+  }
+
+  .plogo img,
+  .plogo :global(img) {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 12%;
+  }
+
+  .plogo--cover img,
+  .plogo--cover :global(img) {
+    object-fit: cover;
+    padding: 0;
+  }
+
+  .plogo--favicon img {
+    width: var(--favicon-max);
+    height: var(--favicon-max);
+    padding: 0;
+    image-rendering: auto;
+  }
+
+  .plogo-art {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* `hidden` must win over the display rules above, for both the failed
+     image and the not-yet-needed placeholder. */
+  .plogo [hidden],
+  .plogo :global([hidden]) {
+    display: none !important;
+  }
+
+  .plogo-art :global(svg) {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Six warm tints from the site palette, chosen by a hash of the slug. */
+  .plogo--placeholder {
+    border-color: transparent;
+  }
+
+  .plogo--placeholder[data-variant='0'] { background: #f7ded2; }
+  .plogo--placeholder[data-variant='1'] { background: #efe4cc; }
+  .plogo--placeholder[data-variant='2'] { background: #e5e6d3; }
+  .plogo--placeholder[data-variant='3'] { background: #f2d6c6; }
+  .plogo--placeholder[data-variant='4'] { background: #ebe1d3; }
+  .plogo--placeholder[data-variant='5'] { background: #f3e7da; }
+</style>

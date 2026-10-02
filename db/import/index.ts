@@ -611,6 +611,8 @@ export async function importRecords(
       date: event.date,
       startTime: event.startTime,
       endTime: event.endTime ?? null,
+      rescheduledFrom: event.rescheduledFrom ?? null,
+      shortTitle: event.shortTitle ?? null,
       venueName: event.venue.name,
       venueAddress: event.venue.address ?? null,
       venuePrivate: event.venue.private ?? false,

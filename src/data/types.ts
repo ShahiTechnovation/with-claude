@@ -200,7 +200,15 @@ export interface CommunityEvent extends RecordBase {
   volume?: number;
   citySlug: string;
   host: EventHost;
+  /** The day it was actually held (or will be). Always the real date. */
   date: IsoDate;
+  /**
+   * The date it was first announced for, when it moved. Display-only: the
+   * event page says "rescheduled from"; badges and sorting use `date`.
+   */
+  rescheduledFrom?: IsoDate;
+  /** A compact label for badges ("Impact Lab 2"). Falls back to `title`. */
+  shortTitle?: string;
   startTime: ClockTime;
   endTime?: ClockTime;
   venue: Venue;

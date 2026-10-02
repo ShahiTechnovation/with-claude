@@ -1,0 +1,124 @@
+---
+/**
+ * CONTENT SYNC — Baserow → Neon, for the people who operate it.
+ *
+ * Detailed diagnostics live here, behind sign-in; the public health endpoint
+ * only says enabled / disabled / misconfigured. Counts and short reasons only:
+ * no raw payloads, no tokens.
+ */
+import Admin from '@/layouts/Admin.astro';
+import { pooledDb } from '@db/pool';
+import { baserowSettings } from '../../../../src/server/integrations/baserow/config';
+import { syncStatus } from '../../../../src/server/integrations/baserow/sync';
+
+export const prerender = false;
+
+const settings = baserowSettings();
+const status = await syncStatus(pooledDb());
+const note = Astro.url.searchParams.get('note');
+const canOperate = Astro.locals.user?.role === 'admin' || Astro.locals.user?.role === 'editor';
+
+const jobs = Object.fromEntries(status.jobCounts.map((j) => [j.status, j.n]));
+const lastSuccess = status.state.find((s) => s.key === 'last-success')?.value as { at?: string } | undefined;
+const age = lastSuccess?.at ? Math.round((Date.now() - Date.parse(lastSuccess.at)) / 60_000) : null;
+const reconcileState = status.state.filter((s) => s.key.startsWith('reconcile:'));
+const fmt = (d: Date | string | null | undefined) => (d ? new Date(d).toISOString().replace('T', ' ').slice(0, 16) + ' UTC' : '—');
+---
+
+<Admin title="Content sync" active="/integrations">
+  <div class="space-y-10">
+    <header>
+      <h1 class="text-2xl font-bold tracking-tight">Content sync (Baserow)</h1>
+      <p class="text-neutral-500 mt-1">
+        Organisers edit events and imported projects in Baserow; this is how those edits reach the website.
+        Member-owned projects are never written from Baserow.
+      </p>
+      {note && <p class="mt-4 p-3 border">{note}</p>}
+    </header>
+
+    <section>
+      <h2 class="text-lg font-semibold">State</h2>
+      <dl class="grid grid-cols-2 gap-2 mt-2">
+        <dt>Sync</dt>
+        <dd>{settings.enabled ? (settings.problem ? `Misconfigured — ${settings.problem}` : 'Enabled') : 'Disabled (BASEROW_SYNC_ENABLED is not "true")'}</dd>
+        <dt>Last fully successful run</dt>
+        <dd>{lastSuccess?.at ? `${fmt(lastSuccess.at)} (${age} min ago)` : 'Never'}</dd>
+        <dt>Jobs</dt>
+        <dd>
+          {`${jobs.pending ?? 0} pending · ${jobs.running ?? 0} running · ${jobs.failed ?? 0} failed · ${jobs.dead ?? 0} dead · ${jobs.done ?? 0} done`}
+        </dd>
+        {reconcileState.map((s) => {
+          const v = s.value as { at?: string; complete?: boolean; rows?: number };
+          return (
+            <>
+              <dt>{`Reconciled ${s.key.replace('reconcile:', '')}`}</dt>
+              <dd>{`${fmt(v.at)} · ${v.rows ?? 0} rows · ${v.complete ? 'complete scan' : 'INCOMPLETE — nothing inferred deleted'}`}</dd>
+            </>
+          );
+        })}
+      </dl>
+      {canOperate && (
+        <div class="flex gap-3 mt-4">
+          <form method="post" action="/api/integrations/process"><button class="btn" type="submit">Process queue now</button></form>
+          <form method="post" action="/api/integrations/reconcile"><button class="btn" type="submit">Reconcile now</button></form>
+          <form method="post" action="/api/integrations/retry"><button class="btn" type="submit">Retry failed jobs</button></form>
+        </div>
+      )}
+    </section>
+
+    <section>
+      <h2 class="text-lg font-semibold">Records by state</h2>
+      <table class="mt-2">
+        <thead><tr><th>Entity</th><th>State</th><th>Count</th></tr></thead>
+        <tbody>
+          {status.mappingCounts.map((m) => (
+            <tr><td>{m.entity}</td><td>{m.status}</td><td>{m.n}</td></tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2 class="text-lg font-semibold">Needs attention ({status.problems.length})</h2>
+      <p class="text-neutral-500">Quarantined rows keep their last valid version live. Held rows are saved as drafts until they meet the archive publication rules.</p>
+      <table class="mt-2">
+        <thead><tr><th>Table / row</th><th>Entity</th><th>State</th><th>Reason</th><th>Updated</th></tr></thead>
+        <tbody>
+          {status.problems.map((p) => (
+            <tr>
+              <td>{`${p.tableId} / ${p.rowId}`}</td>
+              <td>{p.entity}</td>
+              <td>{p.status}</td>
+              <td>{p.lastError}</td>
+              <td>{fmt(p.updatedAt)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2 class="text-lg font-semibold">Failed jobs</h2>
+      <table class="mt-2">
+        <thead><tr><th>Kind</th><th>Table / row</th><th>Attempts</th><th>Status</th><th>Error</th></tr></thead>
+        <tbody>
+          {status.deadJobs.map((j) => (
+            <tr><td>{j.kind}</td><td>{`${j.tableId} / ${j.rowId ?? '—'}`}</td><td>{j.attempts}</td><td>{j.status}</td><td>{j.lastError}</td></tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2 class="text-lg font-semibold">Recent runs</h2>
+      <table class="mt-2">
+        <thead><tr><th>Started</th><th>Trigger</th><th>Status</th><th>Counts</th></tr></thead>
+        <tbody>
+          {status.recentRuns.map((r) => (
+            <tr><td>{fmt(r.startedAt)}</td><td>{r.trigger}</td><td>{r.status}</td><td><code>{JSON.stringify(r.counts).slice(0, 200)}</code></td></tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  </div>
+</Admin>

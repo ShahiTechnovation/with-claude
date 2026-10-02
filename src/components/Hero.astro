@@ -1,7 +1,9 @@
 ---
 import { Image } from 'astro:assets';
 import CityAtlas from './CityAtlas.astro';
-import { cityName, nextEvent, site } from '@/data';
+import * as staticData from '@/data';
+import { site } from '@/data';
+import type { RecordSelectors } from '@/data/selectors';
 import { dateParts, relativeDay } from '@/lib/datetime';
 import { requireAsset } from '@/lib/images';
 import { lifecycleLabel, lifecycleOf, lifecycleTone } from '@/lib/status';
@@ -17,7 +19,13 @@ import { lifecycleLabel, lifecycleOf, lifecycleTone } from '@/lib/status';
  * above it inside the same heading, so the relationship reads in one line to a
  * screen reader as well as to an eye.
  */
-const next = nextEvent();
+interface Props {
+  selectors?: RecordSelectors;
+}
+
+const { selectors } = Astro.props;
+const data = selectors ?? staticData;
+const next = data.nextEvent();
 const parts = next ? dateParts(next.date) : undefined;
 const lifecycle = next ? lifecycleOf(next) : undefined;
 const tone = lifecycle ? lifecycleTone(lifecycle) : 'next';
@@ -34,7 +42,7 @@ const proof = requireAsset('events/vol06-3.jpg');
         drifts further right the wider the screen gets. */
     }
     <div class="hero-atlas" aria-hidden="true">
-      <CityAtlas variant="ghost" />
+      <CityAtlas variant="ghost" selectors={selectors} />
     </div>
 
     <div class="hero-body">
@@ -100,7 +108,7 @@ const proof = requireAsset('events/vol06-3.jpg');
               <span class="hero-signal-month">{parts.monthDisplay}</span>
             </span>
             <span class="hero-signal-title">{next.title}</span>
-            <span class="hero-signal-city">{cityName(next.citySlug)}</span>
+            <span class="hero-signal-city">{data.cityName(next.citySlug)}</span>
             <span class="hero-signal-when">{relativeDay(next.date)}</span>
             <span class="arrow" aria-hidden="true">
               →

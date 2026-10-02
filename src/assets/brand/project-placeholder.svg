@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+  <!-- WITH CLAUDE directory placeholder: a small clay plush with a spark.
+       Original artwork for projects with no logo or image. It is not the
+       project's logo and not an Anthropic mark. Colours come from the site's
+       clay/ink palette; the box behind it sets the per-project tint. -->
+  <ellipse cx="32" cy="54" rx="14" ry="2.6" fill="#16140e" opacity="0.09"/>
+  <ellipse cx="17.6" cy="38.5" rx="3.3" ry="4.6" fill="#c3613b"/>
+  <ellipse cx="46.4" cy="38.5" rx="3.3" ry="4.6" fill="#c3613b"/>
+  <path d="M32 19.5c9.6 0 16.2 6.5 16.2 16.2 0 9.6-6.8 16.6-16.2 16.6s-16.2-7-16.2-16.6c0-9.7 6.6-16.2 16.2-16.2z" fill="#d97757"/>
+  <ellipse cx="23.6" cy="51.2" rx="4.4" ry="2.4" fill="#c3613b"/>
+  <ellipse cx="40.4" cy="51.2" rx="4.4" ry="2.4" fill="#c3613b"/>
+  <ellipse cx="32" cy="42" rx="8.6" ry="6.6" fill="#f4cdb9"/>
+  <circle cx="26.4" cy="32.4" r="2.05" fill="#16140e"/>
+  <circle cx="37.6" cy="32.4" r="2.05" fill="#16140e"/>
+  <circle cx="27.1" cy="31.7" r="0.6" fill="#fcfaf5"/>
+  <circle cx="38.3" cy="31.7" r="0.6" fill="#fcfaf5"/>
+  <ellipse cx="23" cy="36.3" rx="2.3" ry="1.35" fill="#ec9d7f"/>
+  <ellipse cx="41" cy="36.3" rx="2.3" ry="1.35" fill="#ec9d7f"/>
+  <path d="M29.6 36.4q2.4 2.1 4.8 0" fill="none" stroke="#16140e" stroke-width="1.35" stroke-linecap="round"/>
+  <path d="M32 8.2l1.5 4.3 4.3 1.5-4.3 1.5L32 19.8l-1.5-4.3-4.3-1.5 4.3-1.5z" fill="#9e4526"/>
+  <circle cx="40.6" cy="11.6" r="1.1" fill="#d97757"/>
+</svg>

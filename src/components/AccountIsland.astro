@@ -1,0 +1,53 @@
+---
+/**
+ * A mount point for an account editor that `PrivyRoot` renders.
+ *
+ * The editor is NOT its own Astro island. A separate React root has no
+ * `PrivyProvider` ancestor, and a second provider would race the first over
+ * Privy's iframe (see `PrivyRoot.tsx`). So this emits:
+ *
+ *   · a node marked `data-account-island="<name>"`
+ *   · the editor's props as JSON in a `<script type="application/json">`,
+ *     serialised with `safeJsonLd()` so a member's own text cannot close the
+ *     script element
+ *   · a server fallback that says what is happening, removed on mount
+ *
+ * `PrivyRoot` finds the node, lazy-loads the named editor and portals it in,
+ * inside the one provider. Props are data the server already authorised for
+ * this member; no token is ever written into the page.
+ */
+import { safeJsonLd } from '@/lib/seo';
+
+interface Props {
+  name: 'profile-editor' | 'project-editor';
+  props: Record<string, unknown>;
+}
+
+const { name, props } = Astro.props;
+const configured = Boolean(import.meta.env.PUBLIC_PRIVY_APP_ID);
+---
+
+<div class="account-island" data-account-island={name}>
+  <script type="application/json" set:html={safeJsonLd(props)} />
+  {
+    configured ? (
+      <p class="island-loading js-hydrate-hide">Loading the editor…</p>
+    ) : (
+      <p class="island-loading" role="alert">
+        Editing is unavailable on this deployment because sign-in is not configured.
+      </p>
+    )
+  }
+  <noscript>
+    <p class="island-loading">The editor needs JavaScript. Your saved details are shown on your profile page.</p>
+  </noscript>
+</div>
+
+<style is:global>
+  .island-loading {
+    padding: var(--s-6) 0;
+    font-family: var(--font-mono);
+    font-size: var(--t-small);
+    color: var(--ink-3);
+  }
+</style>

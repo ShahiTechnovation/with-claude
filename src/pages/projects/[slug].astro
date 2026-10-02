@@ -1,393 +1,770 @@
 ---
-import { Image } from 'astro:assets';
-import Base from '@/layouts/Base.astro';
-import Section from '@/components/Section.astro';
-import PageIntro from '@/components/PageIntro.astro';
-import { site } from '@/data';
-import { formatDate } from '@/lib/datetime';
-import { resolveProjectCover } from '@/lib/project-cover';
-import { formatName } from '@/lib/status';
-import { titles, trail } from '@/lib/seo';
-
-import { getProjectData, loadLiveRecords } from '@/server/directory';
-import { RecordSelectors } from '@/data/selectors';
-import { ReportModal } from '@/components/react/ReportModal';
-import ModeratorControls from '@/components/ModeratorControls.astro';
-import { isRequestModerator } from '@/server/moderation';
-
+/**
+ * A PROJECT PAGE — /projects/[slug]/
+ *
+ * Two columns, like a company page in a directory: the header (logo, name,
+ * tagline, event, links), then the narrative on the left and a facts card on
+ * the right. On a phone the facts and links come straight after the header,
+ * before the long text.
+ *
+ * What is on the page is what the record actually holds. A section with no
+ * content is not rendered; "How Claude was used" says "Not documented in the
+ * submission" rather than inferring it from the event; the placeholder logo
+ * is labelled as directory artwork; links are typed (live / repository /
+ * demo / download / artifact) and an absent one has no button.
+ *
+ * Serving rules (unchanged): public means `published` + `clean` + not deleted
+ * (`publicProjectWhere()`); anything else is a real 404 for the public; a
+ * moderator's render is `private, no-store`; public renders use the bounded
+ * TTL in `src/server/http/cache.ts`. User text is rendered as text; JSON-LD
+ * goes through `safeJsonLd()` in the layout.
+ */
 export const prerender = false;
 
-const _rs = await loadLiveRecords();
-const selectors = new RecordSelectors(_rs);
+import Base from '@/layouts/Base.astro';
+import NotFound from '@/components/NotFound.astro';
+import ProjectLogo from '@/components/ProjectLogo.astro';
+import ProjectRow from '@/components/directory/ProjectRow.astro';
+import EventBadge from '@/components/directory/EventBadge.astro';
+import Narrative from '@/components/directory/Narrative.astro';
+import Icon from '@/components/directory/Icon.astro';
+import ModeratorControls from '@/components/ModeratorControls.astro';
+import { ReportModal } from '@/components/react/ReportModal';
+import { site } from '@/data';
+import { formatDateLong } from '@/lib/datetime';
+import { resolveProjectCover } from '@/lib/project-cover';
+import { artifactActions, buildStatusLabel, categoryLabel, excerpt } from '@/lib/project-display';
+import { titles, trail } from '@/lib/seo';
+import { directoryHref } from '@/server/public/projects';
+import { projectPage } from '@/server/public/pages';
+import { isRequestModerator } from '@/server/moderation';
+import { privateCache, publicCache } from '@/server/http/cache';
+import { logReadFailure, type ReadFailure } from '@/server/public/read-failure';
+import '@/styles/directory.css';
 
-const { slug } = Astro.params;
-if (!slug) return Astro.redirect('/404');
+const slug = Astro.params.slug ?? '';
+/** A failed read is a 503 with an honest message, not a raw 500 (see `read-failure.ts`). */
+let failure: ReadFailure | null = null;
+const loaded = await projectPage(slug).catch((error: unknown) => {
+  failure = logReadFailure('project', error);
+  return null;
+});
+/**
+ * Who is asking matters only for a moderator, and only when they ask: on a
+ * non-public record, or with `?moderate=1`. The query string is part of the
+ * CDN cache key, so the plain public URL is never rendered per viewer and a
+ * moderator's private render can never be cached under it.
+ */
+const wantsModeration = Astro.url.searchParams.has('moderate');
+const isModerator =
+  loaded && (!loaded.project.isPublic || wantsModeration) ? await isRequestModerator(Astro.request) : false;
+const visible = loaded && (loaded.project.isPublic || isModerator);
 
-const isModerator = await isRequestModerator(Astro.request);
-
-
-const data = await getProjectData(slug);
-if (!data) return Astro.redirect('/404');
-
-const { projectRow, builderSlugs, citySlug } = data;
-if (projectRow.publicationStatus !== 'published') return Astro.redirect('/404');
-
-const isAvailable = projectRow.moderationState === 'clean' || projectRow.moderationState === 'reported';
-
-if (!isAvailable && !isModerator) {
-  return Astro.redirect('/404');
+if (failure) {
+  Astro.response.status = 503;
+  Astro.response.headers.set('Retry-After', '30');
+  privateCache(Astro);
+} else if (!visible) {
+  Astro.response.status = 404;
+  publicCache(Astro);
+} else if (isModerator || !loaded.project.isPublic) {
+  privateCache(Astro);
+} else {
+  publicCache(Astro);
 }
 
-// Construct the project object matching what the page expects
-const project = {
-  id: projectRow.id,
-  title: projectRow.title,
-  slug: projectRow.slug,
-  /**
-   * Nullable in the column, non-null by the time a project is published —
-   * `publishBlockers()` refuses to publish without it, and this page has
-   * already 404ed anything that is not published. The fallback exists so a row
-   * that reached `published` by some other route degrades to a title rather
-   * than printing `null` into a meta description.
-   */
-  summary: projectRow.summary ?? projectRow.title,
-  description: projectRow.description,
-  url: projectRow.url,
-  repoUrl: projectRow.repoUrl,
-  videoUrl: projectRow.videoUrl,
-  image: projectRow.imagePath,
-  claudeUsage: projectRow.claudeUsage,
-  builtAtEventSlug: projectRow.builtAtEventId ? selectors.eventBySlug.get(projectRow.builtAtEventId)?.slug : undefined,
-  citySlug,
-  category: projectRow.category,
-  tags: projectRow.tags,
-  builderSlugs,
-};
+const project = loaded?.project;
+const related = loaded?.related ?? [];
+const cover = resolveProjectCover(project?.image);
+const shareImage = cover.kind === 'blob' ? cover.blobUrl : cover.kind === 'asset' ? cover.imageMetadata!.src : undefined;
 
-// Vercel ISR Cache Control
-Astro.response.headers.set('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=86400');
+const has = (text: string | null | undefined) => Boolean(text && text.trim());
+const actions = project ? artifactActions(project) : [];
+const status = buildStatusLabel(project?.buildStatus);
+const videos = actions.filter((a) => a.kind === 'video' || a.kind === 'altVideo');
+const hasDemo = Boolean(cover.kind !== 'none' || videos.length);
+const hasTeam = Boolean(project && (project.team || project.credits.length));
 
-const makers = selectors.builderNamesOf(project as any);
-const bornAt = project.builtAtEventSlug ? selectors.eventBySlug.get(project.builtAtEventSlug) : undefined;
-const cover = resolveProjectCover(project.image);
+const sections = project
+  ? [
+      // The summary is the header's tagline; Overview is only for a longer description.
+      { id: 'overview', label: 'Overview', show: has(project.description) },
+      { id: 'problem', label: 'Problem', show: has(project.problem) },
+      { id: 'solution', label: 'How it works', show: has(project.solution) },
+      { id: 'demo', label: 'Demo', show: hasDemo },
+      { id: 'team', label: 'Team', show: hasTeam || project.imported },
+    ].filter((s) => s.show)
+  : [];
 
-const schema = [
-  {
-    '@type': 'CreativeWork',
-    name: project.title,
-    description: project.summary,
-    url: `${site.url}/projects/${project.slug}`,
-    ...(project.url ? { sameAs: [project.url] } : {}),
-    ...(makers.length > 0
-      ? { creator: makers.map((maker) => ({ '@type': 'Person', name: maker.name })) }
-      : {}),
-    locationCreated: { '@type': 'Place', name: selectors.cityName(project.citySlug) },
-  },
-];
+const description = project ? excerpt(project.summary ?? project.solution ?? `${project.title} — a WITH CLAUDE project.`) : '';
 
-// How this project was actually made, where somebody has written it up.
-const practice = selectors.useCasesForProject(project.slug);
+const schema = project
+  ? [
+      {
+        '@type': 'CreativeWork',
+        name: project.title,
+        description: project.summary ?? project.title,
+        url: `${site.url}/projects/${project.slug}/`,
+        ...(project.url ? { sameAs: [project.url] } : {}),
+        ...(project.team ? { creator: { '@type': 'Organization', name: project.team } } : {}),
+        ...(project.credits.length > 0 && !project.team
+          ? { creator: project.credits.map((c) => ({ '@type': 'Person', name: c.name })) }
+          : {}),
+        ...(project.event
+          ? {
+              dateCreated: project.event.date,
+              ...(project.event.city ? { locationCreated: { '@type': 'Place', name: project.event.city.name } } : {}),
+              isPartOf: {
+                '@type': 'Event',
+                name: project.event.title,
+                startDate: project.event.date,
+                url: `${site.url}/events/${project.event.slug}/`,
+              },
+            }
+          : project.city
+            ? { locationCreated: { '@type': 'Place', name: project.city.name } }
+            : {}),
+      },
+    ]
+  : [];
 
-const crumbs = trail(
-  { name: 'Projects', href: '/projects' },
-  { name: project.title, href: `/projects/${project.slug}` },
-);
+const crumbs = project
+  ? trail({ name: 'Projects', href: '/projects/' }, { name: project.title, href: `/projects/${project.slug}/` })
+  : undefined;
+const iconFor = (kind: string) =>
+  kind === 'live' ? 'live' : kind === 'repo' ? 'repo' : kind === 'download' ? 'download' : kind === 'artifact' ? 'artifact' : 'video';
 ---
 
-<Base
-  title={project.title}
-  seoTitle={titles.project(project.title, selectors.cityName(project.citySlug))}
-  description={project.summary}
-  active="/projects"
-  breadcrumbs={crumbs}
-  image={cover.kind !== 'none' ? undefined : '/og-card.jpg'}
-  schema={schema}
->
-  {(!isAvailable && isModerator) && (
-    <div class="moderator-banner" style="background-color: var(--clay-deep); color: white; padding: 1rem; text-align: center; font-weight: bold; margin-bottom: 2rem;">
-      RESTRICTED / REMOVED — not visible to the public.
-    </div>
-  )}
-
-  <PageIntro
-    eyebrow={`${formatName(project.category)} · ${selectors.cityName(project.citySlug)}`}
-    title={project.title}
-    size="lg"
-  >
-    <p>{project.summary}</p>
-  </PageIntro>
-
-  <Section id="detail" tone="sunk" labelledby="detail-heading">
-    <h2 id="detail-heading" class="visually-hidden">About {project.title}</h2>
-
-    <div class="project">
-      <div class="project-main">
-        {
-          cover.kind !== 'none' && (
-            <div class="plate plate-framed project-image">
-              {cover.kind === 'blob' ? (
-                <img
-                  src={cover.blobUrl}
-                  alt={`${project.title} — screenshot`}
-                  loading="eager"
-                  decoding="async"
-                />
-              ) : (
-                <Image
-                  src={cover.imageMetadata!}
-                  alt={`${project.title} — screenshot`}
-                  widths={[600, 1100]}
-                  sizes="(max-width: 61.99em) 92vw, 680px"
-                  loading="eager"
-                  decoding="async"
-                />
-              )}
-            </div>
-          )
-        }
-
-        <h3 class="label usage-head">ABOUT THE PROJECT</h3>
-        {project.description ? (
-          <p class="project-body">{project.description}</p>
-        ) : (
-          <p class="project-body quiet-placeholder">Detailed project description not yet added.</p>
-        )}
-
-        {
-          project.claudeUsage && (
-            <div class="usage">
-              <h3 class="label usage-head">CLAUDE IN PRACTICE</h3>
-              <p class="usage-body">{project.claudeUsage}</p>
-            </div>
-          )
-        }
-
-        <div class="project-actions">
-          {
-            project.url && (
-              <a class="btn btn-clay" href={project.url} target="_blank" rel="noopener">
-                <span>Open it</span>
-                <span class="arrow" aria-hidden="true">
-                  ↗
-                </span>
-              </a>
-            )
-          }
-          {
-            project.repoUrl && (
-              <a class="btn" href={project.repoUrl} target="_blank" rel="noopener">
-                <span>Source</span>
-                <span class="arrow" aria-hidden="true">
-                  ↗
-                </span>
-              </a>
-            )
-          }
-          {
-            project.videoUrl && (
-              <a class="link-arrow" href={project.videoUrl} target="_blank" rel="noopener">
-                <span>Demo</span>
-                <span class="arrow" aria-hidden="true">
-                  ↗
-                </span>
-              </a>
-            )
-          }
+{
+  failure ? (
+    <Base title="Could not load" description="This project could not be loaded right now." noindex>
+      <div class="dir pd">
+        <div class="dir-panel dir-empty" role="alert">
+          <h2>This project could not be loaded</h2>
+          <p>Something went wrong on our side. Please try again in a moment.</p>
+          {import.meta.env.DEV && failure === 'schema-behind' && (
+            <p>
+              <strong>Development:</strong> the database behind <code>DATABASE_URL</code> is missing migrations. Run{' '}
+              <code>npm run db:migrate</code> against it, or use a migrated database.
+            </p>
+          )}
+          <a class="dir-button" href={Astro.url.pathname}>Try again</a>
         </div>
       </div>
+    </Base>
+  ) : !project || !visible ? (
+    <Base title="Not found" description="That project is not part of the directory." noindex>
+      <NotFound />
+    </Base>
+  ) : (
+    <Base
+      title={project.title}
+      seoTitle={titles.project(project.title, project.event?.city?.name ?? project.city?.name ?? 'India')}
+      description={description}
+      active="/projects"
+      breadcrumbs={crumbs}
+      image={shareImage}
+      ogImageAlt={`${project.title} — ${shareImage ? 'project image' : 'WITH CLAUDE'}`}
+      schema={schema}
+      noindex={!project.isPublic}
+    >
+      {!project.isPublic && (
+        <div class="mod-banner" role="status">
+          Not visible to the public — {project.publicationStatus} · {project.moderationState}. You are seeing it because
+          you are a moderator.
+        </div>
+      )}
 
-      <aside class="project-side">
-        <dl class="facts">
-          {
-            bornAt && (
+      <div class="dir pd">
+        <header class="pd-head">
+          <ProjectLogo logo={project.logo} size="header" eager />
+          <div class="pd-head-body">
+            <h1 class="pd-title">{project.title}</h1>
+            {project.summary && <p class="pd-tagline">{project.summary}</p>}
+            <div class="pd-meta">
+              {project.event && <EventBadge event={project.event} size="md" />}
+              {project.event?.city && (
+                <span class="meta-chip" title="Event city">
+                  <Icon name="pin" size={12} />
+                  {project.event.city.name}
+                </span>
+              )}
+              <a class="meta-chip pd-chip-link" href={directoryHref({ categories: [project.category] })}>
+                {categoryLabel(project.category)}
+              </a>
+              {status && (
+                <span class="meta-chip meta-chip--status" title="Self-reported by the team">
+                  {status} · self-reported
+                </span>
+              )}
+            </div>
+            {actions.length > 0 && (
+              <ul class="dir-actions pd-actions" aria-label="Project links">
+                {actions.map((a, i) => (
+                  <li>
+                    <a
+                      class:list={['dir-action', 'dir-action--lg', { 'dir-action--primary': i === 0 }]}
+                      href={a.href}
+                      target="_blank"
+                      rel="noopener noreferrer nofollow ugc"
+                    >
+                      <Icon name={iconFor(a.kind)} size={15} />
+                      <span>{a.label}</span>
+                      <span class="visually-hidden"> (opens {a.host} in a new tab)</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </header>
+
+        <div class="pd-grid">
+          <aside class="pd-side" aria-label="Project facts">
+            <div class="dir-panel facts-card">
+              <ProjectLogo logo={project.logo} size="card" />
               <div>
-                <dt>Built at</dt>
-                <dd>
-                  <a href={`/events/${bornAt.slug}`}>{bornAt.title}</a>
-                  <span class="fact-sub">{formatDate(bornAt.date)}</span>
-                </dd>
+                <p class="facts-card-name">{project.title}</p>
+                {project.team && <p class="pd-team">{project.team}</p>}
               </div>
-            )
-          }
-          <div>
-            <dt>Made by</dt>
-            <dd>
-              {
-                makers.length > 0 ? (
-                  <ul class="makers">
-                    {makers.map((maker) => (
+              <dl class="facts-list">
+                {project.event && (
+                  <>
+                    <div>
+                      <dt>Built at</dt>
+                      <dd>
+                        <a href={`/events/${project.event.slug}/`}>{project.event.name}</a>
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Event date</dt>
+                      <dd>
+                        <time datetime={project.event.date}>{formatDateLong(project.event.date)}</time>
+                      </dd>
+                    </div>
+                    {project.event.city && (
+                      <div>
+                        <dt>Event city</dt>
+                        <dd>
+                          <a href={`/cities/${project.event.city.slug}/`}>{project.event.city.name}</a>
+                        </dd>
+                      </div>
+                    )}
+                  </>
+                )}
+                {!project.event && project.city && (
+                  <div>
+                    <dt>City</dt>
+                    <dd>
+                      <a href={`/cities/${project.city.slug}/`}>{project.city.name}</a>
+                    </dd>
+                  </div>
+                )}
+                <div>
+                  <dt>Category</dt>
+                  <dd>
+                    <a href={directoryHref({ categories: [project.category] })}>{categoryLabel(project.category)}</a>
+                  </dd>
+                </div>
+                {status && (
+                  <div>
+                    <dt>Status</dt>
+                    <dd>
+                      {status}
+                      <span class="facts-note">Self-reported by the team</span>
+                    </dd>
+                  </div>
+                )}
+                {project.useCases.length > 0 && (
+                  <div>
+                    <dt>Written up</dt>
+                    <dd>
+                      {project.useCases.map((u) => (
+                        <a href={`/use-cases/${u.slug}/`}>{u.title}</a>
+                      ))}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+              {actions.length > 0 && (
+                <ul class="dir-actions" aria-label="Project links">
+                  {actions.map((a) => (
+                    <li>
+                      <a class="dir-action" href={a.href} target="_blank" rel="noopener noreferrer nofollow ugc">
+                        <Icon name={iconFor(a.kind)} size={14} />
+                        <span>{a.label}</span>
+                        <span class="visually-hidden"> (opens {a.host} in a new tab)</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {project.logo.kind === 'placeholder' && (
+                <p class="facts-note">The artwork is the directory’s placeholder — the team has not supplied a logo.</p>
+              )}
+              {project.logo.kind === 'logo' && project.logo.origin === 'favicon' && (
+                <p class="facts-note">Icon taken from the project’s own website.</p>
+              )}
+              {project.imported && (
+                <p class="pd-claim">
+                  Added from the event’s project entries, as the organisers recorded them.{' '}
+                  <a href={`/me/projects/claim/?project=${project.slug}`}>Is this your project? Claim it</a>
+                </p>
+              )}
+            </div>
+            <div class="pd-side-actions">
+              <ReportModal client:visible entityType="project" entityId={project.id} />
+              <ModeratorControls
+                entityType="projects"
+                entityId={project.id}
+                initialState={project.moderationState}
+                isModerator={isModerator}
+              />
+            </div>
+          </aside>
+
+          <div class="pd-main">
+            {sections.length >= 3 && (
+              <nav class="pd-nav" aria-label="On this page">
+                <ul>
+                  {sections.map((s) => (
+                    <li>
+                      <a href={`#${s.id}`}>{s.label}</a>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            )}
+
+            {has(project.description) && (
+              <section id="overview" class="pd-section" aria-labelledby="overview-h">
+                <h2 id="overview-h">Overview</h2>
+                <Narrative text={project.description} />
+              </section>
+            )}
+
+            {has(project.problem) && (
+              <section id="problem" class="pd-section" aria-labelledby="problem-h">
+                <h2 id="problem-h">The problem</h2>
+                <Narrative text={project.problem} />
+              </section>
+            )}
+
+            {has(project.solution) && (
+              <section id="solution" class="pd-section" aria-labelledby="solution-h">
+                <h2 id="solution-h">How it works</h2>
+                <Narrative text={project.solution} />
+              </section>
+            )}
+
+            {has(project.builtWith) && (
+              <section id="built-with" class="pd-section" aria-labelledby="built-h">
+                <h2 id="built-h">Built with</h2>
+                <p class="pd-source-note">As stated by the team.</p>
+                <Narrative text={project.builtWith} />
+              </section>
+            )}
+
+            <section id="claude" class="pd-section" aria-labelledby="claude-h">
+              <h2 id="claude-h">How Claude was used</h2>
+              {has(project.claudeUsage) ? (
+                <>
+                  {project.imported && <p class="pd-source-note">In the team’s own words, from their submission.</p>}
+                  <Narrative text={project.claudeUsage} />
+                </>
+              ) : (
+                <p class="pd-undocumented">Not documented in the submission.</p>
+              )}
+            </section>
+
+            {hasDemo && (
+              <section id="demo" class="pd-section" aria-labelledby="demo-h">
+                <h2 id="demo-h">Demo and screenshots</h2>
+                {cover.kind === 'blob' && (
+                  <img class="pd-shot" src={cover.blobUrl} alt={`Screenshot of ${project.title}`} loading="lazy" decoding="async" width="1600" height="1000" />
+                )}
+                {videos.length > 0 && (
+                  <ul class="pd-videos">
+                    {videos.map((v) => (
                       <li>
-                        {maker.isPublic ? (
-                          <a href={`/builders/${maker.slug}`}>{maker.name}</a>
-                        ) : (
-                          <span>{maker.name}</span>
-                        )}
+                        <a class="pd-video" href={v.href} target="_blank" rel="noopener noreferrer nofollow ugc">
+                          <span class="pd-video-play" aria-hidden="true">
+                            <Icon name="video" size={22} />
+                          </span>
+                          <span>
+                            <span class="pd-video-label">{v.label}</span>
+                            <span class="pd-video-host">{v.host} · opens in a new tab</span>
+                          </span>
+                        </a>
                       </li>
                     ))}
                   </ul>
-                ) : (
-                  <span class="quiet">Not credited</span>
-                )
-              }
-            </dd>
-          </div>
-          <div>
-            <dt>City</dt>
-            <dd><a href={`/cities/${project.citySlug}`}>{selectors.cityName(project.citySlug)}</a></dd>
-          </div>
-          <div>
-            <dt>Category</dt>
-            <dd>{formatName(project.category)}</dd>
-          </div>
-          {
-            /* Closes the project → practice edge: the write-up of how this
-              was actually made, when one exists. */
-          }
-          {
-            practice.length > 0 && (
-              <div>
-                <dt>Written up</dt>
-                <dd>
-                  {practice.map((useCase) => (
-                    <a href={`/use-cases/${useCase.slug}`}>{useCase.title}</a>
-                  ))}
-                </dd>
-              </div>
-            )
-          }
-        </dl>
+                )}
+              </section>
+            )}
 
-        {project.tags && project.tags.length > 0 && <p class="tags">{project.tags.join(' · ')}</p>}
-        
-        <div class="mt-8 pt-6 border-t border-neutral-100">
-          <ReportModal client:load entityType="project" entityId={project.id} />
-          <ModeratorControls entityType="projects" entityId={project.id} initialState={projectRow.moderationState} isModerator={isModerator} />
+            {(hasTeam || project.imported) && (
+              <section id="team" class="pd-section" aria-labelledby="team-h">
+                <h2 id="team-h">Team</h2>
+                {project.team && <p class="pd-team-name">{project.team}</p>}
+                {project.credits.length > 0 && (
+                  <ul class="pd-people">
+                    {project.credits.map((c) => (
+                      <li>
+                        {c.href ? <a href={c.href}>{c.name}</a> : <span>{c.name}</span>}
+                        {c.role && <span class="facts-note">{c.role}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {project.imported && project.credits.length === 0 && (
+                  <p class="pd-source-note">Individual builders are not listed yet — names are published only with their permission.</p>
+                )}
+              </section>
+            )}
+          </div>
         </div>
-      </aside>
-    </div>
-  </Section>
 
-  <Section id="back" size="sm">
-    <a class="link-arrow" href="/projects">
-      <span>The whole archive</span>
-      <span class="arrow" aria-hidden="true">→</span>
-    </a>
-  </Section>
+        {related.length > 0 && (
+          <section class="pd-related" aria-labelledby="related-h">
+            <div class="pd-related-head">
+              <h2 id="related-h">{project.event ? `More from ${project.event.label}` : 'More projects'}</h2>
+              {project.event && (
+                <a class="dir-clear" href={directoryHref({ events: [project.event.slug] })}>
+                  See all projects from this event →
+                </a>
+              )}
+            </div>
+            <ul class="dir-list">
+              {related.map((item) => (
+                <li>
+                  <ProjectRow project={item} />
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
-</Base>
+        <p class="pd-back">
+          <a class="dir-clear" href="/projects/">← Back to the Project Directory</a>
+        </p>
+      </div>
+    </Base>
+  )
+}
 
 <style>
-  .project {
-    display: grid;
-    gap: var(--s-8);
-  }
-
-  .project-image {
-    aspect-ratio: 16 / 10;
-    margin-bottom: var(--s-6);
-  }
-
-  .project-body {
-    max-width: 62ch;
-    font-size: var(--t-lead);
-    color: var(--ink-2);
-  }
-
-  .quiet-placeholder {
+  .mod-banner {
+    padding: var(--s-3) var(--gutter);
+    background: var(--clay-deep);
+    color: var(--paper-raised);
     font-family: var(--font-mono);
     font-size: var(--t-small);
-    font-style: italic;
-    color: var(--ink-3);
+    text-align: center;
   }
 
-  .usage {
-    margin-top: var(--s-7);
-    padding: var(--s-5);
-    border: var(--border-hair) solid var(--rule-strong);
-    border-left: 2px solid var(--clay);
-    background: var(--paper-raised);
+  .pd {
+    padding-bottom: 4rem;
   }
 
-  .usage-head {
-    color: var(--clay-deep);
-    margin-bottom: var(--s-3);
+  .pd-head {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 1.25rem;
+    align-items: start;
+    padding-block: 1.5rem 1.75rem;
+    border-bottom: 1px solid var(--panel-border);
   }
 
-  .usage-body {
-    max-width: 58ch;
-    font-size: var(--t-small);
+  .pd-head-body {
+    display: grid;
+    gap: 0.65rem;
+    min-width: 0;
+  }
+
+  .pd-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(1.9rem, 3.6vw, 2.6rem);
+    font-weight: 560;
+    line-height: 1.08;
+    letter-spacing: -0.02em;
+    overflow-wrap: anywhere;
+  }
+
+  .pd-tagline {
+    margin: 0;
+    max-width: 68ch;
+    font-size: 1.125rem;
+    line-height: 1.5;
     color: var(--ink-2);
   }
 
-  .project-actions {
+  .pd-meta {
     display: flex;
     flex-wrap: wrap;
+    gap: 0.45rem;
     align-items: center;
-    gap: var(--s-5);
-    margin-top: var(--s-7);
   }
 
-  .facts {
-    display: grid;
-    gap: var(--s-5);
-    padding-top: var(--s-4);
-    border-top: var(--border-heavy) solid var(--ink);
-  }
-
-  .facts dt {
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: var(--track-meta);
-    text-transform: uppercase;
-    color: var(--ink-3);
-  }
-
-  .facts dd {
-    margin-top: var(--s-2);
-    font-family: var(--font-display);
-    font-size: 1.2rem;
-    font-weight: 500;
-    font-variation-settings:
-      'SOFT' 0,
-      'WONK' 1;
-  }
-
-  .facts a {
+  .pd-chip-link {
     text-decoration: none;
   }
 
-  .facts a:hover {
+  .pd-chip-link:hover {
+    text-decoration: underline;
+  }
+
+  .pd-actions {
+    margin-top: 0.35rem;
+  }
+
+  .pd-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(18rem, 1fr);
+    grid-template-areas: 'main side';
+    gap: 2.25rem;
+    align-items: start;
+    padding-top: 1.75rem;
+  }
+
+  .pd-main {
+    grid-area: main;
+    display: grid;
+    gap: 2rem;
+    min-width: 0;
+  }
+
+  .pd-side {
+    grid-area: side;
+    display: grid;
+    gap: 1rem;
+    position: sticky;
+    top: calc(var(--masthead-h, 4.5rem) + 1rem);
+  }
+
+  @media (max-width: 63.99em) {
+    .pd-grid {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas: 'side' 'main';
+      gap: 1.5rem;
+    }
+
+    .pd-side {
+      position: static;
+    }
+
+    /* The header already carries the links; the card keeps the facts. */
+    .pd-side .dir-actions {
+      display: none;
+    }
+
+    .pd-side .facts-card :global(.plogo--card) {
+      display: none;
+    }
+  }
+
+  @media (max-width: 40em) {
+    /* Logo and name share the first line; everything else runs full width. */
+    .pd-head {
+      gap: 0.9rem;
+      align-items: center;
+    }
+
+    .pd-head-body {
+      display: contents;
+    }
+
+    .pd-tagline,
+    .pd-meta,
+    .pd-actions {
+      grid-column: 1 / -1;
+    }
+
+    .pd-actions :global(.dir-action) {
+      min-height: 2.75rem;
+    }
+  }
+
+  .pd-team {
+    margin: 0.2rem 0 0;
+    color: var(--ink-3);
+    font-size: 0.9375rem;
+  }
+
+  .pd-claim {
+    margin: 0;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--panel-border);
+    font-size: 0.875rem;
+    color: var(--ink-2);
+  }
+
+  .pd-claim a {
     color: var(--clay-deep);
   }
 
-  .fact-sub {
+  .pd-side-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .pd-nav ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1.25rem;
+    margin: 0;
+    padding: 0 0 0.75rem;
+    list-style: none;
+    border-bottom: 1px solid var(--panel-border);
+  }
+
+  .pd-nav a {
+    display: inline-block;
+    padding: 0.35rem 0;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--ink-2);
+    text-decoration: none;
+  }
+
+  .pd-nav a:hover {
+    color: var(--ink);
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
+
+  .pd-section {
+    display: grid;
+    gap: 0.75rem;
+    scroll-margin-top: calc(var(--masthead-h, 4.5rem) + 1rem);
+  }
+
+  .pd-section h2 {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: 1.25rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+  }
+
+  .pd-lead {
+    margin: 0;
+    font-size: 1.0625rem;
+    line-height: 1.6;
+    color: var(--ink);
+    max-width: 72ch;
+  }
+
+  .pd-source-note {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: var(--ink-3);
+  }
+
+  .pd-undocumented {
+    margin: 0;
+    color: var(--ink-3);
+    font-style: italic;
+  }
+
+  .pd-shot {
     display: block;
-    margin-top: 2px;
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    font-weight: 400;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 10;
+    object-fit: cover;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-lg);
+  }
+
+  .pd-videos {
+    display: grid;
+    gap: 0.6rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .pd-video {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.9rem;
+    align-items: center;
+    padding: 0.85rem 1rem;
+    color: var(--ink);
+    text-decoration: none;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius-md);
+  }
+
+  .pd-video:hover,
+  .pd-video:focus-visible {
+    border-color: var(--ink-3);
+  }
+
+  .pd-video-play {
+    display: grid;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    color: var(--paper-raised);
+    background: var(--ink);
+    border-radius: 999px;
+  }
+
+  .pd-video-label {
+    display: block;
+    font-weight: 600;
+  }
+
+  .pd-video-host {
+    display: block;
+    font-size: 0.8125rem;
     color: var(--ink-3);
   }
 
-  .quiet {
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    color: var(--ink-3);
+  .pd-team-name {
+    margin: 0;
+    font-weight: 600;
   }
 
-  .tags {
-    margin-top: var(--s-5);
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: 0.06em;
-    color: var(--ink-3);
+  .pd-people {
+    display: grid;
+    gap: 0.4rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
   }
 
-  @media (min-width: 62em) {
-    .project {
-      grid-template-columns: minmax(0, 1.35fr) minmax(240px, 0.65fr);
-      gap: var(--s-9);
-      align-items: start;
-    }
+  .pd-people a {
+    color: var(--clay-deep);
+  }
+
+  .pd-related {
+    display: grid;
+    gap: 0.9rem;
+    margin-top: 3rem;
+  }
+
+  .pd-related-head {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.5rem 1rem;
+  }
+
+  .pd-related-head h2 {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: 1.25rem;
+    font-weight: 650;
+  }
+
+  .pd-back {
+    margin: 2rem 0 0;
   }
 </style>

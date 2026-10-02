@@ -1,6 +1,7 @@
 ---
 import { Image } from 'astro:assets';
-import { nationalSignal, photoRecord } from '@/data';
+import * as staticData from '@/data';
+import type { RecordSelectors } from '@/data/selectors';
 import { requireAsset } from '@/lib/images';
 
 /**
@@ -36,8 +37,14 @@ interface Strand {
   caption: string;
 }
 
-const signal = nationalSignal();
-const photographs = photoRecord().length;
+interface Props {
+  selectors?: RecordSelectors;
+}
+
+const { selectors } = Astro.props;
+const data = selectors ?? staticData;
+const signal = data.nationalSignal();
+const photographs = data.photoRecord().length;
 
 const strands: Strand[] = [
   {
@@ -206,6 +213,10 @@ const pad = (n: number) => String(n).padStart(2, '0');
     gap: var(--s-7);
   }
 
+  .with-body > * {
+    min-width: 0;
+  }
+
   /* --- The strands -------------------------------------------------------
      Set at display size, because these are the five nouns the whole site is
      an index of. */
@@ -225,6 +236,22 @@ const pad = (n: number) => String(n).padStart(2, '0');
     padding-block: clamp(var(--s-4), 1.6vw, var(--s-6));
     text-decoration: none;
     color: var(--ink);
+  }
+
+  /* Four columns and three gaps did not fit a 375px phone. After the base
+     rule, or the base rule wins at equal specificity and this never applies. */
+  @media (max-width: 29.99em) {
+    .with-link {
+      grid-template-columns: auto minmax(0, 1fr) auto 0;
+      gap: var(--s-2);
+    }
+
+    /* Narrower still (320px), the unit drops under the count rather than off the edge. */
+    .with-tally {
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      row-gap: 0;
+    }
   }
 
   .with-word {

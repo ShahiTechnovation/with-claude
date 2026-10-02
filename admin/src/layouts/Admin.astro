@@ -23,7 +23,9 @@ interface Props {
     | '/moderation'
     | '/reports'
     | '/ambassadors'
-    | '/attribution';
+    | '/attribution'
+    | '/claims'
+    | '/integrations';
   /** Chrome is dropped on the login page — there is nobody to show yet. */
   bare?: boolean;
 }
@@ -69,6 +71,12 @@ const user = Astro.locals.user;
             </a>
             <a href="/attribution" aria-current={active === '/attribution' ? 'page' : undefined}>
               Attribution
+            </a>
+            <a href="/claims" aria-current={active === '/claims' ? 'page' : undefined}>
+              Claims
+            </a>
+            <a href="/integrations" aria-current={active === '/integrations' ? 'page' : undefined}>
+              Content sync
             </a>
             <a href="/audit" aria-current={active === 'audit' ? 'page' : undefined}>
               Audit

@@ -9,7 +9,6 @@
  * server-side by AccountMenu (it returns a stable placeholder during Privy
  * hydration to prevent layout shift).
  */
-import PrivyRoot from '@/components/react/PrivyRoot';
 
 const appId = import.meta.env.PUBLIC_PRIVY_APP_ID as string | undefined;
 const loginMethods = (import.meta.env.PUBLIC_PRIVY_LOGIN_METHODS as string | undefined)
@@ -27,12 +26,31 @@ const loginMethods = (import.meta.env.PUBLIC_PRIVY_LOGIN_METHODS as string | und
   static fallback and the live button would both stay in the DOM at once.
 -->
 <div id="account-slot-root" class="account-slot" data-account-state="anonymous">
-  <a class="account-join js-hydrate-hide" href="/">Join WITH CLAUDE</a>
+  <a class="account-join js-hydrate-hide" href="/join/" data-account-signin>Sign in</a>
 </div>
 
-{appId && <PrivyRoot appId={appId} loginMethods={loginMethods} client:only="react" />}
+{/*
+  Where `PrivyRoot` mounts. Not an Astro island: `src/scripts/account-boot.ts`
+  loads it on demand (account pages, an existing session, or a click on
+  Sign in), so readers who never sign in never download the Privy SDK.
+*/}
+{
+  appId && (
+    <div id="privy-root" data-app-id={appId} data-login-methods={(loginMethods ?? []).join(',')}></div>
+  )
+}
+<script>
+  import '@/scripts/account-boot';
+</script>
 
 <style is:global>
+  /* The mount point must not be a flex item of the masthead: an empty block
+     still takes a gap, which pushed the account control off the column edge.
+     The island it replaced was `display: contents` for the same reason. */
+  #privy-root {
+    display: contents;
+  }
+
   .account-slot {
     display: flex;
     align-items: center;
@@ -108,12 +126,32 @@ const loginMethods = (import.meta.env.PUBLIC_PRIVY_LOGIN_METHODS as string | und
     display: inline-flex;
     align-items: center;
     gap: 0.4ch;
+    margin-right: 0.5rem;
     font-family: var(--font-mono);
     font-size: 0.65rem;
     font-weight: 500;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     white-space: nowrap;
+    color: var(--clay-deep, #92400e);
+  }
+
+  a.account-nudge:hover,
+  a.account-nudge:focus-visible {
+    text-decoration: underline;
+  }
+
+  .account-slot[data-account-state] {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  @media (max-width: 40em) {
+    .account-nudge,
+    .account-name {
+      display: none;
+    }
   }
 
   .account-nudge a {

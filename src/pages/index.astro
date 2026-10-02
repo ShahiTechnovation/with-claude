@@ -1,4 +1,17 @@
 ---
+/**
+ * THE HOMEPAGE — the deployed composition, rendered from live records.
+ *
+ * The sections, their order and their components are the ones production
+ * shipped at 83a8f41. What changed is only where the numbers come from: this
+ * page used to be prerendered from the build-time snapshot, so a takedown
+ * stayed on the homepage until the next nightly rebuild and "in 3 days" was
+ * whatever was true at build time. Now every section reads one request-local
+ * `RecordSelectors`, loaded through the same public predicates as the
+ * directory pages, and the CDN keeps it for the bounded `publicCache` window.
+ */
+export const prerender = false;
+
 import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
 import Hero from '@/components/Hero.astro';
@@ -13,46 +26,70 @@ import StoryStrip from '@/components/StoryStrip.astro';
 import WithIndex from '@/components/WithIndex.astro';
 import Participation from '@/components/Participation.astro';
 import Manifesto from '@/components/Manifesto.astro';
-import { cityName, nationalSignal, nextEvent, site, upcomingEvents } from '@/data';
+import { site } from '@/data';
+import { RecordSelectors } from '@/data/selectors';
 import { formatDate, isoDateTime } from '@/lib/datetime';
 import { lifecycleOf } from '@/lib/status';
 import { inWordsCap } from '@/lib/words';
 import { titles } from '@/lib/seo';
+import { loadLiveRecords } from '@/server/directory';
+import { privateCache, publicCache } from '@/server/http/cache';
+import { logReadFailure, type ReadFailure } from '@/server/public/read-failure';
 
-const next = nextEvent();
-const signal = nationalSignal();
+/**
+ * A failed read is a 503 with an honest message — never a raw 500, and never
+ * cached (the next request should try again). See `read-failure.ts`.
+ */
+let failure: ReadFailure | null = null;
+let selectors: RecordSelectors | undefined;
+try {
+  selectors = new RecordSelectors(await loadLiveRecords());
+  publicCache(Astro);
+} catch (error) {
+  failure = logReadFailure('home', error);
+  Astro.response.status = 503;
+  Astro.response.headers.set('Retry-After', '30');
+  privateCache(Astro);
+}
+const devHint = import.meta.env.DEV && failure === 'schema-behind';
+
+const now = new Date();
+const next = selectors?.nextEvent(now);
+const signal = selectors?.nationalSignal(now);
 
 // The meta description follows the record rather than being rewritten by hand.
-const description = next
-  ? `${site.positioning} Next: ${next.title} in ${cityName(next.citySlug)}, ${formatDate(next.date)}.`
-  : site.positioning;
+const description =
+  selectors && next
+    ? `${site.positioning} Next: ${next.title} in ${selectors.cityName(next.citySlug)}, ${formatDate(next.date)}.`
+    : site.positioning;
 
 /**
  * Structured data for every event still ahead of us.
  *
  * Only real, scheduled events are published here. Nothing on this site emits
  * structured data for an event, a chapter or an organisation that does not
- * exist in the record.
+ * exist in the record. A venue shared only with registrants is named by its
+ * city, never by the venue the record keeps privately.
  */
-const eventSchema = upcomingEvents().map((event) => ({
+const eventSchema = (selectors?.upcomingEvents(now) ?? []).map((event) => ({
   '@type': 'Event',
-  name: `${event.title} · ${cityName(event.citySlug)}`,
+  name: `${event.title} · ${selectors!.cityName(event.citySlug)}`,
   description: event.description ?? event.summary,
-  url: `${site.url}/events/${event.slug}`,
+  url: `${site.url}/events/${event.slug}/`,
   startDate: isoDateTime(event.date, event.startTime),
   ...(event.endTime ? { endDate: isoDateTime(event.date, event.endTime) } : {}),
   eventStatus:
-    lifecycleOf(event) === 'cancelled'
+    lifecycleOf(event, now) === 'cancelled'
       ? 'https://schema.org/EventCancelled'
       : 'https://schema.org/EventScheduled',
   eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
   isAccessibleForFree: event.free,
   location: {
     '@type': 'Place',
-    name: event.venue.name,
+    name: event.venue.private ? selectors!.cityName(event.citySlug) : event.venue.name,
     address: {
       '@type': 'PostalAddress',
-      addressLocality: cityName(event.citySlug),
+      addressLocality: selectors!.cityName(event.citySlug),
       addressCountry: 'IN',
     },
   },
@@ -64,7 +101,7 @@ const eventSchema = upcomingEvents().map((event) => ({
           priceCurrency: 'INR',
           url: event.registrationUrl,
           availability:
-            lifecycleOf(event) === 'sold-out'
+            lifecycleOf(event, now) === 'sold-out'
               ? 'https://schema.org/SoldOut'
               : 'https://schema.org/InStock',
         },
@@ -81,76 +118,104 @@ const eventSchema = upcomingEvents().map((event) => ({
   active="/"
   schema={eventSchema}
 >
-  <!-- 01 — THE COVER ---------------------------------------------------- -->
-  <Hero />
+  {
+    !selectors || !signal ? (
+      <Section id="unavailable" labelledby="unavailable-heading">
+        <div class="section-head" role="alert">
+          <p class="eyebrow">{site.wordmark}</p>
+          <h1 id="unavailable-heading">The record could not be loaded</h1>
+          <p class="prose">
+            Something went wrong on our side while reading the community record. Please try again in
+            a moment.
+          </p>
+          {devHint && (
+            <p class="prose">
+              <strong>Development:</strong> the database behind <code>DATABASE_URL</code> is missing
+              migrations this code needs. Run <code>npm run db:migrate</code> against it, or point
+              the dev server at a migrated database.
+            </p>
+          )}
+        </div>
+        <a class="btn" href="/">
+          <span>Try again</span>
+          <span class="arrow" aria-hidden="true">
+            →
+          </span>
+        </a>
+      </Section>
+    ) : (
+      <>
+        {/* 01 — THE COVER ---------------------------------------------------- */}
+        <Hero selectors={selectors} />
 
-  <!-- 02 — THE INDIA SIGNAL. What is actually happening? ------------------ -->
-  <Section id="signal" tone="sunk" size="sm" labelledby="signal-heading">
-    <CommunitySignal />
-  </Section>
+        {/* 02 — THE INDIA SIGNAL. What is actually happening? ------------------ */}
+        <Section id="signal" tone="sunk" size="sm" labelledby="signal-heading">
+          <CommunitySignal selectors={selectors} />
+        </Section>
 
-  <!-- 03 — SEARCH. Find something specific. ------------------------------- -->
-  <Section id="search" labelledby="search-heading">
-    <SearchPrompt />
-  </Section>
+        {/* 03 — SEARCH. Find something specific. ------------------------------- */}
+        <Section id="search" labelledby="search-heading">
+          <SearchPrompt selectors={selectors} />
+        </Section>
 
-  <!-- 04 — NEXT EVENT. What can I join? ----------------------------------- -->
-  <Section id="next" tone="raised" labelledby="next-heading">
-    <NextEvent />
-  </Section>
+        {/* 04 — NEXT EVENT. What can I join? ----------------------------------- */}
+        <Section id="next" tone="raised" labelledby="next-heading">
+          <NextEvent selectors={selectors} />
+        </Section>
 
-  <!-- 05 — THE ATLAS. Where is the activity? The first dark movement. ----- -->
-  <Section id="atlas" tone="night" size="lg" labelledby="atlas-heading">
-    <div class="atlas-head">
-      <div class="section-head">
-        <p class="eyebrow">Discover</p>
-        <h2 id="atlas-heading">
-          {`${inWordsCap(signal.citiesPlotted)} cities, plotted.`}
-        </h2>
-        <p class="prose">
-          Every point sits at its true latitude and longitude. What the plate shows is community
-          state — where a verified Ambassador is hosting, where events have happened, where people
-          have registered interest, and where the map is simply a map.
-        </p>
-      </div>
-    </div>
-    <CityAtlas />
-  </Section>
+        {/* 05 — THE ATLAS. Where is the activity? The first dark movement. ----- */}
+        <Section id="atlas" tone="night" size="lg" labelledby="atlas-heading">
+          <div class="atlas-head">
+            <div class="section-head">
+              <p class="eyebrow">Discover</p>
+              <h2 id="atlas-heading">{`${inWordsCap(signal.citiesPlotted)} cities, plotted.`}</h2>
+              <p class="prose">
+                Every point sits at its true latitude and longitude. What the plate shows is
+                community state — where a verified Ambassador is hosting, where events have
+                happened, where people have registered interest, and where the map is simply a map.
+              </p>
+            </div>
+          </div>
+          <CityAtlas selectors={selectors} />
+        </Section>
 
-  <!-- 06 — PEOPLE. Who is building? --------------------------------------- -->
-  <Section id="builders" labelledby="builders-heading">
-    <BuilderIndex limit={6} />
-  </Section>
+        {/* 06 — PEOPLE. Who is building? --------------------------------------- */}
+        <Section id="builders" labelledby="builders-heading">
+          <BuilderIndex limit={6} selectors={selectors} />
+        </Section>
 
-  <!-- 07 — MADE WITH CLAUDE. What are they making? The deepest ground. ----- -->
-  <Section id="projects" tone="deep" size="lg" labelledby="projects-heading">
-    <ProjectArchive limit={6} />
-  </Section>
+        {/* 07 — MADE WITH CLAUDE. What are they making? The deepest ground. ----- */}
+        <Section id="projects" tone="deep" size="lg" labelledby="projects-heading">
+          <ProjectArchive limit={6} selectors={selectors} />
+        </Section>
 
-  <!-- 08 — CLAUDE IN PRACTICE. How are people actually using it? ---------- -->
-  <Section id="practice" labelledby="practice-library-heading">
-    <PracticeLibrary limit={4} compact />
-  </Section>
+        {/* 08 — CLAUDE IN PRACTICE. How are people actually using it? ---------- */}
+        <Section id="practice" labelledby="practice-library-heading">
+          <PracticeLibrary limit={4} compact selectors={selectors} />
+        </Section>
 
-  <!-- 09 — FROM THE COMMUNITY (full bleed) -------------------------------- -->
-  <Section id="stories" size="lg" bleed labelledby="stories-heading">
-    <StoryStrip />
-  </Section>
+        {/* 09 — FROM THE COMMUNITY (full bleed) -------------------------------- */}
+        <Section id="stories" size="lg" bleed labelledby="stories-heading">
+          <StoryStrip selectors={selectors} />
+        </Section>
 
-  <!-- 10 — WITH. The name, stated as a system rather than as a logo. ------ -->
-  <Section id="with" tone="sunk" size="lg" labelledby="with-heading">
-    <WithIndex />
-  </Section>
+        {/* 10 — WITH. The name, stated as a system rather than as a logo. ------ */}
+        <Section id="with" tone="sunk" size="lg" labelledby="with-heading">
+          <WithIndex selectors={selectors} />
+        </Section>
 
-  <!-- 11 — CONTRIBUTE ------------------------------------------------------ -->
-  <Section id="join" tone="raised" labelledby="join-heading">
-    <Participation />
-  </Section>
+        {/* 11 — CONTRIBUTE ------------------------------------------------------ */}
+        <Section id="join" tone="raised" labelledby="join-heading">
+          <Participation />
+        </Section>
 
-  <!-- 12 — THE CLOSE -------------------------------------------------------- -->
-  <Section id="record" tone="night" size="lg" labelledby="manifesto-heading">
-    <Manifesto />
-  </Section>
+        {/* 12 — THE CLOSE -------------------------------------------------------- */}
+        <Section id="record" tone="night" size="lg" labelledby="manifesto-heading">
+          <Manifesto selectors={selectors} />
+        </Section>
+      </>
+    )
+  }
 </Base>
 
 <style>

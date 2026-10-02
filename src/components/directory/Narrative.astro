@@ -1,0 +1,67 @@
+---
+/**
+ * A submission's own words, shaped into paragraphs, lists and emphasis by
+ * `narrativeBlocks()` — and rendered as escaped text only. There is no
+ * `set:html` here on purpose.
+ */
+import { narrativeBlocks } from '@/lib/project-display';
+
+interface Props {
+  text: string | null | undefined;
+}
+
+const blocks = narrativeBlocks(Astro.props.text);
+---
+
+<div class="narrative">
+  {
+    blocks.map((block) =>
+      block.type === 'p' ? (
+        <p>{block.content.map((run) => (run.strong ? <strong>{run.text}</strong> : run.em ? <em>{run.text}</em> : run.text))}</p>
+      ) : block.type === 'h' ? (
+        <p class="narrative-h">{block.content.map((run) => run.text)}</p>
+      ) : (
+        <ul>
+          {block.items.map((item) => (
+            <li>{item.map((run) => (run.strong ? <strong>{run.text}</strong> : run.em ? <em>{run.text}</em> : run.text))}</li>
+          ))}
+        </ul>
+      ),
+    )
+  }
+</div>
+
+<style>
+  .narrative {
+    display: grid;
+    gap: 0.85em;
+    font-family: var(--font-body);
+    font-size: 1rem;
+    line-height: 1.65;
+    color: var(--ink-2);
+    max-width: 72ch;
+    overflow-wrap: anywhere;
+  }
+
+  .narrative :where(p, ul) {
+    margin: 0;
+  }
+
+  .narrative ul {
+    display: grid;
+    gap: 0.35em;
+    padding-left: 1.25em;
+    list-style: disc;
+  }
+
+  .narrative strong {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  .narrative-h {
+    margin-top: 0.4em !important;
+    font-weight: 600;
+    color: var(--ink);
+  }
+</style>

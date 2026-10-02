@@ -192,6 +192,7 @@ export async function publishProfile(
           // would refuse `ambassador` outright. Nobody arrives at standing
           // through a form.
           bio: profile.bio ?? null,
+          imageId: profile.avatarMediaId ?? null,
           status: 'published',
           source: 'user',
           ownerMemberId: member.id,
@@ -217,6 +218,20 @@ export async function publishProfile(
       finalSlug = created.slug;
       finalCreated = true;
       finalAuditId = audit.id;
+    }
+
+    // ── A staged portrait becomes public with the profile ───────────────
+    if (profile.avatarMediaId) {
+      await tx
+        .update(schema.media)
+        .set({ status: 'published', updatedAt: new Date() })
+        .where(
+          and(
+            eq(schema.media.id, profile.avatarMediaId),
+            eq(schema.media.ownerMemberId, member.id),
+            eq(schema.media.status, 'staged'),
+          ),
+        );
     }
 
     // ── Update publication timestamp atomically ──────────────────────────

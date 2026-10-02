@@ -7,7 +7,8 @@
  *
  * ── WHAT THIS STILL REFUSES ──────────────────────────────────────────────
  *
- * 1. A project that is not yours.
+ * 1. A project that is not yours, or that you are only credited on — publish
+ *    is owner-only (see the matrix in `src/server/projects/lifecycle.ts`).
  * 2. A project that has been restricted or removed by a moderator. Publishing
  *    is not a way out of moderation (§29), so a restricted project cannot be
  *    re-published by its owner.
@@ -34,11 +35,13 @@
  * attribution, or the audit log fails, none of the three commits.
  */
 import type { APIRoute } from 'astro';
-import { and, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { pooledDb } from '../../../../../db/pool';
 import * as schema from '../../../../../db/schema';
 import { guardMutation, json } from '@/server/http/guard';
 import { publishBlockers } from '@/server/members/projects';
+import { transitionProject } from '@/server/projects/lifecycle';
+import { publishProjectCover } from '@/server/media/covers';
 
 export const prerender = false;
 
@@ -52,159 +55,72 @@ export const POST: APIRoute = async ({ request, params }) => {
   const projectId = params.id;
   if (!projectId) return json({ error: 'Missing project id.' }, 400);
 
-  const [project] = await db
-    .select({
-      id: schema.projects.id,
-      slug: schema.projects.slug,
-      title: schema.projects.title,
-      summary: schema.projects.summary,
-      description: schema.projects.description,
-      claudeUsage: schema.projects.claudeUsage,
-      cityId: schema.projects.cityId,
-      ownerMemberId: schema.projects.ownerMemberId,
-      publicationStatus: schema.projects.publicationStatus,
-      moderationState: schema.projects.moderationState,
-    })
-    .from(schema.projects)
-    .where(eq(schema.projects.id, projectId));
-
-  // 404 for both "no such project" and "not yours", so this cannot be used to
-  // discover which ids exist.
-  if (!project) return json({ error: 'Project not found.' }, 404);
-
-  if (project.ownerMemberId !== member.id) {
-    const [collaborator] = await db
-      .select({ memberId: schema.projectMembers.memberId })
-      .from(schema.projectMembers)
-      .where(
-        and(
-          eq(schema.projectMembers.projectId, projectId),
-          eq(schema.projectMembers.memberId, member.id),
-        ),
-      );
-    if (!collaborator) return json({ error: 'Project not found.' }, 404);
-  }
-
-  if (project.publicationStatus === 'deleted') {
-    return json({ error: 'That project has been deleted.' }, 409);
-  }
-
-  /**
-   * Moderation outranks the owner. §29: publishing is instant, but a
-   * moderator's restriction is not something an owner can undo by pressing
-   * publish again.
-   */
-  if (
-    project.moderationState === 'restricted' ||
-    project.moderationState === 'removed' ||
-    project.moderationState === 'archived'
-  ) {
-    return json({ error: 'That project is under moderation review.' }, 403);
-  }
-
-  const blockers = publishBlockers(project);
-  if (blockers.length > 0) {
-    return json(
-      {
-        error: blockers[0].message,
-        field: blockers[0].field,
-        // All of them, so the editor can mark up every missing field at once
-        // rather than making the member publish repeatedly to find them.
-        blockers,
-      },
-      422,
-    );
-  }
-
-  const now = new Date();
-
-  // ── TRANSACTIONAL PUBLISH ───────────────────────────────────────────────
-  //
-  // Three writes, one transaction:
-  //   1. Set publicationStatus = published on the project
-  //   2. Insert owner → project_builders attribution (idempotent)
-  //   3. Write audit log entry
-  //
-  // If any step fails, none commit — no partial-published state.
+  let result;
   try {
-    await db.transaction(async (tx) => {
-      // 1. Publish the project.
-      await tx
-        .update(schema.projects)
-        .set({
-          publicationStatus: 'published',
-          /**
-           * The curated archive's editorial status moves too, so the two
-           * vocabularies agree about a row that is on the website. It is NOT
-           * how visibility is decided — `src/data/source-db.ts` filters on
-           * `publicationStatus` and `moderationState` — but leaving it at
-           * `draft` would make the admin's own listings describe a live
-           * project as unwritten.
-           */
-          status: 'published',
-          updatedAt: now,
-        })
-        .where(eq(schema.projects.id, projectId));
-
-      // 2. Owner attribution: find the Builder record owned by this member and
-      //    link it to the project. ON CONFLICT DO NOTHING makes this safe for
-      //    re-publishes and concurrent requests.
-      //
-      //    If the member has no Builder Passport yet, the SELECT returns no row
-      //    and we simply skip the insert — the project still publishes. The
-      //    attribution appears automatically when they later publish their
-      //    profile (the profile publish path does NOT undo this: once the
-      //    Builder row exists, ON CONFLICT DO NOTHING is a no-op on the next
-      //    project publish).
-      if (project.ownerMemberId) {
-        const [ownerBuilder] = await tx
-          .select({ id: schema.builders.id })
-          .from(schema.builders)
-          .where(eq(schema.builders.ownerMemberId, project.ownerMemberId));
-
-        if (ownerBuilder) {
-          await tx
-            .insert(schema.projectBuilders)
-            .values({
-              projectId,
-              builderId: ownerBuilder.id,
-              position: 0,
-            })
-            .onConflictDoNothing();
+    result = await transitionProject(db, member.id, projectId, 'publish', {
+      // Completeness, checked against the row as saved — never the request.
+      precheck: async () => {
+        const [row] = await db
+          .select({
+            title: schema.projects.title,
+            summary: schema.projects.summary,
+            description: schema.projects.description,
+            claudeUsage: schema.projects.claudeUsage,
+            category: schema.projects.category,
+            cityId: schema.projects.cityId,
+          })
+          .from(schema.projects)
+          .where(eq(schema.projects.id, projectId));
+        const blockers = publishBlockers(row ?? {});
+        if (blockers.length === 0) return null;
+        return {
+          ok: false,
+          status: 422,
+          error: blockers[0].message,
+          // All of them, so the editor can mark up every missing field at once.
+          blockers,
+        };
+      },
+      within: async (tx, access) => {
+        // Owner attribution, idempotent. Skipped (not failed) when the owner
+        // has no published Builder Passport yet; profile publish backfills it.
+        if (access.project.ownerMemberId) {
+          const [ownerBuilder] = await tx
+            .select({ id: schema.builders.id })
+            .from(schema.builders)
+            .where(eq(schema.builders.ownerMemberId, access.project.ownerMemberId));
+          if (ownerBuilder) {
+            await tx
+              .insert(schema.projectBuilders)
+              .values({ projectId, builderId: ownerBuilder.id, position: 0 })
+              .onConflictDoNothing();
+          }
         }
-      }
-
-      // 3. Audit log.
-      await tx.insert(schema.auditLog).values({
-        actorMemberId: member.id,
-        action: 'project.published',
-        entityType: 'project',
-        entityId: projectId,
-        fromStatus: project.publicationStatus,
-        toStatus: 'published',
-        note: project.slug,
-      });
+        // A staged cover becomes public with its project, not before.
+        await publishProjectCover(tx, projectId);
+      },
     });
   } catch (err) {
     console.error('[project.publish] transaction failed', err);
     return json({ error: 'Could not publish the project. Please try again.' }, 500);
   }
 
+  if (!result.ok) {
+    const { ok: _ok, status, ...body } = result;
+    const first = (body.blockers as { field?: string }[] | undefined)?.[0];
+    return json({ ...body, ...(first?.field ? { field: first.field } : {}) }, status);
+  }
+
   /**
-   * WHEN IT ACTUALLY APPEARS, STATED HONESTLY.
-   *
-   * `/projects/[slug]` is server-rendered, so the detail page is live the
-   * moment this returns — §14's requirement that a new project not need a Git
-   * push to exist. The listing page (`/projects/`) is also SSR (prerender =
-   * false) and queries Neon live, so it appears there immediately too. Search
-   * (`/discover`) likewise queries live. No rebuild is required for any of
-   * the primary surfaces.
+   * `/projects/[slug]` and `/projects/` are server-rendered and read Neon, so
+   * the project is live the moment this returns, subject only to the bounded
+   * public cache TTL documented in docs/caching.md.
    */
   return json(
     {
       ok: true,
-      slug: project.slug,
-      url: `/projects/${project.slug}/`,
+      slug: result.slug,
+      url: `/projects/${result.slug}/`,
       detailLive: true,
       listingLive: true,
     },

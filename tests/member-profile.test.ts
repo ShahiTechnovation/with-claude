@@ -141,20 +141,24 @@ describe('the patch schema refuses what it is not given', () => {
    * asserts the schema side of that: an empty string is still refused
    * (nothing here weakens the validation), and an ABSENT key is fine.
    */
-  it('refuses an empty primaryRole rather than treating it as "not set"', () => {
-    expect(profilePatchSchema.safeParse({ primaryRole: '' }).success).toBe(false);
+  it('reads an empty primaryRole as "clear it", and still refuses an unknown one', () => {
+    expect(profilePatchSchema.safeParse({ primaryRole: '' }).success).toBe(true);
+    expect(profilePatchSchema.safeParse({ primaryRole: null }).success).toBe(true);
+    expect(profilePatchSchema.safeParse({ primaryRole: 'Ambassador' }).success).toBe(false);
     expect(profilePatchSchema.safeParse({ bio: 'hello' }).success).toBe(true);
   });
 
   /**
-   * The second field the same bug hit. `website: httpsUrl.optional()` calls
-   * `new URL(value)`, which throws on `''` just as readily as on
-   * `'not a url'` — `.optional()` still only means the key may be absent.
-   * Every profile also starts with `website: null`, so this failed on the
-   * same every-save-from-a-new-member path as `primaryRole` above.
+   * The website used to be impossible to remove: `""` failed URL parsing and
+   * the editor therefore omitted it, so a saved link stuck forever. Empty or
+   * null now clears it; anything non-empty must still be a real https URL.
    */
-  it('refuses an empty website rather than treating it as "not set"', () => {
-    expect(profilePatchSchema.safeParse({ website: '' }).success).toBe(false);
+  it('reads an empty website as "clear it", and still validates a real one', () => {
+    expect(profilePatchSchema.safeParse({ website: '' }).success).toBe(true);
+    expect(profilePatchSchema.safeParse({ website: null }).success).toBe(true);
+    expect(profilePatchSchema.safeParse({ website: 'not a url' }).success).toBe(false);
+    expect(profilePatchSchema.safeParse({ website: 'http://insecure.example' }).success).toBe(false);
+    expect(profilePatchSchema.safeParse({ website: 'https://example.com' }).success).toBe(true);
   });
 
   /**
@@ -318,6 +322,7 @@ describe('the projection into builders', () => {
     publicEmail: false,
     visibility: 'public' as const,
     publishedAt: null,
+    avatarMediaId: null,
   };
 
   /**

@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
-import { eq, and, isNull, or, exists } from 'drizzle-orm';
+import { eq, and, isNull, or, sql } from 'drizzle-orm';
+import { publicProjectWhere } from '@/server/projects/lifecycle';
 import { pooledDb } from '../../db/pool';
 import * as schema from '../../db/schema';
 
@@ -62,19 +63,14 @@ export const GET: APIRoute = async () => {
   try {
     const db = pooledDb();
 
-    // 1. Projects: publicationStatus = 'published' AND moderationState = 'clean'
+    // 1. Projects — the canonical predicate, shared with every public list.
     const projects = await db
       .select({ slug: schema.projects.slug, updatedAt: schema.projects.updatedAt })
       .from(schema.projects)
-      .where(
-        and(
-          eq(schema.projects.publicationStatus, 'published'),
-          eq(schema.projects.moderationState, 'clean')
-        )
-      );
+      .where(publicProjectWhere());
 
-    // 2. Builders: status = 'published' AND moderationState = 'clean'
-    //    AND (no member profile linked, OR profile visibility = 'public')
+    // 2. Builders: public (published + clean + not deleted) AND not unlisted.
+    //    Unlisted is direct-link only, so it is never offered to a crawler.
     const builders = await db
       .select({ slug: schema.builders.slug, updatedAt: schema.builders.updatedAt })
       .from(schema.builders)
@@ -83,6 +79,7 @@ export const GET: APIRoute = async () => {
         and(
           eq(schema.builders.status, 'published'),
           eq(schema.builders.moderationState, 'clean'),
+          isNull(schema.builders.deletedAt),
           or(
             isNull(schema.memberProfiles.visibility),
             eq(schema.memberProfiles.visibility, 'public')
@@ -97,55 +94,36 @@ export const GET: APIRoute = async () => {
       .where(eq(schema.events.status, 'published'));
 
     // 4. Ambassadors: status = 'published'
-    //    The pages for /ambassadors/[slug] are generated from publicAmbassadors,
-    //    which only includes status='published'. A sitemap entry for a draft
-    //    ambassador would hand crawlers a 404.
     const ambassadors = await db
       .select({ slug: schema.ambassadors.slug, updatedAt: schema.ambassadors.updatedAt })
       .from(schema.ambassadors)
       .where(eq(schema.ambassadors.status, 'published'));
 
-    // 5. Cities: status = 'published' AND has at least one published+clean
-    //    builder OR published project in that city.
-    //
-    // NOTE: We intentionally query the DB here rather than calling
-    // indexableCityPaths() from src/lib/indexable.ts. That helper reads the
-    // build-time snapshot via readFileSync(.astro/dataset.json), which does not
-    // exist in the serverless runtime — only at build time. Calling it from an
-    // SSR route unconditionally throws in production, which was the root cause
-    // of the sitemap 500.
+    /**
+     * 5. Cities — published, AND at least one public signal of the five the
+     * city page itself uses (`isCityIndexable()` in src/lib/indexable.ts):
+     * an ambassador, an event, a builder, a project or a story.
+     *
+     * This used to check builders and projects only, so a city with a real
+     * published event or a verified ambassador — and nothing else yet — was
+     * indexable on its own page and missing from the sitemap.
+     */
     const cities = await db
       .selectDistinct({ slug: schema.cities.slug })
       .from(schema.cities)
       .where(
         and(
           eq(schema.cities.status, 'published'),
-          or(
-            exists(
-              db
-                .select({ one: schema.builders.id })
-                .from(schema.builders)
-                .where(
-                  and(
-                    eq(schema.builders.cityId, schema.cities.id),
-                    eq(schema.builders.status, 'published'),
-                    eq(schema.builders.moderationState, 'clean')
-                  )
-                )
-            ),
-            exists(
-              db
-                .select({ one: schema.projects.id })
-                .from(schema.projects)
-                .where(
-                  and(
-                    eq(schema.projects.cityId, schema.cities.id),
-                    eq(schema.projects.publicationStatus, 'published'),
-                    eq(schema.projects.moderationState, 'clean')
-                  )
-                )
-            )
-          )
+          sql`(
+            exists (select 1 from ambassadors a where a.city_id = ${schema.cities.id} and a.status = 'published')
+            or exists (select 1 from events e where e.city_id = ${schema.cities.id} and e.status = 'published')
+            or exists (select 1 from builders b where b.city_id = ${schema.cities.id}
+                         and b.status = 'published' and b.moderation_state = 'clean' and b.deleted_at is null)
+            or exists (select 1 from projects p where p.city_id = ${schema.cities.id}
+                         and p.publication_status = 'published' and p.moderation_state = 'clean'
+                         and p.deleted_at is null)
+            or exists (select 1 from stories s where s.city_id = ${schema.cities.id} and s.status = 'published')
+          )`
         )
       );
 
@@ -214,7 +192,7 @@ ${urls
       status: 200,
       headers: {
         'Content-Type': 'application/xml',
-        'Cache-Control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=86400',
+        'Cache-Control': 'public, max-age=0, s-maxage=300, stale-while-revalidate=300',
       },
     });
   } catch (error) {

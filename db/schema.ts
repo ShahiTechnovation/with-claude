@@ -111,6 +111,8 @@ export const projectCategory = pgEnum('project_category', [
 ]);
 
 export const publicationStatus = pgEnum('publication_status', ['draft', 'published', 'archived', 'deleted']);
+/** Self-reported by the team. There is deliberately no "unknown": that is NULL. */
+export const projectBuildStatus = pgEnum('project_build_status', ['functional', 'partial', 'prototype']);
 export const moderationState = pgEnum('moderation_state', ['clean', 'reported', 'restricted', 'archived', 'removed']);
 export const projectMemberRole = pgEnum('project_member_role', ['collaborator', 'contributor']);
 export const mediaStatus = pgEnum('media_status', ['staged', 'published', 'deleted']);
@@ -233,6 +235,22 @@ export const claimStatus = pgEnum('claim_status', ['pending', 'approved', 'rejec
 
 /** Where a record came from. Decides which publish path may touch it. */
 export const contentSource = pgEnum('content_source', ['legacy', 'user']);
+
+/**
+ * WHO IS ALLOWED TO WRITE A PROJECT'S CONTENT. Exactly one writer per row.
+ *
+ *   member   the website's own workflow: the owner (and collaborators) edit it
+ *            through `/api/projects`. Every member-created project, and every
+ *            imported project after an approved claim.
+ *   curated  the editorial archive (`src/data/*.ts` import, admin promotion).
+ *            No member may edit it.
+ *   baserow  organiser-curated content projected from Baserow. Members cannot
+ *            edit it; the projection cannot touch a row that is not `baserow`.
+ *
+ * The default is `curated` so that an insert path which forgets to say fails
+ * CLOSED — nobody can edit it — rather than open.
+ */
+export const contentAuthority = pgEnum('content_authority', ['member', 'curated', 'baserow']);
 
 // =========================================================================
 // PEOPLE WHO REVIEW
@@ -415,6 +433,15 @@ export const media = pgTable('media', {
   alt: text('alt').notNull(),
   caption: text('caption'),
   credit: text('credit'),
+  /**
+   * Where the file came from: `upload` (a member or organiser), `organiser`,
+   * or `favicon` (enrichment from the project's own accepted website). A
+   * favicon is the project's icon, not a screenshot — the logo resolver ranks
+   * it below real project imagery.
+   */
+  provenance: text('provenance'),
+  /** The public URL a fetched file came from. Never a URL with a secret. */
+  sourceUrl: text('source_url'),
   consent: boolean('consent').notNull().default(false),
   status: mediaStatus('status').notNull().default('published'),
   kind: mediaKind('kind').notNull().default('other'),
@@ -902,6 +929,18 @@ export const events = pgTable(
     date: date('date').notNull(),
     startTime: time('start_time').notNull(),
     endTime: time('end_time'),
+    /**
+     * The date the event was originally announced for, when it was moved.
+     * `date` is always the day it was actually held; this is only for the
+     * "rescheduled from" note on the event page. Never a second event.
+     */
+    rescheduledFrom: date('rescheduled_from'),
+    /**
+     * A short, editorial label for compact surfaces — "Impact Lab 2" on a
+     * project row's "Built at" badge. Not touched by feed ingestion, so a
+     * Luma title change cannot rename the badge. Falls back to `title`.
+     */
+    shortTitle: text('short_title'),
 
     venueName: text('venue_name').notNull(),
     venueAddress: text('venue_address'),
@@ -949,6 +988,16 @@ export const events = pgTable(
      * stop advertising a door that is not going to open.
      */
     canceledAt: timestamp('canceled_at', { withTimezone: true }),
+
+    /**
+     * Who may write this event's curated details. `curated` (the default)
+     * covers hand-authored and feed-ingested events exactly as before.
+     * `baserow` means the organisers adopted it into Baserow: the projection
+     * writes it, and the Luma/ICS sync no longer overwrites or withdraws it —
+     * the feed's view stays in `event_source_records` as a reviewable
+     * candidate instead.
+     */
+    contentAuthority: contentAuthority('content_authority').notNull().default('curated'),
 
     /**
      * An event is the one entity whose creation date IS evidenced — by the
@@ -1236,6 +1285,40 @@ export const projects = pgTable(
       .default(sql`ARRAY[]::text[]`),
     /** How Claude was actually used — the interesting part of the record. */
     claudeUsage: text('claude_usage'),
+    /**
+     * ── THE SUBMISSION NARRATIVE ─────────────────────────────────────────
+     *
+     * An event submission answers "what problem" and "what did you build"
+     * separately, and the detail page shows them separately. Kept verbatim
+     * (line breaks included) — `summary` is the short card text, written
+     * separately, and never a truncation of these.
+     */
+    problem: text('problem'),
+    solution: text('solution'),
+    /** The stack exactly as the team stated it. Never inferred from a repo name. */
+    builtWith: text('built_with'),
+    /** The team's own answer to "is it working?". Null means not stated — never "functional". */
+    buildStatus: projectBuildStatus('build_status'),
+    /**
+     * ── TYPED SECONDARY ARTIFACTS ───────────────────────────────────────
+     *
+     * `url`, `repoUrl` and `videoUrl` are the primary live / repository /
+     * demo links. These are the other kinds a submission can honestly have:
+     * a release download (an Android APK), an artifact that is none of the
+     * above (slides, a Drive folder, a Hugging Face Space), and a second
+     * demo recording. Each column means exactly one kind.
+     */
+    downloadUrl: text('download_url'),
+    artifactUrl: text('artifact_url'),
+    altVideoUrl: text('alt_video_url'),
+    /**
+     * The project's own LOGO — distinct from its cover/screenshot. An
+     * uploaded or enriched media row (`kind = 'logo'`), or a repository asset
+     * key supplied by an organiser. `src/lib/project-logo.ts` decides what a
+     * page renders, including the directory's placeholder artwork.
+     */
+    logoMediaId: uuid('logo_media_id').references(() => media.id, { onDelete: 'set null' }),
+    logoPath: text('logo_path'),
     /** The build day it came out of, if any. */
     builtAtEventId: uuid('built_at_event_id').references(() => events.id, { onDelete: 'set null' }),
     /**
@@ -1260,6 +1343,16 @@ export const projects = pgTable(
     moderationState: moderationState('moderation_state').notNull().default('clean'),
     status: contentStatus('status').notNull().default('draft'),
     featured: boolean('featured').notNull().default(false),
+    /** Ordering among featured projects. Lower first; ties break on slug. */
+    featuredOrder: smallint('featured_order'),
+    /** See `contentAuthority`. Changed only by a claim or an explicit adoption. */
+    contentAuthority: contentAuthority('content_authority').notNull().default('curated'),
+    /**
+     * When this project first went public, or — for an imported archive
+     * entry — when it was imported. "Newest" sorts on this. Never a guessed
+     * build date: an imported project's real build date is the event's date.
+     */
+    publishedAt: timestamp('published_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }),
     updatedAt: timestamp('updated_at', { withTimezone: true }),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
@@ -1267,6 +1360,16 @@ export const projects = pgTable(
     deletionReason: text('deletion_reason'),
   },
   (table) => [
+    /**
+     * The public listing's access path: every public read filters on these
+     * three and orders by recency. Measured need, not speculation — the
+     * paginated archive query is `WHERE publication_status = 'published' AND
+     * moderation_state = 'clean' AND deleted_at IS NULL ORDER BY published_at`.
+     */
+    index('projects_public_recent_idx')
+      .on(table.publishedAt, table.slug)
+      .where(sql`publication_status = 'published' AND moderation_state = 'clean' AND deleted_at IS NULL`),
+    index('projects_owner_idx').on(table.ownerMemberId),
     index('projects_publication_idx').on(table.publicationStatus),
     index('projects_moderation_idx').on(table.moderationState),
     index('projects_city_idx').on(table.cityId),
@@ -1286,7 +1389,11 @@ export const projectBuilders = pgTable(
       .references(() => builders.id, { onDelete: 'restrict' }),
     position: smallint('position').notNull().default(0),
   },
-  (table) => [primaryKey({ columns: [table.projectId, table.builderId] })],
+  (table) => [
+    primaryKey({ columns: [table.projectId, table.builderId] }),
+    /** A builder page lists that builder's projects: the reverse lookup. */
+    index('project_builders_builder_idx').on(table.builderId),
+  ],
 );
 
 export const projectMembers = pgTable(
@@ -1302,7 +1409,51 @@ export const projectMembers = pgTable(
     position: smallint('position').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [primaryKey({ columns: [table.projectId, table.memberId] })],
+  (table) => [
+    primaryKey({ columns: [table.projectId, table.memberId] }),
+    /** "My projects" looks a member up across every project they are on. */
+    index('project_members_member_idx').on(table.memberId),
+  ],
+);
+
+/**
+ * PUBLIC TEAM CREDITS that are not (yet) builder profiles.
+ *
+ * An imported event project credits a team as the organisers recorded it:
+ * display names, sometimes a role. Those names are a public credit and
+ * NOTHING ELSE — a row here creates no member, grants no permission and is
+ * never matched to an account by name. `builder_id` is set only by an
+ * application-side verified association (an approved claim), and only then
+ * does the credit link to a profile.
+ *
+ * Distinct from `project_builders` (curated builder credits) so that a team
+ * of four with one claimed profile is four credits, not one person.
+ */
+export const projectCredits = pgTable(
+  'project_credits',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    displayName: text('display_name').notNull(),
+    role: text('role'),
+    /** Only an explicitly public social/profile URL. Never an email. */
+    publicUrl: text('public_url'),
+    position: smallint('position').notNull().default(0),
+    builderId: uuid('builder_id').references(() => builders.id, { onDelete: 'set null' }),
+    /** Where the credit came from, e.g. `baserow:<table>:<row>`. Private. */
+    sourceKey: text('source_key'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check('project_credits_name_present', sql`length(trim(${table.displayName})) > 0`),
+    index('project_credits_project_idx').on(table.projectId, table.position),
+    uniqueIndex('project_credits_source_unique')
+      .on(table.sourceKey)
+      .where(sql`${table.sourceKey} IS NOT NULL`),
+  ],
 );
 
 // =========================================================================
@@ -2072,3 +2223,263 @@ export const cityInterestRelations = relations(cityInterest, ({ one }) => ({
     references: [submissions.id],
   }),
 }));
+
+// =========================================================================
+// CONTENT OPERATIONS — Baserow projection and the event-archive importer
+// =========================================================================
+//
+// Baserow is where organisers EDIT curated events and imported projects; the
+// public site never reads it. These tables are the machinery that turns an
+// edit there into a validated row here, durably and idempotently:
+//
+//   integration_mappings   which Baserow row is which Neon entity — matched
+//                          by (provider, table, row id), never by title/slug
+//   integration_jobs       durable work: accepted webhooks and reconciliation
+//                          land here before the HTTP response returns
+//   integration_runs       one row per processing run, for diagnostics
+//   integration_state      checkpoints (reconciliation cursors, last success)
+//
+// The importer's tables keep spreadsheet provenance PRIVATE — none of them
+// has a public read path.
+
+export const integrationProvider = pgEnum('integration_provider', ['baserow']);
+export const integrationEntity = pgEnum('integration_entity', [
+  'event',
+  'project',
+  'project_credit',
+  'city',
+]);
+export const integrationMappingStatus = pgEnum('integration_mapping_status', [
+  'active',
+  /** The last version of this row failed validation. Last-known-good stays live. */
+  'quarantined',
+  /** The upstream row was deleted; the projection was unpublished, not erased. */
+  'tombstoned',
+  /** Content authority moved to the website (a claim); the row is no longer applied. */
+  'released',
+]);
+
+export const integrationMappings = pgTable(
+  'integration_mappings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    provider: integrationProvider('provider').notNull(),
+    tableId: integer('table_id').notNull(),
+    rowId: integer('row_id').notNull(),
+    entityType: integrationEntity('entity_type').notNull(),
+    /** Null until the first valid version has been applied. */
+    entityId: uuid('entity_id'),
+    /** SHA-256 of the normalised DTO last applied. Equal hash → no write. */
+    contentHash: text('content_hash'),
+    /** SHA-256 of the raw upstream row last seen. Reconciliation diffs on it. */
+    sourceHash: text('source_hash'),
+    status: integrationMappingStatus('status').notNull().default('active'),
+    /** A short, safe reason for the current status. Never a raw payload. */
+    lastError: text('last_error'),
+    lastAppliedAt: timestamp('last_applied_at', { withTimezone: true }),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('integration_mappings_identity_unique').on(table.provider, table.tableId, table.rowId),
+    index('integration_mappings_entity_idx').on(table.entityType, table.entityId),
+    index('integration_mappings_status_idx').on(table.status),
+  ],
+);
+
+export const integrationJobStatus = pgEnum('integration_job_status', [
+  'pending',
+  'running',
+  'done',
+  'failed',
+  /** Retries exhausted, or a non-retryable configuration error. Needs a person. */
+  'dead',
+]);
+
+export const integrationJobs = pgTable(
+  'integration_jobs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    provider: integrationProvider('provider').notNull(),
+    /** `row.sync` | `row.delete` | `table.reconcile` */
+    kind: text('kind').notNull(),
+    tableId: integer('table_id').notNull(),
+    rowId: integer('row_id'),
+    /**
+     * At most one PENDING job per key (see the partial unique index). A
+     * duplicate webhook for a row that is already queued is absorbed.
+     */
+    dedupeKey: text('dedupe_key').notNull(),
+    /**
+     * Dependency order: cities 0, events 1, projects 2, credits 3. Claimed
+     * lowest first, so a project's event is applied before the project.
+     */
+    priority: smallint('priority').notNull().default(0),
+    status: integrationJobStatus('status').notNull().default('pending'),
+    attempts: integer('attempts').notNull().default(0),
+    maxAttempts: integer('max_attempts').notNull().default(6),
+    runAfter: timestamp('run_after', { withTimezone: true }).notNull().defaultNow(),
+    /** A claimed job is leased; an expired lease means the worker died. */
+    leaseUntil: timestamp('lease_until', { withTimezone: true }),
+    lastError: text('last_error'),
+    /** The upstream event id, when the webhook supplied one. For tracing. */
+    sourceEventId: text('source_event_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+  },
+  (table) => [
+    /**
+     * Dedupe PENDING work only. A job that is already running may have read
+     * the row before the edit that triggered the next webhook, so that next
+     * job must be allowed to queue behind it; the per-row advisory lock then
+     * serialises them and the later one reads the current row.
+     */
+    uniqueIndex('integration_jobs_pending_dedupe')
+      .on(table.dedupeKey)
+      .where(sql`${table.status} = 'pending'`),
+    index('integration_jobs_ready_idx').on(table.status, table.priority, table.runAfter),
+  ],
+);
+
+export const integrationRuns = pgTable(
+  'integration_runs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    provider: integrationProvider('provider').notNull(),
+    /** `webhook` | `reconcile` | `manual` */
+    trigger: text('trigger').notNull(),
+    /** `running` | `ok` | `partial` | `failed` */
+    status: text('status').notNull().default('running'),
+    counts: jsonb('counts').notNull().default(sql`'{}'::jsonb`),
+    error: text('error'),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+  },
+  (table) => [index('integration_runs_started_idx').on(table.startedAt)],
+);
+
+export const integrationState = pgTable('integration_state', {
+  key: text('key').primaryKey(),
+  value: jsonb('value').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ── Imported projects: claims ──────────────────────────────────────────
+
+/**
+ * A member asking to take over an imported, organiser-managed project.
+ *
+ * Being publicly credited is NOT ownership: the evidence is reviewed by a
+ * moderator, and only an approved claim attaches the member and moves the
+ * project's content authority to the website. There is deliberately no
+ * automatic approval path — an imported email or a matching name is not proof.
+ */
+export const projectClaims = pgTable(
+  'project_claims',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    memberId: uuid('member_id')
+      .notNull()
+      .references(() => members.id, { onDelete: 'cascade' }),
+    /** What the member says connects them to it: repo, demo, team role. */
+    evidence: text('evidence').notNull(),
+    status: claimStatus('status').notNull().default('pending'),
+    resolutionNote: text('resolution_note'),
+    resolvedBy: uuid('resolved_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+  },
+  (table) => [
+    check('project_claims_evidence_present', sql`length(trim(${table.evidence})) >= 10`),
+    uniqueIndex('project_claims_one_approved').on(table.projectId).where(sql`${table.status} = 'approved'`),
+    uniqueIndex('project_claims_one_open_per_member')
+      .on(table.projectId, table.memberId)
+      .where(sql`${table.status} = 'pending'`),
+    index('project_claims_status_idx').on(table.status),
+  ],
+);
+
+// ── The event-archive importer (private staging) ───────────────────────
+
+export const importBatchStatus = pgEnum('import_batch_status', [
+  'planned',
+  'applying',
+  'applied',
+  'failed',
+  'rolled_back',
+]);
+
+export const importBatches = pgTable('import_batches', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  label: text('label').notNull(),
+  /** File NAME only, never a path from somebody's machine. */
+  sourceFile: text('source_file').notNull(),
+  /** SHA-256 of the file. Recognises an identical re-run; not an identity. */
+  checksum: text('checksum').notNull(),
+  mapping: jsonb('mapping').notNull(),
+  status: importBatchStatus('status').notNull().default('planned'),
+  report: jsonb('report'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  appliedAt: timestamp('applied_at', { withTimezone: true }),
+  rolledBackAt: timestamp('rolled_back_at', { withTimezone: true }),
+});
+
+/**
+ * Candidate identity → where it lives now. The crosswalk is what makes a
+ * REVISED spreadsheet reconcile to the same rows instead of creating new ones.
+ */
+export const importCrosswalk = pgTable(
+  'import_crosswalk',
+  {
+    candidateKey: text('candidate_key').primaryKey(),
+    eventKey: text('event_key').notNull(),
+    baserowTableId: integer('baserow_table_id'),
+    baserowRowId: integer('baserow_row_id'),
+    firstBatchId: uuid('first_batch_id').references(() => importBatches.id, { onDelete: 'set null' }),
+    lastBatchId: uuid('last_batch_id').references(() => importBatches.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('import_crosswalk_event_idx').on(table.eventKey)],
+);
+
+export const importLedgerStatus = pgEnum('import_ledger_status', [
+  'pending',
+  'applied',
+  'failed',
+  'skipped',
+  'rolled_back',
+]);
+
+/** Every write the importer made upstream, reversible and attributable. */
+export const importLedger = pgTable(
+  'import_ledger',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    batchId: uuid('batch_id')
+      .notNull()
+      .references(() => importBatches.id, { onDelete: 'cascade' }),
+    candidateKey: text('candidate_key').notNull(),
+    /** `project` (a project row) | `credit:<n>` (one credit row) */
+    action: text('action').notNull(),
+    tableId: integer('table_id').notNull(),
+    rowId: integer('row_id'),
+    before: jsonb('before'),
+    after: jsonb('after'),
+    /** Hash of what was written — a rollback only touches rows still equal to it. */
+    afterHash: text('after_hash'),
+    status: importLedgerStatus('status').notNull().default('pending'),
+    error: text('error'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    appliedAt: timestamp('applied_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('import_ledger_batch_idx').on(table.batchId),
+    uniqueIndex('import_ledger_once').on(table.batchId, table.candidateKey, table.action, table.tableId),
+  ],
+);

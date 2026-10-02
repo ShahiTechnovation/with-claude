@@ -30,6 +30,8 @@ import { sql } from 'drizzle-orm';
 import { pooledDb } from '../../../db/pool';
 import { ingestionMode } from '@/server/events/registry';
 import { sourceHealth } from '@/server/events/sync';
+import { privyConfig } from '@/server/auth/privy';
+import { baserowSettings } from '@/server/integrations/baserow/config';
 
 export const prerender = false;
 
@@ -37,18 +39,25 @@ export const GET: APIRoute = async () => {
   const mode = ingestionMode();
 
   /**
-   * Which capabilities are configured — as booleans only.
+   * Which capabilities are configured — as booleans and fixed codes only.
    *
-   * `privy` is the one worth reading closely: it is true only when BOTH
-   * server-side values are present, because that is exactly the condition
-   * `privyConfig()` requires before it will verify a token. A deployment
-   * missing either one refuses every authenticated request, and this is the
-   * endpoint that makes that visible instead of mysterious.
+   * `privy` mirrors `privyConfig()` exactly: the server app id is the only
+   * hard requirement, and verification uses the static PEM when one is set
+   * and the app's published JWKS otherwise. This used to require the static
+   * key too, so a correctly configured JWKS deployment reported `false`.
+   * Configured is not the same as working — an app id that does not match
+   * the browser's, or a dashboard origin that is not allowed, still fails —
+   * which is why `privyAppIdsMatch` is reported alongside.
    */
+  const privy = privyConfig();
+  const baserow = baserowSettings();
+  const publicAppId = process.env.PUBLIC_PRIVY_APP_ID?.trim();
   const configured = {
     database: Boolean(process.env.DATABASE_URL?.trim()),
     dataSource: (process.env.DATA_SOURCE ?? 'ts').trim().toLowerCase() || 'ts',
-    privy: Boolean(process.env.PRIVY_APP_ID?.trim() && process.env.PRIVY_VERIFICATION_KEY?.trim()),
+    privy: Boolean(privy),
+    privyVerification: !privy ? 'none' : privy.verificationKey ? 'static-key' : 'jwks',
+    privyAppIdsMatch: privy && publicAppId ? publicAppId === privy.appId : null,
     privyPublic: Boolean(process.env.PUBLIC_PRIVY_APP_ID?.trim()),
     /**
      * `BLOB_READ_WRITE_TOKEN` AND NOTHING ELSE.
@@ -69,6 +78,8 @@ export const GET: APIRoute = async () => {
     cron: Boolean(process.env.CRON_SECRET?.trim()),
     lumaApi: Boolean(process.env.LUMA_API_KEY?.trim()),
     lumaWebhook: Boolean(process.env.LUMA_WEBHOOK_SECRET?.trim()),
+    /** Coarse only. Sync diagnostics live behind the admin sign-in. */
+    baserow: baserow.enabled ? (baserow.problem ? 'misconfigured' : 'enabled') : 'disabled',
   };
 
   let database: { reachable: boolean; latencyMs?: number } = { reachable: false };

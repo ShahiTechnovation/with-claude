@@ -1,6 +1,8 @@
 ---
 import { Image } from 'astro:assets';
-import { cityName, communityChannel, photoRecord, storiesChronological } from '@/data';
+import * as staticData from '@/data';
+import { communityChannel } from '@/data';
+import type { RecordSelectors } from '@/data/selectors';
 import { dateParts } from '@/lib/datetime';
 import { requireAsset } from '@/lib/images';
 
@@ -20,12 +22,19 @@ interface Props {
   showHead?: boolean;
   heading?: string;
   eyebrow?: string;
+  selectors?: RecordSelectors;
 }
 
-const { showHead = true, heading = 'From the community', eyebrow = 'Stories' } = Astro.props;
+const {
+  showHead = true,
+  heading = 'From the community',
+  eyebrow = 'Stories',
+  selectors,
+} = Astro.props;
 
-const plates = photoRecord();
-const written = storiesChronological();
+const data = selectors ?? staticData;
+const plates = data.photoRecord();
+const written = data.storiesChronological();
 ---
 
 <div class="floor">
@@ -62,7 +71,7 @@ const written = storiesChronological();
                   <span class="dispatch-standfirst">{story.standfirst}</span>
                   <span class="dispatch-meta">
                     {`${parts.monthShort} ${parts.year}`}
-                    {story.citySlug ? ` · ${cityName(story.citySlug)}` : ''}
+                    {story.citySlug ? ` · ${data.cityName(story.citySlug)}` : ''}
                   </span>
                 </a>
               </li>
@@ -93,14 +102,14 @@ const written = storiesChronological();
                     has to say where it goes. The caption below is a sibling of
                     the anchor, so it cannot name it. */}
                 <span class="visually-hidden">
-                  {`${plate.event.title}, ${cityName(plate.event.citySlug)}, ${parts.monthShort} ${parts.year}`}
+                  {`${plate.event.title}, ${data.cityName(plate.event.citySlug)}, ${parts.monthShort} ${parts.year}`}
                 </span>
               </a>
               <figcaption class="plate-caption floor-caption">
                 <span class="floor-plate-no">{`Pl. ${plate.plate}`}</span>
                 <span class="floor-where">{plate.event.title}</span>
                 <span class="floor-when">
-                  {`${cityName(plate.event.citySlug)} · ${parts.monthShort} ${parts.year}`}
+                  {`${data.cityName(plate.event.citySlug)} · ${parts.monthShort} ${parts.year}`}
                 </span>
               </figcaption>
             </figure>

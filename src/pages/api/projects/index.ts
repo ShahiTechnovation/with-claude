@@ -92,6 +92,8 @@ export const POST: APIRoute = async ({ request }) => {
       // both vocabularies; publishing moves only `publicationStatus`.
       status: 'draft',
       featured: false,
+      // The website's own workflow owns this row. See `contentAuthority`.
+      contentAuthority: 'member',
       createdAt: new Date(),
       updatedAt: new Date(),
     })

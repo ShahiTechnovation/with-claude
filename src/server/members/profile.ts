@@ -31,7 +31,7 @@
  * one table they already read, which is why Phase A needs no change to
  * `RecordSet`, to `source-db.ts`, or to anything Phase 0 verified.
  */
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull, ne } from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import { z } from 'zod';
 import * as schema from '../../../db/schema';
@@ -214,8 +214,18 @@ export const profilePatchSchema = z
      */
     citySlug: z.string().trim().max(80).nullable().optional(),
     country: z.string().trim().max(LIMITS.country).optional(),
-    website: httpsUrl.optional(),
-    primaryRole: z.enum(SELECTABLE_ROLES).optional(),
+    /**
+     * `""` and `null` both mean CLEAR. The editor used to omit an empty
+     * website or role because the schema rejected `""` — which meant a member
+     * could change those fields but never remove them.
+     */
+    website: z.union([z.literal(''), z.null(), httpsUrl]).optional(),
+    primaryRole: z.union([z.literal(''), z.null(), z.enum(SELECTABLE_ROLES)]).optional(),
+    /**
+     * An uploaded portrait, by media id, or `null` to remove it. Verified
+     * against the media row's owner in `updateProfile()` — never a URL.
+     */
+    avatarMediaId: z.string().uuid().nullable().optional(),
     claudeSince: z.string().trim().max(LIMITS.claudeSince).optional(),
     publicEmail: z.boolean().optional(),
     visibility: z.enum(schema.profileVisibility.enumValues).optional(),
@@ -238,10 +248,12 @@ export function sanitiseProfileInput(patch: ProfilePatch): Partial<Pick<ProfileP
   for (const field of USER_OWNED_FIELDS) {
     const value = patch[field];
     if (value !== undefined) {
+      // An emptied text field is stored as NULL — "no value" — rather than as
+      // an empty string the public page would have to treat specially.
       // The cast is confined to this one line. `field` is a `UserOwnedField`
       // and `value` is that field's own type, but TypeScript cannot see the
       // correlation across a loop over a union of keys.
-      (out as Record<string, unknown>)[field] = value;
+      (out as Record<string, unknown>)[field] = value === '' ? null : value;
     }
   }
   return out;
@@ -267,6 +279,7 @@ export interface ProfileRow {
   publicEmail: boolean;
   visibility: (typeof schema.profileVisibility.enumValues)[number];
   publishedAt: Date | null;
+  avatarMediaId: string | null;
 }
 
 export async function readProfile(memberId: string, db: AnyDatabase): Promise<ProfileRow | null> {
@@ -337,7 +350,36 @@ export async function updateProfile(
     }
   }
 
-  if (Object.keys(fields).length === 0 && username === undefined && cityId === undefined) {
+  // A portrait must be one THIS member uploaded, and not deleted.
+  let avatarMediaId: string | null | undefined;
+  if (patch.avatarMediaId !== undefined) {
+    if (patch.avatarMediaId === null) {
+      avatarMediaId = null;
+    } else {
+      const [media] = await db
+        .select({ id: schema.media.id })
+        .from(schema.media)
+        .where(
+          and(
+            eq(schema.media.id, patch.avatarMediaId),
+            eq(schema.media.ownerMemberId, member.id),
+            isNull(schema.media.projectId),
+            ne(schema.media.status, 'deleted'),
+          ),
+        );
+      if (!media) {
+        return { ok: false, status: 422, error: 'Choose a portrait you uploaded.', field: 'avatarMediaId' };
+      }
+      avatarMediaId = media.id;
+    }
+  }
+
+  if (
+    Object.keys(fields).length === 0 &&
+    username === undefined &&
+    cityId === undefined &&
+    avatarMediaId === undefined
+  ) {
     return { ok: false, status: 400, error: 'Nothing to change.' };
   }
 
@@ -347,6 +389,7 @@ export async function updateProfile(
       ...fields,
       ...(username ? { username } : {}),
       ...(cityId !== undefined ? { cityId } : {}),
+      ...(avatarMediaId !== undefined ? { avatarMediaId } : {}),
       updatedAt: new Date(),
     })
     .where(eq(schema.memberProfiles.memberId, member.id))
@@ -370,7 +413,7 @@ export async function updateProfile(
  * difference between "I own this profile" and "I can rewrite this person's
  * record".
  */
-const PROJECTED_COLUMNS = ['name', 'bio', 'role', 'cityId'] as const;
+const PROJECTED_COLUMNS = ['name', 'bio', 'role', 'cityId', 'imageId'] as const;
 
 export interface PublishOutcome {
   builderId: string;
@@ -395,6 +438,9 @@ export function projectToBuilder(
   const projected: Record<string, unknown> = {
     bio: profile.bio ?? null,
     role: profile.primaryRole ?? 'Builder',
+    // The member's own uploaded portrait. A claimed record's curated
+    // `image_path` is untouched and remains the fallback.
+    imageId: profile.avatarMediaId ?? null,
     updatedAt: new Date(),
   };
 
@@ -436,4 +482,24 @@ export async function getBuilderSlug(memberId: string, db: AnyDatabase): Promise
     .from(schema.builders)
     .where(eq(schema.builders.ownerMemberId, memberId));
   return row?.slug ?? null;
+}
+
+/** The URL of a member's own portrait media row, for their editor. */
+export async function avatarUrlFor(
+  memberId: string,
+  mediaId: string | null,
+  db: AnyDatabase,
+): Promise<string | null> {
+  if (!mediaId) return null;
+  const [row] = await db
+    .select({ url: schema.media.blobUrl })
+    .from(schema.media)
+    .where(
+      and(
+        eq(schema.media.id, mediaId),
+        eq(schema.media.ownerMemberId, memberId),
+        ne(schema.media.status, 'deleted'),
+      ),
+    );
+  return row?.url ?? null;
 }

@@ -68,6 +68,8 @@ async function fixtureProject(member: Member, title = 'ZZ Upload Test'): Promise
       status: 'draft',
       featured: false,
       category: 'product',
+      // What `POST /api/projects` writes: the website's workflow owns it.
+      contentAuthority: 'member',
       createdAt: new Date(),
       updatedAt: new Date(),
     })

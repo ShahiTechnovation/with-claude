@@ -1,6 +1,7 @@
 ---
 import Mark from './Mark.astro';
-import { nationalSignal } from '@/data';
+import * as staticData from '@/data';
+import type { RecordSelectors } from '@/data/selectors';
 import { plural } from '@/lib/words';
 
 /**
@@ -10,7 +11,12 @@ import { plural } from '@/lib/words';
  * record — including the zeros. A site that will show you its zeros is the
  * only kind worth believing about its other figures.
  */
-const signal = nationalSignal();
+interface Props {
+  selectors?: RecordSelectors;
+}
+
+const { selectors } = Astro.props;
+const signal = (selectors ?? staticData).nationalSignal();
 ---
 
 <div class="manifesto">

@@ -327,7 +327,7 @@ export const events: CommunityEvent[] = [
     venue: { name: 'Bhopal', private: true },
     summary: 'One question, no demos: what does AI mean for the future of building startups?',
     description:
-      'A small, focused evening for founders and builders around one question. The room picks a real problem worth solving — and the Impact Lab spends the next day building the answer.',
+      'A small, focused evening for founders and builders around one question. The room picks a real problem worth solving — and the Impact Lab builds the answer.',
     registrationUrl: 'https://luma.com/claude-6khk',
     free: true,
   },
@@ -335,14 +335,20 @@ export const events: CommunityEvent[] = [
     id: 'evt-bhopal-11',
     slug: 'claude-impact-lab-september',
     status: 'published',
-    title: 'Claude Impact Lab',
+    title: 'Claude Code Impact Lab 2',
+    shortTitle: 'Impact Lab 2',
     format: 'impact-lab',
     volume: 11,
     citySlug: 'bhopal',
     host: bhopalHost,
-    date: '2026-09-13',
-    startTime: '10:00',
-    endTime: '19:00',
+    // Announced for 13 September and postponed: ONE event, held on the 15th.
+    // The slug stays (it carries no date). Times are the event's own Luma
+    // record (evt-mLFu3IoSUvVP1FA), 09:00–18:00 IST. Migration 0016 applies
+    // the same correction to the database row, keeping its UUID.
+    date: '2026-09-15',
+    rescheduledFrom: '2026-09-13',
+    startTime: '09:00',
+    endTime: '18:00',
     venue: { name: 'Bhopal', private: true },
     summary: 'A full day building on the problem Saturday’s Conversation picks.',
     description:

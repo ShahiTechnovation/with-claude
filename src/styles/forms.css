@@ -1,0 +1,363 @@
+/* =========================================================================
+   FORMS, NOTICES AND ACCOUNT LAYOUT
+   One vocabulary for every editor and account page. The profile and project
+   editors used to carry two different inline style blocks with different
+   input, button and message treatments.
+   ========================================================================= */
+
+.account-shell {
+  width: min(100% - 2 * var(--gutter), 60rem);
+  margin: var(--s-8) auto var(--s-10);
+}
+
+.account-shell--narrow {
+  width: min(100% - 2 * var(--gutter), 44rem);
+}
+
+.account-head {
+  display: grid;
+  gap: var(--s-3);
+  margin-bottom: var(--s-7);
+}
+
+.account-head h1 {
+  font-family: var(--font-display);
+  font-size: var(--t-h2);
+  font-weight: 600;
+  line-height: var(--lh-heading);
+  letter-spacing: var(--track-display);
+  font-variation-settings:
+    'SOFT' 0,
+    'WONK' 1;
+}
+
+.account-head p {
+  max-width: 60ch;
+  color: var(--ink-2);
+}
+
+.account-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-5);
+  margin-bottom: var(--s-6);
+  padding-bottom: var(--s-3);
+  border-bottom: var(--border-hair) solid var(--rule);
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+  letter-spacing: var(--track-meta);
+  text-transform: uppercase;
+}
+
+.account-nav a {
+  color: var(--ink-3);
+  text-decoration: none;
+  padding-block: var(--s-2);
+}
+
+.account-nav a[aria-current='page'],
+.account-nav a:hover,
+.account-nav a:focus-visible {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/* --- Panels ------------------------------------------------------------ */
+
+.panel {
+  padding: var(--s-6);
+  background: var(--paper-raised);
+  border: var(--border-hair) solid var(--rule);
+}
+
+.panel + .panel {
+  margin-top: var(--s-5);
+}
+
+.panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+  margin-bottom: var(--s-5);
+}
+
+.panel-head h2 {
+  font-family: var(--font-display);
+  font-size: var(--t-h3);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.panel-hint {
+  font-size: var(--t-small);
+  color: var(--ink-3);
+}
+
+/* --- Fields ------------------------------------------------------------ */
+
+.form-grid {
+  display: grid;
+  gap: var(--s-5);
+}
+
+@media (min-width: 40em) {
+  .form-grid--two {
+    grid-template-columns: 1fr 1fr;
+  }
+  .form-field--wide {
+    grid-column: 1 / -1;
+  }
+}
+
+.form-field {
+  display: grid;
+  gap: var(--s-2);
+  min-width: 0;
+}
+
+.field-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s-2);
+  font-size: var(--t-small);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.field-tag {
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.field-hint {
+  font-size: var(--t-micro);
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+.input {
+  display: block;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.6rem 0.8rem;
+  font: inherit;
+  font-size: 1rem;
+  color: var(--ink);
+  background: var(--paper);
+  border: var(--border-hair) solid var(--rule-strong);
+  border-radius: var(--radius-xs);
+  transition: border-color var(--dur-1) var(--ease-out);
+}
+
+.input:hover {
+  border-color: var(--ink-3);
+}
+
+.input:focus-visible {
+  outline: 2px solid var(--clay);
+  outline-offset: 1px;
+  border-color: var(--ink);
+}
+
+textarea.input {
+  min-height: 7rem;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.form-field--error .input {
+  border-color: var(--clay-deep);
+}
+
+.field-error {
+  font-size: var(--t-small);
+  color: var(--clay-deep);
+}
+
+.field-error::before {
+  content: '! ';
+  font-weight: 700;
+}
+
+/* --- Actions and notices ----------------------------------------------- */
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3);
+  margin-top: var(--s-6);
+}
+
+.form-actions--sticky {
+  position: sticky;
+  bottom: 0;
+  z-index: var(--z-raised);
+  padding: var(--s-4) 0;
+  background: linear-gradient(to top, var(--paper) 75%, transparent);
+}
+
+.notice {
+  padding: var(--s-3) var(--s-4);
+  border: var(--border-hair) solid var(--rule-strong);
+  border-left-width: 3px;
+  background: var(--paper-raised);
+  font-size: var(--t-small);
+  color: var(--ink-2);
+}
+
+.notice--success {
+  border-left-color: #2f6b3a;
+}
+
+.notice--error {
+  border-left-color: var(--clay-deep);
+  color: var(--ink);
+}
+
+.notice--info {
+  border-left-color: var(--state-interest);
+}
+
+.notice ul {
+  margin-top: var(--s-2);
+  padding-left: 1.2em;
+  list-style: disc;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0.2rem 0.6rem;
+  border: var(--border-hair) solid var(--rule-strong);
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  background: var(--paper);
+}
+
+.status-badge::before {
+  content: '';
+  width: 0.5em;
+  height: 0.5em;
+  border-radius: 50%;
+  background: var(--ink-3);
+}
+
+.status-badge--published::before {
+  background: #2f6b3a;
+}
+
+.status-badge--draft::before {
+  background: var(--state-activity);
+}
+
+.status-badge--archived::before {
+  background: var(--rule-strong);
+}
+
+.status-badge--held::before {
+  background: var(--clay-deep);
+}
+
+/* Buttons used inside React islands, matching `.btn` in primitives.css. */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5ch;
+  min-height: 2.75rem;
+  padding: 0.6rem 1.15rem;
+  font-family: var(--font-mono);
+  font-size: var(--t-meta);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--ink);
+  background: var(--paper);
+  border: var(--border-hair) solid var(--ink);
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  transition:
+    background var(--dur-1) var(--ease-out),
+    color var(--dur-1) var(--ease-out);
+}
+
+.button:hover:not(:disabled),
+.button:focus-visible {
+  background: var(--paper-sunk);
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--clay);
+  outline-offset: 2px;
+}
+
+.button--primary {
+  color: var(--paper-raised);
+  background: var(--ink);
+}
+
+.button--primary:hover:not(:disabled),
+.button--primary:focus-visible {
+  background: var(--clay-deep);
+  border-color: var(--clay-deep);
+}
+
+.button--quiet {
+  border-color: transparent;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.button--danger {
+  color: var(--clay-deep);
+  border-color: var(--clay-deep);
+}
+
+.button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* --- Image pickers ----------------------------------------------------- */
+
+.image-picker {
+  display: grid;
+  gap: var(--s-3);
+  justify-items: start;
+}
+
+.image-picker img {
+  display: block;
+  width: 100%;
+  max-width: 28rem;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border: var(--border-hair) solid var(--rule);
+  background: var(--paper-sunk);
+}
+
+.image-picker--round img {
+  width: 7rem;
+  height: 7rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+}
+
+.image-picker input[type='file'] {
+  font-size: var(--t-small);
+}

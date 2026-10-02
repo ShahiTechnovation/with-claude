@@ -1,0 +1,170 @@
+---
+/**
+ * A project's cover, or an honest placeholder — always the same box.
+ *
+ * Cards used to omit the image area entirely when a project had no cover,
+ * so a grid of mixed projects jumped between tall and short cards and the
+ * first image to load shifted everything below it. This always reserves the
+ * same aspect ratio.
+ *
+ * The placeholder is deterministic (a hue from the title, so the same project
+ * always looks the same) and is VISIBLY a placeholder: a title plate with the
+ * category, captioned "No screenshot yet". It is never fake product imagery.
+ *
+ * `image` is either a verified Blob URL or a repository asset key, as produced
+ * by `publicCover()` in `src/server/public/projects.ts`.
+ */
+import { Image } from 'astro:assets';
+import { resolveProjectCover } from '@/lib/project-cover';
+import { formatName } from '@/lib/status';
+
+interface Props {
+  image?: string | null;
+  title: string;
+  category?: string;
+  /** `4/3` for cards, `16/10` for the detail page. */
+  ratio?: '4/3' | '16/10';
+  eager?: boolean;
+  sizes?: string;
+  zoom?: boolean;
+}
+
+const {
+  image,
+  title,
+  category,
+  ratio = '4/3',
+  eager = false,
+  sizes = '(max-width: 47.99em) 92vw, 380px',
+  zoom = false,
+} = Astro.props;
+
+const cover = resolveProjectCover(image ?? undefined);
+
+/** A stable small hash, so the placeholder hue never changes between renders. */
+function hash(text: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i += 1) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+// Warm range only — clay through ochre to olive — so placeholders sit inside
+// the palette instead of looking like a stock gradient.
+const hue = 12 + (hash(title) % 60);
+const initials = title
+  .split(/\s+/)
+  .filter(Boolean)
+  .slice(0, 2)
+  .map((word) => word[0]?.toUpperCase() ?? '')
+  .join('');
+const widths = ratio === '16/10' ? [640, 1100, 1400] : [400, 720];
+---
+
+<span
+  class:list={['cover', { 'plate-zoom': zoom }]}
+  style={`--cover-ratio:${ratio}; --cover-hue:${hue}`}
+  data-cover={cover.kind === 'none' ? 'placeholder' : 'image'}
+>
+  {
+    cover.kind === 'blob' ? (
+      <img
+        src={cover.blobUrl}
+        alt=""
+        loading={eager ? 'eager' : 'lazy'}
+        decoding="async"
+        width={ratio === '16/10' ? 1600 : 1200}
+        height={ratio === '16/10' ? 1000 : 900}
+      />
+    ) : cover.kind === 'asset' ? (
+      <Image
+        src={cover.imageMetadata!}
+        alt=""
+        widths={widths}
+        sizes={sizes}
+        loading={eager ? 'eager' : 'lazy'}
+        decoding="async"
+      />
+    ) : (
+      <span class="cover-placeholder" aria-hidden="true">
+        <span class="cover-initials">{initials || '—'}</span>
+        {category && <span class="cover-category">{formatName(category)}</span>}
+        <span class="cover-note">No screenshot yet</span>
+      </span>
+    )
+  }
+</span>
+
+<style>
+  .cover {
+    position: relative;
+    display: block;
+    aspect-ratio: var(--cover-ratio);
+    overflow: hidden;
+    background: var(--paper-sunk);
+    border: var(--border-hair) solid var(--rule);
+  }
+
+  .cover img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: saturate(0.94) contrast(1.03);
+    transition: transform var(--dur-4) var(--ease-out);
+  }
+
+  .plate-zoom:hover img {
+    transform: scale(1.03);
+  }
+
+  .cover-placeholder {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-rows: 1fr auto;
+    padding: var(--s-4);
+    color: hsl(var(--cover-hue) 38% 26%);
+    background:
+      repeating-linear-gradient(
+        -45deg,
+        transparent 0 10px,
+        hsl(var(--cover-hue) 35% 50% / 0.06) 10px 11px
+      ),
+      hsl(var(--cover-hue) 42% 88%);
+  }
+
+  .cover-initials {
+    align-self: center;
+    justify-self: center;
+    font-family: var(--font-display);
+    font-size: clamp(2.25rem, 7vw, 3.5rem);
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    font-variation-settings:
+      'SOFT' 0,
+      'WONK' 1;
+    opacity: 0.85;
+  }
+
+  .cover-category,
+  .cover-note {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .cover-category {
+    position: absolute;
+    top: var(--s-3);
+    left: var(--s-3);
+  }
+
+  .cover-note {
+    justify-self: end;
+    opacity: 0.8;
+  }
+</style>

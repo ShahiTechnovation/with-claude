@@ -3,6 +3,7 @@ import { Image } from 'astro:assets';
 import * as staticData from '@/data';
 import type { RecordSelectors } from '@/data/selectors';
 import { resolveProjectCover } from '@/lib/project-cover';
+import { formatDateCompact } from '@/lib/datetime';
 import { formatName } from '@/lib/status';
 
 /**
@@ -54,6 +55,8 @@ const entries = rows.map((project) => ({
   project,
   city: data.cityName(project.citySlug),
   makers: data.builderNamesOf(project),
+  // Only a public event resolves, so a card never names a hidden one.
+  event: project.builtAtEventSlug ? data.eventBySlug.get(project.builtAtEventSlug) : undefined,
   cover: resolveProjectCover(project.image),
 }));
 
@@ -184,6 +187,12 @@ const entryFields = [
                 </span>
                 <span class="card-title">{entry.project.title}</span>
                 <span class="card-summary">{entry.project.summary}</span>
+                {entry.event && (
+                  <span class="card-event">
+                    {`Built at ${entry.event.shortTitle ?? entry.event.title} · `}
+                    <time datetime={entry.event.date}>{formatDateCompact(entry.event.date)}</time>
+                  </span>
+                )}
                 {entry.makers.length > 0 && (
                   <span class="card-makers">{entry.makers.map((m) => m.name).join(' \u00b7 ')}</span>
                 )}
@@ -327,6 +336,7 @@ const entryFields = [
     color: var(--ink-2);
   }
 
+  .card-event,
   .card-makers {
     margin-top: var(--s-1);
     font-family: var(--font-mono);

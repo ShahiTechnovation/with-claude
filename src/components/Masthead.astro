@@ -352,6 +352,39 @@ const nav = [
   }
 
   /* On short viewports the drawer must not trap content off-screen. */
+  /*
+   * Narrow phones: brand, account control and menu toggle must all fit in
+   * ~335px. At 375px the 1.5rem gaps pushed the toggle 26px off-screen and
+   * made every page scroll sideways.
+   */
+  @media (max-width: 29.99em) {
+    .masthead-inner {
+      gap: var(--s-3);
+    }
+
+    .brand {
+      min-width: 0;
+      flex: 0 1 auto;
+    }
+
+    .masthead-inner :global(.account-join),
+    .masthead-inner :global(.account-link) {
+      padding-inline: 0.6rem;
+    }
+
+    /* The wordmark yields first, so the account control never overlaps it. */
+    .masthead-inner .brand :global(.wm-text) {
+      font-size: 0.92rem;
+      white-space: nowrap;
+    }
+  }
+
+  @media (max-width: 22.49em) {
+    .masthead-inner .brand :global(.wm-text) {
+      display: none;
+    }
+  }
+
   @media (max-width: 63.99em) and (max-height: 30rem) {
     .nav-drawer a {
       font-size: 1.5rem;
@@ -410,7 +443,9 @@ const nav = [
   });
 
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeDrawer();
+    if (e.key !== 'Escape' || toggle?.getAttribute('aria-expanded') !== 'true') return;
+    closeDrawer();
+    toggle.focus();
   });
 
   // Close drawer when a link inside it is clicked

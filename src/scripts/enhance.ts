@@ -86,33 +86,11 @@ function initMasthead(): void {
   ).observe(sentinel);
 }
 
-/** Mobile navigation drawer. */
-function initNavToggle(): void {
-  const toggle = document.querySelector<HTMLButtonElement>('[data-nav-toggle]');
-  const drawer = document.querySelector<HTMLElement>('[data-nav-drawer]');
-  if (!toggle || !drawer) return;
-
-  const setOpen = (open: boolean) => {
-    toggle.setAttribute('aria-expanded', String(open));
-    drawer.toggleAttribute('data-open', open);
-    document.documentElement.style.overflow = open ? 'hidden' : '';
-  };
-
-  toggle.addEventListener('click', () => {
-    setOpen(toggle.getAttribute('aria-expanded') !== 'true');
-  });
-
-  drawer.addEventListener('click', (event) => {
-    if ((event.target as HTMLElement).closest('a')) setOpen(false);
-  });
-
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && toggle.getAttribute('aria-expanded') === 'true') {
-      setOpen(false);
-      toggle.focus();
-    }
-  });
-}
+/*
+ * The mobile navigation drawer is owned by `Masthead.astro`'s own script. A
+ * second toggle here bound the same button, so every tap opened the drawer
+ * and closed it again in the same click and the menu never opened on a phone.
+ */
 
 /**
  * Archival plates.
@@ -234,7 +212,6 @@ function boot(): void {
   initReveals();
   initMeridian();
   initMasthead();
-  initNavToggle();
   initArchivalPlates();
   initWithIndex();
   // The claim control, on builder pages that have one. No-op elsewhere.

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "WITH CLAUDE — India is building.",
+  "description": "WITH CLAUDE \u00e2\u20ac\u201d India is building.",
   "workspaces": [
     "admin"
   ],
@@ -25,7 +25,10 @@
     "db:migrate": "tsx db/migrate.ts",
     "db:import": "tsx db/import/run.ts",
     "db:create-user": "tsx db/create-user.ts",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "import": "tsx scripts/import/cli.ts",
+    "baserow:check-schema": "tsx scripts/baserow/check-schema.ts",
+    "baserow:discover": "tsx scripts/baserow/discover-config.ts"
   },
   "dependencies": {
     "@astrojs/react": "^6.0.5",

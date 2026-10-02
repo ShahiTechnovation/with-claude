@@ -1,209 +1,203 @@
 /**
- * IMAGE UPLOAD, VIA VERCEL BLOB.
+ * IMAGE UPLOAD, VIA VERCEL BLOB — authorisation for one upload.
  *
- * The flow is Blob's client-upload handshake, and the shape matters:
+ *   browser → THIS ROUTE (authorise)           → short-lived upload token
+ *   browser → Vercel Blob (upload, directly)   → the file never touches us
+ *   Blob    → THIS ROUTE (`onUploadCompleted`) → the media row, when Blob can
+ *                                                reach us (never on localhost)
+ *   browser → `/api/media/confirm`             → the media row, verified with
+ *                                                `head()`, whenever the
+ *                                                callback did not arrive
  *
- *   browser → THIS ROUTE (authorise)          → short-lived upload token
- *   browser → Vercel Blob (upload, directly)  → the file never touches us
- *   Blob    → THIS ROUTE (`onUploadCompleted`) → the row in Neon
+ * ── WHERE AUTHORISATION HAPPENS ──────────────────────────────────────────
  *
- * The file bypassing our function is the point: a serverless function with a
- * 15-second budget is the wrong place to proxy a 5 MB upload, and doing so
- * would also mean holding a write credential that the browser could provoke
- * into use on anything.
+ * In `onBeforeGenerateToken`, before a token exists. Two purposes:
  *
- * ── WHERE AUTHORISATION HAS TO HAPPEN ────────────────────────────────────
+ *   cover   the caller must be allowed `upload_media` on the project —
+ *           owner or collaborator, on a project the website's workflow owns
+ *           (`memberCan()` in `src/server/projects/lifecycle.ts`)
+ *   avatar  the caller's own portrait
  *
- * In `onBeforeGenerateToken`, and ONLY there. By the time `onUploadCompleted`
- * runs, the bytes are already in Blob storage — a check there decides whether
- * to record the upload, not whether to permit it. So every question about who
- * may write what is answered before a token is minted.
- *
- * This is what the route previously got wrong. It authenticated the member,
- * then took the `alt` text and the caller's word for everything else, and
- * recorded a row with no project association at all (§12 requires one). A
- * member could therefore mint an upload token against any project, or none,
- * and nothing connected the resulting image to the thing it was for.
- *
- * Now `clientPayload` names a project, and this route verifies the CALLER owns
- * or collaborates on it — server-side, against the database — before allowing
- * the upload. `canEditProject()` is the same check the edit and publish routes
- * use, so there is one answer to "may this member touch this project".
+ * The PATHNAME is part of the authorisation: a cover must be uploaded under
+ * `projects/<projectId>/`, a portrait under `avatars/<memberId>/`. The media
+ * row is only ever recorded for a URL under the prefix this route authorised,
+ * and a cover is only ever attached from a media row — so there is no longer
+ * any way to make an arbitrary URL a project's cover.
  *
  * ── WHY `status` IS `staged` ─────────────────────────────────────────────
  *
- * Because an upload is not a publication. The row exists so the editor can
- * show the image back to its owner and so an abandoned blob is identifiable;
- * it becomes part of a public project when the project is published, not when
- * the file arrives.
+ * An upload is not a publication. It becomes public when its project (or the
+ * member's profile) is published.
  */
 import type { APIRoute } from 'astro';
 import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
 import { z } from 'zod';
 import { pooledDb } from '../../../../db/pool';
-import * as schema from '../../../../db/schema';
 import { requireMember, statusFor } from '@/server/auth/member';
 import { json } from '@/server/http/guard';
 import { assertSameOrigin, fetchSiteAllows } from '@/server/http/origin';
-import { canEditProject } from '@/server/members/projects';
+import { memberCan } from '@/server/projects/lifecycle';
+import {
+  ALLOWED_COVER_TYPES,
+  MAX_COVER_BYTES,
+  avatarPathPrefix,
+  coverPathPrefix,
+  recordAvatarUpload,
+  recordCoverUpload,
+} from '@/server/media/covers';
 
 export const prerender = false;
 
-/** 5 MB. Enforced by Blob itself via `maximumSizeInBytes`, not just here. */
-const MAX_SIZE = 5 * 1024 * 1024;
-
-/**
- * Images only, and an explicit list rather than `image/*`.
- *
- * `image/svg+xml` is deliberately absent: an SVG is a document that can carry
- * script, and these files are served from a URL a visitor's browser will
- * render. §12 says not to allow arbitrary files if only images are intended.
- */
-const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'];
-
 /** What the browser may say about an upload. Everything else is server-derived. */
-const ClientPayloadSchema = z
-  .object({
-    projectId: z.string().uuid(),
-    /** Required, and required to be meaningful — `media.alt` is NOT NULL. */
-    alt: z.string().trim().min(1).max(300),
-    caption: z.string().trim().max(300).optional(),
-  })
-  .strict();
+const ClientPayloadSchema = z.union([
+  z
+    .object({
+      purpose: z.literal('cover').optional(),
+      projectId: z.string().uuid(),
+      /** Required, and required to be meaningful — `media.alt` is NOT NULL. */
+      alt: z.string().trim().min(1).max(300),
+      caption: z.string().trim().max(300).optional(),
+    })
+    .strict(),
+  z
+    .object({
+      purpose: z.literal('avatar'),
+      alt: z.string().trim().min(1).max(300),
+    })
+    .strict(),
+]);
+
+class Refusal extends Error {}
 
 export const POST: APIRoute = async ({ request }) => {
   const db = pooledDb();
 
-  /**
-   * CSRF, before anything else.
-   *
-   * `guardMutation()` cannot be reused here because `handleUpload` insists on
-   * parsing the body itself, but the checks it would have run still have to
-   * happen — so the two that apply are done explicitly. Omitting them because
-   * the helper did not fit is exactly the per-route drift that helper exists to
-   * prevent, which is why this comment names what is being substituted for.
-   */
-  if (!assertSameOrigin(request) || !fetchSiteAllows(request)) {
-    return json({ error: 'That request did not come from this site.' }, 403);
-  }
-
-  const identity = await requireMember(request, db);
-  if (!identity.ok) {
-    return json({ error: 'Sign in to upload an image.' }, statusFor(identity.reason));
-  }
-  const member = identity.member;
-
+  const text = await request.text();
+  if (text.length > 64 * 1024) return json({ error: 'That request is too large.' }, 413);
   let body: HandleUploadBody;
   try {
-    body = JSON.parse(await request.text());
+    body = JSON.parse(text);
   } catch {
     return json({ error: 'That request body is not JSON.' }, 400);
+  }
+
+  /**
+   * TWO CALLERS.
+   *
+   * The completion callback comes from Blob's servers: no Origin, no member
+   * cookie. `handleUpload` verifies its `x-vercel-signature` (an HMAC over the
+   * body with the store token) before `onUploadCompleted` runs, and the
+   * payload it carries is the one THIS route signed into the token. The old
+   * route ran the browser checks first, so every callback was refused and no
+   * media row was ever recorded from one.
+   *
+   * Everything else is a browser asking for a token: CSRF and identity first.
+   */
+  const isCallback = (body as { type?: string }).type === 'blob.upload-completed';
+  let memberId: string | null = null;
+  if (!isCallback) {
+    if (!assertSameOrigin(request) || !fetchSiteAllows(request)) {
+      return json({ error: 'That request did not come from this site.' }, 403);
+    }
+    const identity = await requireMember(request, db);
+    if (!identity.ok) {
+      return json({ error: 'Sign in to upload an image.' }, statusFor(identity.reason));
+    }
+    if (identity.member.status !== 'active') {
+      return json({ error: 'This account cannot upload right now.' }, 403);
+    }
+    memberId = identity.member.id;
   }
 
   try {
     const response = await handleUpload({
       body,
       request,
-      onBeforeGenerateToken: async (_pathname, clientPayload) => {
-        const parsed = ClientPayloadSchema.safeParse(
-          clientPayload ? JSON.parse(clientPayload) : {},
-        );
-        if (!parsed.success) {
-          // Thrown, because `handleUpload` turns a throw here into a refusal
-          // and never mints a token.
-          throw new Error(parsed.error.issues[0]?.message ?? 'Describe the image first.');
+      onBeforeGenerateToken: async (pathname, clientPayload) => {
+        if (!memberId) throw new Refusal('Sign in to upload an image.');
+        let raw: unknown = {};
+        try {
+          raw = clientPayload ? JSON.parse(clientPayload) : {};
+        } catch {
+          throw new Refusal('Describe the image first.');
         }
+        const parsed = ClientPayloadSchema.safeParse(raw);
+        if (!parsed.success) throw new Refusal('Describe the image first.');
 
-        // THE AUTHORISATION. Server-side, against the database, before a token
-        // exists. §10 and §36.
-        if (!(await canEditProject(member.id, parsed.data.projectId, db))) {
-          throw new Error('That project is not yours.');
+        const payload = parsed.data;
+        let prefix: string;
+        let tokenPayload: Record<string, unknown>;
+        if (payload.purpose === 'avatar') {
+          prefix = avatarPathPrefix(memberId);
+          tokenPayload = { purpose: 'avatar', memberId, alt: payload.alt };
+        } else {
+          // THE AUTHORISATION. Server-side, against the database.
+          if (!(await memberCan(memberId, payload.projectId, 'upload_media', db))) {
+            throw new Refusal('That project is not yours.');
+          }
+          prefix = coverPathPrefix(payload.projectId);
+          tokenPayload = { purpose: 'cover', memberId, projectId: payload.projectId, alt: payload.alt };
+        }
+        if (!pathname.startsWith(prefix) || pathname.includes('..')) {
+          throw new Refusal('Invalid upload location.');
         }
 
         return {
-          allowedContentTypes: ALLOWED_MIME_TYPES,
-          maximumSizeInBytes: MAX_SIZE,
-          /**
-           * Carried through to `onUploadCompleted` and signed by Blob, so the
-           * completion callback cannot be forged with a different member or
-           * project than the one authorised above.
-           */
-          tokenPayload: JSON.stringify({
-            memberId: member.id,
-            projectId: parsed.data.projectId,
-            alt: parsed.data.alt,
-            caption: parsed.data.caption ?? null,
-          }),
+          allowedContentTypes: [...ALLOWED_COVER_TYPES],
+          maximumSizeInBytes: MAX_COVER_BYTES,
+          addRandomSuffix: true,
+          // Signed by Blob and handed back to `onUploadCompleted`, so the
+          // callback cannot be forged for a different member or project.
+          tokenPayload: JSON.stringify(tokenPayload),
         };
       },
 
       onUploadCompleted: async ({ blob, tokenPayload }) => {
         const payload = tokenPayload ? JSON.parse(tokenPayload) : {};
-        if (!payload.memberId || !payload.projectId) {
-          throw new Error('Upload completed without an authorised payload.');
-        }
-
-        await db.insert(schema.media).values({
-          ownerMemberId: payload.memberId,
-          projectId: payload.projectId,
-          blobUrl: blob.url,
+        if (!payload.memberId) throw new Error('Upload completed without an authorised payload.');
+        const facts = {
+          url: blob.url,
           pathname: blob.pathname,
-          mimeType: blob.contentType,
-          // Blob reports the real stored size, which is the only trustworthy
-          // source for it — a client-declared size is a claim.
-          sizeBytes: (blob as { size?: number }).size ?? null,
-          alt: payload.alt,
-          caption: payload.caption,
-          /** An upload is not a publication. See the file header. */
-          status: 'staged',
-          kind: 'cover',
-          // The uploader is the member; consent is theirs to give by uploading
-          // their own work, and is recorded as such rather than defaulted true
-          // for third-party imagery.
-          consent: true,
-        });
-
+          contentType: blob.contentType,
+          size: (blob as { size?: number }).size ?? 0,
+        };
+        const result =
+          payload.purpose === 'avatar'
+            ? await recordAvatarUpload(db, { memberId: payload.memberId, alt: payload.alt, facts })
+            : await recordCoverUpload(db, {
+                memberId: payload.memberId,
+                projectId: payload.projectId,
+                alt: payload.alt,
+                facts,
+              });
         console.log(
-          `[media.upload] ${JSON.stringify({ project: payload.projectId, bytes: (blob as { size?: number }).size ?? 0, type: blob.contentType })}`,
+          `[media.upload] ${JSON.stringify({ purpose: payload.purpose ?? 'cover', ok: result.ok, type: blob.contentType })}`,
         );
       },
     });
 
     return json(response, 200);
   } catch (error) {
-    /**
-     * The message here is OUR OWN, from the throws above — Blob surfaces them
-     * verbatim — so it is safe to return. Anything else is collapsed, because
-     * an SDK error can name a store id or a token.
-     *
-     * One specific SDK error gets special treatment: when BLOB_READ_WRITE_TOKEN
-     * is absent or invalid, the Blob client throws "Failed to retrieve the
-     * client token" before any upload authorisation runs. Leaking that string
-     * to the browser is unhelpful (the member cannot fix it). A 503 is honest
-     * about the cause — the service is unavailable — and says what the member
-     * can do: save or publish without a cover image.
-     */
     const message = error instanceof Error ? error.message : '';
-    const ours =
-      message === 'That project is not yours.' ||
-      message === 'Describe the image first.' ||
-      message.startsWith('Too big') ||
-      message.startsWith('Invalid');
     const tokenFailure =
       message.includes('Failed to retrieve the client token') ||
-      message.includes('BLOB_READ_WRITE_TOKEN');
+      message.includes('BLOB_READ_WRITE_TOKEN') ||
+      message.includes('No token found');
 
     if (tokenFailure) {
       console.error('[media.upload] Blob token unavailable — check BLOB_READ_WRITE_TOKEN');
       return json(
         {
           error:
-            'Image uploads are temporarily unavailable. You can save or publish the project without a cover.',
+            'Image uploads are temporarily unavailable. You can save or publish without an image.',
         },
         503,
       );
     }
 
+    // Our own refusals are safe to show; anything else is collapsed, because
+    // an SDK error can name a store id or a token.
+    const ours = error instanceof Refusal || message.startsWith('Too big') || message.startsWith('Invalid');
     if (!ours) console.error('[media.upload] failed', message);
     return json({ error: ours ? message : 'That upload could not be completed.' }, ours ? 403 : 500);
   }
