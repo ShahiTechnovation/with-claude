@@ -248,10 +248,11 @@ describe('the site stays static', () => {
       const isAccount = route.startsWith('src/pages/me/');
       const isDetail = route.startsWith('src/pages/projects/') || route.startsWith('src/pages/builders/') || route.startsWith('src/pages/cities/') || route.startsWith('src/pages/events/') || route.startsWith('src/pages/ambassadors/') || route.endsWith('discover.astro');
       const isSitemap = route === 'src/pages/sitemap.xml.ts';
-      // The homepage reads live data so it can never disagree with the
-      // directory pages it links to; it is the one deliberate addition.
+      // The homepage and the gallery read live data so they can never disagree
+      // with the directory and event pages they link to.
       const isHome = route === 'src/pages/index.astro' || route === 'src/pages/not-found.astro';
-      expect(isApi || isAccount || isDetail || isSitemap || isHome, `${route} is a public page rendered on demand`).toBe(true);
+      const isGallery = route === 'src/pages/gallery.astro';
+      expect(isApi || isAccount || isDetail || isSitemap || isHome || isGallery, `${route} is a public page rendered on demand`).toBe(true);
     }
   });
 

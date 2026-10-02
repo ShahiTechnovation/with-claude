@@ -600,4 +600,12 @@ export class RecordSelectors {
     }
     return out;
   }
+
+  photoRecordByEvent(): { event: CommunityEvent; plates: PhotoRecordItem[] }[] {
+    const plates = this.photoRecord();
+    return [...new Set(plates.map((plate) => plate.event))].map((event) => ({
+      event,
+      plates: plates.filter((plate) => plate.event === event),
+    }));
+  }
 }

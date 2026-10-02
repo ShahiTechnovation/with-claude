@@ -44,6 +44,7 @@ const ROUTES = [
   [`/events/${S.EVENT}/`, 200],
   ['/events/claude-community/', 200],
   ['/events/no-such-event/', 404],
+  ['/gallery/', 200],
   ['/cities/', 200],
   [`/cities/${S.CITY}/`, 200],
   ['/cities/no-such-city/', 404],

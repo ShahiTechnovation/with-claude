@@ -132,6 +132,7 @@ export const GET: APIRoute = async () => {
       '/builders/',
       '/projects/',
       '/events/',
+      '/gallery/',
       '/cities/',
       '/ambassadors/',
       '/record/'
