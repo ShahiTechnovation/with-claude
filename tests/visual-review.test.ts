@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-// @ts-expect-error — a plain .mjs dev script, no types.
 import { parseHeaders, strictFailures } from '../scripts/dev/visual-review.mjs';
 
 /**
