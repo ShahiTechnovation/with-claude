@@ -27,7 +27,11 @@
  *  4. A FAILED REQUEST IS RETRIED ONLY WHEN RETRYING CAN HELP. Network errors,
  *     timeouts, 429 and 500/502/503/504 are retried with bounded exponential
  *     backoff and full jitter. 400/401/403/404 are answers, not accidents, and
- *     retrying them only multiplies the noise.
+ *     retrying them only multiplies the noise. A CREATE (POST) is the
+ *     exception: after a timeout, a dropped connection or a 5xx the row may
+ *     exist, and a blind retry would make a second one. So a POST is retried
+ *     only on 429 (the server refused it); anything ambiguous goes back to the
+ *     caller, which must look for the row by its stable key first.
  *
  *  5. CONCURRENCY IS BOUNDED PER CLIENT. Baserow Cloud documents a limit of 10
  *     concurrent API requests per account. We default to 4 and refuse to go
@@ -542,7 +546,9 @@ export function createBaserowClient(options: BaserowClientOptions): BaserowClien
         return result.json;
       } catch (thrown) {
         const error = scrub(asTransportError(thrown, spec.label));
-        if (!error.retryable || tries >= maxRetries) throw error;
+        // A create that may have landed is not ours to repeat (see 4 above).
+        const ambiguousCreate = spec.method === 'POST' && error.kind !== 'rate-limited';
+        if (!error.retryable || ambiguousCreate || tries >= maxRetries) throw error;
         await sleep(delayFor(error, tries));
       }
     }

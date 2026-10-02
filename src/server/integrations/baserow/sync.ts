@@ -31,7 +31,7 @@ import { and, eq, inArray, lt, or, sql } from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import * as schema from '../../../../db/schema';
 import { BaserowError } from './client';
-import { tableKeyFor, type BaserowConfig } from './config';
+import { configuredTables, tableIdOf, tableKeyFor, type BaserowConfig } from './config';
 import { contentHash, type RawRow } from './dto';
 import { applyRow, tombstoneRow, type ApplyOutcome } from './projection';
 import { TABLE_ORDER, type TableKey } from './spec';
@@ -186,7 +186,8 @@ const DEPENDENTS: Record<TableKey, TableKey[]> = {
 };
 
 async function quarantinedRows(db: AnyDatabase, config: BaserowConfig, tables: TableKey[]) {
-  const ids = tables.map((t) => config.tables[t].tableId);
+  const ids = tables.flatMap((t) => tableIdOf(config, t) ?? []);
+  if (ids.length === 0) return [];
   const rows = await db
     .select({ tableId: schema.integrationMappings.tableId, rowId: schema.integrationMappings.rowId })
     .from(schema.integrationMappings)
@@ -232,7 +233,10 @@ async function processJob(db: AnyDatabase, source: RowSource, config: BaserowCon
       counts.enqueued += await enqueue(
         db,
         config,
-        followUps.map((f) => ({ kind: 'row.sync', tableId: config.tables[f.table].tableId, rowId: f.rowId })),
+        followUps.flatMap((f) => {
+          const tableId = tableIdOf(config, f.table);
+          return tableId === null ? [] : [{ kind: 'row.sync' as const, tableId, rowId: f.rowId }];
+        }),
       );
     }
     await finish(db, job, new Date());
@@ -296,11 +300,12 @@ export async function reconcile(
   db: AnyDatabase,
   source: RowSource,
   config: BaserowConfig,
-  tables: readonly TableKey[] = TABLE_ORDER,
+  tables: readonly TableKey[] = configuredTables(config),
 ): Promise<ReconcileReport> {
   const report: ReconcileReport = { tables: [], complete: true };
   for (const table of tables) {
-    const tableId = config.tables[table].tableId;
+    const tableId = tableIdOf(config, table);
+    if (tableId === null) continue;
     let scan: Awaited<ReturnType<RowSource['listAllRows']>>;
     try {
       scan = await source.listAllRows(tableId, { pageSize: 200 });

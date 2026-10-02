@@ -15,7 +15,7 @@
  * never by a deployed function. None of these is ever `PUBLIC_`-prefixed.
  */
 import { z } from 'zod';
-import { SPEC, type TableKey } from './spec';
+import { SPEC, TABLE_ORDER, type TableKey } from './spec';
 
 const ids = z.number().int().positive();
 
@@ -27,7 +27,8 @@ const TableConfig = z.object({
 export const ConfigSchema = z
   .object({
     tables: z.object({
-      cities: TableConfig,
+      /** Optional: without it, the City fields are text holding a Neon city slug. */
+      cities: TableConfig.optional(),
       events: TableConfig,
       projects: TableConfig,
       credits: TableConfig,
@@ -35,7 +36,7 @@ export const ConfigSchema = z
   })
   .superRefine((value, ctx) => {
     for (const table of Object.keys(SPEC) as TableKey[]) {
-      for (const key of Object.keys(value.tables[table].fields)) {
+      for (const key of Object.keys(value.tables[table]?.fields ?? {})) {
         if (!(key in SPEC[table])) {
           ctx.addIssue({ code: 'custom', message: `tables.${table}.fields.${key} is not a known field` });
         }
@@ -86,7 +87,17 @@ export function baserowSettings(env: NodeJS.ProcessEnv = process.env): BaserowSe
 /** Which logical table a Baserow table id is, if it is one of ours. */
 export function tableKeyFor(config: BaserowConfig, tableId: number): TableKey | null {
   for (const key of Object.keys(config.tables) as TableKey[]) {
-    if (config.tables[key].tableId === tableId) return key;
+    if (config.tables[key]?.tableId === tableId) return key;
   }
   return null;
+}
+
+/** The sync's table order, restricted to the tables this workspace has. */
+export function configuredTables(config: BaserowConfig): TableKey[] {
+  return TABLE_ORDER.filter((t) => config.tables[t] !== undefined);
+}
+
+/** A configured table's id; `null` for the optional Cities table when absent. */
+export function tableIdOf(config: BaserowConfig, table: TableKey): number | null {
+  return config.tables[table]?.tableId ?? null;
 }

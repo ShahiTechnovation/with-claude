@@ -31,7 +31,7 @@ import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import * as schema from '../../../../db/schema';
 import { legacyStatusFor, type PublicationStatus } from '../../projects/lifecycle';
 import { nextAvailableSlug, slugifyTitle } from '../../members/projects';
-import type { BaserowConfig } from './config';
+import { tableIdOf, type BaserowConfig } from './config';
 import {
   contentHash,
   parseCity,
@@ -103,7 +103,9 @@ async function writeMapping(
 ) {
   const values = {
     status: write.status,
-    lastError: write.lastError ? write.lastError.slice(0, 500) : null,
+    // Omitted means "keep": an unchanged re-sync must not erase the last
+    // diagnostic (a "publish held — needs …" note) from the admin's view.
+    ...(write.lastError !== undefined ? { lastError: write.lastError ? write.lastError.slice(0, 500) : null } : {}),
     lastSeenAt: now,
     updatedAt: now,
     ...(write.entityId !== undefined ? { entityId: write.entityId } : {}),
@@ -124,6 +126,30 @@ async function resolved(tx: AnyDatabase, tableId: number, rowId: number | null):
   if (!rowId) return null;
   const mapping = await mappingOf(tx, tableId, rowId);
   return mapping && mapping.status !== 'tombstoned' ? (mapping.entityId ?? null) : null;
+}
+
+/**
+ * A row's city: through the Cities table when it links there, or straight
+ * to an EXISTING Neon city when the field holds a slug. Either way nothing
+ * here creates a city. `null` means "none given"; a string is a reason to
+ * quarantine.
+ */
+async function resolveCity(
+  tx: AnyDatabase,
+  config: BaserowConfig,
+  ref: { cityRowId: number | null; citySlug: string | null },
+): Promise<{ cityId: string | null; problem: string | null }> {
+  if (ref.citySlug) {
+    const [city] = await tx.select({ id: schema.cities.id }).from(schema.cities).where(eq(schema.cities.slug, ref.citySlug));
+    return city
+      ? { cityId: city.id, problem: null }
+      : { cityId: null, problem: `unknown city "${ref.citySlug}" — add it in Neon, or fix the slug` };
+  }
+  if (!ref.cityRowId) return { cityId: null, problem: null };
+  const citiesTable = config.tables.cities?.tableId;
+  if (!citiesTable) return { cityId: null, problem: 'City links to a Cities table that is not configured' };
+  const cityId = await resolved(tx, citiesTable, ref.cityRowId);
+  return cityId ? { cityId, problem: null } : { cityId: null, problem: `city row ${ref.cityRowId} is not mapped to a Neon city yet` };
 }
 
 /** Is some OTHER row already mapped to this entity? Adoption must be one-to-one. */
@@ -173,6 +199,7 @@ const editorialToContent = (s: string): (typeof schema.contentStatus.enumValues)
 // ── cities (reference) ───────────────────────────────────────────────────
 
 async function applyCity(tx: AnyDatabase, config: BaserowConfig, row: RawRow, now: Date): Promise<ApplyResult> {
+  if (!config.tables.cities) return { outcome: 'skipped', detail: 'no Cities table is configured' };
   const tableId = config.tables.cities.tableId;
   const parsed = parseCity(row, config);
   if (!parsed.ok) {
@@ -190,7 +217,7 @@ async function applyCity(tx: AnyDatabase, config: BaserowConfig, row: RawRow, no
     await writeMapping(tx, 'cities', tableId, row.id, { status: 'quarantined', lastError: detail }, now);
     return { outcome: 'quarantined', detail };
   }
-  await writeMapping(tx, 'cities', tableId, row.id, { status: 'active', entityId: city.id, contentHash: contentHash(parsed.dto), applied: true }, now);
+  await writeMapping(tx, 'cities', tableId, row.id, { status: 'active', entityId: city.id, contentHash: contentHash(parsed.dto), applied: true, lastError: null }, now);
   return { outcome: 'applied', entityId: city.id };
 }
 
@@ -219,6 +246,8 @@ function eventValues(dto: EventDTO, cityId: string, now: Date) {
     venueAddress: dto.venueAddress,
     venuePrivate: dto.venuePrivate,
     date: dto.date,
+    rescheduledFrom: dto.rescheduledFrom,
+    shortTitle: dto.shortTitle,
     // Wall-clock local time in `timezone`. Never shifted to UTC.
     startTime: `${dto.startTime}:00`,
     endTime: dto.endTime ? `${dto.endTime}:00` : null,
@@ -244,8 +273,9 @@ async function applyEvent(tx: AnyDatabase, config: BaserowConfig, row: RawRow, n
   if (!parsed.ok) return quarantine(parsed.problems.join('; '));
   const dto = parsed.dto;
 
-  const cityId = await resolved(tx, config.tables.cities.tableId, dto.cityRowId);
-  if (!cityId) return quarantine(`city row ${dto.cityRowId} is not mapped to a Neon city yet`);
+  const city = await resolveCity(tx, config, dto);
+  if (city.problem || !city.cityId) return quarantine(city.problem ?? 'city is required');
+  const cityId = city.cityId;
 
   const mapping = await mappingOf(tx, tableId, row.id);
   const hash = contentHash({ dto, cityId });
@@ -288,7 +318,7 @@ async function applyEvent(tx: AnyDatabase, config: BaserowConfig, row: RawRow, n
       { status: values.status, title: values.title, authority: 'baserow' },
       `baserow row ${tableId}:${row.id}`,
     );
-    await writeMapping(tx, 'events', tableId, row.id, { status: 'active', entityId: targetId, contentHash: hash, applied: true }, now);
+    await writeMapping(tx, 'events', tableId, row.id, { status: 'active', entityId: targetId, contentHash: hash, applied: true, lastError: null }, now);
     return { outcome: 'applied', entityId: targetId };
   }
 
@@ -302,7 +332,7 @@ async function applyEvent(tx: AnyDatabase, config: BaserowConfig, row: RawRow, n
     .values({ ...eventValues(dto, cityId, now), slug, createdAt: now })
     .returning({ id: schema.events.id });
   await audit(tx, 'baserow.event.created', 'event', created.id, null, { slug, status: editorialToContent(dto.editorialStatus) }, `baserow row ${tableId}:${row.id}`);
-  await writeMapping(tx, 'events', tableId, row.id, { status: 'active', entityId: created.id, contentHash: hash, applied: true }, now);
+  await writeMapping(tx, 'events', tableId, row.id, { status: 'active', entityId: created.id, contentHash: hash, applied: true, lastError: null }, now);
   return { outcome: 'applied', entityId: created.id };
 }
 
@@ -313,15 +343,24 @@ async function applyEvent(tx: AnyDatabase, config: BaserowConfig, row: RawRow, n
  * published. Deliberately different from a member's publish gate (which also
  * requires a description and Claude usage): an archive entry may be thin, but
  * it must be TRUE — a meaningful summary, the event it came from (which is
- * what establishes its relevance to WITH CLAUDE), a public team credit, and
- * at least one real artifact. Missing Claude usage renders as "Not documented".
+ * what establishes its relevance to WITH CLAUDE), and at least one real
+ * artifact. Missing Claude usage renders as "Not documented".
+ *
+ * A team credit is NOT required. An event submission is a public record of
+ * the project; it is not consent to print the people behind it. Names can be
+ * withheld until that permission exists (and a team label that is itself a
+ * person's name is treated the same way), so the archive presents the
+ * project and its event, and adds credits when they are cleared.
  */
-export function archiveContractBlockers(dto: ProjectDTO, eventId: string | null, creditCount: number): string[] {
+export function archiveContractBlockers(dto: ProjectDTO, eventId: string | null, _creditCount = 0): string[] {
   return [
     !eventId && 'linked to an event (its relevance cannot be established otherwise)',
     dto.summary.trim().length < 5 && 'a meaningful summary',
-    !dto.teamName && creditCount === 0 && 'a public team credit',
-    !dto.liveUrl && !dto.repoUrl && !dto.videoUrl && 'at least one artifact link (live, repo or video)',
+    !dto.liveUrl &&
+      !dto.repoUrl &&
+      !dto.videoUrl &&
+      !dto.downloadUrl &&
+      'at least one artifact link (live, repo, video or download)',
   ].filter(Boolean) as string[];
 }
 
@@ -353,8 +392,9 @@ async function applyProject(tx: AnyDatabase, config: BaserowConfig, row: RawRow,
 
   const eventId = await resolved(tx, config.tables.events.tableId, dto.eventRowId);
   if (dto.eventRowId && !eventId) return quarantine(`event row ${dto.eventRowId} is not mapped yet`);
-  let cityId = await resolved(tx, config.tables.cities.tableId, dto.cityRowId);
-  if (dto.cityRowId && !cityId) return quarantine(`city row ${dto.cityRowId} is not mapped yet`);
+  const city = await resolveCity(tx, config, dto);
+  if (city.problem) return quarantine(city.problem);
+  let cityId = city.cityId;
   if (!cityId && eventId) {
     const [event] = await tx.select({ cityId: schema.events.cityId }).from(schema.events).where(eq(schema.events.id, eventId));
     cityId = event?.cityId ?? null;
@@ -421,6 +461,16 @@ async function applyProject(tx: AnyDatabase, config: BaserowConfig, row: RawRow,
     imagePath: dto.coverRef,
     imageId: null,
     claudeUsage: dto.claudeUsage,
+    problem: dto.problem,
+    solution: dto.solution,
+    builtWith: dto.builtWith,
+    buildStatus: dto.buildStatus,
+    downloadUrl: dto.downloadUrl,
+    artifactUrl: dto.artifactUrl,
+    altVideoUrl: dto.altVideoUrl,
+    // An organiser-supplied repository asset key. Never a fetched URL; the
+    // favicon enrichment job owns `logo_media_id` and this never clears it.
+    logoPath: dto.logoRef,
     builtAtEventId: eventId,
     cityId,
     featured: dto.featured,
@@ -556,7 +606,7 @@ async function applyCredit(tx: AnyDatabase, config: BaserowConfig, row: RawRow, 
       },
     })
     .returning({ id: schema.projectCredits.id });
-  await writeMapping(tx, 'credits', tableId, row.id, { status: 'active', entityId: credit.id, contentHash: hash, applied: true }, now);
+  await writeMapping(tx, 'credits', tableId, row.id, { status: 'active', entityId: credit.id, contentHash: hash, applied: true, lastError: null }, now);
   // A new credit can satisfy the parent's publication contract.
   return { outcome: 'applied', entityId: credit.id, followUps: [{ table: 'projects', rowId: dto.projectRowId }] };
 }
@@ -570,7 +620,8 @@ export async function applyRow(
   row: RawRow,
   now: Date = new Date(),
 ): Promise<ApplyResult> {
-  const tableId = config.tables[table].tableId;
+  const tableId = tableIdOf(config, table);
+  if (tableId === null) return { outcome: 'skipped', detail: `no ${table} table is configured` };
   return db.transaction(async (tx) => {
     const t = tx as unknown as AnyDatabase;
     await lockRow(t, tableId, row.id);
@@ -603,7 +654,8 @@ export async function tombstoneRow(
   rowId: number,
   now: Date = new Date(),
 ): Promise<ApplyResult> {
-  const tableId = config.tables[table].tableId;
+  const tableId = tableIdOf(config, table);
+  if (tableId === null) return { outcome: 'skipped', detail: `no ${table} table is configured` };
   return db.transaction(async (tx) => {
     const t = tx as unknown as AnyDatabase;
     await lockRow(t, tableId, rowId);

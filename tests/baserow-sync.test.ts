@@ -199,7 +199,9 @@ describe('projection', () => {
     expect(event).toMatchObject({ contentAuthority: 'baserow', status: 'published', cityId, startTime: '10:00:00', timezone: 'Asia/Kolkata' });
     expect(p.builtAtEventId).toBe(event.id);
     const detail = await getProjectDetail(db, p.slug);
-    expect(detail?.credits.map((c) => c.name)).toEqual(['Team Kisan', 'Asha Rao']);
+    // The organiser's team label is returned as `team`; people are `credits`.
+    expect(detail?.team).toBe('Team Kisan');
+    expect(detail?.credits.map((c) => c.name)).toEqual(['Asha Rao']);
     expect(detail?.credits.every((c) => !c.href)).toBe(true);
     expect(detail?.imported).toBe(true);
   });
@@ -257,18 +259,21 @@ describe('projection', () => {
     expect((await mapping(T.projects, 3)).lastError).toMatch(/publish held/);
     const parsed = parseProject(projectRow(3, { field_39: null, field_44: null }), config);
     if (!parsed.ok) throw new Error('fixture');
-    expect(archiveContractBlockers(parsed.dto, 'e', 0)).toHaveLength(2);
+    // Only the missing artifact blocks: a team credit is not required.
+    expect(archiveContractBlockers(parsed.dto, 'e', 0)).toEqual([
+      'at least one artifact link (live, repo, video or download)',
+    ]);
+    expect(archiveContractBlockers(parsed.dto, null, 0)).toHaveLength(2);
   });
 
-  it('a credit arriving later releases a held publication', async () => {
+  it('publishes without any credit — names can be withheld pending permission', async () => {
     source.set(T.projects, projectRow(3, { field_44: null }));
     source.remove(T.credits, 4);
     await syncAll();
-    expect((await project()).publicationStatus).toBe('draft');
-    source.set(T.credits, creditRow(4, 3, 'Asha Rao'));
-    await syncAll();
-    await runQueue(db, source, config, { budgetMs: 5_000, trigger: 'manual' });
-    expect((await project()).publicationStatus).toBe('published');
+    const p = await project();
+    expect(p.publicationStatus).toBe('published');
+    const credits = await db.select().from(schema.projectCredits).where(eq(schema.projectCredits.projectId, p.id));
+    expect(credits).toHaveLength(0);
   });
 
   it('a moderator hold outranks Baserow publication intent', async () => {
@@ -419,5 +424,77 @@ describe('claiming an imported project', () => {
     await enqueue(db, config, [{ kind: 'row.sync', tableId: T.projects, rowId: 3 }]);
     await runQueue(db, source, config, { budgetMs: 5_000, trigger: 'webhook' });
     expect((await project()).title).toBe('Imported 3');
+  });
+});
+
+describe('a workspace without a Cities table', () => {
+  // The organisers' real workspace: three tables, City as a text slug.
+  const N = { events: 202, projects: 203, credits: 204 };
+  const noCities: BaserowConfig = ConfigSchema.parse({
+    tables: {
+      events: { tableId: N.events, fields: { ...config.tables.events.fields } },
+      projects: { tableId: N.projects, fields: { ...config.tables.projects.fields } },
+      credits: { tableId: N.credits, fields: { ...config.tables.credits.fields } },
+    },
+  });
+
+  it('resolves City from a Neon slug, never creating one, and syncs only the configured tables', async () => {
+    const s = new FakeSource();
+    s.set(N.events, eventRow(1, { field_10: 'evt-slug-city', field_16: 'zz-baserow-city' }));
+    s.set(N.events, eventRow(2, { field_10: 'evt-unknown-city', field_16: 'atlantis' }));
+    s.set(N.projects, projectRow(1, { field_30: 'prj-slug-city', field_42: link(1) }));
+    const report = await reconcile(db, s, noCities);
+    expect(report.tables.map((t) => t.table)).toEqual(['events', 'projects', 'credits']);
+    for (let i = 0; i < 5; i += 1) if ((await runQueue(db, s, noCities, { budgetMs: 5_000, trigger: 'manual' })).claimed === 0) break;
+
+    const [ok] = await db
+      .select({ status: schema.integrationMappings.status, entityId: schema.integrationMappings.entityId })
+      .from(schema.integrationMappings)
+      .where(and(eq(schema.integrationMappings.tableId, N.events), eq(schema.integrationMappings.rowId, 1)));
+    expect(ok.status).toBe('active');
+    const [event] = await db.select().from(schema.events).where(eq(schema.events.id, ok.entityId!));
+    expect(event.cityId).toBe(cityId);
+
+    const [bad] = await db
+      .select({ status: schema.integrationMappings.status, lastError: schema.integrationMappings.lastError })
+      .from(schema.integrationMappings)
+      .where(and(eq(schema.integrationMappings.tableId, N.events), eq(schema.integrationMappings.rowId, 2)));
+    expect(bad).toMatchObject({ status: 'quarantined' });
+    expect(bad.lastError).toContain('unknown city "atlantis"');
+    expect(await db.select().from(schema.cities).where(eq(schema.cities.slug, 'atlantis'))).toHaveLength(0);
+
+    // The project takes the event's city.
+    const [pm] = await db
+      .select({ entityId: schema.integrationMappings.entityId })
+      .from(schema.integrationMappings)
+      .where(and(eq(schema.integrationMappings.tableId, N.projects), eq(schema.integrationMappings.rowId, 1)));
+    const [p] = await db.select().from(schema.projects).where(eq(schema.projects.id, pm.entityId!));
+    expect(p).toMatchObject({ cityId, builtAtEventId: ok.entityId });
+  });
+
+  it('schema check: City may be text; a City link needs a configured Cities table', () => {
+    const live = (type: string) => [
+      { id: 10, name: 'Key', type: 'text' }, { id: 12, name: 'Title', type: 'text' }, { id: 14, name: 'Summary', type: 'long_text' },
+      { id: 16, name: 'City', type, ...(type === 'link_row' ? { link_row_table_id: 999 } : {}) }, { id: 17, name: 'Venue', type: 'text' },
+      { id: 19, name: 'Date', type: 'date' }, { id: 20, name: 'Start', type: 'text' },
+      { id: 23, name: 'Format', type: 'single_select', select_options: ['conversation', 'workshop', 'impact-lab', 'campus', 'hackathon', 'demo', 'meetup', 'other'].map((value, i) => ({ id: i, value })) },
+      { id: 26, name: 'Status', type: 'single_select', select_options: ['draft', 'ready', 'published', 'archived'].map((value, i) => ({ id: i, value })) },
+    ];
+    const fields = { key: 10, title: 12, summary: 14, city: 16, venueName: 17, date: 19, startTime: 20, format: 23, editorialStatus: 26 };
+    const ids = { events: N.events, projects: N.projects, credits: N.credits };
+    expect(validateSchema('events', live('text'), fields, ids)).toEqual([]);
+    expect(validateSchema('events', live('link_row'), fields, ids).map((p) => p.field)).toEqual(['city']);
+  });
+});
+
+describe('diagnostics survive a no-op re-sync', () => {
+  it('an unchanged pass keeps the "publish held" note for the admin', async () => {
+    source.set(T.projects, projectRow(3, { field_39: null }));
+    await syncAll();
+    expect((await mapping(T.projects, 3)).lastError).toMatch(/publish held/);
+    // A reconcile with a stale source hash re-reads the row; nothing changed.
+    await db.update(schema.integrationMappings).set({ sourceHash: null }).where(eq(schema.integrationMappings.tableId, T.projects));
+    await syncAll();
+    expect((await mapping(T.projects, 3)).lastError).toMatch(/publish held/);
   });
 });

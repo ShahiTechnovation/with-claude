@@ -33,6 +33,11 @@ export interface FieldSpec {
   options?: readonly string[];
   /** For link_row: which logical table it must point at. */
   linksTo?: TableKey;
+  /**
+   * Written by the importer for organisers and never projected into Neon
+   * (provenance and review notes). The DTO layer does not read it.
+   */
+  organiserOnly?: boolean;
 }
 
 export type TableKey = 'cities' | 'events' | 'projects' | 'credits';
@@ -52,6 +57,9 @@ export const EVENT_FORMATS = [
   'meetup',
   'other',
 ] as const;
+
+/** The team's own answer to "is it working?" — self-reported, never inferred. */
+export const BUILD_STATUSES = ['functional', 'partial', 'prototype'] as const;
 
 export const PROJECT_CATEGORIES = [
   'product',
@@ -82,11 +90,19 @@ export const SPEC = {
     slug: { label: 'Slug', types: ['text'], required: false },
     summary: { label: 'Summary', types: ['long_text', 'text'], required: true },
     description: { label: 'Description', types: ['long_text'], required: false },
-    city: { label: 'City', types: ['link_row'], required: true, linksTo: 'cities' },
+    /**
+     * Either a link to the Cities table, or — for a workspace without one — a
+     * text field holding the Neon city slug (e.g. `bhopal`). Both resolve to an
+     * EXISTING Neon city; an unknown slug is quarantined, never created.
+     */
+    city: { label: 'City', types: ['link_row', 'text'], required: true, linksTo: 'cities' },
     venueName: { label: 'Venue', types: ['text'], required: true },
     venueAddress: { label: 'Public address', types: ['long_text', 'text'], required: false },
     venuePrivate: { label: 'Address for registrants only', types: ['boolean'], required: false },
     date: { label: 'Date', types: ['date'], required: true },
+    /** The originally announced date, when the event moved. Display-only. */
+    rescheduledFrom: { label: 'Rescheduled from', types: ['date'], required: false },
+    shortTitle: { label: 'Short title (badges)', types: ['text'], required: false },
     startTime: { label: 'Start time', types: ['text'], required: true },
     endTime: { label: 'End time', types: ['text'], required: false },
     timezone: { label: 'Timezone', types: ['text'], required: false },
@@ -121,8 +137,21 @@ export const SPEC = {
     videoUrl: { label: 'Video URL', types: ['url'], required: false },
     coverRef: { label: 'Cover', types: ['text'], required: false },
     claudeUsage: { label: 'How Claude was used', types: ['long_text'], required: false },
+    problem: { label: 'The problem', types: ['long_text'], required: false },
+    solution: { label: 'The solution', types: ['long_text'], required: false },
+    builtWith: { label: 'Built with (as stated)', types: ['long_text', 'text'], required: false },
+    buildStatus: {
+      label: 'Build status (self-reported)',
+      types: ['single_select'],
+      required: false,
+      options: BUILD_STATUSES,
+    },
+    downloadUrl: { label: 'Download URL', types: ['url'], required: false },
+    artifactUrl: { label: 'Other artifact URL', types: ['url'], required: false },
+    altVideoUrl: { label: 'Second demo video URL', types: ['url'], required: false },
+    logoRef: { label: 'Logo', types: ['text'], required: false },
     event: { label: 'Event', types: ['link_row'], required: false, linksTo: 'events' },
-    city: { label: 'City', types: ['link_row'], required: false, linksTo: 'cities' },
+    city: { label: 'City', types: ['link_row', 'text'], required: false, linksTo: 'cities' },
     teamName: { label: 'Team name', types: ['text'], required: false },
     editorialStatus: {
       label: 'Editorial status',
@@ -134,6 +163,10 @@ export const SPEC = {
     featuredOrder: { label: 'Featured order', types: ['number'], required: false },
     sourceBatch: { label: 'Source batch', types: ['text'], required: false },
     sourceKey: { label: 'Source key', types: ['text'], required: false },
+    /** Original worksheet rows, e.g. `Fable 5.1 Build Day: Form responses 1 rows 12, 75`. */
+    sourceRows: { label: 'Source rows', types: ['text', 'long_text'], required: false, organiserOnly: true },
+    /** Why a record or field is held, and what an organiser must decide. Privacy-safe text only. */
+    reviewNotes: { label: 'Review notes', types: ['long_text'], required: false, organiserOnly: true },
   },
   credits: {
     project: { label: 'Project', types: ['link_row'], required: true, linksTo: 'projects' },
@@ -146,7 +179,11 @@ export const SPEC = {
 
 export type LogicalField<T extends TableKey> = keyof (typeof SPEC)[T] & string;
 
-/** Dependency order for a full sync: a project needs its event and city. */
+/**
+ * Dependency order for a full sync: a project needs its event and city. The
+ * Cities table is optional (see `city` above); `configuredTables()` in
+ * config.ts is this order restricted to what a workspace actually has.
+ */
 export const TABLE_ORDER: readonly TableKey[] = ['cities', 'events', 'projects', 'credits'];
 
 export interface LiveField {
@@ -175,7 +212,7 @@ export function validateSchema(
   table: TableKey,
   live: LiveField[],
   fieldIds: Record<string, number | undefined>,
-  tableIds: Record<TableKey, number>,
+  tableIds: Partial<Record<TableKey, number>>,
 ): SchemaProblem[] {
   const problems: SchemaProblem[] = [];
   const byId = new Map(live.map((f) => [f.id, f]));
@@ -197,6 +234,14 @@ export function validateSchema(
         table,
         field: key,
         problem: `field_${id} ("${liveField.name}") is ${liveField.type}; expected ${field.types.join(' or ')}`,
+      });
+      continue;
+    }
+    if (field.linksTo && liveField.type === 'link_row' && tableIds[field.linksTo] === undefined) {
+      problems.push({
+        table,
+        field: key,
+        problem: `field_${id} links to a ${field.linksTo} table, but no ${field.linksTo} table is configured — configure it, or use a text field`,
       });
       continue;
     }

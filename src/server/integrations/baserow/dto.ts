@@ -18,6 +18,7 @@
 import { createHash } from 'node:crypto';
 import type { BaserowConfig } from './config';
 import {
+  BUILD_STATUSES,
   EDITORIAL_STATUSES,
   EVENT_FORMATS,
   EVENT_LIFECYCLES,
@@ -152,6 +153,24 @@ class Reader {
     return tags.slice(0, 12).filter((t) => t.length <= 32);
   }
 
+  /**
+   * A city reference: a link to the Cities table (`[{ id, value }]`), or a
+   * text field holding a Neon city slug. Never both; never a city name.
+   */
+  cityRef(key: string, required = false): { rowId: number | null; slug: string | null } {
+    const v = this.raw(key);
+    if (Array.isArray(v)) {
+      const [rowId] = this.links(key, required);
+      return { rowId: rowId ?? null, slug: null };
+    }
+    const slug = this.text(key, 80, required);
+    if (slug && !SLUG.test(slug)) {
+      this.problems.push(`${key} "${slug.slice(0, 40)}" is not a city slug (lower-case, e.g. bhopal)`);
+      return { rowId: null, slug: null };
+    }
+    return { rowId: null, slug };
+  }
+
   links(key: string, required = false): number[] {
     const v = this.raw(key);
     const ids = Array.isArray(v)
@@ -179,11 +198,15 @@ export interface EventDTO {
   slug: string | null;
   summary: string;
   description: string | null;
-  cityRowId: number;
+  /** Exactly one of these is set: a Cities-table link, or a Neon city slug. */
+  cityRowId: number | null;
+  citySlug: string | null;
   venueName: string;
   venueAddress: string | null;
   venuePrivate: boolean;
   date: string;
+  rescheduledFrom: string | null;
+  shortTitle: string | null;
   startTime: string;
   endTime: string | null;
   timezone: string;
@@ -211,8 +234,17 @@ export interface ProjectDTO {
   videoUrl: string | null;
   coverRef: string | null;
   claudeUsage: string | null;
+  problem: string | null;
+  solution: string | null;
+  builtWith: string | null;
+  buildStatus: (typeof BUILD_STATUSES)[number] | null;
+  downloadUrl: string | null;
+  artifactUrl: string | null;
+  altVideoUrl: string | null;
+  logoRef: string | null;
   eventRowId: number | null;
   cityRowId: number | null;
+  citySlug: string | null;
   teamName: string | null;
   editorialStatus: EditorialStatus;
   featured: boolean;
@@ -238,7 +270,7 @@ function isTimeZone(zone: string): boolean {
 }
 
 function fieldsOf(config: BaserowConfig, table: TableKey): Record<string, number> {
-  return config.tables[table].fields;
+  return config.tables[table]?.fields ?? {};
 }
 
 export function parseCity(row: RawRow, config: BaserowConfig): Parsed<CityRefDTO> {
@@ -255,7 +287,7 @@ export function parseEvent(row: RawRow, config: BaserowConfig): Parsed<EventDTO>
   if (neonId && !UUID.test(neonId)) r.problems.push('neonId is not a UUID');
   const slug = r.text('slug', 80);
   if (slug && !SLUG.test(slug)) r.problems.push('slug must be lower-case letters, numbers and dashes');
-  const [cityRowId] = r.links('city', true);
+  const city = r.cityRef('city', true);
   const startTime = r.clock('startTime', true);
   const endTime = r.clock('endTime');
   if (startTime && endTime && endTime <= startTime) r.problems.push('endTime must be after startTime');
@@ -273,11 +305,14 @@ export function parseEvent(row: RawRow, config: BaserowConfig): Parsed<EventDTO>
     slug,
     summary: r.text('summary', 600, true) ?? '',
     description: r.text('description', 10_000),
-    cityRowId: cityRowId ?? 0,
+    cityRowId: city.rowId,
+    citySlug: city.slug,
     venueName: r.text('venueName', 200, true) ?? '',
     venueAddress: r.text('venueAddress', 400),
     venuePrivate: r.bool('venuePrivate'),
     date: r.date('date', true) ?? '',
+    rescheduledFrom: r.date('rescheduledFrom'),
+    shortTitle: r.text('shortTitle', 60),
     startTime: startTime ?? '',
     endTime,
     timezone,
@@ -302,8 +337,13 @@ export function parseProject(row: RawRow, config: BaserowConfig): Parsed<Project
   if (coverRef && (!ASSET_KEY.test(coverRef) || coverRef.includes('..'))) {
     r.problems.push('coverRef must be a repository asset key, not a URL');
   }
+  const logoRef = r.text('logoRef', 200);
+  if (logoRef && (!ASSET_KEY.test(logoRef) || logoRef.includes('..'))) {
+    r.problems.push('logoRef must be a repository asset key, not a URL');
+  }
   const summary = r.text('summary', 300, true);
   if (summary && summary.length < 5) r.problems.push('summary needs at least five characters');
+  const city = r.cityRef('city');
   const dto: ProjectDTO = {
     rowId: row.id,
     key: r.text('key', 160, true) ?? '',
@@ -319,8 +359,17 @@ export function parseProject(row: RawRow, config: BaserowConfig): Parsed<Project
     videoUrl: r.url('videoUrl'),
     coverRef,
     claudeUsage: r.text('claudeUsage', 1_000),
+    problem: r.text('problem', 12_000),
+    solution: r.text('solution', 12_000),
+    builtWith: r.text('builtWith', 2_000),
+    buildStatus: r.select('buildStatus', BUILD_STATUSES),
+    downloadUrl: r.url('downloadUrl'),
+    artifactUrl: r.url('artifactUrl'),
+    altVideoUrl: r.url('altVideoUrl'),
+    logoRef,
     eventRowId: r.links('event')[0] ?? null,
-    cityRowId: r.links('city')[0] ?? null,
+    cityRowId: city.rowId,
+    citySlug: city.slug,
     teamName: r.text('teamName', 120),
     editorialStatus: r.select('editorialStatus', EDITORIAL_STATUSES, true) ?? 'draft',
     featured: r.bool('featured'),

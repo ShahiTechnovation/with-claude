@@ -343,6 +343,36 @@ describe('retries', () => {
     expect(calls).toHaveLength(3);
   });
 
+  it('never repeats a create after an ambiguous failure — the row may already exist', async () => {
+    for (const fail of [
+      () => {
+        throw new TypeError('socket hang up');
+      },
+      () => jsonResponse({ error: 'ERROR_SERVER' }, 502),
+    ]) {
+      const { fetch, calls } = fakeFetch((_call, index) => (index === 0 ? fail() : jsonResponse(row(9))));
+      const error = await caught(client(fetch).createRow(1, { field_1: 'x' }));
+      expect(['network', 'server']).toContain(error.kind);
+      expect(error.retryable).toBe(true); // the caller decides, after looking for the row
+      expect(calls).toHaveLength(1);
+    }
+  });
+
+  it('does not repeat a create that timed out', async () => {
+    const { fetch, calls } = fakeFetch(() => new Promise<Response>(() => {}));
+    const error = await caught(client(fetch, { timeoutMs: 5 }).createRow(1, { field_1: 'x' }));
+    expect(error.kind).toBe('timeout');
+    expect(calls).toHaveLength(1);
+  });
+
+  it('does retry a create the server refused with 429', async () => {
+    const { fetch, calls } = fakeFetch((_call, index) =>
+      index === 0 ? jsonResponse({ error: 'ERROR_RATE_LIMIT' }, 429, { 'Retry-After': '0' }) : jsonResponse(row(9)),
+    );
+    expect((await client(fetch).createRow(1, { field_1: 'x' })).id).toBe(9);
+    expect(calls).toHaveLength(2);
+  });
+
   it('times out a hung request, retries it, then throws timeout', async () => {
     const { fetch, calls } = fakeFetch(
       (call) =>
