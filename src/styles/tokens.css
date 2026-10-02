@@ -48,7 +48,11 @@
   --state-discovery: var(--ink-3); /* plotted only — hairline circle */
 
   /* --- TYPEFACES ------------------------------------------------------- */
-  --font-display: 'Fraunces Variable', 'Fraunces', Georgia, 'Times New Roman', serif;
+  /* Official display serif for headlines, display sans for smaller titles (fonts.css). */
+  --font-display: 'Anthropic Serif Display', 'Anthropic Serif Display Fallback', Georgia, serif;
+  --font-title: 'Anthropic Sans Display', 'Anthropic Sans Display Fallback', 'Inter Variable', 'Inter', sans-serif;
+  /* The wordmark keeps Fraunces: an independent community, not Anthropic's identity. */
+  --font-wordmark: 'Fraunces Variable', 'Fraunces', Georgia, 'Times New Roman', serif;
   --font-body: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', 'Cascadia Mono', monospace;
 

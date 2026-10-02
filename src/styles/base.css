@@ -77,20 +77,28 @@ ol {
 }
 
 /* --- Headings -----------------------------------------------------------
-   Fraunces with its optical size and a touch of WONK. The wonk is what keeps
-   it from reading as a default serif — it is the voice of the brand. */
+   The official display serif; its italics fall through to Fraunces, and the
+   WONK setting below is for them. h3/h4 take the display sans, where the
+   light serif would thin out. */
 h1,
 h2,
 h3,
 h4 {
   font-family: var(--font-display);
-  font-weight: 600;
+  font-weight: 300;
   font-variation-settings:
     'SOFT' 0,
     'WONK' 1;
   line-height: var(--lh-heading);
   letter-spacing: var(--track-display);
   text-wrap: balance;
+}
+
+h3,
+h4 {
+  font-family: var(--font-title);
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 h1 {
