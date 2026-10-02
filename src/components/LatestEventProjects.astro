@@ -85,7 +85,7 @@ const isEmpty = entries.length === 0;
                     decoding="async"
                     class="lep-cover-img"
                   />
-                ) : entry.cover.kind === 'static' ? (
+                ) : entry.cover.kind === 'asset' ? (
                   <Image
                     src={entry.cover.imageMetadata!}
                     alt=""
