@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createTestDatabase, type TestDatabase } from '../db/testing';
 import * as schema from '../db/schema';
@@ -558,6 +558,48 @@ describe('the sync', () => {
       .where(eq(schema.eventSources.key, key));
     expect(sourceRow.lastSyncStatus).toBe('failed');
     expect(sourceRow.lastSyncMessage).toBe('TIMEOUT');
+  });
+
+  it('retries a promotion the database failed, instead of filing it as unchanged', async () => {
+    const source = new ManualEventSource(
+      [
+        event({
+          externalId: 'evt-retry',
+          title: 'Bhopal | Retry Night',
+          registrationUrl: 'https://luma.com/retry-test',
+        }),
+      ],
+      { key: 'test:retry', complete: true },
+    );
+
+    // A database blip mid-run: every insert into `events` fails.
+    await db.execute(sql`
+      CREATE FUNCTION refuse_event() RETURNS trigger LANGUAGE plpgsql
+      AS $$ BEGIN RAISE EXCEPTION 'blip'; END $$
+    `);
+    await db.execute(sql`
+      CREATE TRIGGER refuse_event BEFORE INSERT ON events
+      FOR EACH ROW EXECUTE FUNCTION refuse_event()
+    `);
+    try {
+      await expect(syncSource(source, db)).rejects.toThrow();
+    } finally {
+      await db.execute(sql`DROP TRIGGER refuse_event ON events`);
+      await db.execute(sql`DROP FUNCTION refuse_event()`);
+    }
+
+    // The feed has not changed since, so only a retry can publish the event.
+    await syncSource(source, db);
+    const [published] = await db
+      .select()
+      .from(schema.events)
+      .where(eq(schema.events.externalId, 'evt-retry'));
+    expect(published?.status).toBe('published');
+    const [record] = await db
+      .select()
+      .from(schema.eventSourceRecords)
+      .where(eq(schema.eventSourceRecords.externalId, 'evt-retry'));
+    expect(record.eventId).toBe(published.id);
   });
 
   it('does not withdraw an event the feed still lists but can no longer read', async () => {

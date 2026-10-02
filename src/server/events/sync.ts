@@ -484,7 +484,7 @@ export async function syncSource(source: EventSource, db: AnyDatabase): Promise<
         stateReason: reason,
         indiaConfidence: verdict.confidence,
         cityId,
-        rawHash: hash,
+        rawHash: state === 'promoted' || existing?.eventId ? '' : hash, // '' until phase 4 settles it
         lastSeenAt: now,
         firstSeenAt: now,
         lastChangedAt: now,
@@ -603,7 +603,7 @@ export async function syncSource(source: EventSource, db: AnyDatabase): Promise<
   // ── PHASE 4: promotions and withdrawals, only where needed ───────────────
   //
   // A dozen of these, not 317 — every other row was settled by phase 2 or 3.
-  const linkToEvent: { recordId: string; eventId: string }[] = [];
+  const settled: { recordId: string; hash: string; eventId?: string }[] = [];
 
   for (const row of changed) {
     const record = upserted.get(row.event.externalId);
@@ -618,7 +618,7 @@ export async function syncSource(source: EventSource, db: AnyDatabase): Promise<
        * real summary, ambassador credit — and the staging row records only
        * that this feed entry corresponds to it. §38.
        */
-      linkToEvent.push({ recordId: record.id, eventId: row.curatedEventId });
+      settled.push({ recordId: record.id, hash: row.hash, eventId: row.curatedEventId });
       summary.matchedCurated += 1;
       summary.promoted += 1;
       continue;
@@ -634,9 +634,10 @@ export async function syncSource(source: EventSource, db: AnyDatabase): Promise<
         takenSlugs,
       });
       if (eventId) {
-        linkToEvent.push({ recordId: record.id, eventId });
+        settled.push({ recordId: record.id, hash: row.hash, eventId });
         summary.promoted += 1;
-
+      } else {
+        log('sync.promote-failed', { source: source.key, externalId: row.event.externalId });
       }
       continue;
     }
@@ -649,17 +650,18 @@ export async function syncSource(source: EventSource, db: AnyDatabase): Promise<
      * being public. The commonest cause is an organiser correcting a venue,
      * which can move an event out of India entirely.
      */
-    if (priorEventId && (await withdrawEvent(db, sourceRow.id, priorEventId, now))) {
-      summary.withdrawn += 1;
+    if (priorEventId) {
+      if (await withdrawEvent(db, sourceRow.id, priorEventId, now)) summary.withdrawn += 1;
+      settled.push({ recordId: record.id, hash: row.hash });
     }
   }
 
-  // The staging → event links, once each.
-  for (const link of linkToEvent) {
+  // A row with phase-4 work gets its real hash (and event link) only once that work is written.
+  for (const row of settled) {
     await db
       .update(schema.eventSourceRecords)
-      .set({ eventId: link.eventId })
-      .where(eq(schema.eventSourceRecords.id, link.recordId));
+      .set({ rawHash: row.hash, ...(row.eventId ? { eventId: row.eventId } : {}) })
+      .where(eq(schema.eventSourceRecords.id, row.recordId));
   }
 
   // Events promoted before end times were stored never pass through promote() again; fill them with its guards.
