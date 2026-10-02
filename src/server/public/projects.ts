@@ -27,6 +27,7 @@ import { and, asc, count, desc, eq, ilike, inArray, isNotNull, isNull, ne, or, s
 import { alias, type PgDatabase, type PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import * as schema from '../../../db/schema';
 import { publicProjectWhere } from '../projects/lifecycle';
+import { stripCityPrefix } from '../../lib/event-display';
 import { resolveLogoSource, type LogoSource } from '../../lib/project-logo';
 import type { IsoDate } from '../../data/types';
 
@@ -183,10 +184,14 @@ const publicEventJoin = and(
 const publicProjectCityJoin = and(eq(projectCity.id, schema.projects.cityId), eq(projectCity.status, 'published'));
 const publicEventCityJoin = and(eq(eventCity.id, schema.events.cityId), eq(eventCity.status, 'published'));
 
-/** Feed titles arrive as "Bhopal | Claude Code Build Day - Fable 5.1"; the city renders separately. */
-export function eventLabel(title: string, shortTitle: string | null): string {
+/**
+ * Feed titles arrive as "Bhopal | Claude Code Build Day - Fable 5.1"; the city
+ * renders separately. Cleaned by the archive's own rule, so a filter option
+ * and the event page it leads to carry the same name.
+ */
+export function eventLabel(title: string, shortTitle: string | null, cityName: string | null): string {
   if (shortTitle?.trim()) return shortTitle.trim();
-  return title.replace(/^[^|]{2,40}\|\s*/, '').trim() || title;
+  return stripCityPrefix(title, cityName ?? undefined);
 }
 
 function selectCards(db: AnyDatabase) {
@@ -206,8 +211,8 @@ function toEventRef(row: CardRow): PublicEventRef | null {
     id: row.eventId,
     slug: row.eventSlug,
     title: row.eventTitle,
-    name: eventLabel(row.eventTitle, null),
-    label: eventLabel(row.eventTitle, row.eventShortTitle),
+    name: eventLabel(row.eventTitle, null, row.eventCityName),
+    label: eventLabel(row.eventTitle, row.eventShortTitle, row.eventCityName),
     date: String(row.eventDate).slice(0, 10) as IsoDate,
     rescheduledFrom: row.eventRescheduledFrom ? (String(row.eventRescheduledFrom).slice(0, 10) as IsoDate) : null,
     city: row.eventCitySlug ? { slug: row.eventCitySlug, name: row.eventCityName ?? row.eventCitySlug } : null,
@@ -648,10 +653,11 @@ export async function directoryFacets(db: AnyDatabase, query: DirectoryQuery): P
         title: schema.events.title,
         shortTitle: schema.events.shortTitle,
         date: schema.events.date,
+        city: eventCity.name,
       })
         .where(pub)
-        .groupBy(schema.events.slug, schema.events.title, schema.events.shortTitle, schema.events.date) as unknown as Promise<
-        { value: string; title: string | null; shortTitle: string | null; date: string | null }[]
+        .groupBy(schema.events.slug, schema.events.title, schema.events.shortTitle, schema.events.date, eventCity.name) as unknown as Promise<
+        { value: string; title: string | null; shortTitle: string | null; date: string | null; city: string | null }[]
       >,
       countFrom(db, { value: sql<string>`coalesce(${schema.events.slug}, ${INDEPENDENT})`, n: count() })
         .where(counted('events'))
@@ -690,7 +696,7 @@ export async function directoryFacets(db: AnyDatabase, query: DirectoryQuery): P
     .filter((e) => e.value !== INDEPENDENT)
     .map((e) => ({
       value: e.value,
-      label: eventLabel(e.title ?? e.value, e.shortTitle),
+      label: eventLabel(e.title ?? e.value, e.shortTitle, e.city),
       date: String(e.date).slice(0, 10) as IsoDate,
       count: countOf(eventCounts, e.value),
     }))

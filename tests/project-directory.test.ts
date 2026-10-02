@@ -24,6 +24,7 @@ import { ManualEventSource } from '../src/server/events/registry';
 import { syncSource } from '../src/server/events/sync';
 import {
   directoryHref,
+  eventLabel,
   getProjectDetail,
   INDEPENDENT,
   listPublicProjects,
@@ -203,6 +204,19 @@ describe('directory queries', () => {
     expect(fableFacet.count).toBe(2);
     expect(await publicProjectCountForEvent(db, fable.id)).toBe(2);
     expect((await publicProjectsForEvent(db, fable.id)).map((p) => p.title).sort()).toEqual(['Alpha', 'beta']);
+  });
+
+  it('an event label drops only a prefix that repeats the event city, as the archive does', async () => {
+    expect(eventLabel('Bangalore | Claude Fable Build Day', null, 'Bengaluru')).toBe('Claude Fable Build Day');
+    expect(eventLabel('Claude Code | Build Day', null, 'Bhopal')).toBe('Claude Code | Build Day');
+    expect(eventLabel('Bhopal | Claude Meetup', null, null)).toBe('Bhopal | Claude Meetup');
+    expect(eventLabel('Bhopal | Claude Meetup', ' Meetup ', 'Bhopal')).toBe('Meetup');
+
+    // The filter option is cleaned the same way as the card's event.
+    const { facets } = await listPublicProjects(db, {});
+    const labels = facets.events.map((f) => f.label);
+    expect(labels).toContain('Fable 5.1 Build Day');
+    expect(labels.some((label) => label.includes('|'))).toBe(false);
   });
 
   it('the shared event DTO carries the held date, label, city and UUID — on lists, details and related', async () => {
