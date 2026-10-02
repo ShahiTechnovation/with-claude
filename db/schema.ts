@@ -111,6 +111,8 @@ export const projectCategory = pgEnum('project_category', [
 ]);
 
 export const publicationStatus = pgEnum('publication_status', ['draft', 'published', 'archived', 'deleted']);
+/** Self-reported by the team. There is deliberately no "unknown": that is NULL. */
+export const projectBuildStatus = pgEnum('project_build_status', ['functional', 'partial', 'prototype']);
 export const moderationState = pgEnum('moderation_state', ['clean', 'reported', 'restricted', 'archived', 'removed']);
 export const projectMemberRole = pgEnum('project_member_role', ['collaborator', 'contributor']);
 export const mediaStatus = pgEnum('media_status', ['staged', 'published', 'deleted']);
@@ -431,6 +433,15 @@ export const media = pgTable('media', {
   alt: text('alt').notNull(),
   caption: text('caption'),
   credit: text('credit'),
+  /**
+   * Where the file came from: `upload` (a member or organiser), `organiser`,
+   * or `favicon` (enrichment from the project's own accepted website). A
+   * favicon is the project's icon, not a screenshot — the logo resolver ranks
+   * it below real project imagery.
+   */
+  provenance: text('provenance'),
+  /** The public URL a fetched file came from. Never a URL with a secret. */
+  sourceUrl: text('source_url'),
   consent: boolean('consent').notNull().default(false),
   status: mediaStatus('status').notNull().default('published'),
   kind: mediaKind('kind').notNull().default('other'),
@@ -918,6 +929,18 @@ export const events = pgTable(
     date: date('date').notNull(),
     startTime: time('start_time').notNull(),
     endTime: time('end_time'),
+    /**
+     * The date the event was originally announced for, when it was moved.
+     * `date` is always the day it was actually held; this is only for the
+     * "rescheduled from" note on the event page. Never a second event.
+     */
+    rescheduledFrom: date('rescheduled_from'),
+    /**
+     * A short, editorial label for compact surfaces — "Impact Lab 2" on a
+     * project row's "Built at" badge. Not touched by feed ingestion, so a
+     * Luma title change cannot rename the badge. Falls back to `title`.
+     */
+    shortTitle: text('short_title'),
 
     venueName: text('venue_name').notNull(),
     venueAddress: text('venue_address'),
@@ -1262,6 +1285,40 @@ export const projects = pgTable(
       .default(sql`ARRAY[]::text[]`),
     /** How Claude was actually used — the interesting part of the record. */
     claudeUsage: text('claude_usage'),
+    /**
+     * ── THE SUBMISSION NARRATIVE ─────────────────────────────────────────
+     *
+     * An event submission answers "what problem" and "what did you build"
+     * separately, and the detail page shows them separately. Kept verbatim
+     * (line breaks included) — `summary` is the short card text, written
+     * separately, and never a truncation of these.
+     */
+    problem: text('problem'),
+    solution: text('solution'),
+    /** The stack exactly as the team stated it. Never inferred from a repo name. */
+    builtWith: text('built_with'),
+    /** The team's own answer to "is it working?". Null means not stated — never "functional". */
+    buildStatus: projectBuildStatus('build_status'),
+    /**
+     * ── TYPED SECONDARY ARTIFACTS ───────────────────────────────────────
+     *
+     * `url`, `repoUrl` and `videoUrl` are the primary live / repository /
+     * demo links. These are the other kinds a submission can honestly have:
+     * a release download (an Android APK), an artifact that is none of the
+     * above (slides, a Drive folder, a Hugging Face Space), and a second
+     * demo recording. Each column means exactly one kind.
+     */
+    downloadUrl: text('download_url'),
+    artifactUrl: text('artifact_url'),
+    altVideoUrl: text('alt_video_url'),
+    /**
+     * The project's own LOGO — distinct from its cover/screenshot. An
+     * uploaded or enriched media row (`kind = 'logo'`), or a repository asset
+     * key supplied by an organiser. `src/lib/project-logo.ts` decides what a
+     * page renders, including the directory's placeholder artwork.
+     */
+    logoMediaId: uuid('logo_media_id').references(() => media.id, { onDelete: 'set null' }),
+    logoPath: text('logo_path'),
     /** The build day it came out of, if any. */
     builtAtEventId: uuid('built_at_event_id').references(() => events.id, { onDelete: 'set null' }),
     /**

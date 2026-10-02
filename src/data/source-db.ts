@@ -681,6 +681,8 @@ export async function loadRecordSet(db: ReadDatabase): Promise<RecordSet> {
         ),
       }),
       date: requiredDate(row.date),
+      rescheduledFrom: row.rescheduledFrom ? requiredDate(row.rescheduledFrom) : undefined,
+      shortTitle: row.shortTitle ?? undefined,
       startTime: clockTime(row.startTime)!,
       endTime: clockTime(row.endTime),
       venue: compact({

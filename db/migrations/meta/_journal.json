@@ -113,6 +113,13 @@
       "when": 1790881463939,
       "tag": "0015_content_operations",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1790886523714,
+      "tag": "0016_project_directory",
+      "breakpoints": true
     }
   ]
 }
