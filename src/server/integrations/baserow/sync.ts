@@ -29,6 +29,7 @@
  */
 import { and, eq, inArray, lt, or, sql } from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
+import { isUniqueViolation } from '../../../../db/errors';
 import * as schema from '../../../../db/schema';
 import { BaserowError } from './client';
 import { configuredTables, tableIdOf, tableKeyFor, type BaserowConfig } from './config';
@@ -392,24 +393,37 @@ export async function retryFailed(db: AnyDatabase): Promise<number> {
   const now = new Date();
   const hasPending = sql`exists (select 1 from integration_jobs j2 where j2.dedupe_key = ${schema.integrationJobs.dedupeKey} and j2.status = 'pending')`;
 
-  const rows = await db
-    .update(schema.integrationJobs)
-    .set({ status: 'pending', attempts: 0, runAfter: now, lastError: null, finishedAt: null, updatedAt: now })
-    .where(
-      and(
-        sql`${schema.integrationJobs.id} in (
-          select distinct on (dedupe_key) id from integration_jobs
-           where status in ('failed', 'dead')
-           order by dedupe_key, created_at desc, id desc)`,
-        // Never resurrect a job whose row already has a newer pending job.
-        sql`not ${hasPending}`,
-      ),
-    )
-    .returning({ id: schema.integrationJobs.id });
+  const queueNewest = () =>
+    db
+      .update(schema.integrationJobs)
+      .set({ status: 'pending', attempts: 0, runAfter: now, lastError: null, finishedAt: null, updatedAt: now })
+      .where(
+        and(
+          sql`${schema.integrationJobs.id} in (
+            select distinct on (dedupe_key) id from integration_jobs
+             where status in ('failed', 'dead')
+             order by dedupe_key, created_at desc, id desc)`,
+          // Never resurrect a job whose row already has a newer pending job.
+          sql`not ${hasPending}`,
+        ),
+      )
+      .returning({ id: schema.integrationJobs.id });
 
+  // NOT EXISTS reads the statement's snapshot, so a pending job committed while
+  // it runs (a webhook, a worker handing a lease back) still breaks the index.
+  // Run once more: the second snapshot sees that job and leaves its row alone.
+  let rows: { id: string }[];
+  try {
+    rows = await queueNewest();
+  } catch (error) {
+    if (!isUniqueViolation(error)) throw error;
+    rows = await queueNewest();
+  }
+
+  // Marked, so a job finished this way does not read as one that ran and passed.
   await db
     .update(schema.integrationJobs)
-    .set({ status: 'done', leaseUntil: null, lastError: null, finishedAt: now, updatedAt: now })
+    .set({ status: 'done', leaseUntil: null, lastError: 'superseded', finishedAt: now, updatedAt: now })
     .where(and(inArray(schema.integrationJobs.status, ['failed', 'dead']), hasPending));
 
   return rows.length;

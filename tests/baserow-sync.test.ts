@@ -414,9 +414,50 @@ describe('retries and failures', () => {
     expect(statusOf(older.id)).toBe('done');
     expect(jobs.filter((j) => j.status === 'pending')).toHaveLength(2);
     expect(jobs.find((j) => j.id === newer.id)).toMatchObject({ attempts: 0, lastError: null, finishedAt: null });
+    // Finished, but not passed off as a job that ran and succeeded.
+    expect(jobs.find((j) => j.id === older.id)!.lastError).toBe('superseded');
 
     // A second Retry has nothing left to do.
     expect(await retryFailed(db)).toBe(0);
+  });
+
+  /**
+   * A pending job committed for the same row while Retry's UPDATE is running
+   * (a webhook, or a worker handing a lease back) is invisible to its NOT
+   * EXISTS and breaks the dedupe index. The statement is run once more, and
+   * the second time it sees that job.
+   */
+  it('Retry runs once more when a job queued mid-statement clashes with it', async () => {
+    await enqueue(db, config, [{ kind: 'row.sync', tableId: T.projects, rowId: 3 }]);
+    await db.update(schema.integrationJobs).set({ status: 'failed', lastError: 'upstream 503' });
+
+    /** A database whose next `update` fails the way the dedupe index would. */
+    const failingOnce = (error: Error) => {
+      let thrown = false;
+      return new Proxy(db, {
+        get(target, property, receiver) {
+          if (property === 'update' && !thrown) {
+            thrown = true;
+            return () => {
+              throw error;
+            };
+          }
+          const value = Reflect.get(target, property, receiver);
+          return typeof value === 'function' ? value.bind(target) : value;
+        },
+      });
+    };
+    const clash = new Error('Failed query: update "integration_jobs" …', {
+      cause: Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' }),
+    });
+
+    expect(await retryFailed(failingOnce(clash))).toBe(1);
+    const [job] = await db.select().from(schema.integrationJobs);
+    expect(job.status).toBe('pending');
+
+    // Anything else is a real fault and is not swallowed.
+    await db.update(schema.integrationJobs).set({ status: 'failed' });
+    await expect(retryFailed(failingOnce(new Error('connection reset')))).rejects.toThrow('connection reset');
   });
 
   it('a job whose worker died is reclaimed after its lease expires', async () => {
