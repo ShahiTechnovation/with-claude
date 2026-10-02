@@ -285,6 +285,20 @@ describe('the sync', () => {
     expect(events[0].startTime).toBe('10:00:00');
   });
 
+  it("stores Luma's venue placeholder as no venue", async () => {
+    const source = new ManualEventSource(
+      [event({ externalId: 'evt-placeholder', location: 'CHECK EVENT PAGE FOR MORE DETAILS.' })],
+      { key: 'test:placeholder', complete: true },
+    );
+    expect(await syncSource(source, db)).toMatchObject({ ok: true, promoted: 1 });
+
+    const [row] = await db
+      .select({ venueName: schema.events.venueName, venuePrivate: schema.events.venuePrivate })
+      .from(schema.events)
+      .where(eq(schema.events.externalId, 'evt-placeholder'));
+    expect(row).toEqual({ venueName: 'Venue shared with registrants', venuePrivate: true });
+  });
+
   it('holds a confidently-Indian event with no atlas city for review', async () => {
     const source = new ManualEventSource(
       [event({ externalId: 'evt-pny', title: 'Puducherry | Claude', location: 'Puducherry, India', latitude: 11.9416, longitude: 79.8083 })],

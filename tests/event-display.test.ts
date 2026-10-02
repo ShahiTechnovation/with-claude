@@ -2,12 +2,17 @@ import { describe, expect, it } from 'vitest';
 import { RecordSelectors } from '../src/data/selectors';
 import { tsRecordSet } from '../src/data/source-ts';
 import type { CommunityEvent } from '../src/data/types';
-import { displayEvent, stripCityPrefix } from '../src/lib/event-display';
+import {
+  PRIVATE_VENUE_NAME,
+  displayEvent,
+  isVenuePlaceholder,
+  stripCityPrefix,
+} from '../src/lib/event-display';
 
 /**
  * Feed events arrive exactly as an organiser typed them into Luma. The stored
- * row keeps that; this is what the public record cleans on the way out, and
- * the one place it does so.
+ * row keeps that; these are the two things the public record cleans on the way
+ * out, and the one place it does so.
  */
 const base: CommunityEvent = {
   id: 'evt-display',
@@ -19,7 +24,7 @@ const base: CommunityEvent = {
   citySlug: 'mumbai',
   date: '2026-11-01',
   startTime: '18:00',
-  venue: { name: 'Somewhere' },
+  venue: { name: 'Check event page for more details.' },
   summary: 'A test.',
   free: true,
 };
@@ -50,14 +55,31 @@ describe('stripCityPrefix', () => {
   });
 });
 
+describe('isVenuePlaceholder', () => {
+  it("recognises Luma's stand-in, whatever its case, and an empty value", () => {
+    expect(isVenuePlaceholder('Check event page for more details.')).toBe(true);
+    expect(isVenuePlaceholder('  CHECK EVENT PAGE FOR MORE DETAILS ')).toBe(true);
+    expect(isVenuePlaceholder('')).toBe(true);
+    expect(isVenuePlaceholder(undefined)).toBe(true);
+  });
+
+  it('does not swallow a real venue', () => {
+    expect(isVenuePlaceholder('Sheryians HQ')).toBe(false);
+  });
+});
+
 describe('displayEvent', () => {
-  it('cleans the title without editing the stored record', () => {
-    expect(displayEvent(base, 'Mumbai').title).toBe('Claude Conversation');
+  it('cleans the title and turns the placeholder into a private venue', () => {
+    const shown = displayEvent(base, 'Mumbai');
+    expect(shown.title).toBe('Claude Conversation');
+    expect(shown.venue).toEqual({ name: PRIVATE_VENUE_NAME, private: true });
+    // The stored record is not edited.
     expect(base.title).toBe('Mumbai | Claude Conversation');
+    expect(base.venue.name).toBe('Check event page for more details.');
   });
 
   it('returns the same record when there is nothing to clean', () => {
-    const clean = { ...base, title: 'Claude Meetup' };
+    const clean = { ...base, title: 'Claude Meetup', venue: { name: 'Paytm', address: 'Delhi' } };
     expect(displayEvent(clean, 'Mumbai')).toBe(clean);
   });
 });
@@ -74,6 +96,8 @@ describe('the public record', () => {
       selectors.eventBySlug.get(base.slug)!,
     ]) {
       expect(event.title).toBe('Claude Conversation');
+      expect(event.venue.name).toBe(PRIVATE_VENUE_NAME);
+      expect(selectors.venueLabel(event)).toBeUndefined();
     }
     expect(rs.events[0]).toBe(base);
   });

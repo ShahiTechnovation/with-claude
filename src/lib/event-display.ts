@@ -4,12 +4,23 @@ import { canonicalCityName } from '@/server/events/india';
 /**
  * WHAT THE PUBLIC RECORD CLEANS ON THE WAY OUT.
  *
- * A feed event is stored exactly as its organiser typed it into Luma. One of
- * those habits reads badly once the site prints the city as its own label:
+ * A feed event is stored exactly as its organiser typed it into Luma. Two of
+ * those habits read badly once the site prints the city as its own label:
  * a title that opens with the city again ("Bangalore | Claude Fable Build
- * Day"). It is cleaned here, at display, so the stored row stays what the
- * source said.
+ * Day"), and Luma's stand-in text sitting where a venue should be. Both are
+ * cleaned here, at display, so the stored row stays what the source said.
  */
+
+/** What an event with no public venue is called. Ingestion stores the same. */
+export const PRIVATE_VENUE_NAME = 'Venue shared with registrants';
+
+const VENUE_PLACEHOLDER = /^check event page for more details\.?$/i;
+
+/** True for an empty venue and for Luma's "Check event page for more details." */
+export function isVenuePlaceholder(value: string | null | undefined): boolean {
+  const venue = value?.trim();
+  return !venue || VENUE_PLACEHOLDER.test(venue);
+}
 
 /**
  * Drop a leading "<city> |" when it names the event's own city.
@@ -32,5 +43,12 @@ export function stripCityPrefix(title: string, cityName: string | undefined): st
 /** The event as the public record shows it. The same object when it is already clean. */
 export function displayEvent(event: CommunityEvent, cityName: string | undefined): CommunityEvent {
   const title = stripCityPrefix(event.title, cityName);
-  return title === event.title ? event : { ...event, title };
+  const placeholder = isVenuePlaceholder(event.venue.name);
+  if (title === event.title && !placeholder) return event;
+
+  return {
+    ...event,
+    title,
+    venue: placeholder ? { ...event.venue, name: PRIVATE_VENUE_NAME, private: true } : event.venue,
+  };
 }

@@ -42,6 +42,7 @@ import { and, eq, inArray, isNotNull, isNull, ne, sql } from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import { createHash } from 'node:crypto';
 import * as schema from '../../../db/schema';
+import { PRIVATE_VENUE_NAME, isVenuePlaceholder } from '../../lib/event-display';
 import { canonicalCityName, classifyIndia } from './india';
 import { isCancelledStatus, type EventSource, type NormalizedEvent } from './source';
 import { attributeIngestedEvent, loadAmbassadorIdentities } from './hosts';
@@ -845,6 +846,9 @@ async function promote(options: {
   const hour = part('hour') === '24' ? '00' : part('hour');
   const startTime = `${hour}:${part('minute')}:${part('second')}`;
 
+  // Luma's stand-in text is the absence of a venue, not the name of one.
+  const noVenue = isVenuePlaceholder(event.location);
+
   const values = {
     sourceId,
     externalId: event.externalId,
@@ -860,9 +864,9 @@ async function promote(options: {
      * honest placeholder is used and the registration link carries the
      * visitor to where the real answer is.
      */
-    venueName: event.location?.slice(0, 200) || 'Venue shared with registrants',
+    venueName: noVenue ? PRIVATE_VENUE_NAME : event.location!.slice(0, 200),
     venueAddress: null,
-    venuePrivate: !event.location,
+    venuePrivate: noVenue,
     summary: (event.description?.split('\n').find((line) => line.trim())?.slice(0, 300)) || event.title,
     description: event.description ?? null,
     registrationUrl: event.registrationUrl ?? null,
