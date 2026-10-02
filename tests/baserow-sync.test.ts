@@ -5,7 +5,7 @@
  * own suite in baserow-client.test.ts). Everything else is real: PGlite runs
  * the committed migrations, and the projection writes real rows.
  */
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { and, eq } from 'drizzle-orm';
 import { createTestDatabase, type TestDatabase } from '../db/testing';
 import * as schema from '../db/schema';
@@ -468,6 +468,45 @@ describe('retries and failures', () => {
     const later = new Date(Date.now() + 2 * 60_000);
     const [again] = await claim(db, 1, later);
     expect(again.id).toBe(leased.id);
+  });
+
+  it('a failed job gives way to a newer pending job for the same row instead of aborting the run', async () => {
+    await enqueue(db, config, [{ kind: 'row.sync', tableId: T.cities, rowId: 1 }]);
+    const getRow = source.getRow.bind(source);
+    let reads = 0;
+    source.getRow = async (tableId, rowId) => {
+      if ((reads += 1) > 1) return getRow(tableId, rowId);
+      // An edit's webhook queues the row again while this job runs, then the read fails.
+      await enqueue(db, config, [{ kind: 'row.sync', tableId, rowId }]);
+      throw new BaserowError('server', 'upstream 503', { status: 503, retryable: true });
+    };
+    const counts = await runQueue(db, source, config, { budgetMs: 3_000, trigger: 'webhook' });
+    expect(counts.failed).toBe(1);
+    const jobs = await db.select().from(schema.integrationJobs);
+    expect(jobs.map((j) => j.status)).toEqual(['done', 'done']);
+  });
+
+  it('a job handed back at the deadline gives way to a newer pending job for the same row', async () => {
+    await enqueue(db, config, [
+      { kind: 'row.sync', tableId: T.cities, rowId: 1 },
+      { kind: 'row.sync', tableId: T.events, rowId: 2 },
+    ]);
+    const getRow = source.getRow.bind(source);
+    source.getRow = async (tableId, rowId) => {
+      if (tableId === T.cities) {
+        // The event row is edited while the city job runs, and then the budget is spent.
+        await enqueue(db, config, [{ kind: 'row.sync', tableId: T.events, rowId: 2 }]);
+        vi.setSystemTime(Date.now() + 60_000);
+      }
+      return getRow(tableId, rowId);
+    };
+    try {
+      await runQueue(db, source, config, { budgetMs: 3_000, trigger: 'webhook' });
+    } finally {
+      vi.useRealTimers();
+    }
+    const jobs = await db.select().from(schema.integrationJobs).where(eq(schema.integrationJobs.tableId, T.events));
+    expect(jobs.map((j) => j.status).sort()).toEqual(['done', 'pending']);
   });
 });
 

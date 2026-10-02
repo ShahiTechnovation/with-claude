@@ -99,8 +99,10 @@ class FakeBaserow implements Writer {
     if (!row) throw new BaserowError('not-found', 'not found', { status: 404, retryable: false });
     return this.read(row as never);
   }
+  /** Tables whose scan reports itself incomplete, as a timed-out page would. */
+  partial = new Set<number>();
   async listAllRows(tableId: number) {
-    return { rows: [...this.table(tableId).values()].map((r) => this.read(r as never)), complete: true, pages: 1 };
+    return { rows: [...this.table(tableId).values()].map((r) => this.read(r as never)), complete: !this.partial.has(tableId), pages: 1 };
   }
   fields() {
     return Object.entries(OPTIONS).map(([id, values]) => ({
@@ -380,5 +382,80 @@ describe('rollback', () => {
     expect(report.kept.map((k) => k.reason).join(' ')).toMatch(/claimed/);
     const [batch] = await db.select().from(schema.importBatches).where(eq(schema.importBatches.id, batchId));
     expect(batch.status).toBe('rolled_back');
+  });
+});
+
+describe('import safety', () => {
+  const applyPlanned = ({ built, plan, batchId }: Awaited<ReturnType<typeof planFor>>) =>
+    applyPlan({
+      db, writer: baserow, config, batchId, plan, candidates: built.candidates,
+      decisions: Object.fromEntries(plan.items.map((i) => [i.key, 'apply' as const])),
+      options: fieldOptionsFrom(baserow.fields(), config), publish: false,
+    });
+  const lock = async () =>
+    (await db.select().from(schema.integrationState).where(eq(schema.integrationState.key, 'import-lock')))[0];
+
+  it('lets only one of two concurrent imports take the lock', async () => {
+    const [a, b] = [await planFor(workbook(ROWS)), await planFor(workbook(ROWS))];
+    const results = await Promise.allSettled([applyPlanned(a), applyPlanned(b)]);
+    const refused = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+    expect(refused).toHaveLength(1);
+    expect(String(refused[0].reason)).toMatch(/another import/);
+  });
+
+  it('lets only one of two concurrent runs of the same batch take the lock', async () => {
+    const planned = await planFor(workbook(ROWS));
+    const results = await Promise.allSettled([applyPlanned(planned), applyPlanned(planned)]);
+    const refused = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+    expect(refused).toHaveLength(1);
+    expect(String(refused[0].reason)).toMatch(/another import/);
+  });
+
+  it('keeps its lock fresh while it works', async () => {
+    const planned = await planFor(workbook(ROWS));
+    const stale = new Date(Date.now() - 31 * 60_000).toISOString();
+    const seen: string[] = [];
+    const createRow = baserow.createRow.bind(baserow);
+    baserow.createRow = async (tableId: number, fields: Record<string, unknown>) => {
+      if (tableId === T.projects) {
+        const held = (await lock())!.value as Record<string, string>;
+        seen.push(held.at);
+        // As if this item had taken half an hour.
+        await db.update(schema.integrationState).set({ value: { ...held, at: stale } }).where(eq(schema.integrationState.key, 'import-lock'));
+      }
+      return createRow(tableId, fields);
+    };
+    await applyPlanned(planned);
+    expect(seen).toHaveLength(3);
+    expect(seen.slice(1)).not.toContain(stale);
+  });
+
+  it('stops when another run takes its lock over, and leaves that lock alone', async () => {
+    const planned = await planFor(workbook(ROWS));
+    const createRow = baserow.createRow.bind(baserow);
+    baserow.createRow = async (tableId: number, fields: Record<string, unknown>) => {
+      // The lock went stale mid-run and another import took it over.
+      await db
+        .update(schema.integrationState)
+        .set({ value: { owner: 'another-batch:another-run', at: new Date().toISOString() } })
+        .where(eq(schema.integrationState.key, 'import-lock'));
+      return createRow(tableId, fields);
+    };
+    await expect(applyPlanned(planned)).rejects.toThrow(/lost the import lock/);
+    expect((await lock())?.value).toMatchObject({ owner: 'another-batch:another-run' });
+  });
+
+  it('writes nothing against a partial scan of Baserow', async () => {
+    const planned = await planFor(workbook(ROWS, DAY2));
+
+    baserow.partial = new Set([T.projects]);
+    await expect(applyPlanned(planned)).rejects.toThrow(/could not read every row/);
+    expect(projectRows()).toHaveLength(0);
+
+    baserow.partial = new Set([T.credits]);
+    const report = await applyPlanned(planned);
+    expect(report.credits).toBe(0);
+    expect(report.failed.map((f) => f.error).join(' ')).toMatch(/could not read every row/);
+    expect(baserow.tables.get(T.credits)?.size ?? 0).toBe(0);
   });
 });
