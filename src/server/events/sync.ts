@@ -752,7 +752,10 @@ export async function syncSource(source: EventSource, db: AnyDatabase): Promise<
   // about the events it did not mention, and acting on it would cancel them.
   if (result.complete) {
     const missing = existingRows.filter(
-      (row) => !seenExternalIds.includes(row.externalId) && row.state !== 'withdrawn',
+      (row) =>
+        !seenExternalIds.includes(row.externalId) &&
+        !result.unreadable?.includes(row.externalId) &&
+        row.state !== 'withdrawn',
     );
     for (const row of missing) {
       await db

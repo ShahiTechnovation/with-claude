@@ -262,20 +262,21 @@ export class LumaIcsSource implements EventSource {
     if (calendar.events.length === 0) return { ok: false, reason: 'EMPTY_CALENDAR' };
 
     const events: NormalizedEvent[] = [];
-    let skipped = 0;
+    const unreadable: string[] = [];
     for (const raw of calendar.events) {
       const normalized = normalizeLumaIcsEvent(raw);
       if (normalized) events.push(normalized);
-      else skipped += 1;
+      else unreadable.push(lumaExternalId(text(raw, 'UID') ?? ''));
     }
 
     return {
       ok: true,
       events,
+      unreadable,
       // The ICS endpoint serves the entire calendar in one response, with no
       // pagination — so absence from this list is meaningful.
       complete: true,
-      note: `ics ${events.length} events${skipped ? `, ${skipped} unusable` : ''}${
+      note: `ics ${events.length} events${unreadable.length ? `, ${unreadable.length} unusable` : ''}${
         calendar.refreshInterval ? `, refresh ${calendar.refreshInterval}` : ''
       }`,
     };

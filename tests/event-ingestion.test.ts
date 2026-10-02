@@ -1,11 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { eq } from 'drizzle-orm';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createTestDatabase, type TestDatabase } from '../db/testing';
 import * as schema from '../db/schema';
 import { parseIcs, parseIcsDate, unescapeText, unfold } from '../src/server/events/ics';
 import { classifyIndia, nearestIndianCity } from '../src/server/events/india';
-import { normalizeLumaIcsEvent, lumaExternalId, parseGeo, lumaIcsUrl } from '../src/server/events/luma';
+import { LumaIcsSource, normalizeLumaIcsEvent, lumaExternalId, parseGeo, lumaIcsUrl } from '../src/server/events/luma';
 import { ManualEventSource } from '../src/server/events/registry';
 import { fingerprint, inferFormat, syncSource } from '../src/server/events/sync';
 import { withAttribution } from '../src/lib/attribution';
@@ -118,7 +118,11 @@ describe('the ICS parser', () => {
     expect(parseIcsDate({ value: '20260912T180000', params: {} })?.zone).toBeUndefined();
     // A date is the whole day in IST, so it starts at midnight IST rather than 05:30.
     expect(at('20261205', {})).toBe('2026-12-04T18:30:00.000Z');
-    expect(parseIcsDate({ value: '20260912T180000', params: { TZID: 'Not/A_Zone' } })).toBeNull();
+    // A TZID Intl does not know reads like a floating time: IST, claiming no zone.
+    for (const TZID of ['India Standard Time', 'GMT+05:30', '/mozilla.org/20050126_1/Asia/Kolkata']) {
+      expect(at('20260912T180000', { TZID }), TZID).toBe('2026-09-12T12:30:00.000Z');
+      expect(parseIcsDate({ value: '20260912T180000', params: { TZID } })?.zone, TZID).toBeUndefined();
+    }
   });
 
   it('parses the live 317-event feed without losing a location or a date', () => {
@@ -554,6 +558,26 @@ describe('the sync', () => {
       .where(eq(schema.eventSources.key, key));
     expect(sourceRow.lastSyncStatus).toBe('failed');
     expect(sourceRow.lastSyncMessage).toBe('TIMEOUT');
+  });
+
+  it('does not withdraw an event the feed still lists but can no longer read', async () => {
+    const feed = (dtstart: string) =>
+      [
+        'BEGIN:VCALENDAR', 'BEGIN:VEVENT', 'UID:evt-unread@events.lu.ma', 'SUMMARY:Bhopal | Claude Evening', dtstart,
+        'LOCATION:Bhopal, Madhya Pradesh, India', 'END:VEVENT', 'END:VCALENDAR',
+      ].join('\r\n');
+    let body = feed('DTSTART:20261210T123000Z');
+    vi.stubGlobal('fetch', async () => new Response(body, { headers: { 'content-type': 'text/calendar' } }));
+    try {
+      const source = new LumaIcsSource({ key: 'test:unreadable', feedUrl: 'https://calendar.example/feed.ics' });
+      expect(await syncSource(source, db)).toMatchObject({ ok: true, promoted: 1 });
+      // Still in the feed, in a shape the parser does not read: that is not a cancellation.
+      body = feed('DTSTART:2026-12-10 18:00');
+      expect(await syncSource(source, db)).toMatchObject({ ok: true, withdrawn: 0 });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(await eventRow('evt-unread')).toMatchObject({ status: 'published', canceledAt: null });
   });
 
   it('writes an append-only audit entry for each run', async () => {

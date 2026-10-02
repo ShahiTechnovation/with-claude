@@ -85,6 +85,8 @@ export type FetchResult =
   | {
       ok: true;
       events: NormalizedEvent[];
+      /** Ids the feed lists but the source could not read. Still present, so never withdrawn as absent. */
+      unreadable?: string[];
       /**
        * TRUE ONLY IF THIS IS THE WHOLE CALENDAR.
        *

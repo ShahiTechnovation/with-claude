@@ -236,9 +236,9 @@ export function text(event: IcsEvent, name: string): string | undefined {
  *   `20251009T161500`   local to the `TZID` parameter, or floating if none.
  *   `20251009`          a date, for an all-day event.
  *
- * A `TZID` is resolved with `Intl`, which carries the zone database; an
- * unknown one is unreadable (null). A floating time is read as IST. A date is
- * the whole day in IST: it starts at midnight IST, and `dateOnly` says so.
+ * A `TZID` is resolved with `Intl`, which carries the zone database. A
+ * floating time, or a TZID Intl does not know, is read as IST. A date is the
+ * whole day in IST: it starts at midnight IST, and `dateOnly` says so.
  */
 export interface IcsInstant {
   date: Date;
@@ -246,7 +246,7 @@ export interface IcsInstant {
   utc: boolean;
   /** True for a date-only value, which has no time of day at all. */
   dateOnly: boolean;
-  /** The declared `TZID`, when there was one and it was not UTC. */
+  /** The declared `TZID`, when there was one, Intl knows it, and it is not UTC. */
   zone?: string;
 }
 
@@ -270,10 +270,11 @@ export function parseIcsDate(property: IcsProperty | undefined): IcsInstant | nu
 
   const utc = z === 'Z';
   const tzid = property.params.TZID;
-  const zone = utc ? undefined : tzid && tzid.toUpperCase() !== 'UTC' ? tzid : undefined;
-  // Floating reads as IST, but `zone` stays unset: a declared zone counts as an India signal.
-  const instant = utc || tzid?.toUpperCase() === 'UTC' ? wallClock : inZone(wallClock, zone ?? 'Asia/Kolkata');
-  return instant === null ? null : { date: new Date(instant), utc, dateOnly: false, zone };
+  if (utc || tzid?.toUpperCase() === 'UTC') return { date: new Date(wallClock), utc, dateOnly: false };
+  const declared = tzid ? inZone(wallClock, tzid) : null;
+  // Floating or an unknown TZID reads as IST, claiming no zone: a declared zone counts as an India signal.
+  if (declared === null) return { date: new Date(inZone(wallClock, 'Asia/Kolkata')!), utc, dateOnly: false };
+  return { date: new Date(declared), utc, dateOnly: false, zone: tzid };
 }
 
 /** A wall-clock time (its fields given as UTC) in an IANA zone, as epoch ms. Null for an unknown zone. */
