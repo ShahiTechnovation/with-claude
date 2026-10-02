@@ -15,9 +15,30 @@ permissions:
   contents: read
 
 jobs:
+  # Runs for every successful deployment and holds no secret. The smoke job
+  # below is filtered on two strings, and a wrong one skips it without a trace:
+  # this prints what Vercel actually sent, so a mismatch shows in the log.
+  payload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions: {}
+    steps:
+      - name: Show what Vercel sent
+        env:
+          ENVIRONMENT: ${{ github.event.client_payload.environment }}
+          PROJECT: ${{ github.event.client_payload.project.name }}
+          DEPLOYMENT_URL: ${{ github.event.client_payload.url }}
+        run: |
+          host="${DEPLOYMENT_URL#*://}"
+          echo "environment:  $ENVIRONMENT"
+          echo "project.name: $PROJECT"
+          echo "url host:     ${host%%/*}"
+
   smoke:
     # Two Vercel projects share this repository: only the public site's previews.
-    # (Field names: github.com/vercel/repository-dispatch, src/data/common.ts.)
+    # (Field names: github.com/vercel/repository-dispatch,
+    # packages/repository-dispatch/src/data/common.ts; `url` is in
+    # data/deployment.ts beside it.)
     if: >-
       github.event.client_payload.project.name == 'with-claude' &&
       github.event.client_payload.environment == 'preview'
@@ -40,11 +61,12 @@ jobs:
           BASE: ${{ github.event.client_payload.url }}
           # Both go to the preview's origin only, never along a redirect. The
           # cookie Vercel answers the second with is for the preview's host
-          # alone, and it carries redirects within the preview. An unset secret
-          # sends no bypass, and a protected preview then fails as "ended on".
+          # alone, and it carries redirects within the preview. With the secret
+          # unset both values are empty and the script sends neither header; a
+          # protected preview then fails as "ended on".
           EXTRA_HEADERS: |-
             x-vercel-protection-bypass: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-            x-vercel-set-bypass-cookie: true
+            x-vercel-set-bypass-cookie: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET != '' && 'true' || '' }}
           PAGES: /,/events/,/cities/,/projects/,/about/
           OUT: shots/preview
           STRICT: '1'
