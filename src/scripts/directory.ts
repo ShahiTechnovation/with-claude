@@ -25,6 +25,9 @@ if (root && form) enhance(root, form);
 
 function enhance(root: HTMLElement, form: HTMLFormElement) {
   const results = root.querySelector<HTMLElement>('[data-dir-results]')!;
+  const swap = () => root.querySelector<HTMLElement>('[data-dir-swap]');
+  const count = () => root.querySelector<HTMLElement>('[data-dir-count]');
+  let rendered = location.pathname + location.search;
   const panel = root.querySelector<HTMLElement>('[data-dir-filters]')!;
   const scrim = root.querySelector<HTMLElement>('[data-dir-scrim]')!;
   const status = () => root.querySelector<HTMLElement>('[data-dir-status]');
@@ -59,7 +62,9 @@ function enhance(root: HTMLElement, form: HTMLFormElement) {
     controller?.abort();
     controller = new AbortController();
     const mine = ++sequence;
-    results.setAttribute('aria-busy', 'true');
+    // Only the swapped region is busy: the status and count stay live, so a
+    // screen reader hears "Updating results…" and then the new count.
+    swap()?.setAttribute('aria-busy', 'true');
     say('Updating results…', 'loading');
     try {
       const response = await fetch(url, { signal: controller.signal, headers: { Accept: 'text/html' }, credentials: 'same-origin' });
@@ -70,13 +75,18 @@ function enhance(root: HTMLElement, form: HTMLFormElement) {
       apply(next);
       if (mode === 'push') history.pushState({ directory: true }, '', url);
       else if (mode === 'replace') history.replaceState({ directory: true }, '', url);
+      rendered = url;
       document.title = next.title || document.title;
-      results.removeAttribute('aria-busy');
+      swap()?.removeAttribute('aria-busy');
+      say('');
       document.dispatchEvent(new CustomEvent('directory:updated'));
       after?.();
     } catch (error) {
       if ((error as Error).name === 'AbortError' || mine !== sequence) return;
-      results.removeAttribute('aria-busy');
+      swap()?.removeAttribute('aria-busy');
+      // An error inside an open drawer would be hidden behind it, in inert
+      // content: close it first so the message and its link can be reached.
+      if (drawerOpen()) closeDrawer();
       const el = status();
       if (el) {
         el.dataset.state = 'error';
@@ -85,25 +95,39 @@ function enhance(root: HTMLElement, form: HTMLFormElement) {
         link.href = url;
         link.textContent = 'Load this view again';
         el.append(link);
+        // Someone still typing a search keeps the caret; the status region
+        // announces the failure either way.
+        if (!document.activeElement?.matches('[data-dir-q]')) link.focus();
       }
     }
   }
 
-  /** Swap results, counts and states from a freshly rendered page. */
+  /**
+   * Bring this page in line with a freshly rendered one. The search box, the
+   * toolbar (count, Filters button, sort) and the status region persist —
+   * focus and caret stay where they are and the live regions keep announcing —
+   * and only `[data-dir-swap]` (chips, rows, pager) is replaced.
+   */
   function apply(next: Document) {
-    const nextResults = next.querySelector('[data-dir-results]');
-    if (nextResults) {
-      // Keep the live search box (and the caret in it); replace everything else.
-      const keep = results.querySelector('.dir-search');
-      const incoming = [...nextResults.children].filter((c) => !c.classList.contains('dir-search'));
-      [...results.children].forEach((c) => {
-        if (c !== keep) c.remove();
-      });
-      results.append(...incoming);
-      const q = next.querySelector<HTMLInputElement>('[data-dir-q]');
-      const liveQ = results.querySelector<HTMLInputElement>('[data-dir-q]');
-      if (q && liveQ && document.activeElement !== liveQ) liveQ.value = q.value;
+    const mine = swap();
+    const theirs = next.querySelector('[data-dir-swap]');
+    if (mine && theirs) mine.replaceChildren(...[...theirs.childNodes].map((n) => document.importNode(n, true)));
+    const nextCount = next.querySelector('[data-dir-count]');
+    const liveCount = count();
+    if (nextCount && liveCount && liveCount.innerHTML !== nextCount.innerHTML) liveCount.innerHTML = nextCount.innerHTML;
+    const nextToggle = next.querySelector('[data-open-filters]');
+    const liveToggle = openButton();
+    if (nextToggle && liveToggle) liveToggle.innerHTML = nextToggle.innerHTML;
+    const nextSort = next.querySelector<HTMLSelectElement>('[data-dir-sort]');
+    const liveSort = root.querySelector<HTMLSelectElement>('[data-dir-sort]');
+    if (nextSort && liveSort) {
+      // Options can change (Featured appears only when something is featured).
+      if (liveSort.innerHTML !== nextSort.innerHTML) liveSort.innerHTML = nextSort.innerHTML;
+      liveSort.value = nextSort.value;
     }
+    const q = next.querySelector<HTMLInputElement>('[data-dir-q]');
+    const liveQ = results.querySelector<HTMLInputElement>('[data-dir-q]');
+    if (q && liveQ && document.activeElement !== liveQ) liveQ.value = q.value;
     next.querySelectorAll<HTMLElement>('[data-count]').forEach((el) => {
       const mine = root.querySelector<HTMLElement>(`[data-count="${CSS.escape(el.dataset.count!)}"]`);
       if (mine) mine.textContent = el.textContent;
@@ -170,14 +194,27 @@ function enhance(root: HTMLElement, form: HTMLFormElement) {
     event.preventDefault();
     const wasOpen = drawerOpen();
     void navigate(url.pathname + url.search, 'push', () => {
+      if (wasOpen) {
+        closeDrawer();
+        return; // focus returns to the Filters button
+      }
       if (inPager) results.scrollIntoView({ block: 'start', behavior: 'smooth' });
-      if (inPager) results.querySelector<HTMLElement>('.dir-count')?.focus({ preventScroll: true });
-      if (wasOpen) closeDrawer();
+      // A chip, pager or empty-state link is gone (it was in the swapped
+      // region), so focus moves to the count — which says what the visitor
+      // now sees. A sidebar link ("All events", "Clear") is still there and
+      // keeps focus.
+      if (!document.contains(link)) count()?.focus({ preventScroll: Boolean(!inPager) });
     });
   });
 
   window.addEventListener('popstate', () => {
-    void navigate(location.pathname + location.search, 'none', () => syncForm());
+    const here = location.pathname + location.search;
+    // A fragment link (e.g. "Skip to content") changes only the hash.
+    if (here === rendered) return;
+    // Follow the history entry, not the last finished render: a Forward that
+    // lands while a Back is still loading must replace that request.
+    rendered = here;
+    void navigate(here, 'none', () => syncForm());
   });
 
   /** After back/forward, the form must say what the URL says. */

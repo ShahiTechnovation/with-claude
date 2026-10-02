@@ -150,7 +150,7 @@
 }
 
 .prow-link:focus-visible::after {
-  box-shadow: inset 0 0 0 2px var(--clay);
+  box-shadow: inset 0 0 0 2px var(--clay-deep);
 }
 
 .prow-team {
@@ -338,19 +338,17 @@
 /* --- filters ------------------------------------------------------------ */
 
 .dir-filters {
-  position: sticky;
-  top: calc(var(--masthead-h, 4.5rem) + 1rem);
-  max-height: calc(100vh - var(--masthead-h, 4.5rem) - 2rem);
-  overflow: auto;
-  overscroll-behavior: contain;
   padding: 0.25rem 1.1rem 1rem;
-  scrollbar-width: thin;
 }
 
-@media (max-height: 40em) {
+@media (min-width: 64em) and (min-height: 40em) {
   .dir-filters {
-    position: static;
-    max-height: none;
+    position: sticky;
+    top: calc(var(--masthead-h, 4.5rem) + 1rem);
+    max-height: calc(100vh - var(--masthead-h, 4.5rem) - 2rem);
+    overflow: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
   }
 }
 
@@ -434,7 +432,12 @@
 }
 
 .fopt[data-empty] {
-  opacity: 0.55;
+  color: var(--ink-3);
+}
+
+.fopt[data-empty] .fopt-count {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--panel-border);
 }
 
 .fall {
@@ -470,8 +473,22 @@
   display: none;
 }
 
-.fmore[open] summary {
+.fmore .fmore-open,
+.fmore[open] .fmore-closed {
   display: none;
+}
+
+.fmore[open] .fmore-open {
+  display: inline;
+}
+
+.fmore[open] summary {
+  order: 2;
+}
+
+.fmore {
+  display: flex;
+  flex-direction: column;
 }
 
 .dir-filters-actions {
@@ -516,6 +533,14 @@
 /* --- results toolbar ----------------------------------------------------- */
 
 .dir-results {
+  display: grid;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+/* The swapped region (chips, list, pager) keeps the spacing its parent gave
+   them when they were its direct children. */
+.dir-swap {
   display: grid;
   gap: 0.9rem;
   min-width: 0;
@@ -667,7 +692,7 @@
   border-radius: var(--radius-md);
 }
 
-[data-dir-results][aria-busy='true'] .dir-list {
+[data-dir-swap][aria-busy='true'] .dir-list {
   opacity: 0.55;
   transition: opacity var(--dur-2) var(--ease-out);
 }

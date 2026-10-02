@@ -10,7 +10,13 @@
  * hydration to prevent layout shift).
  */
 
-const appId = import.meta.env.PUBLIC_PRIVY_APP_ID as string | undefined;
+import { isDirectoryHost, signInHref } from '@/lib/directory-host';
+
+// On projects.withclaude.in the account lives on www: no Privy mount here (its
+// bootstrap call would be redirected cross-origin and fail), and Sign in is a
+// plain link to the account page on the main site.
+const onDirectoryHost = isDirectoryHost(Astro.url.hostname);
+const appId = onDirectoryHost ? undefined : (import.meta.env.PUBLIC_PRIVY_APP_ID as string | undefined);
 const loginMethods = (import.meta.env.PUBLIC_PRIVY_LOGIN_METHODS as string | undefined)
   ?.split(',')
   .map((m) => m.trim())
@@ -26,7 +32,7 @@ const loginMethods = (import.meta.env.PUBLIC_PRIVY_LOGIN_METHODS as string | und
   static fallback and the live button would both stay in the DOM at once.
 -->
 <div id="account-slot-root" class="account-slot" data-account-state="anonymous">
-  <a class="account-join js-hydrate-hide" href="/join/" data-account-signin>Sign in</a>
+  <a class="account-join js-hydrate-hide" href={signInHref(Astro.url.hostname)} data-account-signin>Sign in</a>
 </div>
 
 {/*

@@ -14,7 +14,8 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-const source = (path: string) => readFileSync(path, 'utf8');
+// LF regardless of how the checkout was made (core.autocrlf on Windows).
+const source = (path: string) => readFileSync(path, 'utf8').replace(/\r\n/g, '\n');
 const home = source('src/pages/index.astro');
 
 describe('the homepage at /', () => {
@@ -152,7 +153,9 @@ describe('the masthead', () => {
   const masthead = source('src/components/Masthead.astro');
 
   it('links the logo home and Projects to the directory', () => {
-    expect(masthead).toMatch(/<a href="\/" class="brand"/);
+    // `/` everywhere except projects.withclaude.in, where `/` is the directory.
+    expect(masthead).toContain('const home = homeHref(Astro.url.hostname);');
+    expect(masthead).toMatch(/<a href=\{home\} class="brand"/);
     expect(masthead).toContain("{ href: '/projects', label: 'Projects' }");
   });
 
@@ -226,7 +229,14 @@ describe('deployment routing', () => {
   it('has no rewrites or redirects that could capture a public route', () => {
     const vercel = JSON.parse(source('vercel.json')) as Record<string, unknown>;
     expect(vercel.trailingSlash).toBe(true);
-    expect(vercel.redirects).toBeUndefined();
+    // The only redirect allowed is scoped to the Project Directory's own host
+    // (projects.withclaude.in → www for non-directory paths). Nothing may
+    // apply to www.withclaude.in or the apex, and there are no rewrites.
+    const redirects = (vercel.redirects ?? []) as { has?: { type: string; value: string }[] }[];
+    for (const r of redirects) {
+      expect(r.has).toEqual([{ type: 'host', value: 'projects.withclaude.in' }]);
+    }
+    expect(redirects.length).toBeLessThanOrEqual(1);
     expect(vercel.rewrites).toBeUndefined();
     expect(vercel.routes).toBeUndefined();
     expect(source('astro.config.mjs')).not.toMatch(/\bredirects\s*:/);

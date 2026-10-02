@@ -10,6 +10,7 @@
 import Section from '@/components/Section.astro';
 import { cityName, nextEvent } from '@/data';
 import { dateParts } from '@/lib/datetime';
+import { homeHref } from '@/lib/directory-host';
 
 const next = nextEvent();
 const parts = next ? dateParts(next.date) : undefined;
@@ -36,7 +37,7 @@ const routes = [
         </p>
 
         <div class="missing-actions">
-          <a class="btn btn-solid" href="/">
+          <a class="btn btn-solid" href={homeHref(Astro.url.hostname)}>
             <span>Back to the start</span>
             <span class="arrow" aria-hidden="true">→</span>
           </a>

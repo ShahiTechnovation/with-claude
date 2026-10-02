@@ -2,6 +2,7 @@
 import Wordmark from './Wordmark.astro';
 import { site } from '@/data';
 import AccountNav from '@/components/AccountNav.astro';
+import { homeHref } from '@/lib/directory-host';
 
 interface Props {
   /** Route prefix of the current page, e.g. `/events`. */
@@ -9,6 +10,8 @@ interface Props {
 }
 
 const { active = '/' } = Astro.props;
+// The main site's homepage, also from projects.withclaude.in (where `/` is the directory).
+const home = homeHref(Astro.url.hostname);
 
 /**
  * Primary navigation.
@@ -28,7 +31,7 @@ const nav = [
 
 <header class="masthead" data-masthead>
   <div class="masthead-inner container-wide">
-    <a href="/" class="brand" aria-label={`${site.wordmark} — home`}>
+    <a href={home} class="brand" aria-label={`${site.wordmark} — home`}>
       <Wordmark mark />
     </a>
 

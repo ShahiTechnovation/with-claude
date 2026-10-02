@@ -21,6 +21,7 @@
  */
 export const prerender = false;
 
+import { Image } from 'astro:assets';
 import Base from '@/layouts/Base.astro';
 import NotFound from '@/components/NotFound.astro';
 import ProjectLogo from '@/components/ProjectLogo.astro';
@@ -30,6 +31,7 @@ import Narrative from '@/components/directory/Narrative.astro';
 import Icon from '@/components/directory/Icon.astro';
 import ModeratorControls from '@/components/ModeratorControls.astro';
 import { ReportModal } from '@/components/react/ReportModal';
+import { isDirectoryHost, MAIN_ORIGIN } from '@/lib/directory-host';
 import { site } from '@/data';
 import { formatDateLong } from '@/lib/datetime';
 import { resolveProjectCover } from '@/lib/project-cover';
@@ -313,7 +315,18 @@ const iconFor = (kind: string) =>
               )}
             </div>
             <div class="pd-side-actions">
-              <ReportModal client:visible entityType="project" entityId={project.id} />
+              {/* Reporting needs the www session, which projects.withclaude.in never has. */}
+              {isDirectoryHost(Astro.url.hostname) ? (
+                <a
+                  class="text-sm text-neutral-400 hover:text-neutral-700 underline decoration-neutral-300 underline-offset-4"
+                  href={`${MAIN_ORIGIN}/projects/${project.slug}/`}
+                  title="Report this content on www.withclaude.in, where you are signed in"
+                >
+                  Report
+                </a>
+              ) : (
+                <ReportModal client:visible entityType="project" entityId={project.id} />
+              )}
               <ModeratorControls
                 entityType="projects"
                 entityId={project.id}
@@ -382,6 +395,17 @@ const iconFor = (kind: string) =>
                 <h2 id="demo-h">Demo and screenshots</h2>
                 {cover.kind === 'blob' && (
                   <img class="pd-shot" src={cover.blobUrl} alt={`Screenshot of ${project.title}`} loading="lazy" decoding="async" width="1600" height="1000" />
+                )}
+                {cover.kind === 'asset' && (
+                  <Image
+                    class="pd-shot"
+                    src={cover.imageMetadata!}
+                    alt={`Screenshot of ${project.title}`}
+                    widths={[640, 1100, 1600]}
+                    sizes="(max-width: 63.99em) 92vw, 760px"
+                    loading="lazy"
+                    decoding="async"
+                  />
                 )}
                 {videos.length > 0 && (
                   <ul class="pd-videos">

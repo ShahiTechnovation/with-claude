@@ -69,6 +69,8 @@ export default defineConfig({
       // Production. Exact hosts, so the real origins never depend on a wildcard.
       { protocol: 'https', hostname: 'www.withclaude.in' },
       { protocol: 'https', hostname: 'withclaude.in' },
+      // The Project Directory's own host (src/lib/directory-host.ts).
+      { protocol: 'https', hostname: 'projects.withclaude.in' },
 
       /**
        * Vercel preview and deployment URLs.

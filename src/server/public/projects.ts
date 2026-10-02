@@ -430,7 +430,13 @@ function many(params: URLSearchParams, name: string, accept: (v: string) => bool
  * accepted; links the site writes use repeated keys.
  */
 export function normaliseDirectoryQuery(params: URLSearchParams): DirectoryQuery {
-  const q = (params.get('q') ?? '').trim().replace(/\s+/g, ' ').slice(0, 80);
+  // Control characters are dropped: PostgreSQL refuses a NUL in text, and
+  // none belongs in a search anyway (`?q=%00` used to fail the whole page).
+  const q = (params.get('q') ?? '')
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .slice(0, 80);
   const rawSort = params.get('sort') ?? '';
   // `newest` was the previous name of `recent`; old links keep working.
   const sort: DirectorySort = rawSort === 'newest' ? 'recent' : (DIRECTORY_SORTS as string[]).includes(rawSort) ? (rawSort as DirectorySort) : 'event';
@@ -525,7 +531,8 @@ function orderFor(sort: DirectorySort): SQL[] {
   // ICU), and the classic word-by-word order — "Bhopal Tourism" before
   // "BhopalFlow".
   const byName = [sql`lower(${schema.projects.title}) COLLATE "C" ASC`, asc(schema.projects.slug)];
-  const byEvent = [sql`${schema.events.date} DESC NULLS LAST`, ...byName];
+  // Two events held on the same day stay in separate blocks.
+  const byEvent = [sql`${schema.events.date} DESC NULLS LAST`, sql`${schema.events.slug} ASC NULLS LAST`, ...byName];
   switch (sort) {
     case 'name':
       return byName;
@@ -552,7 +559,13 @@ function countFrom(db: AnyDatabase, columns: Record<string, unknown>) {
     .leftJoin(eventCity, publicEventCityJoin);
 }
 
-export const DEFAULT_PAGE_SIZE = 20;
+/**
+ * The directory shows the largest bounded page: 60 rows. Bounded because a
+ * browser should never download the whole archive at once; 60 because the
+ * archive is meant to be browsed, not paged through (~105 projects = 2 pages).
+ */
+export const MAX_PAGE_SIZE = 60;
+export const DEFAULT_PAGE_SIZE = MAX_PAGE_SIZE;
 
 export async function listPublicProjects(
   db: AnyDatabase,
@@ -568,7 +581,7 @@ export async function listPublicProjects(
     page: 1,
     ...input,
   };
-  const pageSize = Math.max(1, Math.min(60, query.pageSize ?? DEFAULT_PAGE_SIZE));
+  const pageSize = Math.max(1, Math.min(MAX_PAGE_SIZE, query.pageSize ?? DEFAULT_PAGE_SIZE));
   const where = filterWhere(query);
 
   const [[{ total }], [{ totalPublic, featuredCount }], facets] = await Promise.all([
@@ -814,8 +827,9 @@ export async function getProjectDetail(db: AnyDatabase, slug: string): Promise<P
 }
 
 /**
- * Other public projects: from the same event first, then the same project
- * city, never the project itself.
+ * Other public projects, never the project itself: from the SAME EVENT when
+ * the project has one (the page heads them "More from <event>", so nothing
+ * from another event may appear), otherwise from the same project city.
  */
 export async function relatedPublicProjects(
   db: AnyDatabase,
@@ -823,18 +837,13 @@ export async function relatedPublicProjects(
   limit = 4,
 ): Promise<PublicProjectCard[]> {
   if (!project.event && !project.city) return [];
-  const sameEvent = project.event ? sql`(${schema.events.slug} = ${project.event.slug})` : sql`false`;
-  const sameCity = project.city ? sql`(${projectCity.slug} = ${project.city.slug})` : sql`false`;
+  const scope = project.event
+    ? eq(schema.events.slug, project.event.slug)
+    : eq(projectCity.slug, project.city!.slug);
   const rows = (await selectCards(db)
-    .where(and(publicProjectWhere(), ne(schema.projects.id, project.id), or(sameEvent, sameCity)))
-    // Same-event first only when there IS an event: a bare `false` is not a
-    // valid ORDER BY term in PostgreSQL ("non-integer constant in ORDER BY").
-    // Within that, a stable per-project rotation so neighbours vary by page.
-    .orderBy(
-      ...(project.event ? [sql`${sameEvent} DESC NULLS LAST`] : []),
-      sql`md5(${schema.projects.slug} || ${project.id}) ASC`,
-      asc(schema.projects.slug),
-    )
+    .where(and(publicProjectWhere(), ne(schema.projects.id, project.id), scope))
+    // A stable per-project rotation, so neighbours vary from page to page.
+    .orderBy(sql`md5(${schema.projects.slug} || ${project.id}) ASC`, asc(schema.projects.slug))
     .limit(limit)) as CardRow[];
   return cards(db, rows);
 }

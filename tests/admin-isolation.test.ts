@@ -107,11 +107,17 @@ describe("the public site does not share the admin's authentication", () => {
     }
   });
 
-  it('has no middleware, so nothing intercepts a public request', () => {
-    // The admin has `src/middleware.ts`. The public site must not — every one
-    // of its 71 pages is a file, and a file cannot be gated.
-    expect(existsSync('src/middleware.ts')).toBe(false);
+  it('has no auth middleware: the only middleware routes the directory host, and gates nothing', () => {
+    // The admin has an auth middleware. The public site must not gate a
+    // request. Its one middleware serves projects.withclaude.in (a host
+    // rewrite/redirect) and must stay exactly that: no cookies, no session,
+    // no auth import — and every other host passes straight through
+    // (tests/directory-release-fixes.test.ts).
     expect(existsSync('src/middleware/index.ts')).toBe(false);
+    const mw = readFileSync('src/middleware.ts', 'utf8');
+    const imports = [...mw.matchAll(/^import .* from ['"]([^'"]+)['"]/gm)].map((m) => m[1]);
+    expect(imports.sort()).toEqual(['./lib/directory-host', 'astro:middleware']);
+    expect(mw).not.toMatch(/cookies|session|privy|auth|locals\.|getSession/i);
   });
 
   /**

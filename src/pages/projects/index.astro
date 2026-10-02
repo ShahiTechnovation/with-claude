@@ -51,7 +51,7 @@ try {
     totalPublic: 0,
     page: 1,
     pageCount: 1,
-    pageSize: 20,
+    pageSize: 60,
     query: { events: [], categories: [], cities: [], statuses: [], has: [], sort: 'event', page: 1 },
     facets: { events: [], categories: [], cities: [], statuses: [], has: [] },
     featuredAvailable: false,
@@ -231,7 +231,10 @@ const description = 'Explore projects built at WITH CLAUDE events and by our bui
                       <ul class="fopt-list">{visible.map(option)}</ul>
                       {rest.length > 0 && (
                         <details class="fmore" open={rest.some((f) => selected.includes(f.value)) || undefined}>
-                          <summary>Show {rest.length} more</summary>
+                          <summary>
+                            <span class="fmore-closed">Show {rest.length} more</span>
+                            <span class="fmore-open">Show fewer</span>
+                          </summary>
                           <ul class="fopt-list">{rest.map(option)}</ul>
                         </details>
                       )}
@@ -269,7 +272,7 @@ const description = 'Explore projects built at WITH CLAUDE events and by our bui
             </label>
 
             <div class="dir-toolbar">
-              <p class="dir-count" aria-live="polite" data-dir-count>
+              <p class="dir-count" aria-live="polite" tabindex="-1" data-dir-count>
                 {total === 0 ? (
                   'No projects match'
                 ) : pageCount > 1 ? (
@@ -306,6 +309,11 @@ const description = 'Explore projects built at WITH CLAUDE events and by our bui
               </div>
             </div>
 
+            {/* Persistent: announced on every update, and never under aria-busy. */}
+            <p class="dir-status" role="status" data-dir-status></p>
+
+            {/* Only this region is replaced when the results change. */}
+            <div class="dir-swap" data-dir-swap>
             {
               activeChips.length > 0 && (
                 <ul class="dir-chips" aria-label="Active filters">
@@ -326,8 +334,6 @@ const description = 'Explore projects built at WITH CLAUDE events and by our bui
                 </ul>
               )
             }
-
-            <p class="dir-status" role="status" data-dir-status></p>
 
             {
               items.length === 0 ? (
@@ -387,6 +393,7 @@ const description = 'Explore projects built at WITH CLAUDE events and by our bui
                 </nav>
               )
             }
+            </div>
           </section>
         </div>
       )

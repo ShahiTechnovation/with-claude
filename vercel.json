@@ -4,6 +4,14 @@
     "sin1"
   ],
   "trailingSlash": true,
+  "redirects": [
+    {
+      "source": "/:path((?!projects/|_astro/|_image|_server-islands/|api/reports/|favicon|apple-touch-icon|robots\\.txt|site\\.webmanifest|fonts/|_vercel/).+)",
+      "has": [{ "type": "host", "value": "projects.withclaude.in" }],
+      "destination": "https://www.withclaude.in/:path",
+      "permanent": false
+    }
+  ],
   "crons": [
     {
       "path": "/api/cron/events-sync",

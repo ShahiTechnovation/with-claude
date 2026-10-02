@@ -91,7 +91,7 @@ export const IMPACT_LAB_2: Record<number, RowEditorial> = {
       'Helps people tell whether a message, app or call is a cyber-fraud attempt, explains the risk and gives simple safety and recovery steps.',
     category: 'product',
     notes: [
-      'R4 was owner/repo shorthand; expanded to a GitHub URL (accessibility not verified)',
+      'R4 was owner/repo shorthand; expanded to a GitHub URL — its accessibility is reported by the link check, below',
       'the solution text (P4) calls the assistant "Nazar"; the submitted name (N4) is used',
     ],
   },
@@ -188,7 +188,7 @@ export const IMPACT_LAB_2: Record<number, RowEditorial> = {
     category: 'product',
     holds: ['title: N16 is "R"; confirm "Nagar Setu" (or the correct name)'],
     notes: [
-      'R16 was owner/repo shorthand; expanded to a GitHub URL (accessibility not verified)',
+      'R16 was owner/repo shorthand; expanded to a GitHub URL — its accessibility is reported by the link check, below',
       'U16 ("Ask me") is not a link and is ignored',
     ],
   },
@@ -308,7 +308,7 @@ export const FABLE_5_1: Record<number, RowEditorial> = {
     category: 'product',
     notes: [
       'D10 is not a link (it holds a personal name) — not imported',
-      'E10 was owner/repo shorthand; expanded to a GitHub URL (accessibility not verified)',
+      'E10 was owner/repo shorthand; expanded to a GitHub URL — its accessibility is reported by the link check, below',
       'J10 (showcase field) holds the deployment; reclassified as the live demo',
     ],
   },

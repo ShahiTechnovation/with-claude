@@ -73,8 +73,15 @@ export type FieldRole = 'live' | 'repo' | 'video' | 'attachment' | 'showcase';
 const TUNNEL_HOST = /(^|\.)(trycloudflare\.com|ngrok-free\.(dev|app)|ngrok\.(io|app)|loca\.lt|serveo\.net)$/i;
 /** TLDs that appear in these submissions as bare domains. Deliberately short. */
 const BARE_TLD = 'com|in|dev|app|io|me|ai|tech|fun|net|org|co|xyz|so|page|site|link|cc';
+/**
+ * A scheme URL, or a bare domain. The bare-domain branch never starts after
+ * `@` or local-part punctuation, and never ends where the word goes on to an
+ * `@` — so no part of an email address (`first.dev@x.com`, `a.co.in@x.org`)
+ * is ever mistaken for a link. Scheme URLs keep `@` in their paths
+ * (`https://medium.com/@user/post`).
+ */
 const URL_IN_TEXT = new RegExp(
-  String.raw`https?:\/\/[^\s{}()<>"'\`]+|(?<![@\w.-])(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+(?:${BARE_TLD})(?![a-z0-9-])(?:\/[^\s{}()<>"'\`]*)?`,
+  String.raw`https?:\/\/[^\s{}()<>"'\`]+|(?<![@\w.+%-])(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+(?:${BARE_TLD})(?![a-z0-9-])(?![\w.+%-]*@)(?:\/[^\s{}()<>"'\`]*)?`,
   'gi',
 );
 const SHORTHAND_REPO = /^([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))\/([A-Za-z0-9._-]{1,100})$/;
@@ -167,7 +174,10 @@ export function classifyUrl(input: string, role: FieldRole): ClassifiedLink | Re
   if (bare === 'huggingface.co' && segments[0] === 'spaces') return out('artifact');
   if (bare === 'x.com' || bare === 'twitter.com') return segments.includes('status') ? out('post') : out('profile');
   if (bare === 'lnkd.in') return out('post');
-  if (bare === 'linkedin.com') return segments[0] === 'feed' || segments[0] === 'posts' ? out('post') : out('profile');
+  // linkedin.com and its regional hosts (in.linkedin.com, uk.linkedin.com …).
+  if (bare === 'linkedin.com' || bare.endsWith('.linkedin.com')) {
+    return segments[0] === 'feed' || segments[0] === 'posts' ? out('post') : out('profile');
+  }
   if (videoHost(u)) return out('video');
   if (bare === 'drive.google.com') {
     // A recording uploaded to Drive, or a folder of demo files: a demo when
@@ -234,7 +244,12 @@ export function comparableUrl(url: string): string {
     if (host === 'github.com') path = path.toLowerCase();
     // Drive's `open?id=` and `file/d/<id>` are the same file.
     const driveId = host === 'drive.google.com' ? (u.searchParams.get('id') ?? path.match(/\/d\/([^/]+)/)?.[1]) : null;
-    return driveId ? `drive:${driveId}` : `${host}${path}`;
+    if (driveId) return `drive:${driveId}`;
+    // A YouTube video IS its `v` parameter; youtu.be/<id> is the same video.
+    const bareHost = host.replace(/^m\./, '');
+    if (bareHost === 'youtube.com' && path === '/watch' && u.searchParams.get('v')) return `youtube:${u.searchParams.get('v')}`;
+    if (bareHost === 'youtu.be' && path.length > 1) return `youtube:${path.slice(1)}`;
+    return `${host}${path}`;
   } catch {
     return url;
   }
