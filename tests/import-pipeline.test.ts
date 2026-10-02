@@ -403,19 +403,46 @@ describe('import safety', () => {
     expect(String(refused[0].reason)).toMatch(/another import/);
   });
 
-  it('releases only its own lock', async () => {
+  it('lets only one of two concurrent runs of the same batch take the lock', async () => {
+    const planned = await planFor(workbook(ROWS));
+    const results = await Promise.allSettled([applyPlanned(planned), applyPlanned(planned)]);
+    const refused = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+    expect(refused).toHaveLength(1);
+    expect(String(refused[0].reason)).toMatch(/another import/);
+  });
+
+  it('keeps its lock fresh while it works', async () => {
+    const planned = await planFor(workbook(ROWS));
+    const stale = new Date(Date.now() - 31 * 60_000).toISOString();
+    const seen: string[] = [];
+    const createRow = baserow.createRow.bind(baserow);
+    baserow.createRow = async (tableId: number, fields: Record<string, unknown>) => {
+      if (tableId === T.projects) {
+        const held = (await lock())!.value as Record<string, string>;
+        seen.push(held.at);
+        // As if this item had taken half an hour.
+        await db.update(schema.integrationState).set({ value: { ...held, at: stale } }).where(eq(schema.integrationState.key, 'import-lock'));
+      }
+      return createRow(tableId, fields);
+    };
+    await applyPlanned(planned);
+    expect(seen).toHaveLength(3);
+    expect(seen.slice(1)).not.toContain(stale);
+  });
+
+  it('stops when another run takes its lock over, and leaves that lock alone', async () => {
     const planned = await planFor(workbook(ROWS));
     const createRow = baserow.createRow.bind(baserow);
     baserow.createRow = async (tableId: number, fields: Record<string, unknown>) => {
       // The lock went stale mid-run and another import took it over.
       await db
         .update(schema.integrationState)
-        .set({ value: { batchId: 'another-batch', at: new Date().toISOString() } })
+        .set({ value: { owner: 'another-batch:another-run', at: new Date().toISOString() } })
         .where(eq(schema.integrationState.key, 'import-lock'));
       return createRow(tableId, fields);
     };
-    await applyPlanned(planned);
-    expect((await lock())?.value).toMatchObject({ batchId: 'another-batch' });
+    await expect(applyPlanned(planned)).rejects.toThrow(/lost the import lock/);
+    expect((await lock())?.value).toMatchObject({ owner: 'another-batch:another-run' });
   });
 
   it('writes nothing against a partial scan of Baserow', async () => {
