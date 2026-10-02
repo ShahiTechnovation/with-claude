@@ -179,7 +179,7 @@ const iconFor = (kind: string) =>
 
       <div class="dir pd">
         <header class="pd-head">
-          <ProjectLogo logo={project.logo} size="header" eager />
+          <ProjectLogo logo={project.logo} category={project.category} slug={project.slug} size="header" eager />
           <div class="pd-head-body">
             <h1 class="pd-title">{project.title}</h1>
             {project.summary && <p class="pd-tagline">{project.summary}</p>}
@@ -224,7 +224,7 @@ const iconFor = (kind: string) =>
         <div class="pd-grid">
           <aside class="pd-side" aria-label="Project facts">
             <div class="dir-panel facts-card">
-              <ProjectLogo logo={project.logo} size="card" />
+              <ProjectLogo logo={project.logo} category={project.category} slug={project.slug} size="card" />
               <div>
                 <p class="facts-card-name">{project.title}</p>
                 {project.team && <p class="pd-team">{project.team}</p>}

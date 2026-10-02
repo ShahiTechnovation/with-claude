@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url';
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 
 /**
  * Vitest gets the same `@` alias the app has.
@@ -17,6 +17,19 @@ import { defineConfig } from 'vitest/config';
  * ambassador/attribution server logic can only be exercised by clicking
  * through a browser — the one thing this test file exists to make optional.
  */
+/**
+ * `tests/equivalence-neon.test.ts` needs a live Neon credential, and by its
+ * own header is not part of `npm test`: it is run on purpose, by name —
+ *
+ *     npx vitest run tests/equivalence-neon.test.ts
+ *
+ * — and fails loudly when the credential is missing. So it is left out of
+ * every run that does not name it, rather than skipped inside the file, where
+ * a green run would claim a check against Neon that never happened.
+ */
+const NEON_SUITE = 'tests/equivalence-neon.test.ts';
+const neonSuiteNamed = process.argv.some((arg) => arg.includes('equivalence-neon'));
+
 export default defineConfig({
   resolve: {
     alias: {
@@ -26,5 +39,6 @@ export default defineConfig({
   },
   test: {
     include: ['tests/**/*.test.ts'],
+    exclude: [...configDefaults.exclude, ...(neonSuiteNamed ? [] : [NEON_SUITE])],
   },
 });

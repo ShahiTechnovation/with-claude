@@ -12,7 +12,11 @@
  *   cover        a screenshot cropped to the square
  *   favicon      shown no larger than twice its own pixels, centred — a tiny
  *                icon is never blown up into a blurry block
- *   placeholder  the directory's plush mascot on a per-project tint
+ *   placeholder  the same category motif as `ProjectCover.astro` (see
+ *                `src/lib/project-motif.ts`), behind the directory's plush
+ *                mascot — so a project's logo box and cover box are clearly
+ *                kin, and placeholders vary by category instead of cycling
+ *                through a fixed set of tints
  *
  * A remote image that fails to load is swapped ONCE for the placeholder (a
  * capture-phase listener; the image is never retried, so there is no loop).
@@ -25,36 +29,65 @@
 import { Image } from 'astro:assets';
 import { asset } from '@/lib/images';
 import type { LogoSource } from '@/lib/project-logo';
+import { resolveMotif } from '@/lib/project-motif';
 import mascot from '@/assets/brand/project-placeholder.svg?raw';
 
 interface Props {
   logo: LogoSource;
   /** Rendered square size: row (≈76px, 60px on phones), header (≈96px), card (128px). */
   size?: 'row' | 'header' | 'card';
+  /** Drives the placeholder motif (category shape + per-project hue/arrangement).
+   * Optional so older callers still render — a project without one falls back
+   * to the `experiment` motif via `resolveMotif()`'s own default. */
+  category?: string | null;
+  slug?: string | null;
   eager?: boolean;
   class?: string;
 }
 
-const { logo, size = 'row', eager = false, class: className } = Astro.props;
+const { logo, size = 'row', category, slug, eager = false, class: className } = Astro.props;
 const px = size === 'card' ? 128 : size === 'header' ? 96 : 76;
 const placeholderLabel = 'Placeholder artwork — no project logo supplied';
-const variant = logo.kind === 'placeholder' ? logo.variant : 0;
+const motif = resolveMotif(slug || 'placeholder', category);
 const isRemote = (logo.kind === 'logo' || logo.kind === 'cover') && /^https:\/\//i.test(logo.src);
 const assetMeta = !isRemote && (logo.kind === 'logo' || logo.kind === 'cover') ? asset(logo.src) : undefined;
 // An asset key that no longer resolves falls back like a broken image.
-const effective: LogoSource = !isRemote && (logo.kind === 'logo' || logo.kind === 'cover') && !assetMeta ? { kind: 'placeholder', variant } : logo;
+const effective: LogoSource =
+  !isRemote && (logo.kind === 'logo' || logo.kind === 'cover') && !assetMeta
+    ? { kind: 'placeholder', variant: 0 }
+    : logo;
 const favicon = effective.kind === 'logo' && effective.origin === 'favicon';
 const faviconMax = favicon ? Math.min(px * 0.7, Math.max(16, (effective.width ?? 32) * 2)) : undefined;
+const motifStyle = `--plogo-hue:${motif.hue}; --plogo-spin:${Math.round(motif.spin * 360)}deg`;
+
+// One glyph per category — the square-box counterpart to the richer motifs
+// in ProjectCover.astro, simplified for a small, often-cropped-to-circle box.
+// Built once so both the live placeholder and the broken-image fallback
+// render identical markup without duplicating the SVG by hand twice.
+const MOTIF_GLYPH: Record<string, string> = {
+  product: `<rect x="24" y="30" width="52" height="40" rx="4" fill="none" stroke="currentColor" stroke-width="4" transform="rotate(${-5 + motif.spin * 3} 50 50)" />`,
+  agent: `<circle cx="50" cy="50" r="28" fill="none" stroke="currentColor" stroke-width="4" opacity="0.5" /><circle cx="50" cy="50" r="9" fill="currentColor" />`,
+  'developer-tool': `<path d="M40 28 L22 50 L40 72 M60 28 L78 50 L60 72" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />`,
+  research: `<line x1="26" y1="68" x2="74" y2="32" stroke="currentColor" stroke-width="2" opacity="0.5" /><circle cx="26" cy="68" r="7" fill="currentColor" /><circle cx="74" cy="32" r="7" fill="currentColor" opacity="0.65" />`,
+  creative: `<circle cx="40" cy="42" r="18" fill="currentColor" opacity="0.55" /><circle cx="62" cy="58" r="14" fill="currentColor" opacity="0.5" />`,
+  campus: `<path d="M36 22 V78 M36 26 L76 38 L36 50 Z" fill="currentColor" stroke="currentColor" stroke-width="4" stroke-linejoin="round" />`,
+  experiment: `<path d="M40 22 H60 V44 L74 70 Q77 78 68 78 H32 Q23 78 26 70 L40 44 Z" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linejoin="round" />`,
+  startup: `<path d="M24 70 L48 44 L62 58 L78 28" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />`,
+};
+const motifSvg = `<svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">${MOTIF_GLYPH[motif.category] ?? ''}</svg>`;
 ---
 
 <span
   class:list={['plogo', `plogo--${size}`, `plogo--${effective.kind}`, { 'plogo--favicon': favicon }, className]}
-  data-variant={variant}
-  style={faviconMax ? `--favicon-max:${faviconMax}px` : undefined}
+  data-motif={motif.category}
+  style={`${motifStyle};${faviconMax ? `--favicon-max:${faviconMax}px` : ''}`}
 >
   {
     effective.kind === 'placeholder' ? (
-      <span class="plogo-art" role="img" aria-label={placeholderLabel} set:html={mascot} />
+      <span class="plogo-motif" aria-hidden="true">
+        <span set:html={motifSvg} />
+        <span class="plogo-mascot" role="img" aria-label={placeholderLabel} set:html={mascot} />
+      </span>
     ) : isRemote ? (
       <>
         <img
@@ -67,7 +100,10 @@ const faviconMax = favicon ? Math.min(px * 0.7, Math.max(16, (effective.width ??
           referrerpolicy="no-referrer"
           data-plogo-img
         />
-        <span class="plogo-art" role="img" aria-label={placeholderLabel} set:html={mascot} hidden />
+        <span class="plogo-motif" data-fallback hidden>
+          <span set:html={motifSvg} />
+          <span class="plogo-mascot" role="img" aria-label={placeholderLabel} set:html={mascot} />
+        </span>
       </>
     ) : (
       <Image src={assetMeta!} alt="" widths={[px, px * 2]} sizes={`${px}px`} loading={eager ? 'eager' : 'lazy'} decoding="async" />
@@ -160,12 +196,6 @@ const faviconMax = favicon ? Math.min(px * 0.7, Math.max(16, (effective.width ??
     image-rendering: auto;
   }
 
-  .plogo-art {
-    display: block;
-    width: 100%;
-    height: 100%;
-  }
-
   /* `hidden` must win over the display rules above, for both the failed
      image and the not-yet-needed placeholder. */
   .plogo [hidden],
@@ -173,21 +203,42 @@ const faviconMax = favicon ? Math.min(px * 0.7, Math.max(16, (effective.width ??
     display: none !important;
   }
 
-  .plogo-art :global(svg) {
+  /* The placeholder: a category motif glyph over the site mascot, both
+   * tinted from the same per-project hue that ProjectCover.astro uses, so
+   * the tint is one of a continuous range rather than six fixed swatches. */
+  .plogo--placeholder {
+    border-color: transparent;
+    background: hsl(var(--plogo-hue) 46% 90%);
+  }
+
+  .plogo-motif {
+    position: relative;
     display: block;
     width: 100%;
     height: 100%;
   }
 
-  /* Six warm tints from the site palette, chosen by a hash of the slug. */
-  .plogo--placeholder {
-    border-color: transparent;
+  .plogo-motif :global(svg) {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    color: hsl(var(--plogo-hue) 45% 46%);
+    opacity: 0.55;
+    transform: rotate(var(--plogo-spin)) scale(1.3);
   }
 
-  .plogo--placeholder[data-variant='0'] { background: #f7ded2; }
-  .plogo--placeholder[data-variant='1'] { background: #efe4cc; }
-  .plogo--placeholder[data-variant='2'] { background: #e5e6d3; }
-  .plogo--placeholder[data-variant='3'] { background: #f2d6c6; }
-  .plogo--placeholder[data-variant='4'] { background: #ebe1d3; }
-  .plogo--placeholder[data-variant='5'] { background: #f3e7da; }
+  .plogo-mascot {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .plogo-mascot :global(svg) {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
 </style>

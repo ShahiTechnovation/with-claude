@@ -218,8 +218,9 @@ Two non-obvious facts about that URL:
    success, and which would mark every event withdrawn. `LumaIcsSource` rejects
    a non-calendar body and an empty calendar for exactly this reason.
 
-`GET /api/health` reports `events.mode` and `events.realtime` (always `false`),
-derived from configuration rather than written by hand.
+`GET /api/health`, called with the cron bearer, reports `events.mode` and
+`events.realtime` (always `false`), derived from configuration rather than
+written by hand.
 
 ### The abstraction
 
@@ -601,6 +602,9 @@ connected).
 a prefix or a length. It also reports database reachability, latency, region,
 and per-source sync freshness, because a feed that stopped parsing three weeks
 ago looks exactly like a quiet community until someone checks `lastSyncedAt`.
+These details need `Authorization: Bearer $CRON_SECRET`. Anyone else gets only
+`{ "ok": true }`, or `{ "ok": false }` with a 503 when a `select 1` fails, so
+uptime monitors still see an outage.
 
 ---
 
