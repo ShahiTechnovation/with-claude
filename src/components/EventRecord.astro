@@ -574,6 +574,7 @@ const years = [...new Set(archive.map((entry) => entry.parts.year))].sort((a, b)
   @media (max-width: 60rem) {
     .past-row {
       grid-template-columns: 10ch minmax(0, 1fr);
+      row-gap: var(--s-2);
     }
 
     .past-format {
