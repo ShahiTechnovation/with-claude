@@ -95,7 +95,9 @@ function enhance(root: HTMLElement, form: HTMLFormElement) {
         link.href = url;
         link.textContent = 'Load this view again';
         el.append(link);
-        link.focus();
+        // Someone still typing a search keeps the caret; the status region
+        // announces the failure either way.
+        if (!document.activeElement?.matches('[data-dir-q]')) link.focus();
       }
     }
   }
@@ -197,9 +199,11 @@ function enhance(root: HTMLElement, form: HTMLFormElement) {
         return; // focus returns to the Filters button
       }
       if (inPager) results.scrollIntoView({ block: 'start', behavior: 'smooth' });
-      // The link that was clicked is gone (it was in the swapped region), so
-      // focus moves to the count — which says what the visitor now sees.
-      count()?.focus({ preventScroll: Boolean(!inPager) });
+      // A chip, pager or empty-state link is gone (it was in the swapped
+      // region), so focus moves to the count — which says what the visitor
+      // now sees. A sidebar link ("All events", "Clear") is still there and
+      // keeps focus.
+      if (!document.contains(link)) count()?.focus({ preventScroll: Boolean(!inPager) });
     });
   });
 
@@ -207,6 +211,9 @@ function enhance(root: HTMLElement, form: HTMLFormElement) {
     const here = location.pathname + location.search;
     // A fragment link (e.g. "Skip to content") changes only the hash.
     if (here === rendered) return;
+    // Follow the history entry, not the last finished render: a Forward that
+    // lands while a Back is still loading must replace that request.
+    rendered = here;
     void navigate(here, 'none', () => syncForm());
   });
 

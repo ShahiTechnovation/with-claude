@@ -1,5 +1,6 @@
 ---
 import type { Crumb } from '@/lib/seo';
+import { homeHref } from '@/lib/directory-host';
 
 /**
  * The trail back up.
@@ -32,7 +33,7 @@ const { crumbs, dark = false } = Astro.props;
               {last ? (
                 <span aria-current="page">{crumb.name}</span>
               ) : (
-                <a href={crumb.href}>{crumb.name}</a>
+                <a href={crumb.href === '/' ? homeHref(Astro.url.hostname) : crumb.href}>{crumb.name}</a>
               )}
               {!last && (
                 <span class="crumb-sep" aria-hidden="true">

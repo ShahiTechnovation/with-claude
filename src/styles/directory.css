@@ -171,8 +171,6 @@
 }
 
 .prow-meta {
-  position: relative;
-  z-index: 1;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -535,6 +533,14 @@
 /* --- results toolbar ----------------------------------------------------- */
 
 .dir-results {
+  display: grid;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+/* The swapped region (chips, list, pager) keeps the spacing its parent gave
+   them when they were its direct children. */
+.dir-swap {
   display: grid;
   gap: 0.9rem;
   min-width: 0;

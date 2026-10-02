@@ -3,8 +3,10 @@
  * forms that wrap private IPv4, regional LinkedIn hosts, YouTube identity,
  * NUL bytes in search, and "How Claude was used" fragments.
  */
+import { readFileSync } from 'node:fs';
+import { getTransformedRoutes } from '@vercel/routing-utils';
 import { describe, expect, it } from 'vitest';
-import { routeDirectoryHost, DIRECTORY_HOST } from '../src/lib/directory-host';
+import { routeDirectoryHost, DIRECTORY_HOST, homeHref, signInHref } from '../src/lib/directory-host';
 import { isPrivateHost } from '../src/lib/url-safety';
 import { classifyUrl, comparableUrl, extractUrlTokens, linksInCell } from '../scripts/import/lib/links';
 import { normaliseDirectoryQuery, MAX_PAGE_SIZE, DEFAULT_PAGE_SIZE } from '../src/server/public/projects';
@@ -35,11 +37,87 @@ describe('projects.withclaude.in', () => {
     expect(routeDirectoryHost(DIRECTORY_HOST, '/projectsx/', '').kind).toBe('redirect');
   });
 
+  it('points home and sign-in at the main site from the directory host only', () => {
+    expect(homeHref(DIRECTORY_HOST)).toBe('https://www.withclaude.in/');
+    expect(signInHref('Projects.WithClaude.in')).toBe('https://www.withclaude.in/me/');
+    for (const h of ['www.withclaude.in', 'withclaude.in', 'with-claude.vercel.app', 'localhost']) {
+      expect(homeHref(h), h).toBe('/');
+      expect(signInHref(h), h).toBe('/join/');
+    }
+  });
+
+  it('never loads sign-in on the directory host (its account calls would be redirected cross-origin)', () => {
+    const nav = readFileSync('src/components/AccountNav.astro', 'utf8');
+    expect(nav).toContain('const appId = onDirectoryHost ? undefined :');
+    expect(nav).toContain('href={signInHref(Astro.url.hostname)} data-account-signin');
+    expect(readFileSync('src/components/Breadcrumbs.astro', 'utf8')).toContain("crumb.href === '/' ? homeHref(Astro.url.hostname)");
+    expect(readFileSync('src/components/NotFound.astro', 'utf8')).toContain('href={homeHref(Astro.url.hostname)}');
+  });
+
+  it('the edge rule in vercel.json and the middleware agree on every path', () => {
+    // Prerendered pages never reach the middleware, so the edge rule alone
+    // routes them: the two pass-lists must be the same list.
+    const vercel = JSON.parse(readFileSync('vercel.json', 'utf8'));
+    const { routes, error } = getTransformedRoutes({ redirects: vercel.redirects });
+    expect(error).toBeNull();
+    type HostRule = { src: string; has?: { type: string; value?: unknown }[] };
+    const rule = (routes ?? [])
+      .filter((r): r is typeof r & HostRule => 'src' in r)
+      .find((r) => r.has?.some((h) => h.type === 'host' && h.value === DIRECTORY_HOST));
+    expect(rule).toBeDefined();
+    const edgeRedirects = (path: string) => new RegExp(rule!.src).test(path);
+    const paths = [
+      '/projects/', '/projects/disha/', '/_astro/x.js', '/_image/', '/_image', '/_server-islands/x/', '/api/reports/',
+      '/favicon.svg', '/apple-touch-icon.png', '/robots.txt', '/site.webmanifest', '/fonts/a.woff2',
+      '/_vercel/insights/script.js', '/_vercel/insights/view',
+      '/events/claude-impact-lab-september/', '/me/', '/join/', '/api/member/bootstrap/', '/builders/', '/projectsx/',
+    ];
+    for (const p of paths) {
+      expect(edgeRedirects(p), p).toBe(routeDirectoryHost(DIRECTORY_HOST, p, '').kind === 'redirect');
+    }
+    // `/` is the directory itself, never sent to www.
+    expect(edgeRedirects('/')).toBe(false);
+  });
+
+  it('sends Report to the www project page, where the session is', () => {
+    const page = readFileSync('src/pages/projects/[slug].astro', 'utf8');
+    expect(page).toContain('{isDirectoryHost(Astro.url.hostname) ? (');
+    expect(page).toContain('href={`${MAIN_ORIGIN}/projects/${project.slug}/`}');
+  });
+
   it('leaves every other host alone', () => {
     for (const h of ['www.withclaude.in', 'withclaude.in', 'with-claude.vercel.app', 'localhost', 'projects.withclaude.in.evil.com']) {
       expect(routeDirectoryHost(h, '/', '').kind, h).toBe('pass');
       expect(routeDirectoryHost(h, '/events/x/', '').kind, h).toBe('pass');
     }
+  });
+});
+
+describe('the directory and event pages after review', () => {
+  const script = readFileSync('src/scripts/directory.ts', 'utf8');
+
+  it('back/forward follows the history entry, so a Forward replaces an in-flight Back', () => {
+    expect(script).toMatch(/if \(here === rendered\) return;[\s\S]{0,200}rendered = here;\s*void navigate\(here, 'none'/);
+  });
+
+  it('a failed update never takes focus out of the search box', () => {
+    expect(script).toContain("if (!document.activeElement?.matches('[data-dir-q]')) link.focus();");
+  });
+
+  it('a sidebar link that survives the swap keeps focus', () => {
+    expect(script).toContain('if (!document.contains(link)) count()?.focus(');
+  });
+
+  it('the row meta strip does not cover the row link', () => {
+    const css = readFileSync('src/styles/directory.css', 'utf8').replace(/\r\n/g, '\n');
+    const rule = css.match(/\n\.prow-meta \{([^}]*)\}/)?.[1] ?? '';
+    expect(rule).toContain('display: flex');
+    expect(rule).not.toMatch(/z-index|position/);
+  });
+
+  it('an event page whose projects could not be read is never stored by the CDN', () => {
+    const page = readFileSync('src/pages/events/[slug].astro', 'utf8').replace(/\r\n/g, '\n');
+    expect(page).toMatch(/eventProjects\(event\.id, 12\)\.catch\([\s\S]{0,500}privateCache\(Astro, false\);\s*projectsFailed = true;/);
   });
 });
 
@@ -80,6 +158,14 @@ describe('IPv6 forms that wrap a private address', () => {
     for (const h of ['2606:4700:4700::1111', '2a00:1450:4001:82a::200e', '[2606:4700::6810:84e5]']) {
       expect(isPrivateHost(h), h).toBe(false);
     }
+  });
+
+  it('a trailing dot does not make a local name public', () => {
+    for (const url of ['http://localhost./', 'http://localhost../', 'http://app.localhost./', 'http://printer.local./', 'http://metadata.google.internal./']) {
+      expect(isPrivateHost(new URL(url).hostname), url).toBe(true);
+      expect(classifyUrl(url, 'live'), url).toBe('private-host');
+    }
+    expect(isPrivateHost('example.com.')).toBe(false);
   });
 
   it('URL hosts in those forms are refused by the classifier', () => {

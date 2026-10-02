@@ -12,7 +12,8 @@ export const ACCESS_PARAM = /^_vercel_share$/i;
 
 /** Loopback, private, link-local, carrier-grade NAT, multicast and local names. */
 export function isPrivateHost(host: string): boolean {
-  const h = host.toLowerCase().replace(/^\[|\]$/g, '');
+  // WHATWG URL keeps trailing dots, and "localhost." is still loopback.
+  const h = host.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.+$/, '');
   if (h === 'localhost' || h.endsWith('.localhost') || h.endsWith('.local') || h.endsWith('.internal')) return true;
   if (h === '0.0.0.0' || h === '::' || h === '::1') return true;
   const v4 = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);

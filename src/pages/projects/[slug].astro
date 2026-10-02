@@ -31,6 +31,7 @@ import Narrative from '@/components/directory/Narrative.astro';
 import Icon from '@/components/directory/Icon.astro';
 import ModeratorControls from '@/components/ModeratorControls.astro';
 import { ReportModal } from '@/components/react/ReportModal';
+import { isDirectoryHost, MAIN_ORIGIN } from '@/lib/directory-host';
 import { site } from '@/data';
 import { formatDateLong } from '@/lib/datetime';
 import { resolveProjectCover } from '@/lib/project-cover';
@@ -314,7 +315,18 @@ const iconFor = (kind: string) =>
               )}
             </div>
             <div class="pd-side-actions">
-              <ReportModal client:visible entityType="project" entityId={project.id} />
+              {/* Reporting needs the www session, which projects.withclaude.in never has. */}
+              {isDirectoryHost(Astro.url.hostname) ? (
+                <a
+                  class="text-sm text-neutral-400 hover:text-neutral-700 underline decoration-neutral-300 underline-offset-4"
+                  href={`${MAIN_ORIGIN}/projects/${project.slug}/`}
+                  title="Report this content on www.withclaude.in, where you are signed in"
+                >
+                  Report
+                </a>
+              ) : (
+                <ReportModal client:visible entityType="project" entityId={project.id} />
+              )}
               <ModeratorControls
                 entityType="projects"
                 entityId={project.id}

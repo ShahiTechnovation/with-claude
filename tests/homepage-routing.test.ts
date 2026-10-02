@@ -153,7 +153,9 @@ describe('the masthead', () => {
   const masthead = source('src/components/Masthead.astro');
 
   it('links the logo home and Projects to the directory', () => {
-    expect(masthead).toMatch(/<a href="\/" class="brand"/);
+    // `/` everywhere except projects.withclaude.in, where `/` is the directory.
+    expect(masthead).toContain('const home = homeHref(Astro.url.hostname);');
+    expect(masthead).toMatch(/<a href=\{home\} class="brand"/);
     expect(masthead).toContain("{ href: '/projects', label: 'Projects' }");
   });
 

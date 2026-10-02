@@ -1,6 +1,7 @@
 ---
-import { publicCache } from '@/server/http/cache';
+import { privateCache, publicCache } from '@/server/http/cache';
 import { eventProjects } from '@/server/public/pages';
+import { logReadFailure } from '@/server/public/read-failure';
 import ProjectRow from '@/components/directory/ProjectRow.astro';
 import { directoryHref } from '@/server/public/projects';
 import '@/styles/directory.css';
@@ -84,9 +85,13 @@ const cover = asset(event.coverImage);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 let projectsFailed = false;
 const built = UUID.test(event.id)
-  ? await eventProjects(event.id, 12).catch(() => {
+  ? await eventProjects(event.id, 12).catch((error: unknown) => {
       // Unknown is not "none": the empty-room invitation below must not claim
-      // there are no projects when we simply could not read them.
+      // there are no projects when we simply could not read them. The event
+      // itself rendered, so this stays a 200 — but one the CDN never stores
+      // (and still indexable): the next request should try again.
+      logReadFailure('event-projects', error);
+      privateCache(Astro, false);
       projectsFailed = true;
       return { items: [], total: 0 };
     })
