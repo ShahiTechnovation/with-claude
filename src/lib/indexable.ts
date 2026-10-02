@@ -99,7 +99,8 @@ export const PRIVATE_PATH_PREFIXES = ['/me/', '/api/'] as const;
 /**
  * True when a path must never appear in the sitemap, whatever is in it.
  *
- * Takes the path with its trailing slash, as `@astrojs/sitemap` supplies it.
+ * Takes the path with its trailing slash, the form every route has under
+ * `trailingSlash: 'always'` and the form `src/pages/sitemap.xml.ts` passes in.
  */
 export function isPrivatePath(path: string): boolean {
   const normalised = path.endsWith('/') ? path : `${path}/`;
