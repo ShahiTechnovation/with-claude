@@ -14,7 +14,7 @@ import ProjectLogo from '@/components/ProjectLogo.astro';
 import EventBadge from './EventBadge.astro';
 import Icon from './Icon.astro';
 import type { PublicProjectCard } from '@/server/public/projects';
-import { artifactAction, buildStatusLabel, categoryLabel } from '@/lib/project-display';
+import { artifactAction, categoryLabel } from '@/lib/project-display';
 
 interface Props {
   project: PublicProjectCard;
@@ -25,7 +25,6 @@ interface Props {
 
 const { project, eager = false, level = 'h3' } = Astro.props;
 const Heading = level;
-const status = buildStatusLabel(project.buildStatus);
 const actions = [
   artifactAction('live', project.links.live),
   artifactAction('repo', project.links.repo),
@@ -52,12 +51,6 @@ const eventCity = project.event?.city?.name;
         <span class="meta-chip" title="Event city">
           <Icon name="pin" size={12} />
           {eventCity}
-        </span>
-      )}
-      {status && (
-        <span class="meta-chip meta-chip--status" title="Self-reported by the team">
-          {status}
-          <span class="visually-hidden"> (self-reported)</span>
         </span>
       )}
     </div>
