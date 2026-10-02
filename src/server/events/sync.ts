@@ -664,6 +664,16 @@ export async function syncSource(source: EventSource, db: AnyDatabase): Promise<
       .where(eq(schema.eventSourceRecords.id, row.recordId));
   }
 
+  // Events promoted before end times were stored never pass through promote() again; fill them with its guards.
+  await db.execute(sql`
+    update events e
+       set end_time = (r.ends_at at time zone 'Asia/Kolkata')::time, updated_at = ${now}
+      from event_source_records r
+     where r.event_id = e.id and r.source_id = ${sourceRow.id} and r.state = 'promoted'
+       and e.source_id = ${sourceRow.id} and e.content_authority <> 'baserow' and e.end_time is null
+       and (r.ends_at at time zone 'Asia/Kolkata')::date = e.date
+       and (r.ends_at at time zone 'Asia/Kolkata')::time > e.start_time`);
+
   /**
    * ── PHASE 5: WHO RAN THEM ────────────────────────────────────────────────
    *
@@ -744,7 +754,10 @@ export async function syncSource(source: EventSource, db: AnyDatabase): Promise<
   // about the events it did not mention, and acting on it would cancel them.
   if (result.complete) {
     const missing = existingRows.filter(
-      (row) => !seenExternalIds.includes(row.externalId) && row.state !== 'withdrawn',
+      (row) =>
+        !seenExternalIds.includes(row.externalId) &&
+        !result.unreadable?.includes(row.externalId) &&
+        row.state !== 'withdrawn',
     );
     for (const row of missing) {
       await db
@@ -840,12 +853,16 @@ async function promote(options: {
     timeZone: 'Asia/Kolkata',
     year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
-  }).formatToParts(event.startsAt);
-  const part = (type: string) => ist.find((p) => p.type === type)?.value ?? '00';
-  const date = `${part('year')}-${part('month')}-${part('day')}`;
-  // `en-CA` renders midnight as `24`; Postgres `time` will not accept it.
-  const hour = part('hour') === '24' ? '00' : part('hour');
-  const startTime = `${hour}:${part('minute')}:${part('second')}`;
+  });
+  const wallClock = (instant: Date) => {
+    const parts = ist.formatToParts(instant);
+    const part = (type: string) => parts.find((p) => p.type === type)?.value ?? '00';
+    // `en-CA` renders midnight as `24`; Postgres `time` will not accept it.
+    const hour = part('hour') === '24' ? '00' : part('hour');
+    return { date: `${part('year')}-${part('month')}-${part('day')}`, time: `${hour}:${part('minute')}:${part('second')}` };
+  };
+  const { date, time: startTime } = wallClock(event.startsAt);
+  const end = event.endsAt ? wallClock(event.endsAt) : null;
 
   const values = {
     sourceId,
@@ -855,6 +872,8 @@ async function promote(options: {
     cityId,
     date,
     startTime,
+    // `end_time` is a time on `date`: a date-only event fills the day, and a later-day end is left out.
+    endTime: event.dateOnly ? '23:59:59' : end && end.date === date && end.time > startTime ? end.time : null,
     /**
      * `venueName` is NOT NULL and the feed frequently has no venue — the
      * registrant-only events say "Check event page for more details."

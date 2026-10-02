@@ -53,6 +53,8 @@ export interface NormalizedEvent {
 
   startsAt: Date;
   endsAt?: Date;
+  /** The source gave a date with no time of day: the event is that whole day, from `startsAt`. */
+  dateOnly?: boolean;
   /** An IANA zone, only if the source actually names one. Never guessed. */
   timezone?: string;
 
@@ -83,6 +85,8 @@ export type FetchResult =
   | {
       ok: true;
       events: NormalizedEvent[];
+      /** Ids the feed lists, not as cancelled, but the source could not read. Never withdrawn as absent. */
+      unreadable?: string[];
       /**
        * TRUE ONLY IF THIS IS THE WHOLE CALENDAR.
        *

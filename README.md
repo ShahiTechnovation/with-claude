@@ -89,7 +89,17 @@ same separation they have in production:
 `npm test` needs none of it: the database tests run against PGlite, which is PostgreSQL compiled
 to WebAssembly and running in-process, so there is no server, no credential and no Docker.
 
-Node 20+ (CI uses 22).
+Node 20+ (CI uses 24).
+
+### Checks
+
+CI (`.github/workflows/ci.yml`) runs on every pull request and every push to `main`:
+
+1. `npm ci`
+2. `npm run build`. It type-checks with `astro check` first and builds from the TypeScript record, so it needs no database and no secrets.
+3. `npx vitest run --maxWorkers=2 --minWorkers=1`
+
+`tests/equivalence-neon.test.ts` isn't part of CI, because it needs a live Neon credential. It runs only when you name it.
 
 ## The governance model
 

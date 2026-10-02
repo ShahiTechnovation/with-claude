@@ -11,11 +11,11 @@
  *     source of truth for the whole of Phase 1. This is a copy into a database
  *     that nothing public reads yet.
  *
- *  2. IT DOES NOT INVENT A TIMESTAMP. The record has no `createdAt` on
- *     anything, so almost every `created_at` here stays NULL. The two
- *     exceptions are evidenced: an event was created no later than the day it
- *     was held, and the Impact Lab projects and their builders came off a
- *     submission form on a date the repository states. Everything else is left
+ *  2. IT DOES NOT INVENT A TIMESTAMP. Almost every `created_at` here stays
+ *     NULL. The exceptions are evidenced: an event was created no later than
+ *     the day it was held, a project carries the date the record states for
+ *     it, and the Impact Lab builders came off a submission form on a date the
+ *     repository states. Everything else is left
  *     null, because a guessed date would show up in the activity feed as
  *     activity that never happened.
  *
@@ -815,14 +815,8 @@ export async function importRecords(
       ? resolve(eventIdBySlug, project.builtAtEventSlug, `project ${project.slug} event`)
       : null;
 
-    /**
-     * An Impact Lab project was submitted on the day of the lab — the record
-     * says so on every one of these entries ("Submitted at Bhopal Impact Lab ·
-     * 23 Aug 2026"). Anything built elsewhere has no evidenced date and gets
-     * none.
-     */
-    const createdAt =
-      project.builtAtEventSlug === IMPACT_LAB_EVENT_SLUG ? impactLabSubmittedAt : null;
+    // Copied, never derived, so both sources carry the same date.
+    const createdAt = project.createdAt ? istInstant(project.createdAt) : null;
 
     const values = {
       slug: project.slug,
