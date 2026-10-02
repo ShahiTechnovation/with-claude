@@ -28,7 +28,7 @@
  * archives anything.
  */
 import { and, eq, inArray, lt, or, sql } from 'drizzle-orm';
-import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
+import type { PgDatabase, PgQueryResultHKT, PgUpdateSetSource } from 'drizzle-orm/pg-core';
 import * as schema from '../../../../db/schema';
 import { BaserowError } from './client';
 import { configuredTables, tableIdOf, tableKeyFor, type BaserowConfig } from './config';
@@ -126,15 +126,28 @@ async function finish(db: AnyDatabase, job: Job, now: Date) {
     .where(eq(schema.integrationJobs.id, job.id));
 }
 
+/** Back to pending. A newer pending job for the same row re-reads it anyway, so a clash with one finishes this job. */
+async function requeue(db: AnyDatabase, job: Job, set: PgUpdateSetSource<typeof schema.integrationJobs>, now: Date) {
+  try {
+    await db
+      .update(schema.integrationJobs)
+      .set({ ...set, status: 'pending', leaseUntil: null, updatedAt: now })
+      .where(eq(schema.integrationJobs.id, job.id));
+  } catch (error) {
+    if ((error as { cause?: { constraint?: string } }).cause?.constraint !== 'integration_jobs_pending_dedupe') throw error;
+    await finish(db, job, now);
+  }
+}
+
 async function fail(db: AnyDatabase, job: Job, error: string, retryable: boolean, now: Date) {
   const exhausted = job.attempts >= job.maxAttempts;
+  if (retryable && !exhausted) {
+    await requeue(db, job, { lastError: error, runAfter: new Date(now.getTime() + retryDelayMs(job.attempts)) }, now);
+    return;
+  }
   await db
     .update(schema.integrationJobs)
-    .set(
-      retryable && !exhausted
-        ? { status: 'pending', leaseUntil: null, lastError: error, runAfter: new Date(now.getTime() + retryDelayMs(job.attempts)), updatedAt: now }
-        : { status: retryable ? 'dead' : 'failed', leaseUntil: null, lastError: error, finishedAt: now, updatedAt: now },
-    )
+    .set({ status: retryable ? 'dead' : 'failed', leaseUntil: null, lastError: error, finishedAt: now, updatedAt: now })
     .where(eq(schema.integrationJobs.id, job.id));
 }
 
@@ -270,10 +283,7 @@ export async function runQueue(
     for (const job of jobs) {
       if (Date.now() >= deadline - 500) {
         // Out of time: hand the lease back rather than letting it expire.
-        await db
-          .update(schema.integrationJobs)
-          .set({ status: 'pending', leaseUntil: null, attempts: sql`${schema.integrationJobs.attempts} - 1`, updatedAt: new Date() })
-          .where(eq(schema.integrationJobs.id, job.id));
+        await requeue(db, job, { attempts: sql`${schema.integrationJobs.attempts} - 1` }, new Date());
         continue;
       }
       await processJob(db, source, config, job, counts);
