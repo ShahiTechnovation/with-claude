@@ -54,7 +54,7 @@ const assetMeta = !isRemote && (logo.kind === 'logo' || logo.kind === 'cover') ?
 // An asset key that no longer resolves falls back like a broken image.
 const effective: LogoSource =
   !isRemote && (logo.kind === 'logo' || logo.kind === 'cover') && !assetMeta
-    ? { kind: 'placeholder', variant: logo.kind === 'placeholder' ? logo.variant : 0 }
+    ? { kind: 'placeholder', variant: 0 }
     : logo;
 const favicon = effective.kind === 'logo' && effective.origin === 'favicon';
 const faviconMax = favicon ? Math.min(px * 0.7, Math.max(16, (effective.width ?? 32) * 2)) : undefined;
