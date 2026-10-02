@@ -580,6 +580,27 @@ describe('the sync', () => {
     expect(await eventRow('evt-unread')).toMatchObject({ status: 'published', canceledAt: null });
   });
 
+  it('still withdraws an unreadable event that the feed marks cancelled', async () => {
+    const feed = (...lines: string[]) =>
+      [
+        'BEGIN:VCALENDAR', 'BEGIN:VEVENT', 'UID:evt-unread-off@events.lu.ma', 'SUMMARY:Bhopal | Claude Morning', ...lines,
+        'LOCATION:Bhopal, Madhya Pradesh, India', 'END:VEVENT', 'END:VCALENDAR',
+      ].join('\r\n');
+    let body = feed('DTSTART:20261211T043000Z');
+    vi.stubGlobal('fetch', async () => new Response(body, { headers: { 'content-type': 'text/calendar' } }));
+    try {
+      const source = new LumaIcsSource({ key: 'test:unreadable-cancelled', feedUrl: 'https://calendar.example/feed.ics' });
+      expect(await syncSource(source, db)).toMatchObject({ ok: true, promoted: 1 });
+      body = feed('DTSTART:2026-12-11 10:00', 'STATUS:CANCELLED');
+      expect(await syncSource(source, db)).toMatchObject({ ok: true, withdrawn: 1 });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    const row = await eventRow('evt-unread-off');
+    expect(row).toMatchObject({ status: 'archived', statusOverride: 'cancelled' });
+    expect(row.canceledAt).not.toBeNull();
+  });
+
   it('writes an append-only audit entry for each run', async () => {
     const entries = await db
       .select()

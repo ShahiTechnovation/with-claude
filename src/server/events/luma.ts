@@ -37,7 +37,7 @@
  * `REFRESH-INTERVAL:PT12H`.
  */
 import { parseIcs, parseIcsDate, text, type IcsEvent } from './ics';
-import type { EventSource, FetchResult, NormalizedEvent } from './source';
+import { isCancelledStatus, type EventSource, type FetchResult, type NormalizedEvent } from './source';
 
 /** The calendar this community actually runs on. */
 export const CLAUDE_COMMUNITY_CALENDAR_ID = 'cal-TOpA5LAFfuDeFpu';
@@ -266,8 +266,10 @@ export class LumaIcsSource implements EventSource {
     for (const raw of calendar.events) {
       const normalized = normalizeLumaIcsEvent(raw);
       if (normalized) events.push(normalized);
-      else unreadable.push(lumaExternalId(text(raw, 'UID') ?? ''));
+      // Kept from withdrawal, unless the feed itself says it is cancelled.
+      else if (!isCancelledStatus(text(raw, 'STATUS'))) unreadable.push(lumaExternalId(text(raw, 'UID') ?? ''));
     }
+    const unusable = calendar.events.length - events.length;
 
     return {
       ok: true,
@@ -276,7 +278,7 @@ export class LumaIcsSource implements EventSource {
       // The ICS endpoint serves the entire calendar in one response, with no
       // pagination — so absence from this list is meaningful.
       complete: true,
-      note: `ics ${events.length} events${unreadable.length ? `, ${unreadable.length} unusable` : ''}${
+      note: `ics ${events.length} events${unusable ? `, ${unusable} unusable` : ''}${
         calendar.refreshInterval ? `, refresh ${calendar.refreshInterval}` : ''
       }`,
     };
