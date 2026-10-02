@@ -32,10 +32,23 @@ import { ingestionMode } from '@/server/events/registry';
 import { sourceHealth } from '@/server/events/sync';
 import { privyConfig } from '@/server/auth/privy';
 import { baserowSettings } from '@/server/integrations/baserow/config';
+import { secretMatches } from '@/server/integrations/baserow/webhook';
+import { json } from '@/server/http/guard';
 
 export const prerender = false;
 
-export const GET: APIRoute = async () => {
+export const GET: APIRoute = async ({ request }) => {
+  const secret = process.env.CRON_SECRET;
+  // Anyone gets up or down from a bare ping, so monitors still see an outage; the details need the cron bearer.
+  if (!secret || !secretMatches(request.headers.get('authorization'), `Bearer ${secret}`)) {
+    try {
+      await pooledDb().execute(sql`select 1`);
+      return json({ ok: true }, 200);
+    } catch {
+      return json({ ok: false }, 503);
+    }
+  }
+
   const mode = ingestionMode();
 
   /**

@@ -236,17 +236,9 @@ export function text(event: IcsEvent, name: string): string | undefined {
  *   `20251009T161500`   local to the `TZID` parameter, or floating if none.
  *   `20251009`          a date, for an all-day event.
  *
- * ── THE HONEST LIMIT ─────────────────────────────────────────────────────
- *
- * A `TZID` cannot be resolved to an offset without a timezone database, and
- * §0 rules out adding one. So a non-UTC value is read AS IF UTC and the zone
- * is returned alongside it, unresolved, for the caller to record. That is a
- * real inaccuracy and it is deliberately not hidden: `zone` being set while
- * `utc` is false is the signal that the instant is approximate.
- *
- * It costs nothing on the feed this actually runs against — all 317 Luma
- * events carry `Z` — and it is the reason `assertPublishable`-style
- * promotion refuses to invent a display time it does not trust.
+ * A `TZID` is resolved with `Intl`, which carries the zone database. A
+ * floating time, or a TZID Intl does not know, is read as IST. A date is the
+ * whole day in IST: it starts at midnight IST, and `dateOnly` says so.
  */
 export interface IcsInstant {
   date: Date;
@@ -254,7 +246,7 @@ export interface IcsInstant {
   utc: boolean;
   /** True for a date-only value, which has no time of day at all. */
   dateOnly: boolean;
-  /** The declared `TZID`, when there was one and it was not UTC. */
+  /** The declared `TZID`, when there was one, Intl knows it, and it is not UTC. */
   zone?: string;
 }
 
@@ -265,25 +257,42 @@ export function parseIcsDate(property: IcsProperty | undefined): IcsInstant | nu
   const dateOnly = /^(\d{4})(\d{2})(\d{2})$/.exec(value);
   if (dateOnly) {
     const [, y, m, d] = dateOnly;
-    const date = new Date(Date.UTC(Number(y), Number(m) - 1, Number(d)));
-    return Number.isNaN(date.getTime()) ? null : { date, utc: false, dateOnly: true };
+    const day = Date.UTC(Number(y), Number(m) - 1, Number(d));
+    return Number.isNaN(day) ? null : { date: new Date(inZone(day, 'Asia/Kolkata')!), utc: false, dateOnly: true };
   }
 
   const dateTime = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z)?$/.exec(value);
   if (!dateTime) return null;
   const [, y, m, d, hh, mm, ss, z] = dateTime;
 
-  const date = new Date(
-    Date.UTC(Number(y), Number(m) - 1, Number(d), Number(hh), Number(mm), Number(ss)),
-  );
-  if (Number.isNaN(date.getTime())) return null;
+  const wallClock = Date.UTC(Number(y), Number(m) - 1, Number(d), Number(hh), Number(mm), Number(ss));
+  if (Number.isNaN(wallClock)) return null;
 
   const utc = z === 'Z';
   const tzid = property.params.TZID;
-  return {
-    date,
-    utc,
-    dateOnly: false,
-    zone: utc ? undefined : tzid && tzid.toUpperCase() !== 'UTC' ? tzid : undefined,
+  if (utc || tzid?.toUpperCase() === 'UTC') return { date: new Date(wallClock), utc, dateOnly: false };
+  const declared = tzid ? inZone(wallClock, tzid) : null;
+  // Floating or an unknown TZID reads as IST, claiming no zone: a declared zone counts as an India signal.
+  if (declared === null) return { date: new Date(inZone(wallClock, 'Asia/Kolkata')!), utc, dateOnly: false };
+  return { date: new Date(declared), utc, dateOnly: false, zone: tzid };
+}
+
+/** A wall-clock time (its fields given as UTC) in an IANA zone, as epoch ms. Null for an unknown zone. */
+function inZone(wallClock: number, timeZone: string): number | null {
+  let format: Intl.DateTimeFormat;
+  try {
+    format = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hourCycle: 'h23',
+      year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric',
+    });
+  } catch {
+    return null;
+  }
+  const offset = (instant: number) => {
+    const p = Object.fromEntries(format.formatToParts(instant).map(({ type, value }) => [type, Number(value)]));
+    return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - instant;
   };
+  // Second pass with the offset at the first guess, which settles a guess that crossed a DST change.
+  return wallClock - offset(wallClock - offset(wallClock));
 }
