@@ -64,7 +64,7 @@ describe('the homepage at /', () => {
       'NextEvent',
       'CityAtlas',
       'BuilderIndex',
-      'ProjectArchive',
+      'LatestEventProjects',
       'StoryStrip',
       'WithIndex',
       'Manifesto',
