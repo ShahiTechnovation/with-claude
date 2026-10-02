@@ -1,0 +1,358 @@
+---
+/**
+ * LATEST EVENT PROJECTS — a curated carousel.
+ *
+ * Shows up to 4 projects from the most recent past event that has any
+ * published projects. Falls back gracefully if no such event exists.
+ * Redirects the user to projects.withclaude.in for the full archive.
+ */
+import { Image } from 'astro:assets';
+import type { RecordSelectors } from '@/data/selectors';
+import { resolveProjectCover } from '@/lib/project-cover';
+import { formatName } from '@/lib/status';
+import { formatDateCompact } from '@/lib/datetime';
+
+interface Props {
+  selectors: RecordSelectors;
+}
+
+const { selectors } = Astro.props;
+
+const LIMIT = 4;
+
+// Walk backwards through past events to find the first one with projects.
+const pastEvents = selectors.pastEvents();
+let sourceEvent = undefined;
+let featuredProjects: ReturnType<typeof selectors.projectsFromEvent> = [];
+
+for (const event of pastEvents) {
+  const projects = selectors.projectsFromEvent(event.slug);
+  if (projects.length > 0) {
+    sourceEvent = event;
+    featuredProjects = projects.slice(0, LIMIT);
+    break;
+  }
+}
+
+const entries = featuredProjects.map((project) => ({
+  project,
+  city: selectors.cityName(project.citySlug),
+  makers: selectors.builderNamesOf(project),
+  cover: resolveProjectCover(project.image),
+}));
+
+const isEmpty = entries.length === 0;
+---
+
+<div class="lep">
+  <div class="lep-head">
+    <div class="lep-title-block">
+      <p class="eyebrow">Projects</p>
+      <h2 id="projects-heading" class="lep-heading">Made with Claude</h2>
+      {sourceEvent && (
+        <p class="lep-source">
+          From <strong>{sourceEvent.shortTitle ?? sourceEvent.title}</strong>
+          {' '}·{' '}
+          <time datetime={sourceEvent.date}>{formatDateCompact(sourceEvent.date)}</time>
+        </p>
+      )}
+    </div>
+    <a
+      href="https://projects.withclaude.in"
+      class="lep-cta btn"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      <span>See all projects</span>
+      <span class="arrow" aria-hidden="true">→</span>
+    </a>
+  </div>
+
+  {isEmpty ? (
+    <p class="lep-empty">No projects published yet — check back after the next event.</p>
+  ) : (
+    <div class="lep-track-wrap">
+      <ul class="lep-track" role="list">
+        {entries.map((entry, i) => (
+          <li class="lep-card" data-reveal style={`--reveal-delay:${i * 60}ms`}>
+            <a href={`/projects/${entry.project.slug}`} class="lep-card-link">
+              <span class="lep-card-cover">
+                {entry.cover.kind === 'blob' ? (
+                  <img
+                    src={entry.cover.blobUrl}
+                    alt=""
+                    loading={i === 0 ? 'eager' : 'lazy'}
+                    decoding="async"
+                    class="lep-cover-img"
+                  />
+                ) : entry.cover.kind === 'asset' ? (
+                  <Image
+                    src={entry.cover.imageMetadata!}
+                    alt=""
+                    widths={[400, 720]}
+                    sizes="340px"
+                    loading={i === 0 ? 'eager' : 'lazy'}
+                    decoding="async"
+                    class="lep-cover-img"
+                  />
+                ) : (
+                  <span class="lep-cover-placeholder" aria-hidden="true" />
+                )}
+              </span>
+
+              <span class="lep-card-top">
+                <span class="label lep-category">{formatName(entry.project.category)}</span>
+                <span class="label lep-city">{entry.city}</span>
+              </span>
+
+              <span class="lep-card-title">{entry.project.title}</span>
+
+              {entry.project.summary && (
+                <span class="lep-card-summary">{entry.project.summary}</span>
+              )}
+
+              {entry.makers.length > 0 && (
+                <span class="lep-card-makers">
+                  {entry.makers.map((m) => m.name).join(' · ')}
+                </span>
+              )}
+            </a>
+          </li>
+        ))}
+
+        <!-- Ghost "See all" card at the end of the track -->
+        <li class="lep-card lep-card--ghost" aria-hidden="true">
+          <a
+            href="https://projects.withclaude.in"
+            class="lep-ghost-link"
+            target="_blank"
+            rel="noopener noreferrer"
+            tabindex="-1"
+          >
+            <span class="lep-ghost-inner">
+              <span class="lep-ghost-label">See all projects</span>
+              <span class="lep-ghost-arrow">→</span>
+            </span>
+          </a>
+        </li>
+      </ul>
+    </div>
+  )}
+
+  <!-- Mobile-only bottom CTA -->
+  <a
+    href="https://projects.withclaude.in"
+    class="lep-cta-mobile btn"
+    target="_blank"
+    rel="noopener noreferrer"
+  >
+    <span>See all projects</span>
+    <span class="arrow" aria-hidden="true">→</span>
+  </a>
+</div>
+
+<style>
+  .lep {
+    display: grid;
+    gap: var(--s-8);
+  }
+
+  .lep-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--s-6);
+    flex-wrap: wrap;
+  }
+
+  .lep-title-block {
+    display: grid;
+    gap: var(--s-2);
+  }
+
+  .lep-heading {
+    font-family: var(--font-display);
+    font-size: clamp(1.9rem, 5vw, 3.4rem);
+    font-weight: 600;
+    font-variation-settings: 'SOFT' 0, 'WONK' 1;
+    line-height: 1.02;
+    letter-spacing: -0.035em;
+  }
+
+  .lep-source {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: var(--track-meta);
+    color: var(--ink-3);
+    text-transform: uppercase;
+  }
+
+  .lep-cta {
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 47.99em) {
+    .lep-cta { display: none; }
+  }
+
+  .lep-cta-mobile { display: none; }
+
+  @media (max-width: 47.99em) {
+    .lep-cta-mobile { display: inline-flex; }
+  }
+
+  .lep-track-wrap {
+    overflow-x: auto;
+    overflow-y: visible;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+  }
+
+  .lep-track-wrap::-webkit-scrollbar { display: none; }
+
+  .lep-track {
+    display: flex;
+    gap: var(--s-6);
+    width: max-content;
+    padding-bottom: var(--s-2);
+  }
+
+  .lep-card {
+    flex: 0 0 clamp(240px, 30vw, 320px);
+    scroll-snap-align: start;
+  }
+
+  .lep-card-link {
+    display: grid;
+    gap: var(--s-2);
+    text-decoration: none;
+    color: var(--ink);
+    position: relative;
+  }
+
+  .lep-card-cover {
+    display: block;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    border-radius: 2px;
+    margin-bottom: var(--s-3);
+    background: var(--surface-raised, #f0ebe3);
+  }
+
+  .lep-cover-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform var(--dur-2, 0.25s) var(--ease-out, ease-out);
+  }
+
+  .lep-card-link:hover .lep-cover-img { transform: scale(1.04); }
+
+  .lep-cover-placeholder {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: var(--surface-sunk, #e8e2d8);
+  }
+
+  .lep-card-top {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--s-3);
+    padding-bottom: var(--s-2);
+    border-bottom: var(--border-rule) solid var(--ink);
+  }
+
+  .lep-category { color: var(--clay-deep); }
+  .lep-city { color: var(--ink-3); }
+
+  .lep-card-title {
+    margin-top: var(--s-2);
+    font-family: var(--font-display);
+    font-size: var(--t-h3);
+    font-weight: 600;
+    font-variation-settings: 'SOFT' 0, 'WONK' 1;
+    letter-spacing: -0.02em;
+    line-height: var(--lh-heading);
+    transition: color var(--dur-1, 0.15s) var(--ease-out, ease-out);
+  }
+
+  .lep-card-link:hover .lep-card-title { color: var(--clay-deep); }
+
+  .lep-card-title::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+  }
+
+  .lep-card-summary {
+    font-size: var(--t-small);
+    color: var(--ink-2);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .lep-card-makers {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    letter-spacing: 0.06em;
+    color: var(--ink-3);
+  }
+
+  .lep-card--ghost {
+    flex: 0 0 clamp(160px, 18vw, 220px);
+    display: flex;
+    align-items: stretch;
+  }
+
+  .lep-ghost-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    text-decoration: none;
+    border: var(--border-hair) solid var(--rule);
+    border-radius: 2px;
+    transition: border-color var(--dur-1) var(--ease-out), background var(--dur-1) var(--ease-out);
+  }
+
+  .lep-ghost-link:hover {
+    border-color: var(--ink);
+    background: var(--surface-raised, #f8f4ee);
+  }
+
+  .lep-ghost-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--s-3);
+    padding: var(--s-6);
+    text-align: center;
+  }
+
+  .lep-ghost-label {
+    font-family: var(--font-display);
+    font-size: var(--t-small);
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .lep-ghost-arrow {
+    font-size: 1.4rem;
+    color: var(--clay-deep);
+    transition: transform var(--dur-1) var(--ease-out);
+  }
+
+  .lep-ghost-link:hover .lep-ghost-arrow { transform: translateX(4px); }
+
+  .lep-empty {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    color: var(--ink-3);
+    letter-spacing: var(--track-meta);
+  }
+</style>

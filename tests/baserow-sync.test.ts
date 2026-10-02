@@ -387,6 +387,79 @@ describe('retries and failures', () => {
     expect(counts.failed).toBe(0);
   });
 
+  it('retrying two failed jobs for one row queues the newest and finishes the other', async () => {
+    const job = (minutesAgo: number, status: 'failed' | 'dead') => ({
+      provider: 'baserow' as const,
+      kind: 'row.sync',
+      tableId: T.projects,
+      rowId: 3,
+      dedupeKey: `row.sync:${T.projects}:3`,
+      status,
+      attempts: 6,
+      lastError: 'upstream 503',
+      createdAt: new Date(Date.now() - minutesAgo * 60_000),
+      finishedAt: new Date(),
+    });
+    const [older] = await db.insert(schema.integrationJobs).values(job(10, 'dead')).returning({ id: schema.integrationJobs.id });
+    const [newer] = await db.insert(schema.integrationJobs).values(job(1, 'failed')).returning({ id: schema.integrationJobs.id });
+    // A different row's failure is retried as before.
+    await db.insert(schema.integrationJobs).values({ ...job(5, 'failed'), rowId: 9, dedupeKey: `row.sync:${T.projects}:9` });
+
+    // Both for one row going to 'pending' in one statement broke the dedupe index.
+    expect(await retryFailed(db)).toBe(2);
+
+    const jobs = await db.select().from(schema.integrationJobs);
+    const statusOf = (id: string) => jobs.find((j) => j.id === id)!.status;
+    expect(statusOf(newer.id)).toBe('pending');
+    expect(statusOf(older.id)).toBe('done');
+    expect(jobs.filter((j) => j.status === 'pending')).toHaveLength(2);
+    expect(jobs.find((j) => j.id === newer.id)).toMatchObject({ attempts: 0, lastError: null, finishedAt: null });
+    // Finished, but not passed off as a job that ran and succeeded.
+    expect(jobs.find((j) => j.id === older.id)!.lastError).toBe('superseded');
+
+    // A second Retry has nothing left to do.
+    expect(await retryFailed(db)).toBe(0);
+  });
+
+  /**
+   * A pending job committed for the same row while Retry's UPDATE is running
+   * (a webhook, or a worker handing a lease back) is invisible to its NOT
+   * EXISTS and breaks the dedupe index. The statement is run once more, and
+   * the second time it sees that job.
+   */
+  it('Retry runs once more when a job queued mid-statement clashes with it', async () => {
+    await enqueue(db, config, [{ kind: 'row.sync', tableId: T.projects, rowId: 3 }]);
+    await db.update(schema.integrationJobs).set({ status: 'failed', lastError: 'upstream 503' });
+
+    /** A database whose next `update` fails the way the dedupe index would. */
+    const failingOnce = (error: Error) => {
+      let thrown = false;
+      return new Proxy(db, {
+        get(target, property, receiver) {
+          if (property === 'update' && !thrown) {
+            thrown = true;
+            return () => {
+              throw error;
+            };
+          }
+          const value = Reflect.get(target, property, receiver);
+          return typeof value === 'function' ? value.bind(target) : value;
+        },
+      });
+    };
+    const clash = new Error('Failed query: update "integration_jobs" …', {
+      cause: Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' }),
+    });
+
+    expect(await retryFailed(failingOnce(clash))).toBe(1);
+    const [job] = await db.select().from(schema.integrationJobs);
+    expect(job.status).toBe('pending');
+
+    // Anything else is a real fault and is not swallowed.
+    await db.update(schema.integrationJobs).set({ status: 'failed' });
+    await expect(retryFailed(failingOnce(new Error('connection reset')))).rejects.toThrow('connection reset');
+  });
+
   it('a job whose worker died is reclaimed after its lease expires', async () => {
     await enqueue(db, config, [{ kind: 'row.sync', tableId: T.cities, rowId: 1 }]);
     const [leased] = await claim(db, 1);

@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createTestDatabase, type TestDatabase } from '../db/testing';
 import * as schema from '../db/schema';
@@ -303,6 +303,34 @@ describe('the sync', () => {
     expect(events[0].startTime).toBe('10:00:00');
   });
 
+  it("stores Luma's venue placeholder as no venue", async () => {
+    const source = new ManualEventSource(
+      [event({ externalId: 'evt-placeholder', location: 'CHECK EVENT PAGE FOR MORE DETAILS.' })],
+      { key: 'test:placeholder', complete: true },
+    );
+    expect(await syncSource(source, db)).toMatchObject({ ok: true, promoted: 1 });
+
+    const [row] = await db
+      .select({ venueName: schema.events.venueName, venuePrivate: schema.events.venuePrivate })
+      .from(schema.events)
+      .where(eq(schema.events.externalId, 'evt-placeholder'));
+    expect(row).toEqual({ venueName: 'Venue shared with registrants', venuePrivate: true });
+  });
+
+  it('stores a bare event link as no venue', async () => {
+    const source = new ManualEventSource(
+      [event({ externalId: 'evt-link-only', location: 'https://luma.com/event/evt-link-only' })],
+      { key: 'test:link-only', complete: true },
+    );
+    expect(await syncSource(source, db)).toMatchObject({ ok: true, promoted: 1 });
+
+    const [row] = await db
+      .select({ venueName: schema.events.venueName, venuePrivate: schema.events.venuePrivate })
+      .from(schema.events)
+      .where(eq(schema.events.externalId, 'evt-link-only'));
+    expect(row).toEqual({ venueName: 'Venue shared with registrants', venuePrivate: true });
+  });
+
   it('stores the end time on the IST wall clock, and none when it is not on the same day', async () => {
     const source = new ManualEventSource(
       [
@@ -558,6 +586,48 @@ describe('the sync', () => {
       .where(eq(schema.eventSources.key, key));
     expect(sourceRow.lastSyncStatus).toBe('failed');
     expect(sourceRow.lastSyncMessage).toBe('TIMEOUT');
+  });
+
+  it('retries a promotion the database failed, instead of filing it as unchanged', async () => {
+    const source = new ManualEventSource(
+      [
+        event({
+          externalId: 'evt-retry',
+          title: 'Bhopal | Retry Night',
+          registrationUrl: 'https://luma.com/retry-test',
+        }),
+      ],
+      { key: 'test:retry', complete: true },
+    );
+
+    // A database blip mid-run: every insert into `events` fails.
+    await db.execute(sql`
+      CREATE FUNCTION refuse_event() RETURNS trigger LANGUAGE plpgsql
+      AS $$ BEGIN RAISE EXCEPTION 'blip'; END $$
+    `);
+    await db.execute(sql`
+      CREATE TRIGGER refuse_event BEFORE INSERT ON events
+      FOR EACH ROW EXECUTE FUNCTION refuse_event()
+    `);
+    try {
+      await expect(syncSource(source, db)).rejects.toThrow();
+    } finally {
+      await db.execute(sql`DROP TRIGGER refuse_event ON events`);
+      await db.execute(sql`DROP FUNCTION refuse_event()`);
+    }
+
+    // The feed has not changed since, so only a retry can publish the event.
+    await syncSource(source, db);
+    const [published] = await db
+      .select()
+      .from(schema.events)
+      .where(eq(schema.events.externalId, 'evt-retry'));
+    expect(published?.status).toBe('published');
+    const [record] = await db
+      .select()
+      .from(schema.eventSourceRecords)
+      .where(eq(schema.eventSourceRecords.externalId, 'evt-retry'));
+    expect(record.eventId).toBe(published.id);
   });
 
   it('does not withdraw an event the feed still lists but can no longer read', async () => {

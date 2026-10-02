@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { assertNoPublicSecrets } from '../db/env';
 import { forms } from '../src/data/forms';
+import { safeJsonLd } from '../src/lib/seo';
 
 /**
  * The two promises this file exists to keep.
@@ -58,6 +59,23 @@ function filesUnder(dir: string, extensions: string[]): string[] {
   walk(dir);
   return out;
 }
+
+describe('inline JSON cannot close its own script element', () => {
+  it('escapes every JSON payload a component writes with set:html', () => {
+    // A feed-supplied event title containing `</script>` would end the element.
+    const raw = filesUnder('src', ['.astro']).filter((file) =>
+      /set:html=\{\s*JSON\.stringify\(/.test(readFileSync(file, 'utf8')),
+    );
+    expect(raw).toEqual([]);
+  });
+
+  it('round-trips a hostile title without emitting a closing tag', () => {
+    const value = { title: 'x</script><img src=x onerror=alert(1)>' };
+    const json = safeJsonLd(value);
+    expect(json).not.toMatch(/<\/script/i);
+    expect(JSON.parse(json)).toEqual(value);
+  });
+});
 
 describe('database credentials stay server-side', () => {
   it('refuses to read any secret exposed through a PUBLIC_ variable', () => {

@@ -15,6 +15,7 @@ import { eq } from 'drizzle-orm';
 import type { User } from '@privy-io/node/resources';
 import { createTestDatabase, type TestDatabase } from '../db/testing';
 import * as schema from '../db/schema';
+import { isUniqueViolation } from '../db/errors';
 import { provisionMember, type Member } from '../src/server/auth/member';
 import {
   attemptClaim,
@@ -361,6 +362,29 @@ describe('claiming', () => {
     expect(claims).toHaveLength(1);
   });
 
+  /**
+   * TWO TABS, ONE MEMBER. Both submissions get past any read of "is one
+   * already waiting", so only `profile_claims_one_open_per_member` separates
+   * them. The second is a 409, never an unhandled error.
+   */
+  it('answers 409 to the second of two simultaneous ambiguous claims', async () => {
+    await fixtureBuilder('zz-two-tabs');
+    const claimant = await member('did:privy:zz-two-tabs');
+
+    const results = await Promise.all([
+      attemptClaim(claimant, 'zz-two-tabs', privyUser([]), db),
+      attemptClaim(claimant, 'zz-two-tabs', privyUser([]), db),
+    ]);
+
+    expect(results.filter((r) => r.ok)).toHaveLength(1);
+    expect(results.find((r) => !r.ok)).toEqual({
+      ok: false,
+      status: 409,
+      error: 'You already have a claim waiting on this profile.',
+    });
+    expect(await db.select().from(schema.profileClaims)).toHaveLength(1);
+  });
+
   it('refuses a member who already owns a different record', async () => {
     await fixtureBuilder('zz-first-owned', [
       { label: 'GitHub', url: 'https://github.com/zz-multi' },
@@ -437,6 +461,43 @@ describe('claiming', () => {
       .from(schema.profileClaims)
       .where(eq(schema.profileClaims.status, 'approved'));
     expect(approvedClaims).toHaveLength(1);
+  });
+
+  /**
+   * THE LOSER OF THAT RACE, MADE DETERMINISTIC.
+   *
+   * An approved claim exists but ownership was never written, so every
+   * application check passes and only `profile_claims_one_owner` refuses the
+   * insert. Drizzle wraps the driver's error, and the 23505 is on `.cause`.
+   */
+  it('answers 409 when only the index refuses the claim', async () => {
+    const builderId = await fixtureBuilder('zz-wrapped', [
+      { label: 'GitHub', url: 'https://github.com/zz-wrapped' },
+    ]);
+    const first = await member('did:privy:zz-wrapped-a');
+    const second = await member('did:privy:zz-wrapped-b');
+    await db.insert(schema.profileClaims).values({
+      memberId: first.id,
+      builderId,
+      proofType: 'github_identity',
+      status: 'approved',
+    });
+
+    const result = await attemptClaim(second, 'zz-wrapped', privyUser([githubAccount('zz-wrapped')]), db);
+
+    expect(result).toEqual({ ok: false, status: 409, error: 'This profile has already been claimed.' });
+  });
+
+  it('recognises a unique violation at any depth of wrapping, and nothing else', () => {
+    const driver = Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' });
+    const wrapped = new Error('Failed query: insert into "profile_claims" …', { cause: driver });
+
+    expect(isUniqueViolation(driver)).toBe(true);
+    expect(isUniqueViolation(wrapped)).toBe(true);
+    expect(isUniqueViolation(new Error('outer', { cause: wrapped }))).toBe(true);
+    expect(isUniqueViolation(Object.assign(new Error('fk'), { code: '23503' }))).toBe(false);
+    expect(isUniqueViolation(new Error('plain'))).toBe(false);
+    expect(isUniqueViolation(null)).toBe(false);
   });
 
   /** The index is the real guarantee, so assert it directly too. */

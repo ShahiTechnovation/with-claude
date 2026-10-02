@@ -29,6 +29,7 @@
  */
 import { and, eq, inArray, lt, or, sql } from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT, PgUpdateSetSource } from 'drizzle-orm/pg-core';
+import { isUniqueViolation } from '../../../../db/errors';
 import * as schema from '../../../../db/schema';
 import { BaserowError } from './client';
 import { configuredTables, tableIdOf, tableKeyFor, type BaserowConfig } from './config';
@@ -389,19 +390,52 @@ export async function endRun(db: AnyDatabase, id: string, counts: RunCounts | Re
   if (status === 'ok') await setState(db, 'last-success', { at: new Date().toISOString(), runId: id });
 }
 
-/** Re-queue failed and dead jobs — the admin's "Retry". */
+/**
+ * Re-queue failed and dead jobs — the admin's "Retry".
+ *
+ * A row can have several failed jobs, and `integration_jobs_pending_dedupe`
+ * allows one pending job per row, so sending them all back in one UPDATE broke
+ * the index. Only the newest failure for a row is queued. The others are
+ * finished as superseded, the same answer `requeue()` gives a job that clashes
+ * with a pending one: the pending job re-reads the row anyway.
+ */
 export async function retryFailed(db: AnyDatabase): Promise<number> {
-  const rows = await db
+  const now = new Date();
+  const hasPending = sql`exists (select 1 from integration_jobs j2 where j2.dedupe_key = ${schema.integrationJobs.dedupeKey} and j2.status = 'pending')`;
+
+  const queueNewest = () =>
+    db
+      .update(schema.integrationJobs)
+      .set({ status: 'pending', attempts: 0, runAfter: now, lastError: null, finishedAt: null, updatedAt: now })
+      .where(
+        and(
+          sql`${schema.integrationJobs.id} in (
+            select distinct on (dedupe_key) id from integration_jobs
+             where status in ('failed', 'dead')
+             order by dedupe_key, created_at desc, id desc)`,
+          // Never resurrect a job whose row already has a newer pending job.
+          sql`not ${hasPending}`,
+        ),
+      )
+      .returning({ id: schema.integrationJobs.id });
+
+  // NOT EXISTS reads the statement's snapshot, so a pending job committed while
+  // it runs (a webhook, a worker handing a lease back) still breaks the index.
+  // Run once more: the second snapshot sees that job and leaves its row alone.
+  let rows: { id: string }[];
+  try {
+    rows = await queueNewest();
+  } catch (error) {
+    if (!isUniqueViolation(error)) throw error;
+    rows = await queueNewest();
+  }
+
+  // Marked, so a job finished this way does not read as one that ran and passed.
+  await db
     .update(schema.integrationJobs)
-    .set({ status: 'pending', attempts: 0, runAfter: new Date(), lastError: null, finishedAt: null, updatedAt: new Date() })
-    .where(
-      and(
-        inArray(schema.integrationJobs.status, ['failed', 'dead']),
-        // Never resurrect a job whose row already has a newer pending job.
-        sql`not exists (select 1 from integration_jobs j2 where j2.dedupe_key = ${schema.integrationJobs.dedupeKey} and j2.status = 'pending')`,
-      ),
-    )
-    .returning({ id: schema.integrationJobs.id });
+    .set({ status: 'done', leaseUntil: null, lastError: 'superseded', finishedAt: now, updatedAt: now })
+    .where(and(inArray(schema.integrationJobs.status, ['failed', 'dead']), hasPending));
+
   return rows.length;
 }
 

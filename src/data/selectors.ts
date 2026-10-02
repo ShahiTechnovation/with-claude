@@ -1,6 +1,7 @@
 import { istInstant } from '@/lib/datetime';
 import { cityState, cityStateRank } from '@/lib/city';
 import { lifecycleOf } from '@/lib/status';
+import { displayEvent } from '@/lib/event-display';
 import { leaderboard, standingOf, type LeaderboardEntry, type LeaderboardWindow } from '@/lib/leaderboard';
 import type {
   Ambassador,
@@ -133,7 +134,10 @@ export class RecordSelectors {
     this.ambassadors = rs.ambassadors;
     this.builders = rs.builders;
     this.cities = rs.cities;
-    this.events = rs.events;
+    // The one point both sources pass through, so a feed title or venue is
+    // cleaned once for every page, search and lookup. `rs` keeps the original.
+    const cityNames = new Map(rs.cities.map((city) => [city.slug, city.name]));
+    this.events = rs.events.map((event) => displayEvent(event, cityNames.get(event.citySlug)));
     this.guides = rs.guides;
     this.projects = rs.projects;
     this.stories = rs.stories;
@@ -143,7 +147,7 @@ export class RecordSelectors {
     this.publicBuilders = this.builders.filter((b) => isPublic(b) && b.profileVisibility !== 'unlisted');
     this.publicProjects = publicOnly(rs.projects);
     this.publicStories = publicOnly(rs.stories);
-    this.publicEvents = publicOnly(rs.events);
+    this.publicEvents = publicOnly(this.events);
     this.publicCities = publicOnly(rs.cities);
     this.publicUseCases = publicOnly(rs.useCases);
     this.publicGuides = publicOnly(rs.guides);

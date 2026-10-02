@@ -1,0 +1,50 @@
+/* =========================================================================
+   OFFICIAL DISPLAY FACES — Anthropic Serif Display Light and Anthropic Sans
+   Display Semibold (© Anthropic PBC), subset to Latin. Display cuts: set them
+   at headline sizes only; body copy stays in Inter.
+   ========================================================================= */
+
+@font-face {
+  font-family: 'Anthropic Serif Display';
+  src: url('../assets/fonts/anthropic-serif-display-light.woff2') format('woff2');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* The serif ships no italic, so display italics resolve to Fraunces rather than a faked slant. */
+@font-face {
+  font-family: 'Anthropic Serif Display';
+  src: url('../../node_modules/@fontsource-variable/fraunces/files/fraunces-latin-wonk-italic.woff2')
+    format('woff2');
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Anthropic Sans Display';
+  src: url('../assets/fonts/anthropic-sans-display-semibold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Local stand-ins scaled to the faces above, so the swap does not move the layout. */
+@font-face {
+  font-family: 'Anthropic Serif Display Fallback';
+  src: local('Georgia');
+  size-adjust: 100.12%;
+  ascent-override: 99.13%;
+  descent-override: 25.72%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: 'Anthropic Sans Display Fallback';
+  src: local('Arial');
+  size-adjust: 107.52%;
+  ascent-override: 92.31%;
+  descent-override: 23.95%;
+  line-gap-override: 0%;
+}
