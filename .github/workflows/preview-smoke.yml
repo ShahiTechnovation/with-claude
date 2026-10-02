@@ -1,28 +1,30 @@
 name: Preview smoke
 
-# Vercel reports each deployment back to GitHub. When a preview succeeds, open
-# its core pages in a real browser and fail on what a visitor would hit.
-on: deployment_status
+# Vercel sends a repository_dispatch event when a deployment succeeds. For each
+# preview of the public site, open its core pages in a real browser and fail
+# on what a visitor would hit.
+#
+# GitHub reads a repository_dispatch workflow from the default branch only, so
+# no pull request can change what runs here. A deployment_status workflow is
+# read from the deployed commit instead: on a fork's preview, the fork's copy.
+on:
+  repository_dispatch:
+    types: ['vercel.deployment.success']
 
 permissions:
   contents: read
 
 jobs:
   smoke:
-    # `Preview` is the environment name Vercel uses for a repository linked to
-    # one project. With several projects it is `Preview – <project>`: set the
-    # repository variable PREVIEW_ENVIRONMENT to the public site's name.
+    # Two Vercel projects share this repository: only the public site's previews.
+    # (Field names: github.com/vercel/repository-dispatch, src/data/common.ts.)
     if: >-
-      github.event.deployment_status.state == 'success' &&
-      github.event.deployment.environment == (vars.PREVIEW_ENVIRONMENT || 'Preview')
+      github.event.client_payload.project.name == 'with-claude' &&
+      github.event.client_payload.environment == 'preview'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      # The default branch, not the deployed commit: this job holds the
-      # deployment-protection secret, so it only ever runs the script on main.
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.repository.default_branch }}
 
       - uses: actions/setup-node@v4
         with:
@@ -35,9 +37,14 @@ jobs:
 
       - name: Review the preview
         env:
-          BASE: ${{ github.event.deployment_status.environment_url || github.event.deployment_status.target_url }}
-          # Empty when the secret is not set, and the script then sends no header.
-          EXTRA_HEADERS: 'x-vercel-protection-bypass: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}'
+          BASE: ${{ github.event.client_payload.url }}
+          # Both go to the preview's origin only, never along a redirect. The
+          # cookie Vercel answers the second with is for the preview's host
+          # alone, and it carries redirects within the preview. An unset secret
+          # sends no bypass, and a protected preview then fails as "ended on".
+          EXTRA_HEADERS: |-
+            x-vercel-protection-bypass: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+            x-vercel-set-bypass-cookie: true
           PAGES: /,/events/,/cities/,/projects/,/about/
           OUT: shots/preview
           STRICT: '1'
