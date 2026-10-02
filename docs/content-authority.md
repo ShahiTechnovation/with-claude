@@ -13,9 +13,15 @@ the same row, one of them will eventually overwrite the other.
 | Luma / ICS ingested events | The existing feed, until an organiser adopts the event | Existing `syncSource()` | `promote()` and `withdrawEvent()` skip `content_authority = 'baserow'` rows; the feed's view stays in `event_source_records` for review |
 | Homepage featured selection | Baserow `featured` / `featured order` (projects) | Projection; rendered only if the record is public | `publicProjectWhere()` at read time |
 | Curated archive (`src/data/*.ts`, admin promotions) | Editors via the admin state machine | Admin publish/archive (now also moves `publication_status`) | `content_authority = 'curated'` (the fail-closed default) |
+| An event's held date, announced date (`rescheduled_from`) and badge label (`short_title`) | Whoever owns the event row above (curated → `src/data/events.ts` + migration; adopted → Baserow) | The same row everywhere — every project badge, filter, detail page and event page joins on `built_at_event_id` | Feed ingestion never writes a curated or adopted row, and never writes `short_title` at all |
+| Favicon logos (`projects.logo_media_id`, `media.provenance = 'favicon'`) | The import-time enrichment job only | Stored media; pages never fetch a participant site | The job only fills an empty logo; an owner/organiser logo always outranks it |
+| Individual builder names from event forms | Nobody, until the team gives permission | — | The source adapter never copies a member-name column; team labels that are a person's name are withheld |
 
 ## Rules
 
+- **A city is never created from Baserow.** A City field is either a link to
+  the Cities table or — in a workspace without one — text holding an existing
+  Neon city slug. Either way an unknown city is quarantined.
 - **Identity is the Baserow row id.** `(provider, table_id, row_id)` maps to a
   Neon UUID in `integration_mappings`. Titles, slugs and row positions are
   never used to match.

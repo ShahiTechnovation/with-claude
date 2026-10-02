@@ -45,7 +45,8 @@ npm run import -- apply --plan imports/<batch>/plan.json --yes
 
 Imported projects arrive as **drafts**. Add `--publish` only for a batch you
 have reviewed; even then a project publishes only if it has a summary, its
-event, a team credit and at least one link.
+event and at least one public link (live, repository, video or download). A
+team credit is not required: names are published only with permission.
 
 Running the same import again creates nothing new. A corrected spreadsheet
 updates the same rows (a blank cell never erases a value). To undo a batch:
@@ -56,6 +57,68 @@ npm run import -- rollback --batch <batch-id> --yes
 
 Rollback leaves alone anything you edited in Baserow since, and anything a
 member has claimed.
+
+## The September 2026 Bhopal archive (Impact Lab 2 and Fable 5.1)
+
+These two forms have their own source adapter
+(`scripts/import/sources/event-archive-2026-09/`) because they do not have one
+title column and one person per row. Every row has a reviewed decision in
+`editorial.ts` (title where the form had none, a card summary, a category,
+holds); the adapter refuses a sheet whose rows no longer match those decisions,
+so a reordered or revised workbook cannot attach a summary to the wrong
+project. The full row-by-row record is `docs/imports/2026-09-event-archive.md`.
+
+This workspace (Baserow database 578390) has three tables — **Projects**
+(1236064), **Events** (1236080) and **ProjectCredits** (1236082) — and no
+Cities table: each **City** field is text holding the Neon city slug
+(`bhopal`). The fields must exist first; see
+[the setup guide](../baserow/setup.md#this-workspace-database-578390). A
+database token can only read and write rows, never create fields.
+
+1. Create the fields in the Baserow UI, then map them (by name, once) and
+   check them:
+
+   ```bash
+   . .dev-auth/baserow.env.sh            # the token, git-ignored
+   npm run baserow:discover              # writes .dev-auth/baserow.config.json
+   export BASEROW_CONFIG="$(cat .dev-auth/baserow.config.json)"
+   npm run baserow:check-schema          # must print ok for all three tables
+   ```
+
+2. Rehearse against a local mirror of the real schema, then run it for real.
+   Each run, in order: match or create the two canonical **Events** rows
+   (by key; a new row adopts the production Neon event and carries the held
+   date), snapshot every existing row, plan, write **Projects**, write
+   **ProjectCredits** (none — no consent to show names is on record), read
+   everything back and verify it, then validate the existing sync on a fresh
+   local database clone and prove a second run changes nothing:
+
+   ```bash
+   npm run baserow:discover -- --fields-file imports/baserow-live/fields.json --out imports/baserow-live/real.config.json
+   MODE=mirror FIELDS=imports/baserow-live/fields.json CONFIG_FILE=imports/baserow-live/real.config.json      scripts/dev/run-baserow-migration.sh "<Impact Lab 2.xlsx>" "<Fable 5.1.xlsx>"
+   MODE=real scripts/dev/run-baserow-migration.sh "<Impact Lab 2.xlsx>" "<Fable 5.1.xlsx>"
+   ```
+
+   An interrupted run resumes: every write is ledgered before it is sent, and
+   a create that may have landed is looked up by its key before anything is
+   retried. `imports/<batch>/apply-manifest.json` lists every row the batch
+   created; `baserow-before.json` is the snapshot taken before it wrote;
+   `baserow-reconciliation.md` accounts for all 100 source rows.
+
+3. Re-running an import never overwrites your work. A field is updated only
+   while it still holds exactly what the importer last wrote there; anything
+   you changed in Baserow is reported as "kept organiser edit" and left alone.
+   Editorial status is never changed on an existing row.
+
+4. The rows arrive in Neon through the normal sync once it is switched on for
+   the target environment (webhook, cron, or *Reconcile now* in the admin).
+   Held projects are drafts; their **Review notes** say what to decide. Set
+   **Editorial status** to `published` when it is resolved.
+
+The two Events rows mirror the Neon events they adopt. Edit them in Baserow
+from then on — including the Fable title and summary, which still carry the
+Luma feed's wording ("Bhopal | Claude Code Build Day - Fable 5.1", "Get
+up-to-date information at …").
 
 ## Check missing fields
 

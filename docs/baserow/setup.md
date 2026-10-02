@@ -5,11 +5,118 @@ website never reads Baserow on a visitor request: a server-side sync validates
 each row and projects it into Neon, and pages read Neon. If Baserow is down,
 or the sync is switched off, the site keeps serving the last valid projection.
 
-**Status of this integration:** implemented and tested against synthetic data
-and a fake Baserow API. It has **not** been run against a real Baserow
-workspace yet — that needs the credentials and staging checks in
-[the rollout runbook](../runbook-rollout.md). The feature flag is **off** by
-default.
+**Status of this integration:** implemented and tested against synthetic data,
+a fake Baserow API and a local mirror of the real workspace (below). The real
+workspace's tables exist but have no import fields yet — a database token can
+read and write rows, never create fields — so the fields in
+[This workspace](#this-workspace-database-578390) must be created in the
+Baserow UI before the first import. The feature flag is **off** by default.
+
+## This workspace (database 578390)
+
+Three tables, no Cities table. Each **City** field is a **text** field holding
+the Neon city slug (`bhopal`); the sync resolves it to the existing Neon city
+and quarantines an unknown slug — it never creates a city.
+
+| Table | Id | Existing fields (leave them) |
+| --- | --- | --- |
+| Projects | 1236064 | **Name** (primary) — used as the project title |
+| Events | 1236080 | **Name** (primary) — the event title; **Notes**, **Active** — not used by the sync |
+| ProjectCredits | 1236082 | **Name** (primary) — the credit's display name; **Notes**, **Active** — not used |
+
+Events and ProjectCredits each also hold two **blank default rows** (ids 1
+and 2). The import leaves them alone; the sync reports them as quarantined
+("key is required" / "project is required") until someone deletes them in
+Baserow. Deleting them is safe — nothing references them.
+
+Create these fields (Table → **+** at the end of the header row). Names are
+matched case-insensitively, once, by `npm run baserow:discover`; afterwards
+the sync uses field ids, so renaming later is safe. A name may drop its
+bracketed part (`Short title` for `Short title (badges)`). Long text fields:
+leave **rich text formatting off**. Date fields: **no time**. Number fields:
+**0 decimal places**. Select options are lower-case exactly as written.
+
+**Events** (22 fields; *Luma event id* optional)
+
+| Field | Type | Options / notes |
+| --- | --- | --- |
+| Key | Single line text | |
+| Neon ID | Single line text | |
+| Slug | Single line text | |
+| Summary | Long text | |
+| Description | Long text | |
+| City | Single line text | `bhopal` |
+| Venue | Single line text | |
+| Public address | Long text | |
+| Address for registrants only | Boolean | |
+| Date | Date | no time |
+| Rescheduled from | Date | no time |
+| Short title (badges) | Single line text | |
+| Start time | Single line text | `HH:MM`, 24-hour |
+| End time | Single line text | |
+| Timezone | Single line text | |
+| Format | Single select | `conversation`, `workshop`, `impact-lab`, `campus`, `hackathon`, `demo`, `meetup`, `other` |
+| Registration URL | URL | |
+| Cover | Single line text | |
+| Lifecycle | Single select | `scheduled`, `cancelled`, `sold-out`, `registration-closed` |
+| Editorial status | Single select | `draft`, `ready`, `published`, `archived` |
+| Featured | Boolean | |
+| Luma event id | Single line text | optional |
+
+**Projects** (22 fields, then optional ones)
+
+| Field | Type | Options / notes |
+| --- | --- | --- |
+| Key | Single line text | written by the importer; never edit |
+| Slug | Single line text | |
+| Summary | Long text | |
+| Category | Single select | `product`, `agent`, `developer-tool`, `research`, `creative`, `campus`, `experiment`, `startup` |
+| Event | Link to table → **Events** | untick "allow multiple relationships"; the related field in Events is optional |
+| Team name | Single line text | |
+| The problem | Long text | |
+| The solution | Long text | |
+| Built with (as stated) | Long text | |
+| How Claude was used | Long text | |
+| Build status (self-reported) | Single select | `functional`, `partial`, `prototype` |
+| Live URL | URL | |
+| Repo URL | URL | |
+| Video URL | URL | |
+| Second demo video URL | URL | |
+| Download URL | URL | |
+| Other artifact URL | URL | |
+| Editorial status | Single select | `draft`, `ready`, `published`, `archived` |
+| Source batch | Single line text | |
+| Source key | Single line text | |
+| Source rows | Single line text | original worksheet rows |
+| Review notes | Long text | why a record is held; never projected to the site |
+
+Optional on Projects (create them when you want to use them, then re-run
+`npm run baserow:discover`): Featured (Boolean), Featured order (Number),
+Description (Long text), Cover (text), Logo (text), Tags / tech (text),
+Neon ID (text).
+
+**ProjectCredits** (4 fields)
+
+| Field | Type | Options / notes |
+| --- | --- | --- |
+| Project | Link to table → **Projects** | |
+| Role | Single line text | |
+| Public profile URL | URL | |
+| Display order | Number | 0 decimal places |
+
+Then:
+
+```bash
+. .dev-auth/baserow.env.sh                 # token, git-ignored — never commit it
+npm run baserow:discover                   # maps names → ids, writes .dev-auth/baserow.config.json
+export BASEROW_CONFIG="$(cat .dev-auth/baserow.config.json)"
+npm run baserow:check-schema               # "ok" for events, projects, credits
+```
+
+The token supplied for the import can create and update rows in all three
+tables (checked without writing: a deliberately invalid value answers 400,
+not 401). For the website's sync, create a **separate read-only** database
+token and use only that one in Vercel (`BASEROW_READ_TOKEN`).
 
 ## 1. Workspace and plan
 
@@ -23,7 +130,8 @@ buying anything.** Nothing in this project purchases or upgrades a plan.
 
 ## 2. Tables
 
-Create one database with four tables. Field **names** are for people; the
+Create one database with four tables — or three, without Cities (see
+[This workspace](#this-workspace-database-578390)). Field **names** are for people; the
 sync addresses fields by **id**, so renaming a column later is safe as long as
 its type does not change. Types must match — `npm run baserow:check-schema`
 verifies them.
@@ -51,7 +159,9 @@ Seed it with one row per city from Neon (`select slug, name from cities where st
 | Venue | Single line text | yes | |
 | Public address | Long text | no | |
 | Address for registrants only | Boolean | no | |
-| Date | Date (no time) | yes | Local date in the event's time zone. |
+| Date | Date (no time) | yes | Local date in the event's time zone — the day it was actually **held**. |
+| Rescheduled from | Date (no time) | no | Only when the event moved: the originally announced date. Shown as "rescheduled from …" on the event page; badges and sorting use Date. |
+| Short title (badges) | Single line text | no | The label on project badges, e.g. `Impact Lab 2`, `Fable 5.1 Build Day`. Falls back to the title without a "City \|" prefix. |
 | Start time / End time | Single line text | start yes | 24-hour `HH:MM`, local wall-clock time. Never converted to UTC. |
 | Timezone | Single line text | no | IANA zone; default `Asia/Kolkata`. |
 | Format | Single select | yes | `conversation, workshop, impact-lab, campus, hackathon, demo, meetup, other` |
@@ -74,10 +184,15 @@ Seed it with one row per city from Neon (`select slug, name from cities where st
 | Tags / tech | Multiple select (or text) | no | Up to 12, ≤32 chars each. |
 | Live URL, Repo URL, Video URL | URL | no | http(s) only. |
 | Cover | Single line text | no | Asset key only. Remote screenshots are a review item; the sync never fetches participant URLs. |
-| How Claude was used | Long text | no | Leave empty if not documented; the site says "Not documented". Never invent it. |
+| How Claude was used | Long text | no | Leave empty if not documented; the site says "Not documented in the submission". Never invent it. |
+| The problem / The solution | Long text | no | The team's own answers, verbatim (line breaks kept, up to 12,000 characters each). The card uses Summary. |
+| Built with (as stated) | Long text | no | The stack exactly as the team wrote it. Never inferred from a repository name. |
+| Build status (self-reported) | Single select | no | `functional, partial, prototype`. Leave empty when the team did not say — empty is never shown as "functional". |
+| Download URL / Other artifact URL / Second demo video URL | URL | no | One kind per field: a release download (APK), an artifact that is not a demo (slides, a Drive folder, a Hugging Face Space), a second recording. |
+| Logo | Single line text | no | A repository asset key for an organiser-supplied logo. The favicon job fills a separate media logo; neither is ever a remote URL typed here. |
 | Event | Link to Events | needed to publish | |
 | City | Link to Cities | no | Defaults to the event's city. |
-| Team name | Single line text | no | Shown as a public team credit. |
+| Team name | Single line text | no | Shown as a public team label. Leave empty when the label is a person's name and their permission is not on record. |
 | Editorial status | Single select | yes | `draft, ready, published, archived` |
 | Featured / Featured order | Boolean / Number | no | Homepage ordering. |
 | Source batch / Source key | text | no | Written by the importer. |
