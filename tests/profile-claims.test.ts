@@ -15,6 +15,7 @@ import { eq } from 'drizzle-orm';
 import type { User } from '@privy-io/node/resources';
 import { createTestDatabase, type TestDatabase } from '../db/testing';
 import * as schema from '../db/schema';
+import { isUniqueViolation } from '../db/errors';
 import { provisionMember, type Member } from '../src/server/auth/member';
 import {
   attemptClaim,
@@ -437,6 +438,43 @@ describe('claiming', () => {
       .from(schema.profileClaims)
       .where(eq(schema.profileClaims.status, 'approved'));
     expect(approvedClaims).toHaveLength(1);
+  });
+
+  /**
+   * THE LOSER OF THAT RACE, MADE DETERMINISTIC.
+   *
+   * An approved claim exists but ownership was never written, so every
+   * application check passes and only `profile_claims_one_owner` refuses the
+   * insert. Drizzle wraps the driver's error, and the 23505 is on `.cause`.
+   */
+  it('answers 409 when only the index refuses the claim', async () => {
+    const builderId = await fixtureBuilder('zz-wrapped', [
+      { label: 'GitHub', url: 'https://github.com/zz-wrapped' },
+    ]);
+    const first = await member('did:privy:zz-wrapped-a');
+    const second = await member('did:privy:zz-wrapped-b');
+    await db.insert(schema.profileClaims).values({
+      memberId: first.id,
+      builderId,
+      proofType: 'github_identity',
+      status: 'approved',
+    });
+
+    const result = await attemptClaim(second, 'zz-wrapped', privyUser([githubAccount('zz-wrapped')]), db);
+
+    expect(result).toEqual({ ok: false, status: 409, error: 'This profile has already been claimed.' });
+  });
+
+  it('recognises a unique violation at any depth of wrapping, and nothing else', () => {
+    const driver = Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' });
+    const wrapped = new Error('Failed query: insert into "profile_claims" …', { cause: driver });
+
+    expect(isUniqueViolation(driver)).toBe(true);
+    expect(isUniqueViolation(wrapped)).toBe(true);
+    expect(isUniqueViolation(new Error('outer', { cause: wrapped }))).toBe(true);
+    expect(isUniqueViolation(Object.assign(new Error('fk'), { code: '23503' }))).toBe(false);
+    expect(isUniqueViolation(new Error('plain'))).toBe(false);
+    expect(isUniqueViolation(null)).toBe(false);
   });
 
   /** The index is the real guarantee, so assert it directly too. */

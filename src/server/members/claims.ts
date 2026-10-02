@@ -40,6 +40,7 @@ import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import { createHash } from 'node:crypto';
 import type { User } from '@privy-io/node/resources';
+import { isUniqueViolation } from '../../../db/errors';
 import * as schema from '../../../db/schema';
 import type { Member } from '../auth/member';
 
@@ -419,15 +420,6 @@ export async function attemptClaim(
 
 /** Lost a race for ownership. Not an error worth a stack trace. */
 class ClaimRace extends Error {}
-
-function isUniqueViolation(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    (error as { code?: string }).code === '23505'
-  );
-}
 
 /** Claims this member has open or resolved, for `/me`. */
 export async function claimsFor(memberId: string, db: AnyDatabase) {

@@ -47,6 +47,7 @@
  */
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
+import { isUniqueViolation } from '../../../db/errors';
 import * as schema from '../../../db/schema';
 import type { Actor } from './transitions';
 import type { EntityType } from './publishing';
@@ -378,7 +379,7 @@ class ConcurrentPromotion extends Error {
   }
 }
 
-/**
+/*
  * A unique-constraint violation — which here means a lost race, not a fault.
  *
  * `uniqueSlug()` resolves a free slug inside the transaction, but PostgreSQL's
@@ -393,17 +394,9 @@ class ConcurrentPromotion extends Error {
  * loser's transaction has already rolled back in full, so the honest answer is
  * the same 409 the guarded path gives.
  *
- * `23505` is PostgreSQL's unique_violation. Both drivers surface the driver
- * error as `cause` on Drizzle's wrapper, so the chain is walked rather than
- * assuming a shape.
+ * The check itself is `isUniqueViolation()` in `db/errors.ts`, shared with the
+ * public site's profile claims, which lose the same kind of race.
  */
-function isUniqueViolation(error: unknown): boolean {
-  for (let cursor = error, depth = 0; cursor && depth < 5; depth += 1) {
-    if (typeof cursor === 'object' && (cursor as { code?: unknown }).code === '23505') return true;
-    cursor = (cursor as { cause?: unknown }).cause;
-  }
-  return false;
-}
 
 /** The slug of an already-promoted record, for the "already done" answer. */
 async function slugOf(
