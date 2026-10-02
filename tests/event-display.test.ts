@@ -73,6 +73,17 @@ describe('isVenuePlaceholder', () => {
     expect(isVenuePlaceholder(undefined)).toBe(true);
   });
 
+  it('recognises a bare event link, which is how Luma marks a registrant-only venue', () => {
+    expect(isVenuePlaceholder('https://luma.com/event/evt-IcKOSAOGP6GAeEX')).toBe(true);
+    expect(isVenuePlaceholder(' http://lu.ma/abc ')).toBe(true);
+    // A venue that mentions a link is still a venue.
+    expect(isVenuePlaceholder('Paytm, see https://paytm.com')).toBe(false);
+  });
+
+  it("recognises the stand-in that ingestion itself stores, so rows already synced read the same", () => {
+    expect(isVenuePlaceholder(PRIVATE_VENUE_NAME)).toBe(true);
+  });
+
   it('does not swallow a real venue', () => {
     expect(isVenuePlaceholder('Sheryians HQ')).toBe(false);
   });
@@ -82,10 +93,23 @@ describe('displayEvent', () => {
   it('cleans the title and turns the placeholder into a private venue', () => {
     const shown = displayEvent(base, 'Mumbai');
     expect(shown.title).toBe('Claude Conversation');
-    expect(shown.venue).toEqual({ name: PRIVATE_VENUE_NAME, private: true });
+    // Named by its city, as the curated record does. The pages add "Shared with
+    // confirmed registrants" under it, so the name must not say that too.
+    expect(shown.venue).toEqual({ name: 'Mumbai', private: true });
     // The stored record is not edited.
     expect(base.title).toBe('Mumbai | Claude Conversation');
     expect(base.venue.name).toBe('Check event page for more details.');
+  });
+
+  it('names a venue that ingestion already stored as private by its city too', () => {
+    const synced = { ...base, title: 'Claude Meetup', venue: { name: PRIVATE_VENUE_NAME, private: true } };
+    expect(displayEvent(synced, 'Mumbai').venue).toEqual({ name: 'Mumbai', private: true });
+    const link = { ...base, title: 'Claude Meetup', venue: { name: 'https://luma.com/event/evt-x' } };
+    expect(displayEvent(link, 'Mumbai').venue).toEqual({ name: 'Mumbai', private: true });
+  });
+
+  it('falls back to the stand-in when the city is not in the record', () => {
+    expect(displayEvent(base, undefined).venue).toEqual({ name: PRIVATE_VENUE_NAME, private: true });
   });
 
   it('returns the same record when there is nothing to clean', () => {
@@ -106,7 +130,7 @@ describe('the public record', () => {
       selectors.eventBySlug.get(base.slug)!,
     ]) {
       expect(event.title).toBe('Claude Conversation');
-      expect(event.venue.name).toBe(PRIVATE_VENUE_NAME);
+      expect(event.venue).toEqual({ name: 'Mumbai', private: true });
       expect(selectors.venueLabel(event)).toBeUndefined();
     }
     expect(rs.events[0]).toBe(base);

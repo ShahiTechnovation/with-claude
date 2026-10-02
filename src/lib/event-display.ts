@@ -10,15 +10,25 @@ import type { CommunityEvent } from '@/data/types';
  * cleaned here, at display, so the stored row stays what the source said.
  */
 
-/** What an event with no public venue is called. Ingestion stores the same. */
+/**
+ * What ingestion stores for an event with no public venue. Display replaces it
+ * with the city (see `displayEvent`); it is shown only when the city is unknown.
+ */
 export const PRIVATE_VENUE_NAME = 'Venue shared with registrants';
 
-const VENUE_PLACEHOLDER = /^check event page for more details\.?$/i;
+/**
+ * Luma's two ways of saying "registrants only": its stand-in sentence, and a
+ * LOCATION that is nothing but the event's own link.
+ */
+const VENUE_PLACEHOLDER = /^(?:check event page for more details\.?|https?:\/\/\S+)$/i;
 
-/** True for an empty venue and for Luma's "Check event page for more details." */
+/**
+ * True when there is no venue to name: an empty value, either of Luma's
+ * placeholders, or the stand-in ingestion stored for one of them.
+ */
 export function isVenuePlaceholder(value: string | null | undefined): boolean {
   const venue = value?.trim();
-  return !venue || VENUE_PLACEHOLDER.test(venue);
+  return !venue || venue === PRIVATE_VENUE_NAME || VENUE_PLACEHOLDER.test(venue);
 }
 
 /**
@@ -73,6 +83,9 @@ export function displayEvent(event: CommunityEvent, cityName: string | undefined
   return {
     ...event,
     title,
-    venue: placeholder ? { ...event.venue, name: PRIVATE_VENUE_NAME, private: true } : event.venue,
+    // A private venue is named by its city, as the curated record names one.
+    // The pages print "Shared with confirmed registrants" beneath it, so a
+    // name that said the same would say it twice.
+    venue: placeholder ? { ...event.venue, name: cityName ?? PRIVATE_VENUE_NAME, private: true } : event.venue,
   };
 }

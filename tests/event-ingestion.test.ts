@@ -317,6 +317,20 @@ describe('the sync', () => {
     expect(row).toEqual({ venueName: 'Venue shared with registrants', venuePrivate: true });
   });
 
+  it('stores a bare event link as no venue', async () => {
+    const source = new ManualEventSource(
+      [event({ externalId: 'evt-link-only', location: 'https://luma.com/event/evt-link-only' })],
+      { key: 'test:link-only', complete: true },
+    );
+    expect(await syncSource(source, db)).toMatchObject({ ok: true, promoted: 1 });
+
+    const [row] = await db
+      .select({ venueName: schema.events.venueName, venuePrivate: schema.events.venuePrivate })
+      .from(schema.events)
+      .where(eq(schema.events.externalId, 'evt-link-only'));
+    expect(row).toEqual({ venueName: 'Venue shared with registrants', venuePrivate: true });
+  });
+
   it('stores the end time on the IST wall clock, and none when it is not on the same day', async () => {
     const source = new ManualEventSource(
       [
