@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * VISUAL REVIEW — screenshots of the core pages at three widths, plus the
  * facts a screenshot cannot show: console errors, horizontal overflow, the
