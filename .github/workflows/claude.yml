@@ -1,0 +1,75 @@
+# Claude answers @claude mentions in issues, pull requests and reviews, and
+# replies as claude[bot]. It can also commit to a branch when asked.
+#
+# Same setup as claude-code-review.yml, in the same order: first a ruleset on
+# main that requires a pull request and blocks force pushes, then the Claude
+# GitHub App, then the CLAUDE_CODE_OAUTH_TOKEN repository secret. To use a
+# Claude Console API key instead, replace the claude_code_oauth_token line with
+#   anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+# No github_token is passed, so replies come from claude[bot].
+name: Claude Code
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  issues:
+    types: [opened]
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  claude:
+    # Only owners, organisation members and collaborators can start a run. The
+    # action separately requires write access; this keeps anyone else, and
+    # Claude's own comments, from starting a run at all. The association is the
+    # comment's or review's author, or the issue's author for issue events.
+    # A review or review comment on a fork pull request runs without secrets
+    # or an OIDC token, so it could not authenticate; skip it rather than fail.
+    if: |
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association || github.event.review.author_association || github.event.issue.author_association) && (
+        (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+        (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
+        (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+      ) && !(
+        (github.event_name == 'pull_request_review' || github.event_name == 'pull_request_review_comment') &&
+        github.event.pull_request.head.repo.full_name != github.repository
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # Replies and commits use the Claude GitHub App token, so this job's own
+    # GITHUB_TOKEN only needs to read. id-token: write is what mints that token.
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      id-token: write
+      actions: read # lets Claude read CI results on pull requests
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      # The action writes the App token into .git/config, and Claude's replies
+      # and commits are public. Read-only shell commands such as cat, diff and
+      # git remote -v run without an allow rule and print that file, so the
+      # hook refuses any shell command whose whole text does not match
+      # ALLOWED_BASH: the git commands the action gives Claude, one per call,
+      # with the push wrapper only at the action's own path on a GitHub-hosted
+      # runner, not a copy in the checkout.
+      # The deny keeps the Read tool out of .git. Only comments by these
+      # collaborators and Claude reach the prompt; update the list when
+      # collaborators change.
+      - uses: anthropics/claude-code-action@v1
+        env:
+          ALLOWED_BASH: >-
+            \A(git (status|log|add|rm|diff(?!.* --no-index))( [-\w./:=@^~%,+]+)*|git commit( -m "[^"$`]*")+|/home/runner/work/_actions/anthropics/claude-code-action/\w[-\w.]*/scripts/git-push\.sh origin [-\w./]+)\z
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          include_comments_by_actor: ShahiTechnovation,Vishal4742,claude[bot]
+          settings: |
+            {"hooks": {"PreToolUse": [{"matcher": "Bash|Monitor", "hooks": [{"type": "command",
+              "command": "jq -e '.tool_input.command | test(env.ALLOWED_BASH)' > /dev/null || { echo 'Refused: run one git command per call. Commit with git commit -m \"message\" (double quotes, no $ or backticks; repeat -m for more paragraphs), push with the git-push.sh origin <branch> command your prompt names.' >&2; exit 2; }"}]}]}}
+          claude_args: --disallowedTools "Read(./.git/**)"
