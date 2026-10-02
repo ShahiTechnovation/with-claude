@@ -139,7 +139,8 @@ In order, each with the owner's go-ahead:
    Never put the import token in Vercel.
 6. Set `BASEROW_SYNC_ENABLED=true`, redeploy, then admin → **Content sync →
    Reconcile now** until the queue is empty. Expect: 2 events adopted, 94
-   projects created (77 public, 17 draft), 4 blank default rows quarantined.
+   projects created (77 public, 17 draft), nothing quarantined (the blank
+   default rows were deleted on 2026-10-02).
 7. Check `/projects/?event=claude-impact-lab-september` (16) and
    `…bhopal-claude-code-build-day-fable-5-1` (61), two project pages, both
    event pages, and that a held draft (e.g. `/projects/bhopal-flow/`) is 404.
@@ -183,9 +184,8 @@ restoring a database backup.
 | Item | Needed from |
 | --- | --- |
 | Apply migrations 0014/0015/0016 to staging, then production | Approval + Neon access |
-| Create the import fields in the three Baserow tables (`docs/baserow/setup.md#this-workspace-database-578390`) — a database token cannot | Baserow UI |
-| Run the September event-archive import into the real Baserow (`MODE=real scripts/dev/run-baserow-migration.sh`, rehearsed in `MODE=mirror`) | Fields above; import token (supplied 2026-10-02, stored in `.dev-auth/`) |
-| Delete the two blank default rows in Events and in ProjectCredits (the sync reports them as quarantined) | Baserow UI |
+| ~~Create the import fields; run the September import into Baserow; delete the blank default rows~~ — done 2026-10-02, verified by read-back (`docs/imports/2026-10-baserow-migration.md`) | — |
+| Rotate the import token (it was shared in a chat) and create a separate read-only database token for the sync | Baserow account |
 | Decide the 18 held projects (Review notes on each draft; Fable row 8 is held outside Baserow as a likely duplicate of /projects/headline-threads/) | Organisers |
 | Favicon enrichment for the directory (`npm run import -- enrich-logos`) — deferred until there is a media store | `BLOB_READ_WRITE_TOKEN` |
 | Permission to publish individual builder names (none are published today) | Organisers / teams |

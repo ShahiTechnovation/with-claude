@@ -5,12 +5,13 @@ website never reads Baserow on a visitor request: a server-side sync validates
 each row and projects it into Neon, and pages read Neon. If Baserow is down,
 or the sync is switched off, the site keeps serving the last valid projection.
 
-**Status of this integration:** implemented and tested against synthetic data,
-a fake Baserow API and a local mirror of the real workspace (below). The real
-workspace's tables exist but have no import fields yet — a database token can
-read and write rows, never create fields — so the fields in
-[This workspace](#this-workspace-database-578390) must be created in the
-Baserow UI before the first import. The feature flag is **off** by default.
+**Status of this integration:** the real workspace (database 578390) has its
+fields (created in the Baserow UI on 2026-10-02 — a database token can read
+and write rows, never create fields) and holds the September event archive:
+2 Events rows and 94 Projects rows, verified by read-back
+([reconciliation](../imports/2026-10-baserow-migration.md)). The sync has been
+validated against an isolated local database only. The feature flag is
+**off** by default, and production sync has not been enabled.
 
 ## This workspace (database 578390)
 
@@ -24,10 +25,26 @@ and quarantines an unknown slug — it never creates a city.
 | Events | 1236080 | **Name** (primary) — the event title; **Notes**, **Active** — not used by the sync |
 | ProjectCredits | 1236082 | **Name** (primary) — the credit's display name; **Notes**, **Active** — not used |
 
-Events and ProjectCredits each also hold two **blank default rows** (ids 1
-and 2). The import leaves them alone; the sync reports them as quarantined
-("key is required" / "project is required") until someone deletes them in
-Baserow. Deleting them is safe — nothing references them.
+Baserow created Events and ProjectCredits with two **blank default rows**
+each (ids 1 and 2). They were deleted on 2026-10-02 by
+`npm run import -- archive-delete-blank-rows`, which removes a row only if it
+is blank in every field and no link points at it (restorable from Baserow's
+trash).
+
+**Accepted differences in the real workspace** (all enforced in code, so the
+field type does not have to):
+
+- The six project URL fields, *Registration URL* and *Public profile URL*
+  are plain **text**. Every value is validated by the sync (`dto.ts`):
+  http(s) only, a public host (no localhost or private address), no embedded
+  credentials, no credential-bearing or `_vercel_share` query parameter. A
+  bad value quarantines the row; it is never published.
+- *Event* (Projects) and *Project* (ProjectCredits) **allow multiple
+  relationships**. The sync quarantines a project linked to more than one
+  event and a credit linked to more than one project; any number of
+  projects may share one event. The importer always writes exactly one.
+- Baserow created the reciprocal link fields *Projects* (in Events) and
+  *ProjectCredits* (in Projects). They are kept; nothing reads them.
 
 Create these fields (Table → **+** at the end of the header row). Names are
 matched case-insensitively, once, by `npm run baserow:discover`; afterwards
