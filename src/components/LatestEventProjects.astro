@@ -74,8 +74,8 @@ const isEmpty = entries.length === 0;
     <div class="lep-track-wrap">
       <ul class="lep-track" role="list">
         {entries.map((entry, i) => (
-          <li class="lep-card" data-reveal style={--reveal-delay:ms}>
-            <a href={/projects/} class="lep-card-link">
+          <li class="lep-card" data-reveal style={`--reveal-delay:${i * 60}ms`}>
+            <a href={`/projects/${entry.project.slug}`} class="lep-card-link">
               <span class="lep-card-cover">
                 {entry.cover.kind === 'blob' ? (
                   <img
