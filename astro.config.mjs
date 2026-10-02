@@ -27,14 +27,12 @@ export default defineConfig({
   /**
    * STATIC FIRST, AND STAYING THAT WAY.
    *
-   * `output: 'static'` with an adapter means every page is prerendered at
-   * build time exactly as before; only a route that opts out with
-   * `export const prerender = false` becomes a serverless function. Today that
-   * is `/api/submit` and the nightly rebuild hook, and nothing else — the 71
-   * public pages are still files on a CDN.
-   *
-   * The adapter is here because a submission has to land somewhere, not
-   * because the site became an application.
+   * `output: 'static'` with an adapter prerenders every page at build time
+   * unless it opts out with `export const prerender = false`, which makes it a
+   * serverless function. The opt-outs are the API routes and the pages that
+   * read live records (home, events, cities, projects and more); the rest are
+   * still files on the CDN. `grep -rl "prerender = false" src/pages` is the
+   * current list.
    */
   output: 'static',
   adapter: vercel({ maxDuration: 15 }),
