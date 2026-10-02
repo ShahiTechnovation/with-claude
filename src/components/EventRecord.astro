@@ -26,8 +26,8 @@ import { formatName, lifecycleLabel, lifecycleOf, lifecycleTone } from '@/lib/st
  *    There is no "location TBC" and no invented address; a line that is not
  *    there reads as unknown, which is the truth.
  *
- * Numbering is section-relative (01–03 upcoming, 01–11 past). It is not the
- * `volume`, which counts a city's own series and is shown on the event page.
+ * A row is kept to when, where, what and the format. The hosts, the past
+ * venue and the Ambassador mark are on the event page, not repeated here.
  */
 interface Props {
   selectors?: RecordSelectors;
@@ -41,24 +41,20 @@ const past = data.pastEvents();
 
 interface Entry {
   event: CommunityEvent;
-  n: string;
   parts: ReturnType<typeof dateParts>;
   city: string;
   /** The printable venue, or undefined when the record does not have one. */
   venue?: string;
   hosts: string[];
-  verified: boolean;
   lifecycle: ReturnType<typeof lifecycleOf>;
 }
 
-const toEntry = (event: CommunityEvent, i: number): Entry => ({
+const toEntry = (event: CommunityEvent): Entry => ({
   event,
-  n: String(i + 1).padStart(2, '0'),
   parts: dateParts(event.date),
   city: data.cityName(event.citySlug),
   venue: data.venueLabel(event),
   hosts: data.creditsFor(event),
-  verified: data.isAmbassadorLed(event),
   lifecycle: lifecycleOf(event),
 });
 
@@ -83,7 +79,6 @@ const years = [...new Set(archive.map((entry) => entry.parts.year))].sort((a, b)
       {/* The lead. The one room you can still walk into next. */}
       <article class="lead">
         <p class="lead-index">
-          <span class="lead-n">{lead.n}</span>
           <span class:list={['pip', `pip-${lifecycleTone(lead.lifecycle)}`]}>
             {lifecycleLabel(lead.lifecycle)}
           </span>
@@ -140,8 +135,6 @@ const years = [...new Set(archive.map((entry) => entry.parts.year))].sort((a, b)
           {rest.map((entry) => (
             <li class="next-item">
               <a class="next-row" href={`/events/${entry.event.slug}`}>
-                <span class="next-n">{entry.n}</span>
-
                 <span class="next-body">
                   <span class="next-title">
                     <span class="next-city">{entry.city}</span>
@@ -158,7 +151,6 @@ const years = [...new Set(archive.map((entry) => entry.parts.year))].sort((a, b)
                     {formatTime(entry.event.startTime)}
                   </time>
                   {entry.venue && <span class="next-venue">{entry.venue}</span>}
-                  <span class="next-hosts">{entry.hosts.join(', ')}</span>
                 </span>
 
                 <span class:list={['pip', `pip-${lifecycleTone(entry.lifecycle)}`, 'next-pip']}>
@@ -209,8 +201,6 @@ const years = [...new Set(archive.map((entry) => entry.parts.year))].sort((a, b)
               .map((entry) => (
                 <li class="past-item">
                   <a class="past-row" href={`/events/${entry.event.slug}`}>
-                    <span class="past-n">{entry.n}</span>
-
                     <time
                       class="past-when"
                       datetime={isoDateTime(entry.event.date, entry.event.startTime)}
@@ -221,21 +211,9 @@ const years = [...new Set(archive.map((entry) => entry.parts.year))].sort((a, b)
                       <span class="past-time">{formatTime(entry.event.startTime)}</span>
                     </time>
 
-                    <span class="past-body">
-                      <span class="past-title">
-                        <span class="past-city">{entry.city}</span>
-                        <span class="past-name">{entry.event.title}</span>
-                        {entry.verified && (
-                          <span class="past-mark" title="Hosted by a Claude Community Ambassador">
-                            <span class="visually-hidden">
-                              Hosted by a Claude Community Ambassador
-                            </span>
-                            <span aria-hidden="true">✳</span>
-                          </span>
-                        )}
-                      </span>
-                      {entry.venue && <span class="past-venue">{entry.venue}</span>}
-                      <span class="past-hosts">{entry.hosts.join(', ')}</span>
+                    <span class="past-title">
+                      <span class="past-city">{entry.city}</span>
+                      <span class="past-name">{entry.event.title}</span>
                     </span>
 
                     <span class="past-format">{formatName(entry.event.format)}</span>
@@ -259,11 +237,6 @@ const years = [...new Set(archive.map((entry) => entry.parts.year))].sort((a, b)
           </ul>
         </div>
       ))}
-
-      <p class="archive-note">
-        <span aria-hidden="true">✳</span> Hosted by a Claude Community Ambassador — a programme
-        Anthropic runs. Events without the mark are community activity on the record.
-      </p>
     </section>
   )
 }
@@ -302,14 +275,6 @@ const years = [...new Set(archive.map((entry) => entry.parts.year))].sort((a, b)
     display: flex;
     align-items: center;
     gap: var(--s-4);
-  }
-
-  .lead-n {
-    font-family: var(--font-mono);
-    font-size: var(--t-meta);
-    letter-spacing: var(--track-meta);
-    color: var(--ink-3);
-    font-variant-numeric: tabular-nums;
   }
 
   .lead-title {
@@ -402,7 +367,7 @@ const years = [...new Set(archive.map((entry) => entry.parts.year))].sort((a, b)
 
   .next-row {
     display: grid;
-    grid-template-columns: 4ch minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: var(--s-5);
     align-items: baseline;
     padding: var(--s-6) 0;
@@ -413,14 +378,6 @@ const years = [...new Set(archive.map((entry) => entry.parts.year))].sort((a, b)
   .next-item:hover,
   .next-item:focus-within {
     background: var(--paper-raised);
-  }
-
-  .next-n {
-    font-family: var(--font-mono);
-    font-size: var(--t-meta);
-    letter-spacing: var(--track-meta);
-    color: var(--ink-3);
-    font-variant-numeric: tabular-nums;
   }
 
   .next-body {
@@ -454,8 +411,7 @@ const years = [...new Set(archive.map((entry) => entry.parts.year))].sort((a, b)
   }
 
   .next-when,
-  .next-venue,
-  .next-hosts {
+  .next-venue {
     font-family: var(--font-mono);
     font-size: var(--t-micro);
     letter-spacing: var(--track-meta);
@@ -477,7 +433,6 @@ const years = [...new Set(archive.map((entry) => entry.parts.year))].sort((a, b)
     gap: var(--s-2);
     margin-bottom: var(--s-6);
     padding: var(--s-2) var(--s-3);
-    margin-left: calc(4ch + var(--s-5));
     border: var(--border-hair) solid var(--rule-strong);
     border-radius: var(--radius-xs);
     font-family: var(--font-mono);
@@ -530,7 +485,7 @@ const years = [...new Set(archive.map((entry) => entry.parts.year))].sort((a, b)
 
   .past-row {
     display: grid;
-    grid-template-columns: 4ch 10ch minmax(0, 1fr) auto;
+    grid-template-columns: 10ch minmax(0, 1fr) auto;
     gap: var(--s-5);
     align-items: baseline;
     padding: var(--s-5) 0;
@@ -544,7 +499,6 @@ const years = [...new Set(archive.map((entry) => entry.parts.year))].sort((a, b)
     background: var(--paper-raised);
   }
 
-  .past-n,
   .past-when,
   .past-format {
     font-family: var(--font-mono);
@@ -563,11 +517,6 @@ const years = [...new Set(archive.map((entry) => entry.parts.year))].sort((a, b)
   .past-time {
     display: block;
     margin-top: var(--s-1);
-  }
-
-  .past-body {
-    display: grid;
-    gap: var(--s-2);
   }
 
   .past-city {
@@ -595,22 +544,6 @@ const years = [...new Set(archive.map((entry) => entry.parts.year))].sort((a, b)
     text-underline-offset: 0.12em;
   }
 
-  .past-mark {
-    margin-left: var(--s-2);
-    color: var(--clay-deep);
-    font-size: 0.7em;
-    vertical-align: 0.35em;
-  }
-
-  .past-venue,
-  .past-hosts {
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: var(--track-meta);
-    text-transform: uppercase;
-    color: var(--ink-3);
-  }
-
   /* Sits over the row rather than inside it: a link cannot nest in a link,
      and the row is the primary target. */
   .past-luma {
@@ -636,26 +569,15 @@ const years = [...new Set(archive.map((entry) => entry.parts.year))].sort((a, b)
     color: var(--clay-deep);
   }
 
-  .archive-note {
-    margin-top: var(--s-7);
-    padding-top: var(--s-4);
-    border-top: var(--border-hair) solid var(--rule);
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    line-height: 1.8;
-    color: var(--ink-3);
-    max-width: 64ch;
-  }
-
   /* ===== RESPONSIVE ===================================================== */
 
   @media (max-width: 60rem) {
     .past-row {
-      grid-template-columns: 4ch 10ch minmax(0, 1fr);
+      grid-template-columns: 10ch minmax(0, 1fr);
     }
 
     .past-format {
-      grid-column: 3;
+      grid-column: 2;
     }
   }
 
@@ -670,22 +592,20 @@ const years = [...new Set(archive.map((entry) => entry.parts.year))].sort((a, b)
     }
 
     .next-row {
-      grid-template-columns: 4ch minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr);
     }
 
     .next-pip {
-      grid-column: 2;
       justify-self: start;
     }
 
     .past-row {
-      grid-template-columns: 4ch minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr);
       gap: var(--s-2) var(--s-4);
       padding-right: var(--s-7);
     }
 
     .past-when {
-      grid-column: 2;
       display: flex;
       gap: var(--s-3);
     }
@@ -696,9 +616,8 @@ const years = [...new Set(archive.map((entry) => entry.parts.year))].sort((a, b)
       margin-top: 0;
     }
 
-    .past-body,
     .past-format {
-      grid-column: 2;
+      grid-column: 1;
     }
 
     .lead-actions {
@@ -708,10 +627,6 @@ const years = [...new Set(archive.map((entry) => entry.parts.year))].sort((a, b)
     .lead-actions .btn {
       width: 100%;
       justify-content: center;
-    }
-
-    .next-luma {
-      margin-left: calc(4ch + var(--s-5));
     }
   }
 </style>
