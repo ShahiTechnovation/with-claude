@@ -34,6 +34,11 @@ export type LogoSource =
   | { kind: 'cover'; src: string }
   | { kind: 'placeholder'; variant: number };
 
+/** Retained for callers that only need a stable bucket number (none left in
+ * this codebase as of the category-motif redesign — `ProjectLogo.astro` now
+ * derives its look from `resolveMotif()` using the project's category and
+ * slug instead of this fixed count). Kept so `variant` on `LogoSource`
+ * still means something if a caller re-introduces a fixed-variant use. */
 export const PLACEHOLDER_VARIANTS = 6;
 
 /** A stable small hash, so the same slug always gets the same placeholder. */
