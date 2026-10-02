@@ -336,7 +336,6 @@ export const events: CommunityEvent[] = [
     slug: 'claude-impact-lab-september',
     status: 'published',
     title: 'Claude Code Impact Lab 2',
-    shortTitle: 'Impact Lab 2',
     format: 'impact-lab',
     volume: 11,
     citySlug: 'bhopal',
