@@ -180,6 +180,7 @@ export function normalizeLumaIcsEvent(event: IcsEvent): NormalizedEvent | null {
     description,
     startsAt: start.date,
     endsAt: end?.date,
+    dateOnly: start.dateOnly,
     // Only when the source actually named a zone. All events in this feed are
     // absolute UTC, so this is normally undefined rather than guessed.
     timezone: start.zone,

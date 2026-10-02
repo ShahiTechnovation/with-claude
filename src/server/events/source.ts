@@ -53,6 +53,8 @@ export interface NormalizedEvent {
 
   startsAt: Date;
   endsAt?: Date;
+  /** The source gave a date with no time of day, so `startsAt` has no real time to publish. */
+  dateOnly?: boolean;
   /** An IANA zone, only if the source actually names one. Never guessed. */
   timezone?: string;
 

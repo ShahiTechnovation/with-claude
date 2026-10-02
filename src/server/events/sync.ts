@@ -451,6 +451,9 @@ export async function syncSource(source: EventSource, db: AnyDatabase): Promise<
     } else if (!cityId) {
       state = 'review';
       reason = 'city-not-in-atlas';
+    } else if (event.dateOnly) {
+      state = 'review';
+      reason = 'no-start-time';
     } else {
       state = 'promoted';
     }

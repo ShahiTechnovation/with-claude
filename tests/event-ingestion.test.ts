@@ -107,6 +107,18 @@ describe('the ICS parser', () => {
     expect(parseIcsDate({ value: 'nonsense', params: {} })).toBeNull();
   });
 
+  it('reads a TZID or floating time on its own wall clock, not as UTC', () => {
+    const at = (value: string, params: Record<string, string>) => parseIcsDate({ value, params })?.date.toISOString();
+    // 18:00 in Kolkata is 12:30 UTC. Read as UTC it would render as 23:30 IST.
+    expect(at('20260912T180000', { TZID: 'Asia/Kolkata' })).toBe('2026-09-12T12:30:00.000Z');
+    expect(at('20260701T180000', { TZID: 'America/New_York' })).toBe('2026-07-01T22:00:00.000Z');
+    expect(at('20260112T180000', { TZID: 'America/New_York' })).toBe('2026-01-12T23:00:00.000Z');
+    // Floating: no Z and no TZID is read as IST, without claiming a zone.
+    expect(at('20260912T180000', {})).toBe('2026-09-12T12:30:00.000Z');
+    expect(parseIcsDate({ value: '20260912T180000', params: {} })?.zone).toBeUndefined();
+    expect(parseIcsDate({ value: '20260912T180000', params: { TZID: 'Not/A_Zone' } })).toBeNull();
+  });
+
   it('parses the live 317-event feed without losing a location or a date', () => {
     const calendar = parseIcs(readFileSync(SAMPLE, 'utf8'));
     expect(calendar.name).toBe('Claude Community Events');
@@ -301,6 +313,24 @@ describe('the sync', () => {
     expect(record.state).toBe('review');
     expect(record.stateReason).toBe('city-not-in-atlas');
     expect(record.eventId).toBeNull();
+  });
+
+  it('holds a date-only event for review rather than inventing a start time', async () => {
+    const calendar = parseIcs(
+      [
+        'BEGIN:VCALENDAR', 'BEGIN:VEVENT', 'UID:evt-allday@events.lu.ma', 'SUMMARY:Bhopal | Claude Day',
+        'DTSTART;VALUE=DATE:20261205', 'LOCATION:Bhopal, Madhya Pradesh, India', 'END:VEVENT', 'END:VCALENDAR',
+      ].join('\n'),
+    );
+    const allDay = normalizeLumaIcsEvent(calendar.events[0])!;
+    const summary = await syncSource(new ManualEventSource([allDay], { key: 'test:allday', complete: true }), db);
+    expect(summary).toMatchObject({ ok: true, review: 1, promoted: 0 });
+
+    const [record] = await db
+      .select()
+      .from(schema.eventSourceRecords)
+      .where(eq(schema.eventSourceRecords.externalId, 'evt-allday'));
+    expect(record).toMatchObject({ state: 'review', stateReason: 'no-start-time', eventId: null });
   });
 
   it('never publishes a foreign event', async () => {

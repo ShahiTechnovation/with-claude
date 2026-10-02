@@ -236,17 +236,9 @@ export function text(event: IcsEvent, name: string): string | undefined {
  *   `20251009T161500`   local to the `TZID` parameter, or floating if none.
  *   `20251009`          a date, for an all-day event.
  *
- * ── THE HONEST LIMIT ─────────────────────────────────────────────────────
- *
- * A `TZID` cannot be resolved to an offset without a timezone database, and
- * §0 rules out adding one. So a non-UTC value is read AS IF UTC and the zone
- * is returned alongside it, unresolved, for the caller to record. That is a
- * real inaccuracy and it is deliberately not hidden: `zone` being set while
- * `utc` is false is the signal that the instant is approximate.
- *
- * It costs nothing on the feed this actually runs against — all 317 Luma
- * events carry `Z` — and it is the reason `assertPublishable`-style
- * promotion refuses to invent a display time it does not trust.
+ * A `TZID` is resolved with `Intl`, which carries the zone database; an
+ * unknown one is unreadable (null). A floating time is read as IST. A date has
+ * no time of day, and `dateOnly` tells the caller not to invent one.
  */
 export interface IcsInstant {
   date: Date;
@@ -273,17 +265,33 @@ export function parseIcsDate(property: IcsProperty | undefined): IcsInstant | nu
   if (!dateTime) return null;
   const [, y, m, d, hh, mm, ss, z] = dateTime;
 
-  const date = new Date(
-    Date.UTC(Number(y), Number(m) - 1, Number(d), Number(hh), Number(mm), Number(ss)),
-  );
-  if (Number.isNaN(date.getTime())) return null;
+  const wallClock = Date.UTC(Number(y), Number(m) - 1, Number(d), Number(hh), Number(mm), Number(ss));
+  if (Number.isNaN(wallClock)) return null;
 
   const utc = z === 'Z';
   const tzid = property.params.TZID;
-  return {
-    date,
-    utc,
-    dateOnly: false,
-    zone: utc ? undefined : tzid && tzid.toUpperCase() !== 'UTC' ? tzid : undefined,
+  const zone = utc ? undefined : tzid && tzid.toUpperCase() !== 'UTC' ? tzid : undefined;
+  // Floating reads as IST, but `zone` stays unset: a declared zone counts as an India signal.
+  const instant = utc || tzid?.toUpperCase() === 'UTC' ? wallClock : inZone(wallClock, zone ?? 'Asia/Kolkata');
+  return instant === null ? null : { date: new Date(instant), utc, dateOnly: false, zone };
+}
+
+/** A wall-clock time (its fields given as UTC) in an IANA zone, as epoch ms. Null for an unknown zone. */
+function inZone(wallClock: number, timeZone: string): number | null {
+  let format: Intl.DateTimeFormat;
+  try {
+    format = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hourCycle: 'h23',
+      year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric',
+    });
+  } catch {
+    return null;
+  }
+  const offset = (instant: number) => {
+    const p = Object.fromEntries(format.formatToParts(instant).map(({ type, value }) => [type, Number(value)]));
+    return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - instant;
   };
+  // Second pass with the offset at the first guess, which settles a guess that crossed a DST change.
+  return wallClock - offset(wallClock - offset(wallClock));
 }
