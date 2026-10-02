@@ -34,6 +34,7 @@ import type { APIRoute } from 'astro';
 import { pooledDb } from '../../../../db/pool';
 import { configuredEventSources, ingestionMode } from '@/server/events/registry';
 import { syncAll } from '@/server/events/sync';
+import { secretMatches } from '@/server/integrations/baserow/webhook';
 
 export const prerender = false;
 
@@ -58,7 +59,7 @@ function authorised(request: Request): { ok: true } | { ok: false; response: Res
     console.error('[cron/events-sync] CRON_SECRET is not set. Refusing to run.');
     return { ok: false, response: json({ error: 'Not configured.' }, 503) };
   }
-  if (request.headers.get('authorization') !== `Bearer ${secret}`) {
+  if (!secretMatches(request.headers.get('authorization'), `Bearer ${secret}`)) {
     return { ok: false, response: json({ error: 'Not authorised.' }, 401) };
   }
   return { ok: true };
