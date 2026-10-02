@@ -16,13 +16,17 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 
 /**
- * What STRICT=1 fails a page on: what a visitor would hit. Plain
- * `console.error` output is reported but never fails the run, because on a
- * preview most of it comes from third parties.
+ * What STRICT=1 fails a page on: what a visitor would hit, and a page that
+ * ended up anywhere but BASE's `origin`. Vercel's login page answers 200 with
+ * one `<main>` and one `<h1>`, so without that check a protected preview the
+ * run never got into would pass. Plain `console.error` output is reported but
+ * never fails the run, because on a preview most of it comes from third
+ * parties.
  */
-export function strictFailures(r) {
+export function strictFailures(r, origin) {
   return [
     r.status !== 200 && `status ${r.status}`,
+    new URL(r.url).origin !== origin && `ended on ${r.url}`,
     r.overflowX && 'HORIZONTAL OVERFLOW',
     r.mains !== 1 && `${r.mains} <main>`,
     r.h1s !== 1 && `${r.h1s} <h1>`,
@@ -46,6 +50,7 @@ async function main() {
   const { chromium } = await import('playwright');
 
   const BASE = (process.env.BASE ?? 'http://127.0.0.1:4321').replace(/\/$/, '');
+  const { hostname, origin } = new URL(BASE);
   const OUT = process.env.OUT ?? 'shots/review';
   const TOKEN = process.env.TOKEN;
   const STRICT = process.env.STRICT === '1';
@@ -68,7 +73,6 @@ async function main() {
   async function shoot(path, signedIn) {
     for (const [name, width, height] of WIDTHS) {
       const context = await browser.newContext({ viewport: { width, height } });
-      const { hostname, origin } = new URL(BASE);
       if (signedIn && TOKEN) {
         await context.addCookies([{ name: 'privy-token', value: TOKEN, domain: hostname, path: '/' }]);
       }
@@ -106,7 +110,7 @@ async function main() {
       }));
       const slug = (path === '/' ? 'home' : path.replace(/^\/|\/$/g, '').replace(/[/?=&]+/g, '-')) + (signedIn ? '-signed-in' : '');
       await page.screenshot({ path: `${OUT}/${slug}-${name}.png`, fullPage: true });
-      report.push({ path, signedIn, width, status: response?.status() ?? null, ...facts, pageErrors, errors });
+      report.push({ path, signedIn, width, status: response?.status() ?? null, url: page.url(), ...facts, pageErrors, errors });
       await context.close();
     }
   }
@@ -117,11 +121,11 @@ async function main() {
   await browser.close();
   await writeFile(`${OUT}/report.json`, JSON.stringify(report, null, 2));
   for (const r of report) {
-    const flags = [...strictFailures(r), r.errors.length && `${r.errors.length} console errors`].filter(Boolean);
+    const flags = [...strictFailures(r, origin), r.errors.length && `${r.errors.length} console errors`].filter(Boolean);
     console.log(`${r.width}\t${r.path}${r.signedIn ? ' (signed in)' : ''}\t${flags.join(', ') || 'ok'}`);
   }
 
-  const failed = report.filter((r) => strictFailures(r).length > 0);
+  const failed = report.filter((r) => strictFailures(r, origin).length > 0);
   if (STRICT && failed.length > 0) {
     console.error(`\nSTRICT: ${failed.length} of ${report.length} page views failed.`);
     process.exitCode = 1;
