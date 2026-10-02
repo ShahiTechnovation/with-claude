@@ -23,6 +23,9 @@
  *                   file-fixture rehearsal to the real Baserow rows with the
  *                   same keys, so the sync updates those projects in place
  *                   instead of creating duplicates. Dry run without --yes.
+ *   archive-delete-blank-rows --rows events=1,2;credits=1,2 --yes
+ *                   Delete a table's default blank rows — only rows blank in
+ *                   every field and referenced by no link. Snapshotted first.
  *   verify-links    --impact … --fable … [--all]
  *                   A bounded, SSRF-safe public check of the URLs that need
  *                   one (an access parameter was removed) — or, with --all,
@@ -78,6 +81,7 @@ export const ARCHIVE_COMMANDS = [
   'archive-plan',
   'archive-verify',
   'archive-rebind',
+  'archive-delete-blank-rows',
   'verify-links',
   'archive-report',
   'fixture-seed',
@@ -439,7 +443,10 @@ async function archiveVerify() {
   };
   const decisions = JSON.parse(await readFile(join(dir, 'decisions.json'), 'utf8')) as Record<string, Decision>;
   const [batch] = await db.select().from(schema.importBatches).where(eq(schema.importBatches.id, batchId));
-  const publish = Boolean((batch?.report as { publishedRequested?: number } | null)?.publishedRequested);
+  // The batch's own record says whether it was applied with --publish. A
+  // database that only received the sync (no ledger) must be told.
+  if (!batch && !flag('publish')) fail(`batch ${batchId} is not in this database — run against the ledger database, or pass --publish if it was applied with it`);
+  const publish = batch ? Boolean((batch.report as { publishedRequested?: number } | null)?.publishedRequested) : true;
   const workbooks = await readArchiveWorkbooks(archivePaths());
   const adapter = buildArchiveCandidates(workbooks, saved.events, await linkChecks());
   const { client, config } = writer();
@@ -493,8 +500,8 @@ async function archiveVerify() {
     'Held for review — not imported': count('held-not-imported'),
     'Failed': count('failed'),
     'Baserow Projects rows (table total)': rows.projects.length,
-    'Baserow Events rows (table total; 2 pre-existing blank rows)': rows.events.length,
-    'Baserow ProjectCredits rows (table total; 2 pre-existing blank rows)': rows.credits.length,
+    'Baserow Events rows (table total)': rows.events.length,
+    'Baserow ProjectCredits rows (table total)': rows.credits.length,
     ...(neon
       ? {
           'Website (local sync): public': importedRows.filter((r) => r.neon?.startsWith('published')).length,
@@ -505,7 +512,23 @@ async function archiveVerify() {
   for (const c of result.checks) console.log(`${c.ok ? 'pass' : 'FAIL'}  ${c.name} — ${c.detail}`);
   for (const w of result.warnings) console.log(`warn  ${w}`);
   console.log(JSON.stringify(counts, null, 2));
+  // What was verified where, and the blank default rows this workspace lost.
+  const deletions = await readFile(join('imports', 'baserow-live', 'latest-deleted-blank-rows.json'), 'utf8')
+    .then((t) => (JSON.parse(t) as { outcome: { table: string; rowId: number; result: string }[] }).outcome)
+    .catch(() => []);
+  const notes = [
+    FIXTURE
+      ? 'Destination: a local file fixture (rehearsal). Nothing here was read from or written to the real Baserow.'
+      : 'Real Baserow: every check above ran on the rows as STORED, re-read in full through the API after the import.',
+    neon
+      ? 'Website column: an isolated LOCAL database clone, synced from those Baserow rows by the normal reconcile/queue — not shared Neon. Production sync is off.'
+      : 'No website column: this run did not read a synced database.',
+    ...(deletions.length
+      ? [`Default blank rows: ${deletions.map((d) => `${d.table} ${d.rowId} ${d.result}`).join(', ')} (deleted only when blank in every field and unreferenced; restorable from Baserow's trash).`]
+      : []),
+  ];
   const md = renderBaserowReconciliation({
+    notes,
     generatedAt: new Date().toISOString().slice(0, 10),
     rows: recon,
     checks: result.checks,
@@ -644,6 +667,79 @@ async function archiveRebind() {
   console.log(`re-pointed ${moved} mapping(s) (${already} already pointed at the real rows); moved ${credits} team credit key(s); ${leftover.length} credit(s) still keyed to the rehearsal table.`);
 }
 
+// ── the tables' default blank rows ───────────────────────────────────────
+
+/**
+ * Baserow creates new tables with blank rows. They carry no key, so the sync
+ * reports them as quarantined forever. Deleted ONLY when, at the moment of
+ * deletion, the row is blank in every field and no link field in any
+ * configured table points at it. Anything else is left and reported.
+ * The rows are snapshotted first; Baserow's trash can restore them.
+ *
+ *   archive-delete-blank-rows --rows events=1,2;credits=1,2 --yes
+ */
+async function deleteBlankRows() {
+  if (!flag('yes')) fail('archive-delete-blank-rows deletes Baserow rows. Re-run with --yes.');
+  guardDatabase();
+  const spec = option('rows') ?? fail('--rows events=1,2;credits=1,2 is required (explicit row ids only).');
+  const { client, config } = writer();
+  const wanted: { table: 'events' | 'projects' | 'credits'; rowId: number }[] = [];
+  for (const part of spec.split(';')) {
+    const [table, ids] = part.split('=');
+    if (!['events', 'projects', 'credits'].includes(table)) fail(`unknown table ${table}`);
+    for (const id of (ids ?? '').split(',')) {
+      const n = Number(id);
+      if (!Number.isInteger(n) || n <= 0) fail(`bad row id ${id}`);
+      wanted.push({ table: table as 'events' | 'projects' | 'credits', rowId: n });
+    }
+  }
+  // Every link field in every configured table, and what it points at.
+  const tables = (['events', 'projects', 'credits'] as const).map((t) => ({ key: t, tableId: config.tables[t].tableId }));
+  const refs = new Map<string, string[]>();
+  const snapshotRows: Record<string, Row[]> = {};
+  for (const t of tables) {
+    const fields = (await client.listFields(t.tableId)) as unknown as LiveField[];
+    const rows = await readTable(client, t.tableId);
+    snapshotRows[t.key] = rows;
+    for (const f of fields.filter((x) => x.type === 'link_row' && x.link_row_table_id)) {
+      for (const r of rows) {
+        for (const v of (r[`field_${f.id}`] as { id: number }[] | undefined) ?? []) {
+          const k = `${f.link_row_table_id}:${v.id}`;
+          refs.set(k, [...(refs.get(k) ?? []), `${t.key} row ${r.id} (${f.name})`]);
+        }
+      }
+    }
+  }
+  const dir = join('imports', 'baserow-live');
+  await mkdir(dir, { recursive: true });
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const outcome: Record<string, unknown>[] = [];
+  for (const w of wanted) {
+    const tableId = config.tables[w.table].tableId;
+    const row = snapshotRows[w.table].find((r) => r.id === w.rowId);
+    if (!row) {
+      console.log(`${w.table} row ${w.rowId}: not there — nothing to do`);
+      outcome.push({ ...w, result: 'absent' });
+      continue;
+    }
+    const nonEmpty = Object.entries(row).filter(([k, v]) => k.startsWith('field_') && !(v === null || v === '' || v === false || (Array.isArray(v) && v.length === 0)));
+    const referencedBy = refs.get(`${tableId}:${w.rowId}`) ?? [];
+    if (nonEmpty.length || referencedBy.length) {
+      const why = nonEmpty.length ? `has values in ${nonEmpty.map(([k]) => k).join(', ')}` : `is linked from ${referencedBy.join(', ')}`;
+      console.log(`${w.table} row ${w.rowId}: KEPT — ${why}`);
+      outcome.push({ ...w, result: 'kept', why });
+      continue;
+    }
+    await client.deleteRow(tableId, w.rowId);
+    console.log(`${w.table} row ${w.rowId}: blank and unreferenced — deleted (restorable from Baserow's trash)`);
+    outcome.push({ ...w, result: 'deleted', before: row });
+  }
+  const record = JSON.stringify({ at: new Date().toISOString(), outcome }, null, 2);
+  await writeFile(join(dir, `deleted-blank-rows-${stamp}.json`), record);
+  if (outcome.some((o) => o.result === 'deleted')) await writeFile(join(dir, 'latest-deleted-blank-rows.json'), record);
+  console.log(`Wrote ${dir}/deleted-blank-rows-${stamp}.json`);
+}
+
 // ── links ────────────────────────────────────────────────────────────────
 
 async function verifyLinks() {
@@ -771,6 +867,7 @@ export async function runArchiveCommand(command: (typeof ARCHIVE_COMMANDS)[numbe
     'archive-plan': archivePlan,
     'archive-verify': archiveVerify,
     'archive-rebind': archiveRebind,
+    'archive-delete-blank-rows': deleteBlankRows,
     'verify-links': verifyLinks,
     'archive-report': archiveReport,
     sync,

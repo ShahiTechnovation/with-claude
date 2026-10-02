@@ -358,6 +358,8 @@ const LABEL: Record<ReconRow['disposition'], string> = {
 
 /** The committed, privacy-safe reconciliation of all source rows. */
 export function renderBaserowReconciliation(input: {
+  /** What was verified where — real API, local clone, or a rehearsal file. */
+  notes?: string[];
   generatedAt: string;
   rows: ReconRow[];
   checks: Check[];
@@ -372,6 +374,7 @@ export function renderBaserowReconciliation(input: {
     `Generated ${input.generatedAt}. Destination: ${input.workspace}.`,
     'Row numbers are Excel rows of `Form responses 1` (header = row 1). Withheld values are referred to by cell coordinate only.',
     '',
+    ...(input.notes?.length ? [...input.notes.map((n) => `- ${n}`), ''] : []),
     '## Counts',
     '',
     '| Measure | Count |',

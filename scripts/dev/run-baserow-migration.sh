@@ -58,6 +58,9 @@ echo "── mode ${MODE}; ledger + validation database ${DB} (local clone of ${
 
 latest_batch() { ls -td imports/*/ | head -1 | sed 's#/$##'; }
 
+echo "── 0. the tables' default blank rows: delete only if blank and unreferenced"
+npm run --silent import -- archive-delete-blank-rows --rows "events=1,2;credits=1,2" --yes
+
 echo "── 1. events: match or create the two canonical rows"
 npm run --silent import -- archive-seed-events --yes --neon-ids "$NEON_IDS"
 
