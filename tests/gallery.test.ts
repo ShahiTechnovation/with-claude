@@ -53,7 +53,7 @@ describe.each<[string, RecordSet]>([
 describe('the gallery the page renders, through the live loader', () => {
   let db: TestDatabase;
 
-  // A photographed room with no Ambassador on the record: the live filter must leave it out.
+  // A photographed room the live loader's host filter drops (see loadLiveRecords): it must be left out.
   const unhosted: CommunityEvent = {
     ...repositoryRecords.events[0]!,
     id: 'evt-unhosted',
