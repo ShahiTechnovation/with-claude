@@ -64,6 +64,22 @@ const description = next
     <EventSignal selectors={selectors} />
   </Section>
 
+  <Section id="calendar" size="lg" labelledby="calendar-heading">
+    <div style="display: flex; flex-direction: column; align-items: center; width: 100%; gap: 2rem;">
+      <h2 id="calendar-heading" class="h2">Upcoming Events Calendar</h2>
+      <iframe
+        src="https://luma.com/embed/calendar/cal-Rmfu84P0S7JWiHl/events?tag=Claude"
+        width="100%"
+        height="450"
+        frameborder="0"
+        style="border: 1px solid #bfcbda88; border-radius: 4px; max-width: 800px;"
+        allowfullscreen=""
+        aria-hidden="false"
+        tabindex="0"
+      ></iframe>
+    </div>
+  </Section>
+
   <Section id="record" size="lg" labelledby="ahead-heading">
     <EventRecord selectors={selectors} />
   </Section>

@@ -231,7 +231,13 @@ export async function getPublicBuilderBySlug(
  * instead of relying on module-scope imports from `src/data/index.ts`.
  */
 export async function loadLiveRecords(db: Db = pooledDb()): Promise<RecordSet> {
-  return loadRecordSet(db);
+  const rs = await loadRecordSet(db);
+  rs.events = rs.events.filter(e => 
+    e.host?.ambassadorSlug === 'aniket-sahu' || 
+    (e.host?.builderSlugs && e.host.builderSlugs.includes('aniket-sahu')) ||
+    (e.host?.credits && e.host.credits.some(c => c.ambassadorSlug === 'aniket-sahu'))
+  );
+  return rs;
 }
 
 /**
