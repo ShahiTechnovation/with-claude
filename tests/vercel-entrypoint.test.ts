@@ -92,13 +92,17 @@ describe('the Vercel function entry', () => {
 });
 
 describe('the built function', () => {
-  // Fail rather than skip, like the other build checks: CI builds first.
+  // Fail rather than skip, like the other build checks: CI builds first. A
+  // finished build leaves the server code only in the function folder; a local
+  // one that stops at the adapter's symlink step leaves it in dist/server.
   it('is built from this entry, not the adapter’s unguarded one', () => {
-    const server = 'dist/server';
-    expect(existsSync(server), 'run `astro build` first').toBe(true);
-    const files = readdirSync(server, { recursive: true, encoding: 'utf8' })
-      .filter((file) => file.endsWith('.mjs'))
-      .map((file) => readFileSync(join(server, file), 'utf8'));
-    expect(files.some((code) => code.includes('refusePathOverride'))).toBe(true);
+    const roots = ['.vercel/output/functions/_render.func', 'dist/server'].filter(existsSync);
+    expect(roots, 'run `astro build` first').not.toHaveLength(0);
+    const built = roots.flatMap((root) =>
+      readdirSync(root, { recursive: true, encoding: 'utf8' })
+        .filter((file) => file.endsWith('.mjs') && !file.split(/[\\/]/).includes('node_modules'))
+        .map((file) => readFileSync(join(root, file), 'utf8')),
+    );
+    expect(built.some((code) => code.includes('refusePathOverride'))).toBe(true);
   });
 });
