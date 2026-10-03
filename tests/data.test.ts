@@ -331,11 +331,14 @@ describe('Impact Lab project archive', () => {
   const impactLabProjects = projects.filter(
     (p) => p.builtAtEventSlug === 'claude-code-impact-lab',
   );
+  // Held back at the first import, then published by the organisers (4c3218c)
+  // as submitted: no team on the record, and with the demo video.
+  const released = ['bhopal-lake-guardian', 'hospital-management'];
 
-  it('publishes exactly 26 unique projects', () => {
-    expect(impactLabProjects).toHaveLength(26);
+  it('publishes exactly 28 unique projects', () => {
+    expect(impactLabProjects).toHaveLength(28);
     const slugs = new Set(impactLabProjects.map((p) => p.slug));
-    expect(slugs.size).toBe(26);
+    expect(slugs.size).toBe(28);
   });
 
   it('every project points at Bhopal', () => {
@@ -350,10 +353,9 @@ describe('Impact Lab project archive', () => {
     }
   });
 
-  it('every project has at least one builder slug', () => {
-    for (const project of impactLabProjects) {
-      expect(project.builderSlugs.length, project.slug).toBeGreaterThan(0);
-    }
+  it('credits a builder on every project but the two released later', () => {
+    const uncredited = impactLabProjects.filter((p) => p.builderSlugs.length === 0);
+    expect(uncredited.map((p) => p.slug).sort()).toEqual(released);
   });
 
   it('every builder slug resolves to a builder in the registry', () => {
@@ -370,12 +372,6 @@ describe('Impact Lab project archive', () => {
       0,
     );
     expect(totalMentions).toBe(69);
-  });
-
-  it('does not include excluded projects', () => {
-    const titles = impactLabProjects.map((p) => p.title.toLowerCase());
-    expect(titles).not.toContain('bhopal lake guardian ai');
-    expect(titles).not.toContain('hospital management system');
   });
 
   it('collapsed duplicate submission names to single entries', () => {
@@ -423,10 +419,9 @@ describe('Impact Lab project archive', () => {
     }
   });
 
-  it('no project carries a videoUrl (Demo Video is suppressed)', () => {
-    for (const project of impactLabProjects) {
-      expect(project.videoUrl, project.slug).toBeUndefined();
-    }
+  it('suppresses Demo Video on every project but the two released later', () => {
+    const withVideo = impactLabProjects.filter((p) => p.videoUrl);
+    expect(withVideo.map((p) => p.slug).sort()).toEqual(released);
   });
 
   it('Impact Lab builders are pending (no automatic public profiles)', () => {

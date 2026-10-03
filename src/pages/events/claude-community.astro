@@ -25,7 +25,7 @@ import { listJoin } from '@/lib/words';
  */
 interface Entry {
   slug: string;
-  /** `Bhopal | Claude Meetup` — the city reads first on this page. */
+  /** The event's own title; the city label beside it already names the city. */
   title: string;
   city: string;
   /** `SEP 05, 2026` */
@@ -45,7 +45,7 @@ const toEntry = (event: CommunityEvent): Entry => {
   const city = cityName(event.citySlug);
   return {
     slug: event.slug,
-    title: `${city} | ${event.title}`,
+    title: event.title,
     city,
     date: `${parts.monthDisplay} ${parts.dayPadded}, ${parts.year}`,
     dateShort: `${parts.monthDisplay} ${parts.dayPadded}`,
@@ -170,7 +170,6 @@ const archiveYearMark =
 
       <article class="lead">
         <p class="lead-index">
-          <span class="lead-n">01</span>
           <span class="pip pip-blue">{lead.status}</span>
         </p>
 
@@ -209,11 +208,9 @@ const archiveYearMark =
       </article>
 
       <ul class="next-list">
-        {restUpcoming.map((entry, index) => (
+        {restUpcoming.map((entry) => (
           <li class="next-item">
             <div class="next-row">
-              <span class="next-n">{String(index + 2).padStart(2, '0')}</span>
-
               <span class="next-body">
                 <span class="next-title">
                   <span class="next-city">{entry.city}</span>
@@ -227,7 +224,6 @@ const archiveYearMark =
                   {entry.time}
                 </span>
                 {entry.venue && <span class="next-venue">{entry.venue}</span>}
-                <span class="next-hosts">{entry.host}</span>
               </span>
 
               <span class="pip pip-blue next-pip">{entry.status}</span>
@@ -265,23 +261,17 @@ const archiveYearMark =
         <p class="year-mark" aria-hidden="true">{archiveYearMark}</p>
 
         <ul class="year-list">
-          {past.map((entry, index) => (
+          {past.map((entry) => (
             <li class="past-item">
               <div class="past-row">
-                <span class="past-n">{pad(upcoming.length + index + 1)}</span>
-
                 <span class="past-when">
                   <span class="past-date">{entry.dateShort}</span>
                   <span class="past-time">{entry.time}</span>
                 </span>
 
-                <span class="past-body">
-                  <span class="past-title">
-                    <span class="past-city">{entry.city}</span>
-                    <span class="past-name">{entry.title}</span>
-                  </span>
-                  {entry.venue && <span class="past-venue">{entry.venue}</span>}
-                  <span class="past-hosts">{entry.host}</span>
+                <span class="past-title">
+                  <span class="past-city">{entry.city}</span>
+                  <span class="past-name">{entry.title}</span>
                 </span>
               </div>
 
@@ -420,14 +410,6 @@ const archiveYearMark =
     gap: var(--s-4);
   }
 
-  .lead-n {
-    font-family: var(--font-mono);
-    font-size: var(--t-meta);
-    letter-spacing: var(--track-meta);
-    color: var(--ink-3);
-    font-variant-numeric: tabular-nums;
-  }
-
   .lead-title {
     margin-top: var(--s-5);
     max-width: 20ch;
@@ -496,7 +478,7 @@ const archiveYearMark =
 
   .next-row {
     display: grid;
-    grid-template-columns: 4ch minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: var(--s-5);
     align-items: baseline;
     padding: var(--s-6) 0;
@@ -506,14 +488,6 @@ const archiveYearMark =
   .next-item:hover,
   .next-item:focus-within {
     background: var(--paper-raised);
-  }
-
-  .next-n {
-    font-family: var(--font-mono);
-    font-size: var(--t-meta);
-    letter-spacing: var(--track-meta);
-    color: var(--ink-3);
-    font-variant-numeric: tabular-nums;
   }
 
   .next-body {
@@ -541,8 +515,7 @@ const archiveYearMark =
   }
 
   .next-when,
-  .next-venue,
-  .next-hosts {
+  .next-venue {
     font-family: var(--font-mono);
     font-size: var(--t-micro);
     letter-spacing: var(--track-meta);
@@ -564,7 +537,6 @@ const archiveYearMark =
     gap: var(--s-2);
     margin-bottom: var(--s-6);
     padding: var(--s-2) var(--s-3);
-    margin-left: calc(4ch + var(--s-5));
     border: var(--border-hair) solid var(--rule-strong);
     border-radius: var(--radius-xs);
     font-family: var(--font-mono);
@@ -615,7 +587,7 @@ const archiveYearMark =
 
   .past-row {
     display: grid;
-    grid-template-columns: 4ch 10ch minmax(0, 1fr) auto;
+    grid-template-columns: 10ch minmax(0, 1fr);
     gap: var(--s-5);
     align-items: baseline;
     padding: var(--s-5) 0;
@@ -628,7 +600,6 @@ const archiveYearMark =
     background: var(--paper-raised);
   }
 
-  .past-n,
   .past-when {
     font-family: var(--font-mono);
     font-size: var(--t-micro);
@@ -648,11 +619,6 @@ const archiveYearMark =
     margin-top: var(--s-1);
   }
 
-  .past-body {
-    display: grid;
-    gap: var(--s-2);
-  }
-
   .past-city {
     font-family: var(--font-mono);
     font-size: var(--t-micro);
@@ -670,15 +636,6 @@ const archiveYearMark =
       'SOFT' 0,
       'WONK' 1;
     letter-spacing: -0.02em;
-  }
-
-  .past-venue,
-  .past-hosts {
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: var(--track-meta);
-    text-transform: uppercase;
-    color: var(--ink-3);
   }
 
   .past-luma {
@@ -704,12 +661,6 @@ const archiveYearMark =
     color: var(--clay-deep);
   }
 
-  @media (max-width: 60rem) {
-    .past-row {
-      grid-template-columns: 4ch 10ch minmax(0, 1fr);
-    }
-  }
-
   @media (max-width: 44rem) {
     .year {
       grid-template-columns: 1fr;
@@ -721,22 +672,20 @@ const archiveYearMark =
     }
 
     .next-row {
-      grid-template-columns: 4ch minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr);
     }
 
     .next-pip {
-      grid-column: 2;
       justify-self: start;
     }
 
     .past-row {
-      grid-template-columns: 4ch minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr);
       gap: var(--s-2) var(--s-4);
       padding-right: var(--s-7);
     }
 
     .past-when {
-      grid-column: 2;
       display: flex;
       gap: var(--s-3);
     }
@@ -747,10 +696,6 @@ const archiveYearMark =
       margin-top: 0;
     }
 
-    .past-body {
-      grid-column: 2;
-    }
-
     .lead-actions {
       gap: var(--s-4);
     }
@@ -758,10 +703,6 @@ const archiveYearMark =
     .lead-actions .btn {
       width: 100%;
       justify-content: center;
-    }
-
-    .next-luma {
-      margin-left: calc(4ch + var(--s-5));
     }
   }
 </style>
