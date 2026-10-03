@@ -14,6 +14,7 @@
  * `.env` file to find, so this is a no-op in production.
  */
 import 'dotenv/config';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
 import vercel from '@astrojs/vercel';
@@ -106,6 +107,17 @@ export default defineConfig({
     build: {
       // The site is static-first; a handful of tiny islands beats one bundle.
       assetsInlineLimit: 2048,
+    },
+    resolve: {
+      alias: [
+        // The function's entry, wrapped to refuse the adapter's path override
+        // (src/server/vercel-entrypoint.ts). Exact match: the wrapper reaches
+        // the real entry through `@astrojs/vercel/serverless/entrypoint`.
+        {
+          find: /^@astrojs\/vercel\/entrypoint$/,
+          replacement: fileURLToPath(new URL('./src/server/vercel-entrypoint.ts', import.meta.url)),
+        },
+      ],
     },
   },
 });
