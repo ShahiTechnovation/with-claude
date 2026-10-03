@@ -1,23 +1,24 @@
 name: Preview smoke
 
-# Vercel sends a repository_dispatch event when a deployment succeeds. For each
-# preview of the public site, open its core pages in a real browser and fail
-# on what a visitor would hit.
+# Vercel sends a repository_dispatch event when a deployment finishes. For each
+# preview of the public site, and for each production build Vercel holds for
+# its Deployment Checks, open the core pages in a real browser and fail on what
+# a visitor would hit. A held production build goes live only once this passes.
 #
 # GitHub reads a repository_dispatch workflow from the default branch only, so
 # no pull request can change what runs here. A deployment_status workflow is
 # read from the deployed commit instead: on a fork's preview, the fork's copy.
 on:
   repository_dispatch:
-    types: ['vercel.deployment.success']
+    types: ['vercel.deployment.success', 'vercel.deployment.ready']
 
 permissions:
   contents: read
 
 jobs:
-  # Runs for every successful deployment and holds no secret. The smoke job
-  # below is filtered on two strings, and a wrong one skips it without a trace:
-  # this prints what Vercel actually sent, so a mismatch shows in the log.
+  # Runs for every dispatch and holds no secret. The smoke job below is
+  # filtered on three strings, and a wrong one skips it without a trace: this
+  # prints what Vercel actually sent, so a mismatch shows in the log.
   payload:
     runs-on: ubuntu-latest
     timeout-minutes: 2
@@ -25,26 +26,53 @@ jobs:
     steps:
       - name: Show what Vercel sent
         env:
+          EVENT: ${{ github.event.action }}
           ENVIRONMENT: ${{ github.event.client_payload.environment }}
           PROJECT: ${{ github.event.client_payload.project.name }}
           DEPLOYMENT_URL: ${{ github.event.client_payload.url }}
         run: |
           host="${DEPLOYMENT_URL#*://}"
+          echo "event:        $EVENT"
           echo "environment:  $ENVIRONMENT"
           echo "project.name: $PROJECT"
           echo "url host:     ${host%%/*}"
 
   smoke:
-    # Two Vercel projects share this repository: only the public site's previews.
+    # Two Vercel projects share this repository: only the public site. A preview
+    # arrives as `success`. A production build held by Deployment Checks
+    # arrives as `ready`, before it is promoted.
     # (Field names: github.com/vercel/repository-dispatch,
     # packages/repository-dispatch/src/data/common.ts; `url` is in
     # data/deployment.ts beside it.)
     if: >-
-      github.event.client_payload.project.name == 'with-claude' &&
-      github.event.client_payload.environment == 'preview'
+      github.event.client_payload.project.name == 'with-claude' && (
+      (github.event.action == 'vercel.deployment.success' &&
+      github.event.client_payload.environment == 'preview') ||
+      (github.event.action == 'vercel.deployment.ready' &&
+      github.event.client_payload.environment == 'production'))
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      statuses: write
+    env:
+      # The result goes on the deployment's commit, named the way Vercel's
+      # Deployment Checks name a GitHub check ("Vercel - <project>: <check>").
+      # Posted directly rather than through vercel/repository-dispatch's status
+      # action, which picks the first job of the run and could report this one
+      # from `payload`'s steps.
+      STATUS_CONTEXT: 'Vercel - with-claude: smoke'
+      SHA: ${{ github.event.client_payload.git.sha }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
+      - name: Mark the check pending
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "unexpected sha: $SHA"; exit 1; }
+          gh api "repos/$GITHUB_REPOSITORY/statuses/$SHA" --silent -f state=pending \
+            -f context="$STATUS_CONTEXT" -f target_url="$RUN_URL"
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
@@ -56,14 +84,14 @@ jobs:
 
       - run: npx playwright install --with-deps chromium
 
-      - name: Review the preview
+      - name: Review the deployment
         env:
           BASE: ${{ github.event.client_payload.url }}
-          # Both go to the preview's origin only, never along a redirect. The
-          # cookie Vercel answers the second with is for the preview's host
-          # alone, and it carries redirects within the preview. With the secret
-          # unset both values are empty and the script sends neither header; a
-          # protected preview then fails as "ended on".
+          # Both go to the deployment's origin only, never along a redirect.
+          # The cookie Vercel answers the second with is for that host alone,
+          # and it carries redirects within it. With the secret unset both
+          # values are empty and the script sends neither header; a protected
+          # deployment then fails as "ended on".
           EXTRA_HEADERS: |-
             x-vercel-protection-bypass: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
             x-vercel-set-bypass-cookie: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET != '' && 'true' || '' }}
@@ -78,3 +106,13 @@ jobs:
           name: preview-screenshots
           path: shots/preview
           retention-days: 14
+
+      - name: Report the result
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STATE: ${{ job.status == 'success' && 'success' || 'failure' }}
+        run: |
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          gh api "repos/$GITHUB_REPOSITORY/statuses/$SHA" --silent -f state="$STATE" \
+            -f context="$STATUS_CONTEXT" -f target_url="$RUN_URL"
