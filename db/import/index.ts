@@ -24,7 +24,7 @@
  *     of a relationship it could not resolve — a silently broken graph is
  *     worse than no import, because it looks like it worked.
  */
-import { and, eq, notInArray, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, notInArray, or, sql } from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 
 import { curatedCredits } from '../../src/lib/credits';
@@ -41,6 +41,7 @@ import type {
   Builder,
   City,
   CommunityEvent,
+  EventPhoto,
   Guide,
   ModerationStatus,
   Project,
@@ -250,6 +251,39 @@ async function replaceOrdered(
   if (rows.length > 0) await db.insert(table).values(rows);
 }
 
+/** An event photo's `media` row, upserted on its path. Returns the row's id. */
+async function upsertPhotoMedia(db: ImportDatabase, photo: EventPhoto): Promise<string> {
+  const [row] = await db
+    .insert(schema.media)
+    .values({ path: photo.src, alt: photo.alt, kind: 'photo' })
+    .onConflictDoUpdate({
+      target: schema.media.path,
+      set: { alt: photo.alt, kind: 'photo' },
+    })
+    .returning({ id: schema.media.id });
+  return row.id;
+}
+
+/** An event's photos, replaced with exactly the record's, in the record's order. */
+async function replaceEventPhotos(
+  db: ImportDatabase,
+  eventId: string,
+  event: CommunityEvent,
+  mediaIdByPath: Map<string, string>,
+): Promise<void> {
+  await replaceOrdered(
+    db,
+    schema.eventPhotos,
+    schema.eventPhotos.eventId,
+    eventId,
+    (event.photos ?? []).map((photo, i) => ({
+      eventId,
+      mediaId: resolve(mediaIdByPath, photo.src, `event ${event.slug} photo`),
+      position: i,
+    })),
+  );
+}
+
 // =========================================================================
 
 export async function importRecords(
@@ -320,15 +354,7 @@ export async function importRecords(
 
   for (const event of eventRecords) {
     for (const photo of event.photos ?? []) {
-      const [row] = await db
-        .insert(schema.media)
-        .values({ path: photo.src, alt: photo.alt, kind: 'photo' })
-        .onConflictDoUpdate({
-          target: schema.media.path,
-          set: { alt: photo.alt, kind: 'photo' },
-        })
-        .returning({ id: schema.media.id, path: schema.media.path });
-      mediaIdByPath.set(row.path as string, row.id);
+      mediaIdByPath.set(photo.src, await upsertPhotoMedia(db, photo));
     }
     if (event.coverImage) mediaSkippedForMissingAlt += 1;
   }
@@ -757,17 +783,7 @@ export async function importRecords(
       (event.outcomes ?? []).map((text, i) => ({ eventId: row.id, position: i, text })),
     );
 
-    await replaceOrdered(
-      db,
-      schema.eventPhotos,
-      schema.eventPhotos.eventId,
-      row.id,
-      (event.photos ?? []).map((photo, i) => ({
-        eventId: row.id,
-        mediaId: resolve(mediaIdByPath, photo.src, `event ${event.slug} photo`),
-        position: i,
-      })),
-    );
+    await replaceEventPhotos(db, row.id, event, mediaIdByPath);
   }
 
   // ── Attendance ───────────────────────────────────────────────────────
@@ -1085,4 +1101,63 @@ export async function importRecords(
     guides: guideRecords.length,
     mediaSkippedForMissingAlt,
   };
+}
+
+// =========================================================================
+
+export interface PhotoImportSummary {
+  /** Each event found by slug, with the photo paths it gets, in order. */
+  events: { slug: string; photos: string[] }[];
+  /** Events with photos in the record that the database does not have. */
+  skipped: string[];
+}
+
+/**
+ * `npm run db:import:photos`: the event photos and nothing else.
+ *
+ * The full import rewrites every event, project and builder from the record,
+ * which undoes whatever was edited since in the database: a claimed project's
+ * links, a synced event's details. This writes only `media` and `event_photos`,
+ * through the same two steps the full import uses. An event is found by slug
+ * and never created; one the database lacks is skipped and reported. Events
+ * with no photos in the record are left alone. One transaction, so a failure
+ * leaves nothing half-written.
+ */
+export async function importEventPhotos(
+  db: ImportDatabase,
+  eventRecords: CommunityEvent[] = events,
+  { dryRun = false } = {},
+): Promise<PhotoImportSummary> {
+  const withPhotos = eventRecords.filter((event) => (event.photos ?? []).length > 0);
+  const found =
+    withPhotos.length === 0
+      ? []
+      : await db
+          .select({ id: schema.events.id, slug: schema.events.slug })
+          .from(schema.events)
+          .where(inArray(schema.events.slug, withPhotos.map((event) => event.slug)));
+  const idBySlug = new Map(found.map((row) => [row.slug, row.id]));
+  const present = withPhotos.filter((event) => idBySlug.has(event.slug));
+
+  const summary: PhotoImportSummary = {
+    events: present.map((event) => ({
+      slug: event.slug,
+      photos: event.photos!.map((photo) => photo.src),
+    })),
+    skipped: withPhotos.filter((event) => !idBySlug.has(event.slug)).map((event) => event.slug),
+  };
+  if (dryRun) return summary;
+
+  await db.transaction(async (tx) => {
+    const mediaIdByPath = new Map<string, string>();
+    for (const event of present) {
+      for (const photo of event.photos!) {
+        mediaIdByPath.set(photo.src, await upsertPhotoMedia(tx as ImportDatabase, photo));
+      }
+    }
+    for (const event of present) {
+      await replaceEventPhotos(tx as ImportDatabase, idBySlug.get(event.slug)!, event, mediaIdByPath);
+    }
+  });
+  return summary;
 }

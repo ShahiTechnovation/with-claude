@@ -24,6 +24,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx db/migrate.ts",
     "db:import": "tsx db/import/run.ts",
+    "db:import:photos": "tsx db/import/photos.ts",
     "db:create-user": "tsx db/create-user.ts",
     "db:studio": "drizzle-kit studio",
     "import": "tsx scripts/import/cli.ts",
