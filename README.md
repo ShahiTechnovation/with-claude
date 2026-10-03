@@ -101,6 +101,41 @@ CI (`.github/workflows/ci.yml`) runs on every pull request and every push to `ma
 
 `tests/equivalence-neon.test.ts` isn't part of CI, because it needs a live Neon credential. It runs only when you name it.
 
+Preview smoke (`.github/workflows/preview-smoke.yml`) runs each time Vercel finishes a preview of
+the `with-claude` project (not `with-claude-admin`, not production). Chromium opens `/`,
+`/events/`, `/cities/`, `/projects/` and `/about/` on the preview at three widths, and the run
+fails on a non-200 status, a page that ends on another origin (Vercel's login, say), horizontal
+overflow, a missing or repeated `<main>` or `<h1>`, or an uncaught script error. Console noise
+alone does not fail it. The screenshots are attached to the run as the `preview-screenshots`
+artifact. It runs on Vercel's `repository_dispatch` event, which GitHub reads from `main` only, so
+it starts working once it is merged and no pull request can change what it runs.
+
+What a maintainer has to set up for it:
+
+1. **Vercel, `with-claude`:** under Settings → Git, check that `repository_dispatch` events are on.
+2. **Vercel, `with-claude` and `with-claude-admin`:** under Settings → Git, turn off
+   `deployment_status` events. GitHub runs a `deployment_status` workflow from the deployed
+   commit, so once a fork's preview is authorized, any such workflow the fork adds would run with
+   this repository's secrets. With the events off, it never runs.
+3. **GitHub:** protect `main` (require a pull request and the `CI / check` status, no force
+   pushes).
+4. **Both:** previews are behind Vercel Authentication, so in Vercel create a secret under Settings
+   → Deployment Protection → Protection Bypass for Automation, and in GitHub add it under Settings
+   → Secrets and variables → Actions as `VERCEL_AUTOMATION_BYPASS_SECRET`. The check sends it to
+   the preview's own origin only, never along a redirect. Vercel also hands this secret to every
+   deployment as an environment variable, so authorizing a fork's preview gives it to the fork:
+   read the diff first.
+5. **GitHub, on the first run:** open the run's `payload` job and confirm it prints
+   `environment: preview` and `project.name: with-claude` for a preview of the public site. The
+   smoke job is filtered on those two values; if Vercel sends something else, it is skipped
+   without an error, and the filter in `preview-smoke.yml` needs the printed values.
+
+The same script runs locally against any URL:
+
+```bash
+BASE=http://localhost:4321 PAGES=/,/events/,/projects/ STRICT=1 node scripts/dev/visual-review.mjs
+```
+
 ## The governance model
 
 This is the part that is structural rather than cosmetic, and the part to not quietly undo.
