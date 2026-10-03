@@ -194,11 +194,6 @@ const iconFor = (kind: string) =>
               <a class="meta-chip pd-chip-link" href={directoryHref({ categories: [project.category] })}>
                 {categoryLabel(project.category)}
               </a>
-              {status && (
-                <span class="meta-chip meta-chip--status" title="Self-reported by the team">
-                  {status} · self-reported
-                </span>
-              )}
             </div>
             {actions.length > 0 && (
               <ul class="dir-actions pd-actions" aria-label="Project links">
