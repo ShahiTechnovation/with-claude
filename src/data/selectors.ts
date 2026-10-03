@@ -598,10 +598,19 @@ export class RecordSelectors {
         out.push({
           ...photo,
           event,
-          plate: `${String(event.volume ?? 0).padStart(2, '0')}/${String(i + 1).padStart(2, '0')}`,
+          // An event outside a numbered series has no volume to print, not a "00".
+          plate: `${event.volume ? `${String(event.volume).padStart(2, '0')}/` : ''}${String(i + 1).padStart(2, '0')}`,
         });
       });
     }
     return out;
+  }
+
+  photoRecordByEvent(): { event: CommunityEvent; plates: PhotoRecordItem[] }[] {
+    const plates = this.photoRecord();
+    return [...new Set(plates.map((plate) => plate.event))].map((event) => ({
+      event,
+      plates: plates.filter((plate) => plate.event === event),
+    }));
   }
 }

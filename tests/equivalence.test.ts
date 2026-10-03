@@ -596,6 +596,7 @@ describe('derived selectors', () => {
 
   it('the photographic record is identical', () => {
     compare('photoRecord()', () => selectors.photoRecord());
+    compare('photoRecordByEvent()', () => getStatic().photoRecordByEvent());
   });
 
   it('event lifecycle selectors are identical', () => {

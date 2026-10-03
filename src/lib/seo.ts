@@ -85,6 +85,7 @@ export const titles = {
   discover: () => 'Search the Claude community in India',
   about: () => 'How the record works | Verification, sources and corrections',
   record: () => 'The record | Everything that has happened, by month',
+  gallery: () => `Photos from Claude Events in India | ${site.wordmark}`,
 } as const;
 
 // =========================================================================

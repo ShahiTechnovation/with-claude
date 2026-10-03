@@ -185,6 +185,7 @@ describe('dynamic sitemap', () => {
     expect(xml).toContain('<loc>https://www.withclaude.in/builders/</loc>');
     expect(xml).toContain('<loc>https://www.withclaude.in/projects/</loc>');
     expect(xml).toContain('<loc>https://www.withclaude.in/ambassadors/</loc>');
+    expect(xml).toContain('<loc>https://www.withclaude.in/gallery/</loc>');
   });
 
   // ── 4. Public builder present ────────────────────────────────────────────

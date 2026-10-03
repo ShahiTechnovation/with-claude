@@ -1,0 +1,219 @@
+---
+export const prerender = false;
+
+import { Image } from 'astro:assets';
+import Base from '@/layouts/Base.astro';
+import Section from '@/components/Section.astro';
+import PageIntro from '@/components/PageIntro.astro';
+import { formatDate, isoDateTime } from '@/lib/datetime';
+import { titles, trail } from '@/lib/seo';
+import { privateCache, publicCache } from '@/server/http/cache';
+import { galleryRooms, type GalleryRoom } from '@/server/public/pages';
+import { logReadFailure, type ReadFailure } from '@/server/public/read-failure';
+
+// As on the homepage: a failed read is an uncached 503 with an honest message, never a raw 500.
+let failure: ReadFailure | null = null;
+let rooms: GalleryRoom[] | undefined;
+try {
+  rooms = await galleryRooms();
+  publicCache(Astro);
+} catch (error) {
+  failure = logReadFailure('gallery', error);
+  Astro.response.status = 503;
+  Astro.response.headers.set('Retry-After', '30');
+  privateCache(Astro);
+}
+const devHint = import.meta.env.DEV && failure === 'schema-behind';
+
+const photographs = (rooms ?? []).reduce((sum, room) => sum + room.plates.length, 0);
+const pad = (n: number) => String(n).padStart(2, '0');
+---
+
+<Base
+  title="Gallery"
+  seoTitle={titles.gallery()}
+  description="Photographs from Claude community events in India, grouped by event, newest first."
+  active="/gallery"
+  breadcrumbs={trail({ name: 'Gallery', href: '/gallery' })}
+>
+  {
+    !rooms ? (
+      <Section id="unavailable" labelledby="unavailable-heading">
+        <div class="section-head" role="alert">
+          <p class="eyebrow">Gallery</p>
+          <h1 id="unavailable-heading">The gallery could not be loaded</h1>
+          <p class="prose">
+            Something went wrong on our side while reading the community record. Please try again in
+            a moment.
+          </p>
+          {devHint && (
+            <p class="prose">
+              <strong>Development:</strong> the database behind <code>DATABASE_URL</code> is missing
+              migrations this code needs. Run <code>npm run db:migrate</code> against it, or point
+              the dev server at a migrated database.
+            </p>
+          )}
+        </div>
+        <a class="btn" href="/gallery/">
+          <span>Try again</span>
+          <span class="arrow" aria-hidden="true">
+            →
+          </span>
+        </a>
+      </Section>
+    ) : (
+      <>
+        <PageIntro
+          eyebrow="Gallery"
+          title="Photographs from the rooms."
+          stamp={`${pad(photographs)} plates`}
+          facts={[
+            { label: 'Photographs', value: pad(photographs) },
+            { label: 'Rooms', value: pad(rooms.length) },
+          ]}
+        >
+          <p>
+            Every photograph on the record, filed under the event it was taken at, newest first.
+          </p>
+        </PageIntro>
+
+        <Section id="plates" labelledby="plates-heading">
+          <div class="block-head">
+            <h2 class="label" id="plates-heading">
+              By event, newest first
+            </h2>
+            <span class="coords">{pad(rooms.length)}</span>
+          </div>
+
+          {rooms.length === 0 && <p class="prose empty">No photographs are on the record yet.</p>}
+
+          {rooms.map(({ event, city, plates }, r) => (
+            <section class="room" aria-labelledby={`room-${event.slug}`}>
+              <div class="room-head">
+                <h3 class="label label-strong room-title" id={`room-${event.slug}`}>
+                  <a href={`/events/${event.slug}/`}>{event.title}</a>
+                </h3>
+                <p class="room-meta">
+                  <time class="label" datetime={isoDateTime(event.date, event.startTime)}>
+                    {formatDate(event.date)}
+                  </time>
+                  <span class="label">{city}</span>
+                </p>
+              </div>
+
+              <ul class="room-plates">
+                {plates.map((plate, i) => (
+                  <li class:list={{ 'is-lead': i === 0 }}>
+                    <figure>
+                      <div class="plate plate-framed" data-reveal="mask">
+                        <Image
+                          src={plate.image}
+                          alt={plate.alt}
+                          widths={[480, 800, 1200, 1600]}
+                          sizes={
+                            i === 0
+                              ? '(max-width: 61.99em) 92vw, 900px'
+                              : '(max-width: 35.99em) 92vw, (max-width: 61.99em) 46vw, 450px'
+                          }
+                          loading={r === 0 && i === 0 ? 'eager' : 'lazy'}
+                          decoding="async"
+                        />
+                      </div>
+                      <figcaption class="plate-caption">
+                        <span>{`Pl. ${plate.plate}`}</span>
+                      </figcaption>
+                    </figure>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </Section>
+      </>
+    )
+  }
+</Base>
+
+<style>
+  .block-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--s-4);
+    padding-bottom: var(--s-4);
+    border-bottom: var(--border-heavy) solid var(--ink);
+  }
+
+  .block-head .label {
+    color: var(--ink);
+  }
+
+  .empty {
+    padding-top: var(--s-6);
+  }
+
+  .room {
+    display: grid;
+    gap: var(--s-5);
+    padding-block: var(--s-7);
+    border-bottom: var(--border-hair) solid var(--rule);
+  }
+
+  .room-title {
+    line-height: 1.5;
+  }
+
+  .room-title a:hover,
+  .room-title a:focus-visible {
+    text-decoration-color: currentColor;
+  }
+
+  .room-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-1) var(--s-4);
+    margin-top: var(--s-2);
+  }
+
+  .room-plates {
+    display: grid;
+    gap: var(--s-5);
+  }
+
+  .room-plates .plate {
+    padding: var(--s-2);
+  }
+
+  /* The whole frame, never cropped: the record holds portraits as well as landscapes. */
+  .room-plates :global(img) {
+    object-fit: contain;
+  }
+
+  @media (min-width: 36em) {
+    .room-plates {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .room-plates .is-lead,
+    .room-plates li:nth-child(even):last-child {
+      grid-column: 1 / -1;
+    }
+
+    .room-plates .plate {
+      aspect-ratio: 3 / 2;
+    }
+  }
+
+  @media (min-width: 62em) {
+    .room {
+      grid-template-columns: 16rem minmax(0, 1fr);
+      gap: var(--s-8);
+    }
+
+    .room-head {
+      position: sticky;
+      top: var(--s-9);
+      align-self: start;
+    }
+  }
+</style>

@@ -8,6 +8,9 @@
  * `src/server/projects/lifecycle.ts` do.
  */
 import { pooledDb } from '../../../db/pool';
+import { RecordSelectors } from '../../data/selectors';
+import { requireAsset } from '../../lib/images';
+import { loadLiveRecords } from '../directory';
 import {
   getProjectDetail,
   listPublicProjects,
@@ -50,3 +53,15 @@ export function builderProjects(builder: {
 }): Promise<PublicProjectCard[]> {
   return publicProjectsForBuilder(pooledDb(), builder);
 }
+
+/** The live photographs by event; images resolve here so a missing file fails the read, not the render. */
+export async function galleryRooms(db?: Parameters<typeof loadLiveRecords>[0]) {
+  const selectors = new RecordSelectors(await loadLiveRecords(db));
+  return selectors.photoRecordByEvent().map(({ event, plates }) => ({
+    event,
+    city: selectors.cityName(event.citySlug),
+    plates: plates.map((plate) => ({ ...plate, image: requireAsset(plate.src) })),
+  }));
+}
+
+export type GalleryRoom = Awaited<ReturnType<typeof galleryRooms>>[number];

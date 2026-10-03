@@ -173,6 +173,7 @@ describe("the public site does not share the admin's authentication", () => {
         'src/pages/discover.astro',
         'src/pages/events/[slug].astro',
         'src/pages/events/index.astro',
+        'src/pages/gallery.astro',
         'src/pages/index.astro',
         'src/pages/me/index.astro',
         'src/pages/me/profile/edit.astro',
