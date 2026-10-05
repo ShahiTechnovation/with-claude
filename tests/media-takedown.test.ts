@@ -250,8 +250,14 @@ describe('a taken-down image on a project card', () => {
 
     // The gap this closes: a row hidden as a cover but shown as a logo is
     // the partial promise the whole issue exists to end.
+    //
+    // Asserted as the positive outcome rather than `not.toMatchObject({ src })`,
+    // which would also pass for a malformed shape. This project carries no
+    // cover and no `logoPath`, so once the media row is tombstoned
+    // `resolveLogoSource()` has nothing to fall back to and must land on the
+    // placeholder.
     await db.update(schema.media).set({ deletedAt: new Date() }).where(eq(schema.media.id, logoId));
-    expect((await onlyCard()).logo).not.toMatchObject({ src: `${BLOB}/logo.png` });
+    expect((await onlyCard()).logo).toMatchObject({ kind: 'placeholder' });
   });
 
   it('keeps rendering a committed asset key, which no media row governs', async () => {
