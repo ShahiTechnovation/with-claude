@@ -520,6 +520,10 @@ wants to host events should land on the programme page, not on a homepage to nav
 the meta description, the JSON-LD, the archive and every status badge derive from it. There is no
 "featured" flag to move and no date to update in a second place.
 
+**A new photograph** — drop the file in `src/assets/events/` and add it to that event's `photos`
+with alt text. The site renders it from git immediately; the database does not learn about it until
+somebody runs the backfill — see [Backfilling event photographs](#backfilling-event-photographs).
+
 **A new Ambassador** — add to `src/data/ambassadors.ts` with a real `verifiedVia`. That single edit
 is what turns their city Ambassador-led and gives their events the verified treatment.
 
@@ -602,6 +606,61 @@ date the record states in prose. Everything else stays null.
 
 **`src/data/*.ts` remains the public site's source of truth.** Every page still renders from those
 files. The database is populated and tested, and nothing public reads it yet — that is Phase 3.
+
+### Backfilling event photographs
+
+**Committing to `src/assets/events/` is half the job.** `db:import` runs nowhere automatically —
+no workflow and no deploy hook calls it — so a photograph commit does not reach the database until
+somebody runs something. That is how the live gallery came to serve six of the 41 photographs the
+record describes.
+
+`npm run backfill:photos` closes that gap without running the whole importer, which would also
+rewrite every event and project row from the TypeScript record regardless of whether an organiser
+adopted that event into Baserow or a member claimed that project. The backfill is two inserts and
+one dimension update in a single transaction, it deletes nothing, and it has an inverse:
+
+```bash
+npm run backfill:photos -- rehearse     # the dry run against PGlite, seeded to the live state.
+                                        # Needs no DATABASE_URL and reaches nothing.
+npm run backfill:photos -- plan         # the same dry run against DATABASE_URL. Writes nothing.
+npm run backfill:photos -- apply --yes  # the write. Prints the delta first and refuses on anything
+                                        # the dry run flagged, then writes a receipt to imports/.
+npm run backfill:photos -- rollback --receipt imports/<file>.json --yes
+```
+
+**It is insert-only unless you ask otherwise.** `--with-dimensions` adds the one statement that
+modifies rows the database already has — `width`/`height` on existing `media` rows, measured off
+the files. It is off by default because nothing rendering today reads those two columns for an
+event photograph: `src/data/source-db.ts` maps a plate to `{ src, alt }` and the gallery's
+dimensions come from `requireAsset`, Astro's own asset import. They are read on the project-logo
+path only. New rows always carry measured dimensions either way; the flag is about the existing
+ones. The dry run reports the candidates whether or not you pass it.
+
+A non-local `DATABASE_URL` needs `--allow-remote-db` on top, the same rail `npm run import` uses.
+Read the delta from `plan` before passing `--yes`.
+
+**The dry run is what tells you the delta — do not assume it.** `media` is one row per file, so it
+is the number of photographs the database has not got. `event_photos` can be fewer: a photo-bearing
+event the record describes but the target has no row for is **skipped and reported**, because a
+photograph cannot join to an event that does not exist and creating the event is `db:import`'s job.
+Its media row still lands and the join appears on a re-run once the event does. `apply` refuses
+outright on only two things — a wanted `(event_id, position)` held by different media, which
+`ON CONFLICT DO NOTHING` would otherwise skip in silence, and a path the asset registry would not
+resolve, which would make `/gallery` answer 503 for every room rather than one.
+
+**To undo, run `rollback --receipt`, not the SQL.** The command and the printed SQL do the same two
+deletes, but the command reports what it kept and why. Both guard the `media` delete against every
+column that could have adopted a row since — a cover, a logo, an avatar — because those foreign
+keys are `ON DELETE SET NULL` and would otherwise be blanked without a word.
+
+`tests/backfill-event-photos.test.ts` runs the whole cycle — delta, idempotency, atomicity, both
+refusals, the missing-event skip and its re-run, rollback — against a PostgreSQL rewound to the
+state production is in.
+
+Measuring `media.width` / `media.height` is part of it. `db/import/index.ts` writes only
+`{ path, alt, kind }`, so every photo row it creates carries null dimensions, and a null dimension
+stops being cosmetic as soon as images are served from object storage rather than resolved through
+the Astro asset registry.
 
 ## The admin
 
