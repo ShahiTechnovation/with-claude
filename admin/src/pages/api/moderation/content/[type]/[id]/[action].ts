@@ -3,6 +3,7 @@ import { pooledDb } from '@db/pool';
 import * as dbSchema from '@db/schema';
 import { eq } from 'drizzle-orm';
 import { assertSameOrigin } from '@/server/session';
+import { mediaModerationPatch } from '@/server/moderation';
 
 export const prerender = false;
 
@@ -76,20 +77,19 @@ export const POST: APIRoute = async ({ request, params, locals }) => {
       const [entity] = await tx.select().from(dbSchema.media).where(eq(dbSchema.media.id, id));
       if (!entity) return false;
       fromStatus = entity.status; // media uses status directly
-      
-      if (action === 'restrict' || action === 'delete') toStatus = 'deleted';
-      else if (action === 'restore') toStatus = 'published';
+
+      // `restore` has to clear the tombstone, not just the status, or the
+      // readers that honour `deleted_at` keep hiding a restored image. See
+      // `mediaModerationPatch()` for why that belongs to the writer.
+      const patch = mediaModerationPatch(action, user.id);
+      toStatus = patch?.status ?? '';
 
       dbAction = `content.${toStatus === 'published' ? 'restored' : toStatus}`;
 
-      const updateData: any = { status: toStatus as any, updatedAt: new Date() };
-      if (action === 'delete') {
-        updateData.deletedAt = new Date();
-        updateData.deletedBy = user.id;
-        updateData.deletionReason = 'Moderator removed';
-      }
-      
-      await tx.update(dbSchema.media).set(updateData).where(eq(dbSchema.media.id, id));
+      await tx
+        .update(dbSchema.media)
+        .set(patch ?? ({ status: toStatus as any, updatedAt: new Date() } as any))
+        .where(eq(dbSchema.media.id, id));
     } else {
       return false; // unknown type
     }
