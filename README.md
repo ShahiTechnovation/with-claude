@@ -102,7 +102,9 @@ CI (`.github/workflows/ci.yml`) runs on every pull request and every push to `ma
 `tests/equivalence-neon.test.ts` isn't part of CI, because it needs a live Neon credential. It runs only when you name it.
 
 Preview smoke (`.github/workflows/preview-smoke.yml`) runs each time Vercel finishes a preview of
-the `with-claude` project (not `with-claude-admin`, not production). Chromium opens `/`,
+the `with-claude` project (not `with-claude-admin`), and on each production build that Vercel's
+Deployment Checks hold before it goes live. It posts its result on the deployment's commit as
+`Vercel - with-claude: smoke`. Chromium opens `/`,
 `/events/`, `/cities/`, `/projects/` and `/about/` on the preview at three widths, and the run
 fails on a non-200 status, a page that ends on another origin (Vercel's login, say), horizontal
 overflow, a missing or repeated `<main>` or `<h1>`, or an uncaught script error. Console noise
@@ -129,6 +131,11 @@ What a maintainer has to set up for it:
    `environment: preview` and `project.name: with-claude` for a preview of the public site. The
    smoke job is filtered on those two values; if Vercel sends something else, it is skipped
    without an error, and the filter in `preview-smoke.yml` needs the printed values.
+6. **Vercel, `with-claude`, to hold production on the checks:** under Settings → Build and
+   Deployment → Deployment Checks, import `check` from GitHub. Once a production run of the smoke
+   job has passed (its `payload` job prints `event: vercel.deployment.ready`), add `smoke` under
+   "Send workflow updates to Vercel". A production build then goes live only after both pass on its
+   commit, and a failed or missing result keeps the last good deployment live.
 
 The same script runs locally against any URL:
 

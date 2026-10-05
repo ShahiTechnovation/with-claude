@@ -137,4 +137,42 @@ describe('the preview workflow', () => {
     expect(workflow).toContain('packages/repository-dispatch/src/data/common.ts');
     expect(workflow).toContain('data/deployment.ts');
   });
+
+  /**
+   * A production build waits for Vercel's Deployment Checks before it goes
+   * live. The smoke job tests that held build as well as each preview, and
+   * posts the result on the deployment's commit under the name Vercel's check
+   * expects. Under another name, or on another commit, the check would stay
+   * pending and production would never be promoted.
+   */
+  it('reports a result Vercel can hold a production build on', () => {
+    const smoke = workflow.slice(workflow.indexOf('\n  smoke:\n'));
+    expect(workflow).toContain("types: ['vercel.deployment.success', 'vercel.deployment.ready']");
+    expect(smoke).toMatch(
+      /action == 'vercel\.deployment\.success' &&\s+github\.event\.client_payload\.environment == 'preview'/,
+    );
+    expect(smoke).toMatch(
+      /action == 'vercel\.deployment\.ready' &&\s+github\.event\.client_payload\.environment == 'production'/,
+    );
+    expect(smoke).toContain("STATUS_CONTEXT: 'Vercel - with-claude: smoke'");
+    expect(smoke).toContain('SHA: ${{ github.event.client_payload.git.sha }}');
+    expect(smoke).toContain('statuses: write');
+
+    // Pending first, the result last and whatever happened in between.
+    const steps = smoke.split('\n      - ').slice(1);
+    const posts = steps.filter((step) => step.includes('/statuses/$SHA'));
+    expect(posts).toHaveLength(2);
+    expect(steps[0]).toBe(posts[0]);
+    expect(posts[0]).toContain('state=pending');
+    expect(steps.at(-1)).toBe(posts[1]);
+    expect(posts[1]).toContain('if: always()');
+    expect(posts[1]).toContain("STATE: ${{ job.status == 'success' && 'success' || 'failure' }}");
+    for (const post of posts) {
+      // The token goes to these two steps only, and payload values reach the
+      // shell as environment variables, never interpolated into it.
+      expect(post).toContain('GH_TOKEN: ${{ github.token }}');
+      expect(post.slice(post.indexOf('run: |'))).not.toContain('${{');
+    }
+    expect(smoke.split('GH_TOKEN').length - 1).toBe(2);
+  });
 });

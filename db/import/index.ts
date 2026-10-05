@@ -251,14 +251,27 @@ async function replaceOrdered(
   if (rows.length > 0) await db.insert(table).values(rows);
 }
 
-/** An event photo's `media` row, upserted on its path. Returns the row's id. */
+/**
+ * An event photo's `media` row, upserted on its path. Returns the row's id.
+ *
+ * Every attendee accepted the event registration terms, which permit public
+ * web use with no end date, so an event photograph carries a recorded
+ * permission on the `registration_terms` basis — migration 0017 settled that
+ * and backfilled the rows already in the table. Written here as well, and on
+ * conflict too, because otherwise a re-import or a new event would land rows
+ * at the `false` default and split one photograph set across two consent
+ * states by which code path wrote each row. Both photo write paths — the full
+ * import and `db:import:photos` — go through this function, so there is one
+ * place to keep right.
+ */
 async function upsertPhotoMedia(db: ImportDatabase, photo: EventPhoto): Promise<string> {
+  const consent = { consent: true, consentBasis: 'registration_terms' } as const;
   const [row] = await db
     .insert(schema.media)
-    .values({ path: photo.src, alt: photo.alt, kind: 'photo' })
+    .values({ path: photo.src, alt: photo.alt, kind: 'photo', ...consent })
     .onConflictDoUpdate({
       target: schema.media.path,
-      set: { alt: photo.alt, kind: 'photo' },
+      set: { alt: photo.alt, kind: 'photo', ...consent },
     })
     .returning({ id: schema.media.id });
   return row.id;
