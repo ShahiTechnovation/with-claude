@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { eq, and, isNull, or, sql } from 'drizzle-orm';
 import { publicProjectWhere } from '@/server/projects/lifecycle';
+import { resolvableEvents } from '@/server/public/pages';
 import { pooledDb } from '../../db/pool';
 import * as schema from '../../db/schema';
 
@@ -87,11 +88,11 @@ export const GET: APIRoute = async () => {
         )
       );
 
-    // 3. Events: status = 'published'
-    const events = await db
-      .select({ slug: schema.events.slug, updatedAt: schema.events.updatedAt })
-      .from(schema.events)
-      .where(eq(schema.events.status, 'published'));
+    // 3. Events — asked of the same reader `/events/[slug]` resolves through,
+    //    so the sitemap cannot advertise a URL the route will refuse. See
+    //    `resolvableEvents()` for why this is a shared reader and not a
+    //    predicate copied into the query above.
+    const events = await resolvableEvents(db);
 
     // 4. Ambassadors: status = 'published'
     const ambassadors = await db

@@ -65,3 +65,32 @@ export async function galleryRooms(db?: Parameters<typeof loadLiveRecords>[0]) {
 }
 
 export type GalleryRoom = Awaited<ReturnType<typeof galleryRooms>>[number];
+
+/**
+ * The event pages that actually resolve.
+ *
+ * `/events/[slug]` looks the slug up in `RecordSelectors.eventBySlug` over
+ * `loadLiveRecords()`, and rewrites to `/not-found/` when it misses. Anything
+ * outside this set is a 404 no matter what the database says, so this is the
+ * only honest answer to "which event URLs exist".
+ *
+ * The sitemap reads this instead of querying `events` itself. It used to run
+ * its own `status = 'published'` select, which is a superset of what the route
+ * will render — the live sitemap advertised 26 event URLs while 9 of them 404d.
+ * Copying the route's predicate into the sitemap query would have fixed the
+ * symptom and left a second place to forget; sharing the reader means a change
+ * to visibility moves both at once.
+ *
+ * `updatedAt` is the record's, which is a calendar date rather than an
+ * instant (`isoDate()` in `src/data/source-db.ts`). Day granularity is all a
+ * `<lastmod>` needs and all a crawler reads.
+ */
+export async function resolvableEvents(
+  db?: Parameters<typeof loadLiveRecords>[0],
+): Promise<{ slug: string; updatedAt?: string }[]> {
+  const selectors = new RecordSelectors(await loadLiveRecords(db));
+  return [...selectors.eventBySlug.values()].map((event) => ({
+    slug: event.slug,
+    updatedAt: event.updatedAt,
+  }));
+}
