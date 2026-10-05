@@ -616,8 +616,9 @@ record describes.
 
 `npm run backfill:photos` closes that gap without running the whole importer, which would also
 rewrite every event and project row from the TypeScript record regardless of whether an organiser
-adopted that event into Baserow or a member claimed that project. The backfill is two inserts and
-one dimension update in a single transaction, it deletes nothing, and it has an inverse:
+adopted that event into Baserow or a member claimed that project. The backfill is two inserts in a
+single transaction, it deletes nothing, it modifies no row the database already has unless you ask
+it to, and it has an inverse:
 
 ```bash
 npm run backfill:photos -- rehearse     # the dry run against PGlite, seeded to the live state.
@@ -651,11 +652,18 @@ resolve, which would make `/gallery` answer 503 for every room rather than one.
 **To undo, run `rollback --receipt`, not the SQL.** The command and the printed SQL do the same two
 deletes, but the command reports what it kept and why. Both guard the `media` delete against every
 column that could have adopted a row since — a cover, a logo, an avatar — because those foreign
-keys are `ON DELETE SET NULL` and would otherwise be blanked without a word.
+keys are `ON DELETE SET NULL` and would otherwise be blanked without a word. A `--with-dimensions`
+width/height write is *not* reversed; the receipt keeps the previous values under
+`dimensionsUpdated[].was` for a human to restore, because putting a null back would restore the
+defect rather than the state.
+
+**The rollback reaches you before the receipt file does.** `apply` prints the rollback SQL to stdout
+before it writes `imports/<file>.json`, and if that write fails it prints the receipt JSON to stderr
+and exits 3 rather than leaving a committed change with no undo anybody can reach.
 
 `tests/backfill-event-photos.test.ts` runs the whole cycle — delta, idempotency, atomicity, both
-refusals, the missing-event skip and its re-run, rollback — against a PostgreSQL rewound to the
-state production is in.
+refusals, the missing-event skip and its re-run, rollback, the receipt-write failure, and the two
+ways an undo could misreport itself — against a PostgreSQL rewound to the state production is in.
 
 Measuring `media.width` / `media.height` is part of it. `db/import/index.ts` writes only
 `{ path, alt, kind }`, so every photo row it creates carries null dimensions, and a null dimension
