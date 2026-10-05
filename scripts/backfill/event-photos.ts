@@ -52,32 +52,20 @@
  * that receipt records — reversible without a restore.
  *
  * `media.consent` is written `true` on the rows this script inserts, with its
- * basis recorded alongside it in `media.provenance` as `event-showcase-release`.
+ * basis beside it in `media.consent_basis` as `registration_terms`: the same
+ * pair migration 0017 and `db/import/index.ts` write, so one photograph set
+ * never carries two consent values because two code paths wrote it.
  *
- * That is a reversal, and the reason is evidence rather than preference. The
- * earlier instruction was to leave the column at its `false` default, because a
- * script asserting consent for photographs of real people on no evidence beyond
- * the file being in git is worse than a column that is honestly empty. Vishal
- * then answered the question directly (VIS-11, interaction `ecd8df0e`, decision
- * record `consent-decision`): attendees signed a written release permitting
- * their photographs to be used to showcase the community. The people were asked,
- * in writing, at the event. So `false` is not cautious here, it is wrong on the
- * facts.
+ * Why `true`: the people in these photographs registered for the events and
+ * accepted the registration terms, which permit public web use (VIS-14,
+ * confirmed by Vishal on 2026-10-05). Leaving the column at its `false` default
+ * would be wrong on the facts.
  *
- * The condition that came with the decision is why `provenance` is written in
- * the same breath. A bare `true` is how this column became a mystery —
- * `NOT NULL DEFAULT false`, two writers, no reader, no stated meaning. The two
- * consents this column now carries are not the same consent:
- *
- *   - `upload`                  the subject supplied this image of themselves
- *                               (`src/server/media/covers.ts:137,232`)
- *   - `event-showcase-release`  covered by the signed event showcase release,
- *                               attested by Vishal on 2026-10-05
- *
- * A short enum-shaped token rather than a sentence, matching the values already
- * in that column (`upload`, `organiser`, `favicon`) and documented at
- * `db/schema.ts`, so a reader in a year can tell them apart and `grep` can find
- * them. The full attestation lives in the decision record, not in 35 copies.
+ * Corrected 2026-10-05. This script first recorded the basis as
+ * `provenance = 'event-showcase-release'`, a written release signed at the
+ * event (VIS-11, decision record `consent-decision`). Vishal confirmed the
+ * basis is the registration terms, so it now writes `consent_basis` like
+ * every other writer, and leaves `provenance` alone.
  *
  * Rows the target database **already** has are not touched. The same reasoning
  * that put the dimension update behind a flag applies harder to a consent
@@ -121,20 +109,15 @@ export const ASSETS_DIR = join(dirname(fileURLToPath(import.meta.url)), '../../s
  * real target is in — nothing reads it on the way to a write.
  */
 /**
- * What `media.provenance` records on an event photograph, and therefore what
- * `media.consent = true` means on one.
- *
- * Covered by the signed event showcase release attendees signed at the event,
- * attested by Vishal on 2026-10-05 — VIS-11, interaction `ecd8df0e`, decision
- * record `consent-decision`. Distinct from `upload`, which means the subject
- * supplied the image of themselves. See the header of this file.
+ * What `media.consent_basis` records on an event photograph, and therefore what
+ * `media.consent = true` means on one: the subject accepted the event
+ * registration terms (VIS-14, confirmed by Vishal on 2026-10-05). The value
+ * migration 0017 and `db/import/index.ts` write. See the header of this file.
  *
  * One constant: the insert writes it, the dry run reports against it, and the
- * printed correction SQL quotes it. If architect wants a dedicated column
- * instead — the decision leaves the field choice to them — this is the one
- * place that changes.
+ * printed correction SQL quotes it.
  */
-export const CONSENT_BASIS = 'event-showcase-release';
+export const CONSENT_BASIS = 'registration_terms';
 
 export const LIVE_SIX = [
   'events/vol02-1.jpg',
@@ -181,7 +164,7 @@ export interface DimensionUpdate extends Dimensions {
 export interface ConsentBasisCandidate {
   id: string;
   path: string;
-  was: { consent: boolean; provenance: string | null };
+  was: { consent: boolean; consentBasis: string | null };
 }
 
 export interface PhotoInsert {
@@ -235,7 +218,7 @@ export interface BackfillPlan {
    *
    * **Always reported, never written** — there is no flag for this one. The
    * rows this script inserts get `consent = true` and
-   * `provenance = 'event-showcase-release'` for free, at insert time; rows the
+   * `consent_basis = 'registration_terms'` for free, at insert time; rows the
    * database already has would need an `UPDATE`, and the correction belongs to
    * one decision over every existing row rather than to this backfill. The dry
    * run prints the exact statement so the number and the fix are both visible
@@ -430,7 +413,7 @@ export async function buildBackfillPlan(
       width: schema.media.width,
       height: schema.media.height,
       consent: schema.media.consent,
-      provenance: schema.media.provenance,
+      consentBasis: schema.media.consentBasis,
     })
     .from(schema.media)
     .where(inArray(schema.media.path, paths.map((p) => p.path)));
@@ -466,14 +449,14 @@ export async function buildBackfillPlan(
   }
 
   // Measured, reported, and left alone. A row already carrying the basis is
-  // not a candidate; one carrying a different provenance is, because that is
+  // not a candidate; one carrying a different basis is, because that is
   // exactly the ambiguity the decision asked to end.
   const consentBasisCandidates: ConsentBasisCandidate[] = [];
   for (const { path } of paths) {
     const row = mediaByPath.get(path);
     if (!row) continue;
-    if (row.consent && row.provenance === CONSENT_BASIS) continue;
-    consentBasisCandidates.push({ id: row.id, path, was: { consent: row.consent, provenance: row.provenance } });
+    if (row.consent && row.consentBasis === CONSENT_BASIS) continue;
+    consentBasisCandidates.push({ id: row.id, path, was: { consent: row.consent, consentBasis: row.consentBasis } });
   }
 
   const photoInserts: PhotoInsert[] = [];
@@ -612,10 +595,10 @@ export async function applyBackfill(
               kind: 'photo' as const,
               width: row.width,
               height: row.height,
-              // The signed event showcase release, and what it is. Free on an
+              // The registration terms, and that they are the basis. Free on an
               // insert, and the only moment it costs nothing: see the header.
               consent: true,
-              provenance: CONSENT_BASIS,
+              consentBasis: CONSENT_BASIS,
             })),
           )
           .onConflictDoNothing({ target: schema.media.path })
@@ -1038,8 +1021,8 @@ export function renderPlan(plan: BackfillPlan): string {
   lines.push('  other tables      untouched');
   if (plan.mediaInserts.length) {
     lines.push('');
-    lines.push(`  New media rows carry consent = true, provenance = '${CONSENT_BASIS}' — the signed`);
-    lines.push('  event showcase release, attested by Vishal 2026-10-05 (VIS-11 `consent-decision`).');
+    lines.push(`  New media rows carry consent = true, consent_basis = '${CONSENT_BASIS}' — the event`);
+    lines.push('  registration terms, confirmed by Vishal 2026-10-05 (VIS-14).');
     lines.push('  On the insert, so it is not a separate statement and touches nothing existing.');
   }
   lines.push('');
@@ -1085,7 +1068,7 @@ export function renderPlan(plan: BackfillPlan): string {
       `media — ${plan.consentBasisCandidates.length} EXISTING row(s) carry no consent basis. NOT writing them:`,
     );
     for (const row of plan.consentBasisCandidates) {
-      const was = `consent=${row.was.consent}, provenance=${row.was.provenance === null ? 'null' : quote(row.was.provenance)}`;
+      const was = `consent=${row.was.consent}, consent_basis=${row.was.consentBasis === null ? 'null' : quote(row.was.consentBasis)}`;
       lines.push(`  ${row.path}  ${was}`);
     }
     lines.push('  There is no flag for this one. The rows inserted above get the basis for free; these');
@@ -1093,7 +1076,7 @@ export function renderPlan(plan: BackfillPlan): string {
     lines.push('  existing row is one decision rather than a statement inside a pure-insert backfill.');
     lines.push('  The statement, for whoever takes that decision — not run here:');
     lines.push('');
-    lines.push(`    UPDATE media SET consent = true, provenance = ${quote(CONSENT_BASIS)}`);
+    lines.push(`    UPDATE media SET consent = true, consent_basis = ${quote(CONSENT_BASIS)}`);
     lines.push('    WHERE id IN (');
     lines.push(list(plan.consentBasisCandidates.map((row) => row.id), '      '));
     lines.push('    );');

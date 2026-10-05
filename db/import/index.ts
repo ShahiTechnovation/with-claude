@@ -318,14 +318,27 @@ export async function importRecords(
   const mediaIdByPath = new Map<string, string>();
   let mediaSkippedForMissingAlt = 0;
 
+  // Every attendee accepted the event registration terms, which permit public
+  // web use with no end date, so an event photograph carries a recorded
+  // permission on the `registration_terms` basis — migration 0017 settled that
+  // and backfilled the rows already in the table. Written here as well, and on
+  // conflict too, because otherwise a re-import or a new event would land rows
+  // at the `false` default and split one photograph set across two consent
+  // states by which code path wrote each row.
   for (const event of eventRecords) {
     for (const photo of event.photos ?? []) {
       const [row] = await db
         .insert(schema.media)
-        .values({ path: photo.src, alt: photo.alt, kind: 'photo' })
+        .values({
+          path: photo.src,
+          alt: photo.alt,
+          kind: 'photo',
+          consent: true,
+          consentBasis: 'registration_terms',
+        })
         .onConflictDoUpdate({
           target: schema.media.path,
-          set: { alt: photo.alt, kind: 'photo' },
+          set: { alt: photo.alt, kind: 'photo', consent: true, consentBasis: 'registration_terms' },
         })
         .returning({ id: schema.media.id, path: schema.media.path });
       mediaIdByPath.set(row.path as string, row.id);

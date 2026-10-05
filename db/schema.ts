@@ -439,26 +439,38 @@ export const media = pgTable('media', {
    * favicon is the project's icon, not a screenshot — the logo resolver ranks
    * it below real project imagery.
    *
-   * On an event photograph it carries one more value, and there it is also the
-   * basis for `consent` below: `event-showcase-release` means the photograph is
-   * covered by the written release attendees signed at the event, attested by
-   * Vishal on 2026-10-05. Written by `scripts/backfill/event-photos.ts`.
+   * Not a consent record: `consent` and `consentBasis` below are. Corrected
+   * 2026-10-05: this paragraph called `event-showcase-release` the basis for
+   * `consent` on event photographs, a written release signed at the event.
+   * Vishal confirmed the basis is the event registration terms, recorded as
+   * `consentBasis = 'registration_terms'`.
    */
   provenance: text('provenance'),
   /** The public URL a fetched file came from. Never a URL with a secret. */
   sourceUrl: text('source_url'),
   /**
-   * Permission to publish this image of the people in it.
+   * The person shown in this image permitted it to be published here.
    *
-   * READ `provenance` WITH IT. The column is a bare boolean and the two
-   * permissions it records are not the same permission: `provenance = 'upload'`
-   * means the subject supplied this image of themselves
-   * (`src/server/media/covers.ts:137,232`), and
-   * `provenance = 'event-showcase-release'` means a signed release covers it.
-   * A `true` with no basis beside it is not a consent record, it is a guess
-   * someone left behind — which is what every row read before 2026-10-05.
+   * SUBJECT-GIVEN, ALWAYS. This records the permission of the people in the
+   * picture, never the uploader's view of it and never an organiser's account
+   * of someone else's permission. `false` is not a refusal — it is the absence
+   * of a recorded permission, which is also what every row gets by default.
+   *
+   * Read it with `consentBasis`, which says how the permission was given and
+   * therefore how far it reaches. `true` alone does not tell you that.
    */
   consent: boolean('consent').notNull().default(false),
+  /**
+   * How the permission in `consent` was given: `self_upload` (the subject
+   * uploaded their own image) or `registration_terms` (the subject accepted
+   * the event registration terms, which permit public web use with no end
+   * date — see migration 0017).
+   *
+   * NULL where `consent` is false, because there is no basis to record. A
+   * reader that acts on `consent` must read this too: the two bases do not
+   * grant the same thing, and a third will not either.
+   */
+  consentBasis: text('consent_basis'),
   status: mediaStatus('status').notNull().default('published'),
   kind: mediaKind('kind').notNull().default('other'),
   width: integer('width'),

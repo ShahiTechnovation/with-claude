@@ -76,6 +76,12 @@ beforeEach(async () => {
     await db.delete(schema.eventPhotos).where(inArray(schema.eventPhotos.mediaId, staleIds));
     await db.delete(schema.media).where(inArray(schema.media.id, staleIds));
   }
+  // And to the live consent: production's six read `false` with no basis until
+  // migration 0017 runs, while `importRecords` now writes the basis on import.
+  await db
+    .update(schema.media)
+    .set({ consent: false, consentBasis: null })
+    .where(inArray(schema.media.path, LIVE_SIX));
 }, 180_000);
 
 afterEach(async () => {
@@ -150,7 +156,7 @@ describe('the dry run', () => {
     expect(printed).toContain('event_photos      +35');
     expect(printed).toContain('deletes           0');
     expect(printed).toContain('APPLICABLE');
-    expect(printed).toContain(`consent = true, provenance = '${CONSENT_BASIS}'`);
+    expect(printed).toContain(`consent = true, consent_basis = '${CONSENT_BASIS}'`);
     expect(printed).toContain('6 EXISTING row(s) carry no consent basis. NOT writing them');
   });
 
@@ -311,7 +317,7 @@ describe('consent and its basis', () => {
     expect(inserted).toHaveLength(35);
     for (const row of inserted) {
       expect(row.consent, row.path!).toBe(true);
-      expect(row.provenance, row.path!).toBe(CONSENT_BASIS);
+      expect(row.consentBasis, row.path!).toBe(CONSENT_BASIS);
     }
 
     // The correction to existing rows is a separate decision over every row,
@@ -323,11 +329,11 @@ describe('consent and its basis', () => {
     const plan = await buildBackfillPlan(db as never);
     expect(plan.consentBasisCandidates.map((row) => row.path).sort()).toEqual([...LIVE_SIX].sort());
     for (const row of plan.consentBasisCandidates) {
-      expect(row.was).toEqual({ consent: false, provenance: null });
+      expect(row.was).toEqual({ consent: false, consentBasis: null });
     }
 
     const printed = renderPlan(plan);
-    expect(printed).toContain(`UPDATE media SET consent = true, provenance = '${CONSENT_BASIS}'`);
+    expect(printed).toContain(`UPDATE media SET consent = true, consent_basis = '${CONSENT_BASIS}'`);
     for (const row of plan.consentBasisCandidates) expect(printed).toContain(row.id);
 
     // Printed, not applied. The dry run writes nothing, including this.
@@ -338,7 +344,7 @@ describe('consent and its basis', () => {
   it('stops reporting a row once it carries the basis', async () => {
     await db
       .update(schema.media)
-      .set({ consent: true, provenance: CONSENT_BASIS })
+      .set({ consent: true, consentBasis: CONSENT_BASIS })
       .where(eq(schema.media.path, LIVE_SIX[0]));
 
     const plan = await buildBackfillPlan(db as never);
@@ -347,16 +353,16 @@ describe('consent and its basis', () => {
   });
 
   it('still reports a row whose consent is true but says nothing about why', async () => {
-    // The ambiguity the decision asked to end: `true` with a provenance that
-    // means something else — the subject supplied this image of themselves.
+    // The ambiguity the decision asked to end: `true` with a basis that means
+    // something else — the subject supplied this image of themselves.
     await db
       .update(schema.media)
-      .set({ consent: true, provenance: 'upload' })
+      .set({ consent: true, consentBasis: 'self_upload' })
       .where(eq(schema.media.path, LIVE_SIX[0]));
 
     const plan = await buildBackfillPlan(db as never);
     const flagged = plan.consentBasisCandidates.find((row) => row.path === LIVE_SIX[0]);
-    expect(flagged?.was).toEqual({ consent: true, provenance: 'upload' });
+    expect(flagged?.was).toEqual({ consent: true, consentBasis: 'self_upload' });
   });
 });
 

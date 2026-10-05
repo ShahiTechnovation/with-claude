@@ -134,7 +134,12 @@ export async function recordCoverUpload(
         alt: input.alt,
         status: 'staged',
         kind: 'cover',
+        // The member uploaded this themselves, which is the narrowest basis
+        // there is: it covers this image on this site and says nothing about
+        // anyone else in it. Written together with `consent` so the column is
+        // never true without a basis beside it.
         consent: true,
+        consentBasis: 'self_upload',
       })
       .returning({ id: schema.media.id });
     return { ok: true as const, mediaId: row.id, url: facts.url };
@@ -229,7 +234,9 @@ export async function recordAvatarUpload(
         alt: input.alt,
         status: 'staged',
         kind: 'portrait',
+        // A portrait of the member who uploaded it. Same basis as a cover.
         consent: true,
+        consentBasis: 'self_upload',
       })
       .returning({ id: schema.media.id });
     return { ok: true as const, mediaId: row.id, url: facts.url };
