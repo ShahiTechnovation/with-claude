@@ -143,10 +143,11 @@ The same script runs locally against any URL:
 BASE=http://localhost:4321 PAGES=/,/events/,/projects/ STRICT=1 node scripts/dev/visual-review.mjs
 ```
 
-The smoke job also audits the event share cards — it reads the `og:image` off each rendered event
-page and then fetches it, because eight of seventeen declared a 404 for the life of the pages and
-nothing was checking. It runs against a deployment rather than in `ci.yml` because the event pages
-are `prerender = false`: a local build has no event HTML to read a meta tag out of.
+`scripts/dev/share-cards-audit.mjs` audits the event share cards: it reads the `og:image` off each
+rendered event page and then fetches it, because eight of seventeen declared a 404 for the life of
+the pages and nothing was checking. Run it by hand against a deployment; it is not in `ci.yml`
+because the event pages are `prerender = false`, so a local build has no event HTML to read a meta
+tag out of, and the smoke workflow does not run it yet.
 
 ```bash
 BASE=https://www.withclaude.in node scripts/dev/share-cards-audit.mjs
