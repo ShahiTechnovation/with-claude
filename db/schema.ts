@@ -438,6 +438,12 @@ export const media = pgTable('media', {
    * or `favicon` (enrichment from the project's own accepted website). A
    * favicon is the project's icon, not a screenshot — the logo resolver ranks
    * it below real project imagery.
+   *
+   * Not a consent record: `consent` and `consentBasis` below are. Corrected
+   * 2026-10-05: this paragraph called `event-showcase-release` the basis for
+   * `consent` on event photographs, a written release signed at the event.
+   * Vishal confirmed the basis is the event registration terms, recorded as
+   * `consentBasis = 'registration_terms'`.
    */
   provenance: text('provenance'),
   /** The public URL a fetched file came from. Never a URL with a secret. */

@@ -150,8 +150,10 @@ const cardColumns = {
   eventCityName: eventCity.name,
   mediaUrl: cover.blobUrl,
   mediaStatus: cover.status,
+  mediaDeletedAt: cover.deletedAt,
   logoUrl: logoMedia.blobUrl,
   logoStatus: logoMedia.status,
+  logoDeletedAt: logoMedia.deletedAt,
   logoProvenance: logoMedia.provenance,
   logoWidth: logoMedia.width,
   logoHeight: logoMedia.height,
@@ -162,16 +164,36 @@ type CardRow = Awaited<ReturnType<typeof selectCards>>[number];
 /**
  * The cover a public page may render.
  *
- *   media-backed  only when the media row is `published`
- *   asset key     a repository path (no scheme), resolved by `asset()` later
- *   anything else nothing — never an arbitrary URL from a request body
+ *   attached media  only when that row is `published` and not soft-deleted,
+ *                   whichever column the cover then comes out of
+ *   asset key       a repository path (no scheme), resolved by `asset()` later
+ *   anything else   nothing — never an arbitrary URL from a request body
+ *
+ * THE TAKEDOWN CHECK COMES FIRST, BEFORE EITHER ARM. An earlier version put
+ * it inside the blob arm, which made the function true of the branch it
+ * described and silently untrue of the other: a `deleted` media row whose
+ * cover resolved through `imagePath` kept rendering, and a `deleted_at` set
+ * by hand — the gesture anyone reaching for a soft delete would use — hid
+ * nothing at all, because only `status` was read. One predicate above both
+ * arms is what makes "a taken-down image stops rendering" a property of the
+ * function rather than of one path through it.
+ *
+ * `media.status` is NOT NULL, so `mediaStatus === null` means the left join
+ * matched no row: a legacy asset key with no media row behind it, which no
+ * takedown can reach and which therefore keeps rendering. 80 of the archive's
+ * 121 project covers are exactly that — `db/import/index.ts` gives project
+ * covers no media row on purpose, because `media.alt` is NOT NULL and only
+ * event photographs carry authored alt text. Gating them on `status` would
+ * blank them all.
  */
 export function publicCover(row: {
   imagePath: string | null;
   mediaUrl: string | null;
   mediaStatus: string | null;
+  mediaDeletedAt: Date | string | null;
 }): string | undefined {
-  if (row.mediaUrl) return row.mediaStatus === 'published' ? row.mediaUrl : undefined;
+  if (row.mediaStatus !== null && (row.mediaStatus !== 'published' || row.mediaDeletedAt)) return undefined;
+  if (row.mediaUrl) return row.mediaUrl;
   if (row.imagePath && !/^[a-z][a-z0-9+.-]*:/i.test(row.imagePath)) return row.imagePath;
   return undefined;
 }
@@ -237,8 +259,10 @@ function toCard(row: CardRow, credits: { team: string | null; people: PublicCred
     logo: resolveLogoSource({
       slug: row.slug,
       logoPath: row.logoPath,
+      // Same takedown rule as the cover above: `published` is not enough on
+      // its own, because a soft delete writes `deleted_at` too.
       logoMedia:
-        row.logoUrl && row.logoStatus === 'published'
+        row.logoUrl && row.logoStatus === 'published' && !row.logoDeletedAt
           ? { url: row.logoUrl, provenance: row.logoProvenance, width: row.logoWidth, height: row.logoHeight }
           : null,
       cover: image ?? null,
