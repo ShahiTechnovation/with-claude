@@ -674,12 +674,33 @@ export async function rollbackBackfill(
     // refuse the whole undo — it is a reason to say so.
     const mediaAlreadyGone = deletable.length - mediaDeleted;
 
-    if (mediaIds.length && mediaDeleted + mediaRetained.length + mediaAlreadyGone !== mediaIds.length) {
-      // Kept for the case it was written for: a count nothing explains.
-      throw new Error(
-        `Rollback accounted for ${mediaDeleted + mediaRetained.length + mediaAlreadyGone} of the ` +
-          `${mediaIds.length} media rows the receipt lists. Rolled back.`,
-      );
+    // Verify the claim `mediaAlreadyGone` makes about the database, rather
+    // than the arithmetic that produced it. The three buckets are exhaustive
+    // by construction — the loop above puts every receipt row in exactly one
+    // of `mediaRetained` or `deletable` — so `mediaDeleted +
+    // mediaRetained.length + mediaAlreadyGone === mediaIds.length` is an
+    // identity, and the throw that used to check it could not fire. [VIS-17]
+    //
+    // What can actually be false is "a row the DELETE did not return is gone".
+    // A `BEFORE DELETE` trigger returning NULL suppresses a delete silently:
+    // no error, no returned row, the row still there. Not hypothetical here —
+    // the dry run tells the operator to check `pg_trigger` precisely because
+    // an uncommitted trigger on `media` is the one thing this repo cannot see.
+    // Reporting a surviving row as "already deleted by something else" would
+    // undercount the undo, which is the one thing this function must not do.
+    if (mediaAlreadyGone) {
+      const stillThere = await tx
+        .select({ id: schema.media.id })
+        .from(schema.media)
+        .where(inArray(schema.media.id, deletable));
+      if (stillThere.length) {
+        throw new Error(
+          `${stillThere.length} of the ${mediaIds.length} media rows the receipt lists were neither deleted ` +
+            `nor retained, and still exist — something is suppressing the delete. Look for a BEFORE DELETE ` +
+            `trigger on media: SELECT tgname FROM pg_trigger WHERE tgrelid = 'media'::regclass AND NOT ` +
+            `tgisinternal. Rolled back.`,
+        );
+      }
     }
 
     return { photosDeleted, mediaDeleted, mediaRetained, mediaAlreadyGone };

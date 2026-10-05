@@ -22,6 +22,7 @@ import { importRecords } from '../db/import';
 import * as schema from '../db/schema';
 import { createTestDatabase, type TestDatabase } from '../db/testing';
 import { galleryRooms } from '../src/server/public/pages';
+import { emitReceipt, receiptPath, type ReceiptSink } from '../scripts/backfill/emit-receipt';
 import {
   applyBackfill,
   ASSET_EXTENSIONS,
@@ -547,6 +548,89 @@ describe('the rollback SQL it prints', () => {
   });
 });
 
+/**
+ * The window with no second chance: after the COMMIT, before the undo is
+ * anywhere a human can read it. `reviewer` raised it on [VIS-17].
+ */
+describe('reporting a committed backfill', () => {
+  const collect = () => {
+    const out: string[] = [];
+    const err: string[] = [];
+    return {
+      out,
+      err,
+      sink: (writeFile: ReceiptSink['writeFile']): ReceiptSink => ({
+        log: (m) => out.push(m),
+        error: (m) => err.push(m),
+        mkdir: async () => undefined,
+        writeFile,
+      }),
+    };
+  };
+
+  it('prints the undo before it writes the receipt, so a failing disk cannot take both', async () => {
+    const receipt = await applyBackfill(db as never, await buildBackfillPlan(db as never), {
+      databaseHost: 'pglite',
+      databaseName: 'memory',
+    });
+    const { out, err, sink } = collect();
+    const order: string[] = [];
+
+    const code = await emitReceipt(receipt, {
+      ...sink(async (path, body) => {
+        order.push('write');
+        return [path, body.length];
+      }),
+      log: (m) => {
+        if (m.includes('DELETE FROM media')) order.push('printed the undo');
+        out.push(m);
+      },
+    });
+
+    expect(code).toBe(0);
+    expect(order).toEqual(['printed the undo', 'write']);
+    expect(err).toEqual([]);
+    expect(out.join('\n')).toContain(`Receipt: ${receiptPath(receipt)}`);
+  });
+
+  it('exits 3 with the whole receipt on stdout when the receipt cannot be written', async () => {
+    const receipt = await applyBackfill(db as never, await buildBackfillPlan(db as never), {
+      databaseHost: 'pglite',
+      databaseName: 'memory',
+    });
+    const { out, err, sink } = collect();
+
+    const code = await emitReceipt(
+      receipt,
+      sink(async () => {
+        throw new Error('EROFS: read-only file system');
+      }),
+    );
+
+    // Non-zero, and distinct from `fail`'s 1 — the write happened, only the
+    // receipt did not.
+    expect(code).toBe(3);
+
+    // The undo reached stdout regardless. This is the assertion the whole
+    // reordering exists for: it used to throw before this line ran.
+    const printed = out.join('\n');
+    expect(printed).toContain('DELETE FROM event_photos');
+    expect(printed).toContain('DELETE FROM media');
+    expect(printed).toContain('events/vol02-4.jpg');
+
+    // And the receipt itself is recoverable from the scrollback, with the
+    // reason and the path to save it to.
+    const reported = err.join('\n');
+    expect(reported).toContain('COMMITTED');
+    expect(reported).toContain('EROFS: read-only file system');
+    expect(reported).toContain(receiptPath(receipt));
+    const recovered = JSON.parse(err[err.length - 1]) as typeof receipt;
+    expect(recovered.insertedMedia).toHaveLength(35);
+    expect(recovered.insertedPhotos).toHaveLength(35);
+    expect(recovered.rollbackSql).toBe(receipt.rollbackSql);
+  });
+});
+
 describe('rollback when a receipt row has vanished', () => {
   it('reports it and still undoes the rest', async () => {
     const receipt = await applyBackfill(db as never, await buildBackfillPlan(db as never), {
@@ -565,6 +649,41 @@ describe('rollback when a receipt row has vanished', () => {
     // The whole undo completed rather than wedging on the one missing row.
     expect(await photoCount()).toBe(6);
     expect(await mediaPhotoCount()).toBe(6);
+  });
+
+  /**
+   * The difference between "the DELETE returned nothing because the row is
+   * gone" and "...because something stopped it". Only the first is an
+   * `mediaAlreadyGone`, and until [VIS-17] the accounting guard that was
+   * supposed to tell them apart was an identity that could never fire.
+   */
+  it('refuses when a row it counted as already gone is still there', async () => {
+    const receipt = await applyBackfill(db as never, await buildBackfillPlan(db as never), {
+      databaseHost: 'pglite',
+      databaseName: 'memory',
+    });
+    const survivor = receipt.insertedMedia.find((row) => row.path === 'events/vol02-4.jpg')!;
+
+    // A BEFORE DELETE trigger returning NULL: no error, no returned row, the
+    // row still present. Exactly what the dry run warns it cannot see.
+    await db.execute(
+      sql.raw(`CREATE FUNCTION veto_delete() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`),
+    );
+    await db.execute(
+      sql.raw(
+        `CREATE TRIGGER veto_delete BEFORE DELETE ON media FOR EACH ROW ` +
+          `WHEN (OLD.id = '${survivor.id}') EXECUTE FUNCTION veto_delete()`,
+      ),
+    );
+
+    await expect(rollbackBackfill(db as never, receipt)).rejects.toThrow(/still exist/);
+
+    // Rolled back whole: nothing half-undone, and the operator can fix the
+    // trigger and re-run the same receipt.
+    expect(await photoCount()).toBe(41);
+    expect(await mediaPhotoCount()).toBe(41);
+    const [still] = await db.select({ id: schema.media.id }).from(schema.media).where(eq(schema.media.id, survivor.id));
+    expect(still.id).toBe(survivor.id);
   });
 });
 

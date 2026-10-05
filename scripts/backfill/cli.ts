@@ -17,7 +17,10 @@
  *           authorising the real one
  * apply     the two inserts and the dimension update, in one transaction, and
  *           writes a receipt to `imports/` (git-ignored)
- * rollback  deletes exactly what a receipt records
+ * rollback  deletes exactly the rows a receipt records inserted. A
+ *           --with-dimensions width/height update is not reversed — the
+ *           receipt keeps the previous values under dimensionsUpdated[].was
+ *           for a human to restore
  *
  * Why this exists instead of `npm run db:import`, and what it will and will not
  * touch: `scripts/backfill/event-photos.ts`.
@@ -35,11 +38,11 @@
  * `--allow-remote-db`. Both are enforced through `../import/lib/cli-env`.
  */
 import 'dotenv/config';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { readFile } from 'node:fs/promises';
 import { databaseUrl } from '../../db/env';
 import { pooledDb } from '../../db/pool';
 import { fail, flag, guardDatabase, option } from '../import/lib/cli-env';
+import { emitReceipt } from './emit-receipt';
 import {
   applyBackfill,
   buildBackfillPlan,
@@ -173,18 +176,9 @@ async function apply() {
 
   const receipt = await applyBackfill(db, built, target());
 
-  await mkdir('imports', { recursive: true });
-  const path = join('imports', `backfill-event-photos-${receipt.appliedAt.replace(/[:.]/g, '-')}.json`);
-  await writeFile(path, JSON.stringify(receipt, null, 2));
-
-  console.log(
-    `Applied: media +${receipt.insertedMedia.length}, event_photos +${receipt.insertedPhotos.length}, ` +
-      `${receipt.dimensionsUpdated.length} existing media rows given width/height.`,
-  );
-  console.log(`Receipt: ${path}`);
-  console.log(`\nTo undo:\n  npm run backfill:photos -- rollback --receipt ${path} --yes\n`);
-  console.log(receipt.rollbackSql);
-  process.exit(0);
+  // The transaction has committed. Everything from here is reporting the undo,
+  // and it prints before it writes on purpose — see `./emit-receipt.ts`.
+  process.exit(await emitReceipt(receipt));
 }
 
 async function rollback() {
