@@ -17,10 +17,11 @@
  *           authorising the real one
  * apply     the two inserts and the dimension update, in one transaction, and
  *           writes a receipt to `imports/` (git-ignored)
- * rollback  deletes exactly the rows a receipt records inserted. A
- *           --with-dimensions width/height update is not reversed — the
- *           receipt keeps the previous values under dimensionsUpdated[].was
- *           for a human to restore
+ * rollback  deletes exactly the rows a receipt records inserting. A
+ *           `--with-dimensions` width/height update is NOT reversed — the
+ *           receipt keeps the previous values under `dimensionsUpdated[].was`
+ *           for a human to restore, because putting a null back would restore
+ *           the defect rather than the state
  *
  * Why this exists instead of `npm run db:import`, and what it will and will not
  * touch: `scripts/backfill/event-photos.ts`.
@@ -38,11 +39,12 @@
  * `--allow-remote-db`. Both are enforced through `../import/lib/cli-env`.
  */
 import 'dotenv/config';
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { databaseUrl } from '../../db/env';
 import { pooledDb } from '../../db/pool';
 import { fail, flag, guardDatabase, option } from '../import/lib/cli-env';
-import { emitReceipt } from './emit-receipt';
 import {
   applyBackfill,
   buildBackfillPlan,
@@ -175,10 +177,55 @@ async function apply() {
   }
 
   const receipt = await applyBackfill(db, built, target());
-
-  // The transaction has committed. Everything from here is reporting the undo,
-  // and it prints before it writes on purpose — see `./emit-receipt.ts`.
   process.exit(await emitReceipt(receipt));
+}
+
+/**
+ * Get the undo out of the process, after the transaction has committed.
+ *
+ * ORDER MATTERS HERE and it is the only place in this script where it does.
+ * The rows are already committed when this is called, so nothing may throw
+ * before the rollback SQL reaches stdout: if the receipt write fails first —
+ * read-only cwd, full disk, `imports` existing as a file — the operator is left
+ * with a successful production write and no reachable undo. A fresh `plan`
+ * cannot regenerate one either, because after a successful apply there is
+ * nothing left to insert and the planned-rollback renderer correctly prints
+ * "nothing to undo".
+ *
+ * So: SQL first, file second, and a failed file write degrades to printing the
+ * receipt rather than exiting with the undo unreachable.
+ *
+ * Separated from `apply` so a test can call it with a `writeFile` that throws.
+ * Returns the exit code rather than exiting, for the same reason.
+ */
+export async function emitReceipt(
+  receipt: BackfillReceipt,
+  io: { mkdir: typeof mkdir; writeFile: typeof writeFile } = { mkdir, writeFile },
+): Promise<number> {
+  console.log(
+    `Applied: media +${receipt.insertedMedia.length}, event_photos +${receipt.insertedPhotos.length}, ` +
+      `${receipt.dimensionsUpdated.length} existing media rows given width/height.`,
+  );
+  console.log('\nTo undo, as SQL:\n');
+  console.log(receipt.rollbackSql);
+
+  const path = join('imports', `backfill-event-photos-${receipt.appliedAt.replace(/[:.]/g, '-')}.json`);
+  try {
+    await io.mkdir('imports', { recursive: true });
+    await io.writeFile(path, JSON.stringify(receipt, null, 2));
+  } catch (error) {
+    // The write succeeded and the receipt did not. Degrade to stdout rather
+    // than leaving a committed change with no undo anybody can reach.
+    console.error(`\nThe backfill committed, but the receipt could not be written to ${path}:`);
+    console.error(`  ${error instanceof Error ? error.message : String(error)}`);
+    console.error('\nThe SQL above reverses it. To use `rollback --receipt` instead, save this to that path:\n');
+    console.error(JSON.stringify(receipt, null, 2));
+    return 3;
+  }
+
+  console.log(`\nReceipt: ${path}`);
+  console.log(`Preferred undo — it reports what it kept and why:\n  npm run backfill:photos -- rollback --receipt ${path} --yes\n`);
+  return 0;
 }
 
 async function rollback() {
@@ -206,24 +253,29 @@ async function rollback() {
   process.exit(0);
 }
 
-switch (command) {
-  case 'plan':
-    await plan();
-    break;
-  case 'rehearse':
-    await rehearse();
-    break;
-  case 'apply':
-    await apply();
-    break;
-  case 'rollback':
-    await rollback();
-    break;
-  default:
-    fail(
-      'Usage: backfill:photos plan [--allow-remote-db]\n' +
-        '       backfill:photos rehearse\n' +
-        '       backfill:photos apply --yes [--allow-remote-db]\n' +
-        '       backfill:photos rollback --receipt imports/<file>.json --yes [--allow-remote-db]',
-    );
+// Only when run as a command. `emitReceipt` is imported by its test, and a
+// bare import must not dispatch — it would reach `default` and exit 1. Same
+// guard as `scripts/dev/visual-review.mjs:154` and `db/migrate.ts:47`.
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+  switch (command) {
+    case 'plan':
+      await plan();
+      break;
+    case 'rehearse':
+      await rehearse();
+      break;
+    case 'apply':
+      await apply();
+      break;
+    case 'rollback':
+      await rollback();
+      break;
+    default:
+      fail(
+        'Usage: backfill:photos plan [--allow-remote-db]\n' +
+          '       backfill:photos rehearse\n' +
+          '       backfill:photos apply --yes [--allow-remote-db]\n' +
+          '       backfill:photos rollback --receipt imports/<file>.json --yes [--allow-remote-db]',
+      );
+  }
 }

@@ -399,12 +399,16 @@ describe('cover media authority', () => {
     ).toMatchObject({ ok: false, status: 422 });
   });
 
+  // The takedown half of this function — what a `deleted` status or a set
+  // `deleted_at` hides — is asserted in `tests/media-takedown.test.ts`.
+  // These five are the floor it may not break.
   it('public readers never render an arbitrary URL or a staged upload', () => {
-    expect(publicCover({ imagePath: 'https://evil.example/x.png', mediaUrl: null, mediaStatus: null })).toBeUndefined();
-    expect(publicCover({ imagePath: 'javascript:alert(1)', mediaUrl: null, mediaStatus: null })).toBeUndefined();
-    expect(publicCover({ imagePath: 'x', mediaUrl: `${store}/a.png`, mediaStatus: 'staged' })).toBeUndefined();
-    expect(publicCover({ imagePath: null, mediaUrl: `${store}/a.png`, mediaStatus: 'published' })).toBe(`${store}/a.png`);
-    expect(publicCover({ imagePath: 'covers/cover-vol01.jpg', mediaUrl: null, mediaStatus: null })).toBe('covers/cover-vol01.jpg');
+    const live = { mediaDeletedAt: null };
+    expect(publicCover({ imagePath: 'https://evil.example/x.png', mediaUrl: null, mediaStatus: null, ...live })).toBeUndefined();
+    expect(publicCover({ imagePath: 'javascript:alert(1)', mediaUrl: null, mediaStatus: null, ...live })).toBeUndefined();
+    expect(publicCover({ imagePath: 'x', mediaUrl: `${store}/a.png`, mediaStatus: 'staged', ...live })).toBeUndefined();
+    expect(publicCover({ imagePath: null, mediaUrl: `${store}/a.png`, mediaStatus: 'published', ...live })).toBe(`${store}/a.png`);
+    expect(publicCover({ imagePath: 'covers/cover-vol01.jpg', mediaUrl: null, mediaStatus: null, ...live })).toBe('covers/cover-vol01.jpg');
   });
 });
 

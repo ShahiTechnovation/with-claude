@@ -22,12 +22,12 @@ import { importRecords } from '../db/import';
 import * as schema from '../db/schema';
 import { createTestDatabase, type TestDatabase } from '../db/testing';
 import { galleryRooms } from '../src/server/public/pages';
-import { emitReceipt, receiptPath, type ReceiptSink } from '../scripts/backfill/emit-receipt';
 import {
   applyBackfill,
   ASSET_EXTENSIONS,
   assetRegistryKeys,
   buildBackfillPlan,
+  CONSENT_BASIS,
   isApplicable,
   LIVE_SIX,
   measure,
@@ -36,6 +36,7 @@ import {
   rollbackBackfill,
   wantedPhotos,
 } from '../scripts/backfill/event-photos';
+import { emitReceipt } from '../scripts/backfill/cli';
 
 let db: TestDatabase;
 
@@ -106,6 +107,9 @@ describe('the dry run', () => {
     expect(plan.dimensionUpdates).toEqual([]);
     expect(plan.dimensionCandidates).toHaveLength(6);
     expect(plan.withDimensions).toBe(false);
+    // Same shape, and this one has no flag at all: the six live rows carry no
+    // consent basis, and correcting them is not this operation's business.
+    expect(plan.consentBasisCandidates).toHaveLength(6);
     expect(plan.photosAlreadyPresent).toBe(6);
     expect(plan.unknownEventSlugs).toEqual([]);
     expect(plan.photosSkippedForMissingEvent).toBe(0);
@@ -146,6 +150,8 @@ describe('the dry run', () => {
     expect(printed).toContain('event_photos      +35');
     expect(printed).toContain('deletes           0');
     expect(printed).toContain('APPLICABLE');
+    expect(printed).toContain(`consent = true, provenance = '${CONSENT_BASIS}'`);
+    expect(printed).toContain('6 EXISTING row(s) carry no consent basis. NOT writing them');
   });
 
   it('writes nothing', async () => {
@@ -279,6 +285,78 @@ describe('apply', () => {
     expect(await nullDimensionCount()).toBe(6);
     expect(await mediaPhotoCount()).toBe(7);
     expect(await photoCount()).toBe(7);
+  });
+});
+
+/**
+ * Vishal's answer on VIS-11 (`consent-decision`, interaction `ecd8df0e`):
+ * attendees signed a written release. So `consent = true` is a fact about these
+ * photographs, and the basis for it has to be legible next to it — a bare
+ * boolean is how this column became a mystery in the first place.
+ */
+describe('consent and its basis', () => {
+  it('writes consent with its basis on the rows it inserts, and leaves the live six alone', async () => {
+    const before = await db.select().from(schema.media).where(inArray(schema.media.path, LIVE_SIX));
+    expect(before.every((row) => row.consent === false)).toBe(true);
+
+    await applyBackfill(db as never, await buildBackfillPlan(db as never), {
+      databaseHost: 'pglite',
+      databaseName: 'memory',
+    });
+
+    const inserted = await db
+      .select()
+      .from(schema.media)
+      .where(and(eq(schema.media.kind, 'photo'), notInArray(schema.media.path, LIVE_SIX)));
+    expect(inserted).toHaveLength(35);
+    for (const row of inserted) {
+      expect(row.consent, row.path!).toBe(true);
+      expect(row.provenance, row.path!).toBe(CONSENT_BASIS);
+    }
+
+    // The correction to existing rows is a separate decision over every row,
+    // so this run must not have made it — not even as a side effect.
+    expect(await db.select().from(schema.media).where(inArray(schema.media.path, LIVE_SIX))).toEqual(before);
+  });
+
+  it('reports the existing rows that carry no basis, and prints the UPDATE without running it', async () => {
+    const plan = await buildBackfillPlan(db as never);
+    expect(plan.consentBasisCandidates.map((row) => row.path).sort()).toEqual([...LIVE_SIX].sort());
+    for (const row of plan.consentBasisCandidates) {
+      expect(row.was).toEqual({ consent: false, provenance: null });
+    }
+
+    const printed = renderPlan(plan);
+    expect(printed).toContain(`UPDATE media SET consent = true, provenance = '${CONSENT_BASIS}'`);
+    for (const row of plan.consentBasisCandidates) expect(printed).toContain(row.id);
+
+    // Printed, not applied. The dry run writes nothing, including this.
+    const after = await db.select({ consent: schema.media.consent }).from(schema.media).where(inArray(schema.media.path, LIVE_SIX));
+    expect(after.every((row) => row.consent === false)).toBe(true);
+  });
+
+  it('stops reporting a row once it carries the basis', async () => {
+    await db
+      .update(schema.media)
+      .set({ consent: true, provenance: CONSENT_BASIS })
+      .where(eq(schema.media.path, LIVE_SIX[0]));
+
+    const plan = await buildBackfillPlan(db as never);
+    expect(plan.consentBasisCandidates.map((row) => row.path)).not.toContain(LIVE_SIX[0]);
+    expect(plan.consentBasisCandidates).toHaveLength(5);
+  });
+
+  it('still reports a row whose consent is true but says nothing about why', async () => {
+    // The ambiguity the decision asked to end: `true` with a provenance that
+    // means something else — the subject supplied this image of themselves.
+    await db
+      .update(schema.media)
+      .set({ consent: true, provenance: 'upload' })
+      .where(eq(schema.media.path, LIVE_SIX[0]));
+
+    const plan = await buildBackfillPlan(db as never);
+    const flagged = plan.consentBasisCandidates.find((row) => row.path === LIVE_SIX[0]);
+    expect(flagged?.was).toEqual({ consent: true, provenance: 'upload' });
   });
 });
 
@@ -548,89 +626,6 @@ describe('the rollback SQL it prints', () => {
   });
 });
 
-/**
- * The window with no second chance: after the COMMIT, before the undo is
- * anywhere a human can read it. `reviewer` raised it on [VIS-17].
- */
-describe('reporting a committed backfill', () => {
-  const collect = () => {
-    const out: string[] = [];
-    const err: string[] = [];
-    return {
-      out,
-      err,
-      sink: (writeFile: ReceiptSink['writeFile']): ReceiptSink => ({
-        log: (m) => out.push(m),
-        error: (m) => err.push(m),
-        mkdir: async () => undefined,
-        writeFile,
-      }),
-    };
-  };
-
-  it('prints the undo before it writes the receipt, so a failing disk cannot take both', async () => {
-    const receipt = await applyBackfill(db as never, await buildBackfillPlan(db as never), {
-      databaseHost: 'pglite',
-      databaseName: 'memory',
-    });
-    const { out, err, sink } = collect();
-    const order: string[] = [];
-
-    const code = await emitReceipt(receipt, {
-      ...sink(async (path, body) => {
-        order.push('write');
-        return [path, body.length];
-      }),
-      log: (m) => {
-        if (m.includes('DELETE FROM media')) order.push('printed the undo');
-        out.push(m);
-      },
-    });
-
-    expect(code).toBe(0);
-    expect(order).toEqual(['printed the undo', 'write']);
-    expect(err).toEqual([]);
-    expect(out.join('\n')).toContain(`Receipt: ${receiptPath(receipt)}`);
-  });
-
-  it('exits 3 with the whole receipt on stdout when the receipt cannot be written', async () => {
-    const receipt = await applyBackfill(db as never, await buildBackfillPlan(db as never), {
-      databaseHost: 'pglite',
-      databaseName: 'memory',
-    });
-    const { out, err, sink } = collect();
-
-    const code = await emitReceipt(
-      receipt,
-      sink(async () => {
-        throw new Error('EROFS: read-only file system');
-      }),
-    );
-
-    // Non-zero, and distinct from `fail`'s 1 — the write happened, only the
-    // receipt did not.
-    expect(code).toBe(3);
-
-    // The undo reached stdout regardless. This is the assertion the whole
-    // reordering exists for: it used to throw before this line ran.
-    const printed = out.join('\n');
-    expect(printed).toContain('DELETE FROM event_photos');
-    expect(printed).toContain('DELETE FROM media');
-    expect(printed).toContain('events/vol02-4.jpg');
-
-    // And the receipt itself is recoverable from the scrollback, with the
-    // reason and the path to save it to.
-    const reported = err.join('\n');
-    expect(reported).toContain('COMMITTED');
-    expect(reported).toContain('EROFS: read-only file system');
-    expect(reported).toContain(receiptPath(receipt));
-    const recovered = JSON.parse(err[err.length - 1]) as typeof receipt;
-    expect(recovered.insertedMedia).toHaveLength(35);
-    expect(recovered.insertedPhotos).toHaveLength(35);
-    expect(recovered.rollbackSql).toBe(receipt.rollbackSql);
-  });
-});
-
 describe('rollback when a receipt row has vanished', () => {
   it('reports it and still undoes the rest', async () => {
     const receipt = await applyBackfill(db as never, await buildBackfillPlan(db as never), {
@@ -651,11 +646,53 @@ describe('rollback when a receipt row has vanished', () => {
     expect(await mediaPhotoCount()).toBe(6);
   });
 
+  it('refuses a receipt that lists a media id twice, instead of misreporting the count', async () => {
+    const receipt = await applyBackfill(db as never, await buildBackfillPlan(db as never), {
+      databaseHost: 'pglite',
+      databaseName: 'memory',
+    });
+
+    // A receipt is a file and a file can be edited. Without the shape check
+    // this undoes all 35 and then reports one of them as "already deleted by
+    // something else", which is the opposite of what happened.
+    const duplicated = { ...receipt, insertedMedia: [...receipt.insertedMedia, { ...receipt.insertedMedia[0] }] };
+
+    await expect(rollbackBackfill(db as never, duplicated)).rejects.toThrow(/more than once/);
+    // Refused before the transaction opened, so nothing was undone.
+    expect(await photoCount()).toBe(41);
+    expect(await mediaPhotoCount()).toBe(41);
+  });
+
+  /**
+   * The same lie, in the three forms a `Set` keyed on the raw receipt text does
+   * not see. `media.id` is `uuid`, and PostgreSQL canonicalises `uuid` input —
+   * case is ignored, braces and hyphens are stripped — so `A0EE…` and `a0ee…`
+   * are two keys to JavaScript and one value to the DELETE. [VIS-24]
+   */
+  it.each([
+    ['upper-cased', (id: string) => id.toUpperCase()],
+    ['without its hyphens', (id: string) => id.replace(/-/g, '')],
+    ['brace-wrapped', (id: string) => `{${id}}`],
+  ])('refuses a media id the receipt lists twice, the second copy %s', async (_label, restate) => {
+    const receipt = await applyBackfill(db as never, await buildBackfillPlan(db as never), {
+      databaseHost: 'pglite',
+      databaseName: 'memory',
+    });
+    const first = receipt.insertedMedia[0];
+    const duplicated = {
+      ...receipt,
+      insertedMedia: [...receipt.insertedMedia, { ...first, id: restate(first.id) }],
+    };
+
+    await expect(rollbackBackfill(db as never, duplicated)).rejects.toThrow(/more than once/);
+    expect(await photoCount()).toBe(41);
+    expect(await mediaPhotoCount()).toBe(41);
+  });
+
   /**
    * The difference between "the DELETE returned nothing because the row is
-   * gone" and "...because something stopped it". Only the first is an
-   * `mediaAlreadyGone`, and until [VIS-17] the accounting guard that was
-   * supposed to tell them apart was an identity that could never fire.
+   * gone" and "...because something stopped it". Only the first is
+   * `mediaAlreadyGone`. [VIS-17]
    */
   it('refuses when a row it counted as already gone is still there', async () => {
     const receipt = await applyBackfill(db as never, await buildBackfillPlan(db as never), {
@@ -685,56 +722,67 @@ describe('rollback when a receipt row has vanished', () => {
     const [still] = await db.select({ id: schema.media.id }).from(schema.media).where(eq(schema.media.id, survivor.id));
     expect(still.id).toBe(survivor.id);
   });
+});
 
-  /**
-   * The other way `mediaAlreadyGone` can be a lie, and the trigger check above
-   * cannot catch it: the row really was deleted, by this very run, and the
-   * receipt listed it twice. Found on [VIS-19] by comparing the two separate
-   * implementations of this fix — each caught one case and neither caught both.
-   */
-  it('refuses a receipt that lists a media id twice, instead of misreporting the count', async () => {
-    const receipt = await applyBackfill(db as never, await buildBackfillPlan(db as never), {
-      databaseHost: 'pglite',
-      databaseName: 'memory',
-    });
+/**
+ * The window between `COMMIT` and the undo being reachable.
+ *
+ * Found by `reviewer` on [VIS-17]: the apply used to write the receipt file
+ * first and print the rollback SQL after it, so a failed write left rows
+ * committed with no undo on stdout and no file — and a fresh `plan` cannot
+ * regenerate one, because after a successful apply there is nothing to insert.
+ */
+describe('emitReceipt', () => {
+  const receipt = {
+    appliedAt: '2026-10-05T00:00:00.000Z',
+    databaseHost: 'pglite',
+    databaseName: 'memory',
+    insertedMedia: [{ id: 'm1', path: 'events/vol07-1.jpg' }],
+    insertedPhotos: [],
+    dimensionsUpdated: [],
+    rollbackSql: 'BEGIN;\n-- the undo\nCOMMIT;',
+  };
 
-    // A receipt is a file and a file can be edited. Without the shape check
-    // this undoes all 35 and then reports one of them as "already deleted by
-    // something else", which is the opposite of what happened.
-    const duplicated = { ...receipt, insertedMedia: [...receipt.insertedMedia, { ...receipt.insertedMedia[0] }] };
+  const capture = async (io: { mkdir: never; writeFile: never } | undefined) => {
+    const out: string[] = [];
+    const err: string[] = [];
+    const [log, error] = [console.log, console.error];
+    console.log = (...args: unknown[]) => void out.push(args.join(' '));
+    console.error = (...args: unknown[]) => void err.push(args.join(' '));
+    try {
+      const code = await emitReceipt(receipt as never, io as never);
+      return { code, out: out.join('\n'), err: err.join('\n') };
+    } finally {
+      [console.log, console.error] = [log, error];
+    }
+  };
 
-    await expect(rollbackBackfill(db as never, duplicated)).rejects.toThrow(/more than once/);
-    // Refused before the transaction opened, so nothing was undone.
-    expect(await photoCount()).toBe(41);
-    expect(await mediaPhotoCount()).toBe(41);
+  it('prints the rollback SQL before it writes the receipt', async () => {
+    const order: string[] = [];
+    const result = await capture({
+      mkdir: (async () => void order.push('mkdir')) as never,
+      writeFile: (async () => void order.push('writeFile')) as never,
+    } as never);
+
+    expect(result.code).toBe(0);
+    expect(result.out).toContain('-- the undo');
+    expect(result.out.indexOf('-- the undo')).toBeLessThan(result.out.indexOf('Receipt: imports/'));
+    expect(order).toEqual(['mkdir', 'writeFile']);
   });
 
-  /**
-   * The same lie, in the three forms a `Set` keyed on the raw receipt text does
-   * not see. `media.id` is `uuid`, and PostgreSQL canonicalises `uuid` input —
-   * case is ignored, braces and hyphens are stripped — so `A0EE…` and `a0ee…`
-   * are two keys to JavaScript and one value to the DELETE. Found on [VIS-24]:
-   * the shape check waved each pair through, the run deleted all 35, and then
-   * named another actor for one of them.
-   */
-  it.each([
-    ['upper-cased', (id: string) => id.toUpperCase()],
-    ['without its hyphens', (id: string) => id.replace(/-/g, '')],
-    ['brace-wrapped', (id: string) => `{${id}}`],
-  ])('refuses a media id the receipt lists twice, the second copy %s', async (_label, restate) => {
-    const receipt = await applyBackfill(db as never, await buildBackfillPlan(db as never), {
-      databaseHost: 'pglite',
-      databaseName: 'memory',
-    });
-    const first = receipt.insertedMedia[0];
-    const duplicated = {
-      ...receipt,
-      insertedMedia: [...receipt.insertedMedia, { ...first, id: restate(first.id) }],
-    };
+  it('still reaches the undo when the receipt cannot be written, and exits non-zero', async () => {
+    const result = await capture({
+      mkdir: (async () => {}) as never,
+      writeFile: (async () => {
+        throw new Error('EROFS: read-only file system');
+      }) as never,
+    } as never);
 
-    await expect(rollbackBackfill(db as never, duplicated)).rejects.toThrow(/more than once/);
-    expect(await photoCount()).toBe(41);
-    expect(await mediaPhotoCount()).toBe(41);
+    // The rows are committed by this point. Both undo paths must survive it.
+    expect(result.out).toContain('-- the undo');
+    expect(result.err).toContain('EROFS: read-only file system');
+    expect(result.err).toContain('"rollbackSql"');
+    expect(result.code).toBe(3);
   });
 });
 

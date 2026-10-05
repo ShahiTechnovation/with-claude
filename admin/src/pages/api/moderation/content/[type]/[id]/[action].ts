@@ -1,115 +1,112 @@
+/**
+ * ONE MODERATOR ACTION, APPLIED TO ONE ROW.
+ *
+ * The route used to be three hand-copied per-type branches that each decided
+ * for themselves what an action meant. Every decision now comes from
+ * `moderationWrite()` in `@/server/moderation`, which is also where a test can
+ * reach it; what is left here is the boundary — authenticate, validate, look
+ * the row up, write, audit, redirect.
+ *
+ * The only thing that still differs per content type is which table holds the
+ * row and which column holds its state. That is `TARGETS` below, and nothing
+ * else.
+ */
 import type { APIRoute } from 'astro';
 import { pooledDb } from '@db/pool';
 import * as dbSchema from '@db/schema';
 import { eq } from 'drizzle-orm';
 import { assertSameOrigin } from '@/server/session';
+import { moderationRequest, STATE_COLUMN, type ModeratableType } from '@/server/moderation';
 
 export const prerender = false;
+
+/** The table each content type lives in. See the file header. */
+const TARGETS = {
+  project: dbSchema.projects,
+  builder: dbSchema.builders,
+  media: dbSchema.media,
+} satisfies Record<ModeratableType, unknown>;
+
+/**
+ * Every non-redirect response this route produces.
+ *
+ * `code` is the stable, machine-readable half and `error` the half a moderator
+ * reads. Neither carries a driver message or a stack: a constraint violation
+ * becomes `moderation_failed` here and the detail goes to the server log.
+ */
+function fail(status: number, code: string, error: string): Response {
+  return new Response(JSON.stringify({ code, error }), {
+    status,
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+  });
+}
 
 export const POST: APIRoute = async ({ request, params, locals }) => {
   const user = locals.user;
   if (!user || user.role !== 'admin') {
-    return new Response(JSON.stringify({ error: 'Not authenticated as admin.' }), { status: 401 });
+    return fail(401, 'not_admin', 'Not authenticated as admin.');
   }
 
   if (!assertSameOrigin(request)) {
-    return new Response(JSON.stringify({ error: 'Cross-origin request refused.' }), { status: 403 });
+    return fail(403, 'cross_origin', 'Cross-origin request refused.');
   }
 
-  const { type, id, action } = params;
-  if (!type || !id || !action) return new Response('Missing parameters.', { status: 400 });
-
-  const validActions = ['restrict', 'restore', 'archive', 'delete'];
-  if (!validActions.includes(action)) {
-    return new Response('Invalid action.', { status: 400 });
+  // Parameter validation and the action mapping both live in
+  // `@/server/moderation`, where a test can reach them.
+  const parsed = moderationRequest(params, user.id);
+  if (!parsed.ok) {
+    return fail(parsed.status, parsed.code, parsed.error);
   }
+  const { type, id, action, write } = parsed;
 
   const db = pooledDb();
-  
-  // Transaction
-  const success = await db.transaction(async (tx) => {
-    let fromStatus = '';
-    let toStatus = '';
-    let dbAction = '';
-    
-    if (type === 'project') {
-      const [entity] = await tx.select().from(dbSchema.projects).where(eq(dbSchema.projects.id, id));
+  const table = TARGETS[type];
+  const stateColumn = STATE_COLUMN[type];
+
+  let found: boolean;
+  try {
+    found = await db.transaction(async (tx) => {
+      // Drizzle cannot narrow a table selected by name from a map of three
+      // different tables. The three agree on `id` and on the state column
+      // named above, which is the entire contract this block needs.
+      const rows = await tx
+        .select()
+        .from(table as never)
+        .where(eq(table.id, id));
+      const entity = rows[0] as Record<string, unknown> | undefined;
       if (!entity) return false;
-      fromStatus = entity.moderationState;
-      
-      if (action === 'restrict') toStatus = 'restricted';
-      else if (action === 'restore') toStatus = 'clean'; // assuming restore sets to clean
-      else if (action === 'delete') toStatus = 'removed';
-      
-      dbAction = `content.${toStatus === 'clean' ? 'restored' : toStatus}`;
 
-      const updateData: any = { moderationState: toStatus as any, updatedAt: new Date() };
-      if (action === 'delete') {
-        updateData.deletedAt = new Date();
-        updateData.deletedBy = user.id;
-        updateData.deletionReason = 'Moderator removed';
-      }
+      await tx
+        .update(table as never)
+        .set(write.columns as never)
+        .where(eq(table.id, id));
 
-      await tx.update(dbSchema.projects).set(updateData).where(eq(dbSchema.projects.id, id));
+      await tx.insert(dbSchema.auditLog).values({
+        actorId: user.id,
+        action: write.auditAction,
+        entityType: type,
+        entityId: id,
+        fromStatus: String(entity[stateColumn] ?? ''),
+        toStatus: write.state,
+        note: `Moderator executed ${action} on ${type}`,
+      });
 
-    } else if (type === 'builder') {
-      const [entity] = await tx.select().from(dbSchema.builders).where(eq(dbSchema.builders.id, id));
-      if (!entity) return false;
-      fromStatus = entity.moderationState;
-      
-      if (action === 'restrict') toStatus = 'restricted';
-      else if (action === 'restore') toStatus = 'clean';
-      else if (action === 'delete') toStatus = 'removed';
-
-      dbAction = `content.${toStatus === 'clean' ? 'restored' : toStatus}`;
-
-      const updateData: any = { moderationState: toStatus as any, updatedAt: new Date() };
-      if (action === 'delete') {
-        updateData.deletedAt = new Date();
-        updateData.deletedBy = user.id;
-        updateData.deletionReason = 'Moderator removed';
-      }
-      
-      await tx.update(dbSchema.builders).set(updateData).where(eq(dbSchema.builders.id, id));
-
-    } else if (type === 'media') {
-      const [entity] = await tx.select().from(dbSchema.media).where(eq(dbSchema.media.id, id));
-      if (!entity) return false;
-      fromStatus = entity.status; // media uses status directly
-      
-      if (action === 'restrict' || action === 'delete') toStatus = 'deleted';
-      else if (action === 'restore') toStatus = 'published';
-
-      dbAction = `content.${toStatus === 'published' ? 'restored' : toStatus}`;
-
-      const updateData: any = { status: toStatus as any, updatedAt: new Date() };
-      if (action === 'delete') {
-        updateData.deletedAt = new Date();
-        updateData.deletedBy = user.id;
-        updateData.deletionReason = 'Moderator removed';
-      }
-      
-      await tx.update(dbSchema.media).set(updateData).where(eq(dbSchema.media.id, id));
-    } else {
-      return false; // unknown type
-    }
-
-    // Write audit log
-    await tx.insert(dbSchema.auditLog).values({
-      actorId: user.id,
-      action: dbAction,
-      entityType: type,
-      entityId: id,
-      fromStatus,
-      toStatus,
-      note: `Moderator executed ${action} on ${type}`,
+      return true;
     });
+  } catch (error) {
+    // A write this route asked for was refused. The moderator gets something
+    // they can act on and the operator gets the reason, which is the half that
+    // was missing when `archive` wrote an empty string to an enum column.
+    console.error(`moderation ${action} on ${type} ${id} failed`, error);
+    return fail(
+      500,
+      'moderation_failed',
+      `Could not ${action} this ${type}. The change was not saved.`,
+    );
+  }
 
-    return true;
-  });
-
-  if (!success) {
-    return new Response('Entity not found or transaction failed.', { status: 404 });
+  if (!found) {
+    return fail(404, 'not_found', `No ${type} with that id.`);
   }
 
   // Note: For user-generated pages, targeted invalidation should happen here.

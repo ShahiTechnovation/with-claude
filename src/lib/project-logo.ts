@@ -58,7 +58,7 @@ const isHttps = (v: string | null | undefined): v is string => Boolean(v && /^ht
 export function resolveLogoSource(input: {
   slug: string;
   logoPath: string | null;
-  /** Only a PUBLISHED media row; the caller has checked. */
+  /** Only a PUBLISHED, untombstoned media row; the caller has checked. */
   logoMedia: { url: string; provenance: string | null; width?: number | null; height?: number | null } | null;
   cover: string | null;
 }): LogoSource {
