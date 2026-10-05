@@ -4,8 +4,10 @@
  *   BASE="https://www.withclaude.in" node scripts/dev/share-cards-audit.mjs
  *
  *   BASE … the deployment to audit (default: the production origin)
- *   STRICT=1 … exit 1 when any event fails — what the preview smoke check uses
- *   EXTRA_HEADERS="name: value" … one per line, sent to BASE's own origin only
+ *   STRICT=1 … exit 1 when any event fails
+ *   EXTRA_HEADERS="name: value" … one per line, sent to BASE's own origin only.
+ *     The bypass header alone is enough: there is no cookie jar here, so
+ *     `x-vercel-set-bypass-cookie` would only send Vercel round a redirect loop.
  *
  * WHY THIS EXISTS AND A UNIT TEST DOES NOT REPLACE IT. Eight of seventeen
  * event pages declared an `og:image` that returned 404 for as long as the
@@ -17,8 +19,9 @@
  *
  * The event pages are `prerender = false` — serverless functions reading the
  * database per request — so there is no event HTML in a local build to read.
- * This has to run against something deployed, which is why it lives here and
- * in the preview smoke workflow rather than in `npm test`.
+ * This has to run against something deployed, which is why it is a script you
+ * run against a deployment rather than part of `npm test`. Nothing runs it
+ * automatically yet; wiring it into the preview smoke workflow is separate.
  *
  * ── ONE SUBTLETY WORTH THE PARAGRAPH ────────────────────────────────────
  *
@@ -45,13 +48,27 @@ const MIN_EDGE = 200;
 /** Give a slow cold function room, but never hang the workflow. */
 const TIMEOUT_MS = 20_000;
 
-async function get(url, headers, origin) {
+/** More than any real redirect chain, few enough to stop a loop quickly. */
+const MAX_REDIRECTS = 5;
+
+/**
+ * GET, following redirects here rather than in `fetch`, so the protection
+ * secret goes to BASE's origin and nowhere else. `redirect: 'follow'` would
+ * re-send it to wherever a redirect points: fetch strips `authorization` and
+ * `cookie` across origins, never a custom header.
+ */
+export async function get(url, headers, origin) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    // The protection secret goes to BASE's origin and nowhere else.
-    const scoped = new URL(url).origin === origin ? headers : {};
-    return await fetch(url, { headers: scoped, signal: controller.signal, redirect: 'follow' });
+    for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
+      const scoped = new URL(url).origin === origin ? headers : {};
+      const res = await fetch(url, { headers: scoped, signal: controller.signal, redirect: 'manual' });
+      const location = res.headers.get('location');
+      if (res.status < 300 || res.status > 399 || !location) return res;
+      url = new URL(location, url).href;
+    }
+    throw new Error(`more than ${MAX_REDIRECTS} redirects, last to ${url}`);
   } finally {
     clearTimeout(timer);
   }
