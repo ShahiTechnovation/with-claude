@@ -662,6 +662,66 @@ describe('rollback when a receipt row has vanished', () => {
     expect(await photoCount()).toBe(41);
     expect(await mediaPhotoCount()).toBe(41);
   });
+
+  /**
+   * The same lie, in the three forms a `Set` keyed on the raw receipt text does
+   * not see. `media.id` is `uuid`, and PostgreSQL canonicalises `uuid` input —
+   * case is ignored, braces and hyphens are stripped — so `A0EE…` and `a0ee…`
+   * are two keys to JavaScript and one value to the DELETE. [VIS-24]
+   */
+  it.each([
+    ['upper-cased', (id: string) => id.toUpperCase()],
+    ['without its hyphens', (id: string) => id.replace(/-/g, '')],
+    ['brace-wrapped', (id: string) => `{${id}}`],
+  ])('refuses a media id the receipt lists twice, the second copy %s', async (_label, restate) => {
+    const receipt = await applyBackfill(db as never, await buildBackfillPlan(db as never), {
+      databaseHost: 'pglite',
+      databaseName: 'memory',
+    });
+    const first = receipt.insertedMedia[0];
+    const duplicated = {
+      ...receipt,
+      insertedMedia: [...receipt.insertedMedia, { ...first, id: restate(first.id) }],
+    };
+
+    await expect(rollbackBackfill(db as never, duplicated)).rejects.toThrow(/more than once/);
+    expect(await photoCount()).toBe(41);
+    expect(await mediaPhotoCount()).toBe(41);
+  });
+
+  /**
+   * The difference between "the DELETE returned nothing because the row is
+   * gone" and "...because something stopped it". Only the first is
+   * `mediaAlreadyGone`. [VIS-17]
+   */
+  it('refuses when a row it counted as already gone is still there', async () => {
+    const receipt = await applyBackfill(db as never, await buildBackfillPlan(db as never), {
+      databaseHost: 'pglite',
+      databaseName: 'memory',
+    });
+    const survivor = receipt.insertedMedia.find((row) => row.path === 'events/vol02-4.jpg')!;
+
+    // A BEFORE DELETE trigger returning NULL: no error, no returned row, the
+    // row still present. Exactly what the dry run warns it cannot see.
+    await db.execute(
+      sql.raw(`CREATE FUNCTION veto_delete() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`),
+    );
+    await db.execute(
+      sql.raw(
+        `CREATE TRIGGER veto_delete BEFORE DELETE ON media FOR EACH ROW ` +
+          `WHEN (OLD.id = '${survivor.id}') EXECUTE FUNCTION veto_delete()`,
+      ),
+    );
+
+    await expect(rollbackBackfill(db as never, receipt)).rejects.toThrow(/still exist/);
+
+    // Rolled back whole: nothing half-undone, and the operator can fix the
+    // trigger and re-run the same receipt.
+    expect(await photoCount()).toBe(41);
+    expect(await mediaPhotoCount()).toBe(41);
+    const [still] = await db.select({ id: schema.media.id }).from(schema.media).where(eq(schema.media.id, survivor.id));
+    expect(still.id).toBe(survivor.id);
+  });
 });
 
 /**

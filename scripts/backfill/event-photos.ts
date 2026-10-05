@@ -718,11 +718,21 @@ export async function rollbackBackfill(
   // comes back one row short of `deletable.length` and the run reports "1 media
   // row had already been deleted by something else" about a row it deleted
   // itself. Nothing downstream can tell the difference, so refuse here.
+  //
+  // Compared the way PostgreSQL compares them, not the way JavaScript does.
+  // `media.id` is `uuid`, and `uuid` input is canonicalised: case is ignored,
+  // braces are stripped, and hyphens are stripped wherever they fall. So
+  // `A0EE…`, `a0eeb2c4…` and `{a0ee…}` are three distinct JS strings and one
+  // PostgreSQL value, and a `Set` keyed on the raw text would wave the pair
+  // through into the `inArray` that then de-duplicates it. [VIS-24]
+  const asPostgresUuid = (id: string) => id.trim().replace(/[{}-]/g, '').toLowerCase();
   const seen = new Set<string>();
   const duplicated: string[] = [];
   for (const row of receipt.insertedMedia) {
-    if (seen.has(row.id)) duplicated.push(row.id);
-    seen.add(row.id);
+    const key = asPostgresUuid(row.id);
+    // Reported as the receipt spells it, so the operator can find the line.
+    if (seen.has(key)) duplicated.push(row.id);
+    seen.add(key);
   }
   if (duplicated.length) {
     throw new Error(
@@ -788,10 +798,30 @@ export async function rollbackBackfill(
     // `if` on it cannot fail. One stood here and was removed rather than
     // reworded: a throw that cannot fire is worse than no throw, because it
     // reads as a check on the one path where assurance matters most.
-    //
-    // The invariant that can actually break is the receipt's shape, and it is
-    // checked before the deletes instead — see `duplicated` above.
     const mediaAlreadyGone = deletable.length - mediaDeleted;
+
+    // What can actually be false is "a row the DELETE did not return is gone".
+    // A `BEFORE DELETE` trigger returning NULL suppresses a delete silently:
+    // no error, no returned row, the row still there. Reporting a surviving
+    // row as "already deleted by something else" would undercount the undo.
+    //
+    // The second of two guards, and neither subsumes the other: `duplicated`
+    // above validates the receipt before the deletes; this validates the
+    // database after them. [VIS-17]
+    if (mediaAlreadyGone) {
+      const stillThere = await tx
+        .select({ id: schema.media.id })
+        .from(schema.media)
+        .where(inArray(schema.media.id, deletable));
+      if (stillThere.length) {
+        throw new Error(
+          `${stillThere.length} of the ${receipt.insertedMedia.length} media rows the receipt lists were neither ` +
+            `deleted nor retained, and still exist — something is suppressing the delete. Look for a BEFORE ` +
+            `DELETE trigger on media: SELECT tgname FROM pg_trigger WHERE tgrelid = 'media'::regclass AND NOT ` +
+            `tgisinternal. Rolled back.`,
+        );
+      }
+    }
 
     return { photosDeleted, mediaDeleted, mediaRetained, mediaAlreadyGone };
   });
