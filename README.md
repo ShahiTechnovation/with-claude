@@ -1,141 +1,264 @@
 # WITH CLAUDE
 
-**India is building.**
+The community directory and event record for people building with Claude in India.
 
-Where people across India meet, learn, experiment and build with Claude — a living discovery layer
-for events, cities, builders, projects and stories in one place.
+- Site: <https://www.withclaude.in>
+- Project directory: <https://projects.withclaude.in>
+- Admin, staff only: <https://admin.withclaude.in>
 
-Target domain: **withclaude.in**
+WITH CLAUDE is an independent, volunteer-run community project. It isn't an Anthropic property,
+programme or endorsement. See [Relationship to Anthropic](#relationship-to-anthropic).
 
----
+## Contents
 
-## What this is
+- [Overview](#overview)
+- [Tech stack](#tech-stack)
+- [Repository layout](#repository-layout)
+- [Getting started](#getting-started)
+- [Configuration](#configuration)
+- [Scripts](#scripts)
+- [Testing](#testing)
+- [Continuous integration](#continuous-integration)
+- [Deployment](#deployment)
+- [Architecture](#architecture)
+- [Governance and data integrity](#governance-and-data-integrity)
+- [Data operations](#data-operations)
+- [Design, accessibility and search](#design-accessibility-and-search)
+- [Contributing](#contributing)
+- [Security](#security)
+- [Relationship to Anthropic](#relationship-to-anthropic)
+- [Credits](#credits)
 
-Not a meetup landing page, and not a chapter directory. The product is a _discovery layer_ — an
-editorial, cartographic index of a builder ecosystem, architected so that Bhopal is one node in a
-network rather than the whole architecture.
+## Overview
 
-It exists to answer seven questions: what is happening, where, who is building, what they made,
-**how they actually use Claude**, what you can join, and how you contribute.
+The site answers practical questions about the Claude community in India: what's happening and
+where, who is building, what they made, and how to take part.
 
-Three rules shape every decision in here:
+- **Events** sync nightly from the community's Luma calendar. Each one gets a page with its venue,
+  hosts, photographs and the projects built there.
+- **Cities** are plotted on an atlas by their real coordinates. A city's community state is derived
+  from verified records and can't be set by hand.
+- **Builders and Ambassadors** have public profiles. Members can claim and edit their own.
+- **The project directory** (`projects.withclaude.in`) lists projects with filters, member
+  submissions, claims and moderation.
+- **Practice archives** hold stories, use cases and guides, each held to a published standard.
+- **Search** at `/discover` covers the whole record.
+- **Member accounts** live under `/me/`, with sign-in through Privy.
+- **The admin app** is where staff review submissions, moderate content, manage attribution and
+  run integrations.
 
-1. **Nothing is invented.** Every event, date, venue, photograph and credit comes from the real
-   community record. Where an archive is empty — projects, written stories — it renders an honest,
-   designed empty state instead of filler. See [Content honesty](#content-honesty).
-2. **One source of truth.** No page decides what "next" means, what state an event is in, or what
-   is happening in a city. That lives in `src/lib/status.ts`, `src/lib/city.ts` and
-   `src/data/index.ts`, and everything reads from it.
-3. **It works without JavaScript.** Motion, the atlas readout, the archive filters, the join flow
-   and the submission panels are all additive. With scripts blocked the page is complete, readable
-   and navigable, and no control is dead.
+Three rules apply across the codebase:
 
-## Run it
+1. **Nothing is invented.** Events, dates, venues, photographs and credits come from the real
+   community record. An empty archive shows a designed empty state, never filler.
+2. **Derived state has one owner.** Event lifecycle lives in `src/lib/status.ts` and city state in
+   `src/lib/city.ts`. Pages read the selectors in `src/data/index.ts` and never decide these
+   things themselves.
+3. **Public pages work without JavaScript.** Motion, the atlas readout, filters and forms are
+   enhancements. With scripts blocked, every public page still renders and navigates.
+
+## Tech stack
+
+| Area               | Choice                                                                   |
+| ------------------ | ------------------------------------------------------------------------ |
+| Framework          | Astro 5 and TypeScript. `output: 'static'`, with on-demand routes        |
+| Interactive UI     | React 19 islands, plus small vanilla TypeScript islands                  |
+| Database           | Neon PostgreSQL with Drizzle ORM; migrations through `drizzle-kit`       |
+| Member sign-in     | Privy                                                                    |
+| Staff sign-in      | Better Auth magic links, in the admin app only                           |
+| Media              | Vercel Blob for member uploads; `astro:assets` and sharp for repo images |
+| Email              | Resend                                                                   |
+| Validation         | Zod                                                                      |
+| Hosting            | Vercel, functions in `sin1`, Vercel Cron and Vercel Analytics            |
+| Event source       | The Luma public iCal feed                                                |
+| Content operations | Baserow, optional and off by default                                     |
+| Tests              | Vitest. Database tests run on PGlite, PostgreSQL compiled to WebAssembly |
+| Tooling            | Prettier, and Playwright for screenshots and smoke checks                |
+
+## Repository layout
+
+```
+src/                 the public site
+  pages/             routes; HTTP endpoints under pages/api/
+  components/        UI components (Astro, plus a few React islands)
+  data/              the typed record, its selectors, and the database reader (source-db.ts)
+  lib/               pure logic: event lifecycle, city state, search, SEO, dates, map projection
+  server/            server-only code: auth, members, projects, media, events, integrations
+  scripts/           browser islands
+  styles/            design tokens, fonts and global CSS
+  middleware.ts      request middleware, including the projects.withclaude.in host
+admin/               the staff app: a separate Astro app and Vercel project
+db/                  shared by both apps: schema, migrations, importer, snapshot, DB clients
+scripts/             operational CLIs (backfill, import, baserow, media) and dev tools (dev/)
+tests/               Vitest suites
+docs/                architecture notes, runbooks, Baserow setup, organiser guide
+config/              Baserow config template and icon map
+public/              static files served as-is
+```
+
+## Getting started
+
+### Prerequisites
+
+- Node.js 20 or later. CI runs Node 24.
+- npm. The repo is an npm workspace, with `admin/` as its second package.
+- Optional: a local PostgreSQL, if you're working on the database or the admin.
+
+### Run the public site
 
 ```bash
 npm install
-npm run dev        # http://localhost:4321
-npm run build      # type-check, then build to dist/
-npm run preview    # serve the built site
-npm test           # vitest
-npm run format     # prettier
+npm run dev          # http://localhost:4321
 ```
 
-The site runs with no configuration at all. `/api/submit` needs a database, so without one it
-answers 503 and the forms fall back to the clipboard — which is exactly what a visitor would see
-if the endpoint were down, and is worth seeing once.
+Prerendered pages render from the TypeScript record in `src/data/` with no configuration.
+On-demand pages read Neon on every request, so they need `DATABASE_URL`. These are the homepage,
+events, cities, builders, ambassadors, projects, search, the gallery and the member area.
 
-To run the backend locally, copy `.env.example` to `.env`, fill it in, then:
+### Set up a local database
 
-```bash
-npm run db:generate   # SQL from db/schema.ts, into db/migrations (only after a schema change)
-npm run db:migrate    # apply migrations to DATABASE_URL
-npm run db:import     # copy src/data/*.ts into the database — idempotent, run it as often as you like
-npm run db:studio     # browse the data
-```
-
-`DATABASE_URL` can point at Neon or at a PostgreSQL on `localhost` — the driver is chosen from the
-hostname. A local database is the easier way to work on the admin, which cannot do anything at all
-without one:
+Copy `.env.example` to `.env`, then point `DATABASE_URL` at a local PostgreSQL. The driver is
+picked from the hostname: Neon's serverless driver for `*.neon.tech`, node-postgres for anything
+else.
 
 ```bash
 createdb withclaude_dev
 # DATABASE_URL="postgresql://postgres@127.0.0.1:5432/withclaude_dev"
-npm run db:migrate
+npm run db:migrate   # apply the committed migrations
+npm run db:import    # seed from src/data; idempotent
 ```
 
-### The admin
+`db:import` is for local and staging databases. It rewrites events, projects and builders from the
+TypeScript record, so running it against production would undo edits made through the admin,
+Baserow or member accounts.
+
+### Run the admin app
 
 ```bash
 cp admin/.env.example admin/.env
 npm run db:create-user -- --email you@example.com --name "Your Name" --role admin
-npm run dev:admin     # http://localhost:4322
-npm run build:admin
+npm run dev:admin    # http://localhost:4322
 ```
 
-`BETTER_AUTH_URL` must match how you actually reach it (`http://localhost:4322` locally), because
-magic-link URLs are built from it and every state-changing request is checked against it.
-
-**Signing in without a mail provider.** With no `RESEND_API_KEY`, the sign-in link is printed to
-the admin's terminal and the log says so. Nothing pretends to have sent an email — copy the link
-out of the terminal and open it. The two apps run side by side on different ports, which is the
-same separation they have in production:
+`BETTER_AUTH_URL` has to match how you reach the admin (`http://localhost:4322` locally). Magic
+links are built from it, and every state-changing request is checked against it. Without
+`RESEND_API_KEY` in development, the sign-in link is printed to the terminal instead of emailed.
 
 |             | Local                   | Production                    |
 | ----------- | ----------------------- | ----------------------------- |
 | Public site | `http://localhost:4321` | `https://www.withclaude.in`   |
 | Admin       | `http://localhost:4322` | `https://admin.withclaude.in` |
 
-`npm test` needs none of it: the database tests run against PGlite, which is PostgreSQL compiled
-to WebAssembly and running in-process, so there is no server, no credential and no Docker.
+## Configuration
 
-Node 20+ (CI uses 24).
+All variables are documented in `.env.example` and `admin/.env.example`. The main groups for the
+public site:
 
-### Checks
+| Variable                                                  | Purpose                                                              |
+| --------------------------------------------------------- | -------------------------------------------------------------------- |
+| `DATABASE_URL`                                            | Neon or local PostgreSQL. Needed by every on-demand page and command |
+| `DATABASE_URL_READONLY`                                   | A SELECT-only role for the build snapshot. Recommended               |
+| `DATA_SOURCE`                                             | `ts` (default, the rollback path) or `db` (what production runs)     |
+| `SUBMISSION_IP_SALT`                                      | Salt for hashing submitter IPs. Rotating it resets rate limits       |
+| `RESEND_API_KEY`, `RESEND_FROM`, `RESEND_REPLY_TO`        | The submission acknowledgement email                                 |
+| `PUBLIC_PRIVY_APP_ID`, `PRIVY_APP_ID`, `PRIVY_APP_SECRET` | Member sign-in                                                       |
+| `PRIVY_VERIFICATION_KEY`, `PUBLIC_PRIVY_LOGIN_METHODS`    | Optional Privy settings                                              |
+| `BLOB_READ_WRITE_TOKEN`                                   | Vercel Blob, for member uploads. Injected by Vercel                  |
+| `LUMA_CALENDAR_ID`, `LUMA_ICS_URL`                        | Optional overrides for the event feed                                |
+| `LUMA_API_KEY`, `LUMA_WEBHOOK_SECRET`                     | Only for a calendar this account administers                         |
+| `CRON_SECRET`, `VERCEL_DEPLOY_HOOK_URL`                   | Scheduled jobs and the nightly rebuild                               |
+| `BASEROW_*`                                               | Content operations. See `docs/baserow/setup.md`                      |
 
-CI (`.github/workflows/ci.yml`) runs on every pull request and every push to `main`:
+Never prefix a secret with `PUBLIC_`. Astro inlines `PUBLIC_*` variables into the browser bundle.
+The only `PUBLIC_` variables are non-secret settings: the two `PUBLIC_PRIVY_*` values here, and the
+admin's optional `PUBLIC_SITE_URL`. `db/env.ts` refuses to start if a known secret is exposed with
+that prefix, and `tests/security.test.ts` searches the built bundle for connection strings.
+
+## Scripts
+
+| Command                           | What it does                                                      |
+| --------------------------------- | ----------------------------------------------------------------- |
+| `npm run dev`                     | Public site dev server on port 4321                               |
+| `npm run build`                   | Type-check with `astro check`, then build                         |
+| `npm run preview`                 | Serve the built site                                              |
+| `npm test`                        | Run the Vitest suite                                              |
+| `npm run format` / `format:check` | Prettier                                                          |
+| `npm run dev:admin`               | Admin dev server on port 4322                                     |
+| `npm run build:admin`             | Build the admin                                                   |
+| `npm run db:generate`             | Generate SQL in `db/migrations/` after a change to `db/schema.ts` |
+| `npm run db:migrate`              | Apply migrations to `DATABASE_URL`                                |
+| `npm run db:import`               | Copy `src/data` into the database. Local and staging only         |
+| `npm run db:create-user`          | Create, update or deactivate an admin or editor account           |
+| `npm run db:studio`               | Browse the database with Drizzle Studio                           |
+| `npm run backfill:photos`         | Add committed event photographs to a database                     |
+| `npm run import`                  | The event-archive importer: inspect, plan, apply, rollback        |
+| `npm run baserow:check-schema`    | Check a Baserow workspace against the spec. Read-only             |
+| `npm run baserow:discover`        | Build `BASEROW_CONFIG` from a workspace's live fields             |
+
+npm runs `prebuild` (`db/snapshot.ts`) before every build. With `DATA_SOURCE=db` it reads the
+database once and writes `.astro/dataset.json`. With `ts` it does nothing.
+
+## Testing
+
+```bash
+npm test                                      # the whole suite
+npx vitest run tests/<file>.test.ts           # one file
+```
+
+Database tests run against PGlite in-process, so they need no server, credentials or Docker.
+
+- **Build-dependent suites.** `tests/security.test.ts`, `tests/admin-isolation.test.ts` and
+  `tests/vercel-entrypoint.test.ts` inspect the build output. Run `npm run build` first or they
+  fail.
+- **The Neon suite.** `tests/equivalence-neon.test.ts` needs a live Neon credential. It's excluded
+  unless you name it: `npx vitest run tests/equivalence-neon.test.ts`.
+- **Memory.** Each database suite starts its own PGlite. CI limits Vitest to two workers. If you
+  run several test processes on one machine, add `--no-file-parallelism`.
+- **Windows.** The Vercel adapter's last build step creates symlinks and fails with `EPERM`
+  without symlink rights. The build output is already written by then, so the tests still run.
+
+## Continuous integration
+
+`CI` (`.github/workflows/ci.yml`) runs on every pull request and every push to `main`:
 
 1. `npm ci`
-2. `npm run build`. It type-checks with `astro check` first and builds from the TypeScript record, so it needs no database and no secrets.
+2. `npm run build`, which type-checks first. It builds from the TypeScript record, so it needs no
+   database and no secrets.
 3. `npx vitest run --maxWorkers=2 --minWorkers=1`
 
-`tests/equivalence-neon.test.ts` isn't part of CI, because it needs a live Neon credential. It runs only when you name it.
+`main` should require the `CI / check` status.
 
-Preview smoke (`.github/workflows/preview-smoke.yml`) runs each time Vercel finishes a preview of
-the `with-claude` project (not `with-claude-admin`), and on each production build that Vercel's
-Deployment Checks hold before it goes live. It posts its result on the deployment's commit as
-`Vercel - with-claude: smoke`. Chromium opens `/`,
-`/events/`, `/cities/`, `/projects/` and `/about/` on the preview at three widths, and the run
-fails on a non-200 status, a page that ends on another origin (Vercel's login, say), horizontal
-overflow, a missing or repeated `<main>` or `<h1>`, or an uncaught script error. Console noise
-alone does not fail it. The screenshots are attached to the run as the `preview-screenshots`
-artifact. It runs on Vercel's `repository_dispatch` event, which GitHub reads from `main` only, so
-it starts working once it is merged and no pull request can change what it runs.
+`Preview smoke` (`.github/workflows/preview-smoke.yml`) runs when Vercel reports a deployment of the
+`with-claude` project through `repository_dispatch` (`vercel.deployment.success` and
+`vercel.deployment.ready`). Chromium opens `/`, `/events/`, `/cities/`, `/projects/` and `/about/`
+at three widths and fails on any of these:
 
-What a maintainer has to set up for it:
+- a non-200 status
+- a page that ends on another origin, such as Vercel's login
+- horizontal overflow
+- a missing or repeated `<main>` or `<h1>`
+- an uncaught script error
 
-1. **Vercel, `with-claude`:** under Settings → Git, check that `repository_dispatch` events are on.
-2. **Vercel, `with-claude` and `with-claude-admin`:** under Settings → Git, turn off
-   `deployment_status` events. GitHub runs a `deployment_status` workflow from the deployed
-   commit, so once a fork's preview is authorized, any such workflow the fork adds would run with
-   this repository's secrets. With the events off, it never runs.
-3. **GitHub:** protect `main` (require a pull request and the `CI / check` status, no force
-   pushes).
-4. **Both:** previews are behind Vercel Authentication, so in Vercel create a secret under Settings
-   → Deployment Protection → Protection Bypass for Automation, and in GitHub add it under Settings
-   → Secrets and variables → Actions as `VERCEL_AUTOMATION_BYPASS_SECRET`. The check sends it to
-   the preview's own origin only, never along a redirect. Vercel also hands this secret to every
-   deployment as an environment variable, so authorizing a fork's preview gives it to the fork:
-   read the diff first.
-5. **GitHub, on the first run:** open the run's `payload` job and confirm it prints
-   `environment: preview` and `project.name: with-claude` for a preview of the public site. The
-   smoke job is filtered on those two values; if Vercel sends something else, it is skipped
-   without an error, and the filter in `preview-smoke.yml` needs the printed values.
-6. **Vercel, `with-claude`, to hold production on the checks:** under Settings → Build and
-   Deployment → Deployment Checks, import `check` from GitHub. Once a production run of the smoke
-   job has passed (its `payload` job prints `event: vercel.deployment.ready`), add `smoke` under
-   "Send workflow updates to Vercel". A production build then goes live only after both pass on its
-   commit, and a failed or missing result keeps the last good deployment live.
+Console noise alone doesn't fail it. The result is posted to the deployment's commit as
+`Vercel - with-claude: smoke`, and the screenshots are attached as the `preview-screenshots`
+artifact. GitHub reads `repository_dispatch` workflows from `main` only, so a pull request can't
+change what this check runs.
+
+One-time setup for maintainers:
+
+1. **Vercel, both projects:** under Settings → Git, keep `repository_dispatch` events on for
+   `with-claude`, and turn `deployment_status` events off for both projects. GitHub runs a
+   `deployment_status` workflow from the deployed commit, so a fork's preview could otherwise run
+   its own workflow with this repository's secrets.
+2. **Deployment protection:** create a Protection Bypass for Automation secret in Vercel and store
+   it in GitHub Actions as `VERCEL_AUTOMATION_BYPASS_SECRET`. The check sends it to the preview's
+   own origin only, never along a redirect.
+3. **First run:** open the run's `payload` job and confirm it prints `environment: preview` and
+   `project.name: with-claude`. The smoke job filters on those values and skips silently if they
+   differ.
+4. **Production gate:** under Vercel Settings → Build and Deployment → Deployment Checks, import
+   `check`, and add `smoke` once a production run has passed. A production build then goes live
+   only after both pass on its commit.
 
 The same script runs locally against any URL:
 
@@ -143,746 +266,247 @@ The same script runs locally against any URL:
 BASE=http://localhost:4321 PAGES=/,/events/,/projects/ STRICT=1 node scripts/dev/visual-review.mjs
 ```
 
-`scripts/dev/share-cards-audit.mjs` audits the event share cards: it reads the `og:image` off each
-rendered event page and then fetches it, because eight of seventeen declared a 404 for the life of
-the pages and nothing was checking. Run it by hand against a deployment; it is not in `ci.yml`
-because the event pages are `prerender = false`, so a local build has no event HTML to read a meta
-tag out of, and the smoke workflow does not run it yet.
+`scripts/dev/share-cards-audit.mjs` checks the event share cards on a deployment. It's run by hand,
+because event pages render on demand and a local build has no event HTML to read.
 
 ```bash
 BASE=https://www.withclaude.in node scripts/dev/share-cards-audit.mjs
 ```
 
-`STRICT=1` exits non-zero when a share card is broken. `STRICT_PAGES=1` additionally fails on
-sitemap URLs that 404 — off by default, because production's `sitemap.xml` currently lists nine
-event pages that do not exist, which is a separate defect this script only reports.
+## Deployment
 
-## The governance model
+The repository deploys to two Vercel projects:
 
-This is the part that is structural rather than cosmetic, and the part to not quietly undo.
+| Project             | Root      | Serves                                           |
+| ------------------- | --------- | ------------------------------------------------ |
+| `with-claude`       | repo root | `www.withclaude.in` and `projects.withclaude.in` |
+| `with-claude-admin` | `admin`   | `admin.withclaude.in`                            |
 
-There are three distinct kinds of thing on this site, and the data model keeps them apart:
+The admin project needs **Include files outside the root directory** turned on, because it imports
+`../db`. Its build command is `npm run build`, run inside `admin`.
 
-| Kind                          | Who                          | How it is granted             | How it appears                         |
-| ----------------------------- | ---------------------------- | ----------------------------- | -------------------------------------- |
-| **Ambassador-led activity**   | Claude Community Ambassadors | Appointed by Anthropic        | The only filled chip on the site       |
-| **Builders and contributors** | Anyone building with Claude  | Self-submitted, then reviewed | An outline chip in the builder index   |
-| **City interest**             | People who live there        | Registered by anyone          | A signal on the atlas, never a chapter |
+The public site is static first. Pages are files on the CDN unless a route sets
+`export const prerender = false`. The list of on-demand routes is enumerated in
+`tests/admin-isolation.test.ts`, which fails when a new one isn't recorded there.
 
-Three consequences are enforced by the types, not by editorial discipline:
+### Scheduled jobs
 
-- **An event is Ambassador-led because `host.ambassadorSlug` resolves to a published `Ambassador`
-  record.** There is no `verified: true` flag to set. `src/data/ambassadors.ts` is the single most
-  consequential file in the repo, and every entry must carry `verifiedVia` — if you cannot say how
-  you know, there is no record to write.
-- **A `City` record contains no community status at all.** There is no `active` field and no way to
-  promote a city by editing `cities.ts`. `cityState()` in `src/lib/city.ts` derives one of four
-  states from verified records: `ambassador-led`, `event-activity`, `community-interest`,
-  `discovery`. A city with nothing verified derives to `discovery`, and the page says so plainly.
-- **Submissions enter at `status: 'pending'`.** `isPublic()` gates everything the site renders, so
-  nothing self-publishes. The `ambassador` role in `builders.ts` is ignored by the UI — it is read
-  from `ambassadors.ts` — so writing it by hand achieves nothing, which is the point.
+Defined in `vercel.json`. Times are UTC, with IST in brackets.
 
-There is deliberately no "start a chapter" anywhere on this site. Hosting Claude Community events
-means becoming a Claude Community Ambassador, which is Anthropic's programme; the HOST path routes
-there and says so.
+| Path                          | Schedule      | Job                                               |
+| ----------------------------- | ------------- | ------------------------------------------------- |
+| `/api/cron/baserow-reconcile` | 21:15 (02:45) | Reconcile Baserow content into Neon, when enabled |
+| `/api/cron/events-sync`       | 21:45 (03:15) | Sync events from the Luma feed                    |
+| `/api/cron/rebuild`           | 22:30 (04:00) | Trigger a production build through a deploy hook  |
 
-## Stack
+The rebuild exists because event lifecycle is computed from the clock, so prerendered pages go
+stale without a commit. Create a deploy hook under Project Settings → Git → Deploy Hooks and set
+`VERCEL_DEPLOY_HOOK_URL`. Vercel sets `CRON_SECRET`, and the routes refuse to run without it.
 
-- **Astro 5 + TypeScript**, static output. No React, no UI framework — the four interactive islands
-  (atlas, archive filters, join flow, submission panels) are a few dozen lines of vanilla TS each,
-  which is smaller and faster than shipping a runtime for them.
-- **Self-hosted fonts** via Fontsource (no external requests): Fraunces Variable (WONK axis only —
-  the expressive axis, at a third the file size of the full build), Inter Variable, IBM Plex Mono.
-- **`astro:assets`** for responsive images (WebP, explicit dimensions, lazy below the fold).
-- **PostgreSQL on Neon + Drizzle ORM**, server-side only, for submissions. Reached by exactly one
-  route (`/api/submit`); nothing public reads it yet.
-- **Zod** for server-side validation, **Resend** for the transactional email each app sends.
-- **better-auth** for the admin's magic-link sign-in — declared in `admin/package.json` only, so
-  the public site cannot even resolve it.
-- The public site still ships zero runtime dependencies. None of the above reaches the browser —
-  `tests/security.test.ts` and `tests/admin-isolation.test.ts` search the built bundle to prove it.
+### Database changes
 
-## Architecture
+Migrations are committed SQL in `db/migrations/`, and they're the only way the production schema
+changes. A maintainer applies them with `npm run db:migrate`.
 
-```
-src/
-  data/            the record — plain typed modules, no build-tool imports
-    types.ts         the domain model, and the governance rules it encodes
-    ambassadors.ts   verified Ambassadors. Every entry needs `verifiedVia`.
-    events.ts        11 real events, each with a resolvable host
-    cities.ts        14 cities — coordinates and context, no status
-    builders.ts      the open index
-    projects.ts      empty on purpose
-    stories.ts       empty on purpose
-    use-cases.ts     empty on purpose — the knowledge library
-    guides.ts        empty on purpose
-    forms.ts         the four submission forms and their fields
-    site.ts          brand, affiliation, official links, participation paths, FAQ
-    index.ts         every derived selector the pages read
-  lib/
-    status.ts        THE event lifecycle machine — computed, never authored
-    city.ts          THE city state machine — derived from verified records
-    search-core.ts   THE search matcher — pure, runs on the server AND in the browser
-    search.ts        the data-bound half: builds the index and the vocabulary
-    seo.ts           titles, breadcrumbs and per-entity structured data
-    indexable.ts     what earns a place in search results (read by the sitemap too)
-    datetime.ts      IST-pinned date and time formatting
-    geo.ts           the map projection, scale bar and coordinate stamp
-    atlas.ts         the shape the atlas serialises to its island
-    images.ts        resolves data-layer image keys to optimised assets
-  styles/
-    tokens.css       every colour, size, duration. Nothing else holds a raw value
-    base.css         reset, document typography, a11y primitives, the reveal system
-    primitives.css   containers, meridian, buttons, chips, pips, plates, fields
-  components/      one concern each, styles scoped alongside
-  scripts/         the six islands — browser only
-  server/          server only. Never imported by anything that reaches a browser.
-    submissions/
-      validate.ts    the rules, derived from forms.ts. Rejects unknown fields.
-      handle.ts      the pipeline, with its database and mailer passed in
-      rate-limit.ts  honeypot timing, per-address and per-email ceilings
-      identity.ts    salted one-way IP hashing. The address is never stored.
-    email/
-      acknowledge.ts the one transactional email. Fails visibly, never silently.
-  layouts/Base.astro   head, SEO, JSON-LD, masthead, meridian, footer
-  pages/           routes
-    api/submit.ts    the ONLY write path. prerender = false.
-    api/cron/rebuild.ts  the nightly rebuild trigger. prerender = false.
-db/                server only. Shared by both apps. One schema, one set of migrations.
-  schema.ts        the governance rules, as constraints a database will enforce
-  client.ts        Neon over HTTP — one insert per request, for /api/submit
-  pool.ts          pooled and transactional, for the admin. Driver picked by URL.
-  env.ts           refuses to start if a secret was exposed as PUBLIC_*
-  migrations/      committed SQL. The only way production ever changes.
-  import/          the idempotent copy of src/data into PostgreSQL
-  create-user.ts   the ONLY way an editorial account is created
-  testing.ts       an in-process PostgreSQL for the tests
-admin/             a SEPARATE Astro app. output: 'server'. Its own Vercel project.
-  src/middleware.ts  the gate. Private by default; four paths are not.
-  src/server/
-    auth.ts          better-auth: magic link, no sign-up, hashed tokens
-    session.ts       who is asking, re-checked against the database every request
-    login.ts         the allowlist gate. Tells nobody whether an address exists.
-    transitions.ts   THE submission state machine. Audit + status, one transaction.
-    submissions.ts   the queue and detail queries. The privacy line lives here.
-    email.ts         the sign-in link. Fails loudly; never fakes a send.
-  src/pages/         login, submissions, submissions/[id], audit, and two APIs
-tests/             vitest — lifecycle logic, dates, governance, the schema, the
-                   import, the endpoint, and the security boundary
-scripts/           dev tooling (screenshots, audit, OG card). Not part of the build.
-```
+**Apply a migration before deploying code that reads its columns.** A whole-row Drizzle select
+names every column in `db/schema.ts`, so new code fails on a database that doesn't have the column
+yet. Additive migrations are safe to run first, because the code already deployed never names the
+new column.
 
-### Routes
+### Admin environment
 
-| Route               | State                                                              |
-| ------------------- | ------------------------------------------------------------------ |
-| `/`                 | The homepage — twelve movements, five grounds                      |
-| `/discover`         | Search the community — the whole index, ranked and grouped         |
-| `/events`           | Next event + the filterable archive                                |
-| `/events/[slug]`    | 11 pages, one per event                                            |
-| `/cities`           | The atlas + the index + city registration                          |
-| `/cities/[slug]`    | 14 pages; live and quiet cities get genuinely different treatments |
-| `/builders`         | The open index + submission + the photographic record              |
-| `/builders/[slug]`  | Profile, honest about what the entry is missing                    |
-| `/projects`         | The archive (empty) + submission                                   |
-| `/projects/[slug]`  | Generates nothing today; ready for the first real submission       |
-| `/stories`          | The photographic record + what a written piece would be            |
-| `/stories/[slug]`   | Generates nothing today; wired into the same graph                 |
-| `/use-cases`        | Claude in practice — the knowledge library (empty)                 |
-| `/use-cases/[slug]` | Generates nothing today; the workflow record is fully built        |
-| `/guides`           | Practical writing, and the standard it is held to (empty)          |
-| `/guides/[slug]`    | Generates nothing today                                            |
-| `/record`           | Community memory — everything dated, by month                      |
-| `/about`            | The trust layer: verification, numbers, corrections, stewardship   |
-| `/join`             | Three questions, the ways in, and all four submission forms        |
-| `/community`        | The governance model, Ambassadors, city states, FAQ, partners      |
-| `/404`              | —                                                                  |
+Every secret here is server-side. `PUBLIC_SITE_URL` is the only `PUBLIC_` setting, and it isn't a
+secret:
 
-## The design system
+| Variable             | Notes                                                                |
+| -------------------- | -------------------------------------------------------------------- |
+| `DATABASE_URL`       | The same database as the public site. One schema, one database       |
+| `BETTER_AUTH_SECRET` | 32 random bytes. Rotating it signs everybody out                     |
+| `BETTER_AUTH_URL`    | `https://admin.withclaude.in`, no trailing slash. Must match exactly |
+| `RESEND_API_KEY`     | Required in production, where sign-in fails without it               |
+| `RESEND_FROM`        | An address on a domain verified in Resend                            |
+| `RESEND_REPLY_TO`    | Optional                                                             |
+| `PUBLIC_SITE_URL`    | Optional. The public site's origin; defaults to the production URL   |
 
-Read `src/styles/tokens.css` first — it is the whole system, and the only file with raw values.
-
-**Ground.** Warm paper (`--paper`) with ink type. Sections that flip dark add `.on-night` (or
-`.on-deep` for the one darkest moment per page), which remaps the semantic tokens rather than
-overriding colours one by one, so everything inside keeps working unchanged. The homepage's twelve
-movements run light → sunk → light → raised → **dark** → light → **deepest** → light → image-led →
-sunk → raised → **dark**, so the page has rhythm rather than twelve identically-weighted panels.
-
-**Colour discipline.** Clay (`--clay`) is reserved for live/next state, the meridian, and the mark.
-It is never decoration. There is a hard contrast rule written into the token file:
-
-- `--clay` on paper is 2.7:1 — **fill only, never text**
-- `--clay-deep` on paper is 5.6:1 — safe for text
-- `--clay` on night is 5.9:1 — safe for text
-
-**Type.** Fraunces (display, `WONK 1` — the axis that gives it a voice), Inter (body), IBM Plex
-Mono (all metadata, labels and coordinates). The scale is deliberately gapped rather than modular.
-It renders at true 100% zoom: an earlier build applied `zoom: 0.8` to the whole document to fake
-density, which quietly made every rem value a lie and pushed metadata under 11px.
-
-**Shape.** Hairlines and right angles. Nothing on this site is a pill; the largest radius is 3px.
-
-**The wordmark.** Two words, two weights: WITH is the light italic and CLAUDE is the heavy roman, so
-the relationship reads before the words do. `with` is the brand's recurring device — MADE WITH
-CLAUDE, WITH YOUR CITY — and it earns that by being the first word of the name, which is also why
-it is not sprayed across every heading.
-
-### The meridian
-
-One clay thread runs the left rail and fills as you travel down the page. It no longer carries
-numbered section ticks: numbering every movement turned each one into an entry in the same
-scientific report, which is the sameness this redesign had to lose. Sections now differ by ground,
-width and air, and each writes its own eyebrow.
-
-### The atlas
-
-`src/lib/geo.ts`, `components/CityAtlas.astro`, `src/scripts/atlas.ts`.
-
-The map is **a coordinate plot, not a traced outline**, with a real scale bar and a north mark to
-say so. Deliberate for three reasons: every point is honest; it sidesteps depicting national
-boundaries, which is a regulated matter in India and not something a community site should get
-wrong; and it reads as cartography rather than a Google Maps clone.
-
-What it communicates is community state, and the four states are separated by **form before
-colour** — a filled station, an open ring, a solid dot, a hairline — so the plate still reads in
-monochrome and for a colour-blind reader. The legend shows every state with its count, including
-the zeros.
-
-Interaction differs by input, on purpose:
-
-- **Fine pointer** — hover or focus previews a city in the readout; clicking navigates.
-- **Coarse pointer, phone width** — the plate becomes a drawing and the city list beside it is the
-  control. Mumbai and Pune are 27 plate units apart, which at 390px is 14 real pixels: any target
-  big enough for a fingertip swallows its neighbour and the wrong city opens. The list carries
-  every city as a full-width row instead. Keyboard focus still drives the readout.
-
-Arriving at a city also gives it an **activation form**, and the four community states answer with
-four different ones rather than four different colours:
-
-| State              | Form                                               |
-| ------------------ | -------------------------------------------------- |
-| Ambassador-led     | a short, firm ring thrown from the station, 720ms  |
-| Event activity     | a wider ring, eased both ends, watched out, 1080ms |
-| Community interest | a ring held at a fixed radius — it does not travel |
-| Discovery          | four register ticks step outward and stop          |
-
-Convert the plate to greyscale and the four are still separable, which is the rule the whole atlas
-is built on. Each is a single pass — nothing loops. With motion reduced the ring is simply present
-at a fixed opacity, so the state is never carried by the animation alone.
-
-### The scout
-
-`components/Scout.astro`, `src/scripts/scout.ts`.
-
-A survey instrument standing in open water on the plate — a tripod, a hooded head with a brim, two
-eyes — drawn in the same hairline language as the rest of the cartography. Its eyes follow the
-pointer, it leans a few degrees toward whatever has its attention, and it puts out a bearing line
-when it fixes on a city or on one of the handful of controls marked `data-scout-target`. Two
-seconds after the pointer stops it settles back.
-
-There is deliberately **no idle loop**. A figure that fidgets on an empty page is decoration; one
-that is still until you arrive is an observer. The animation frame stops as soon as every channel
-has arrived, so a page nobody is touching costs nothing.
-
-It is `aria-hidden` and carries no information. On a coarse pointer it is removed entirely — there
-is no cursor to follow, and a figure frozen mid-glance is worse than no figure. Under
-`prefers-reduced-motion` the script never initialises and it renders at rest.
-
-The atlas and the scout are separate islands that never import each other: the atlas publishes
-`scout:look` and `scout:release` on the document, and neither has to exist for the other to work.
-
-### WITH
-
-`components/WithIndex.astro`.
-
-The name of the site is a preposition, and this is where that is stated rather than implied. Five
-strands — builders, projects, cities, events, stories — each reporting what is actually on the
-other end of it. Arriving at one draws a clay thread from the word, through the count, and off the
-end of the row toward the photograph and figures it reaches; the italic WITH lifts from 0.3 to full
-opacity as the connection is made. Connection, drawn.
-
-Every figure is counted from the record. A strand with nothing behind it shows `00` and says what
-is true instead — an index of relationships is worthless the moment it starts implying ones that do
-not exist.
-
-All five previews are server-rendered and one is active, so with scripts blocked the first strand
-stands and every row is still an ordinary link. Below the desktop split the preview column goes and
-each row carries its own sentence, because there is no hover there to open one with.
-
-### Search
-
-`src/lib/search-core.ts`, `src/lib/search.ts`, `src/scripts/search.ts`, `components/CommunitySearch.astro`.
-
-One index over the whole graph — people, projects, events, cities, use cases, stories, guides —
-built at compile time from the same selectors every page reads. There is no second copy of the
-record and no search-only content: if something is not published, it is not in the index.
-
-**There is deliberately no model in it.** The obvious version of this feature ships an LLM and
-calls the result "AI search". For a few hundred records that is slower, less predictable and less
-honest than matching strings, and it fails in the one way a directory must not — by inventing a
-plausible answer. So the work is split in two, and the seam is the point:
-
-```
-parseQuery(text, vocab)   →  SearchIntent      what is being asked for
-runSearch(index, intent)  →  SearchResult[]    what the record contains
-```
-
-`runSearch` only ever reads real records, so it cannot return something that is not there.
-`parseQuery` is a deterministic parser that reads city names, event formats and Claude surfaces
-straight out of the data — `Claude Code builders in Bengaluru` resolves to
-`{ kinds: ['person'], city: 'bengaluru', surface: 'claude code' }` by looking each part up. Nothing
-is guessed: a city has to be a city in `cities.ts`. When a natural-language layer is worth adding,
-it replaces `parseQuery` alone and everything downstream is unchanged. A model would get to
-interpret the question; it would never get to answer it.
-
-The vocabulary is derived rather than hard-coded, which is what stops the parser understanding a
-city the atlas does not plot. Event formats are read as **formats, not kinds**: `workshops` returns
-the four workshops rather than all eleven events, which is the difference between a search and a
-table of contents.
-
-`search-core.ts` imports nothing from `src/data`, because it runs twice — once at build time to
-render `/discover`, and once in the browser as you type. The island reads the precomputed haystack
-off each row's `data-terms` rather than fetching an index, so there is one scoring implementation
-across two runtimes and no way for them to drift.
-
-With scripts blocked, `/discover` is the entire index, ranked and grouped — a complete browsable
-directory. The field and the type tabs are `js-only` and the page says so, because a dead control
-is worse than an honest fallback.
-
-### The record
-
-`components/Timeline.astro`, `timeline()` in `src/data/index.ts`.
-
-Community memory, by month, reading forward in time. It is the site's slowest-compounding asset and
-the hardest for anyone else to copy: an events page can be rebuilt in a weekend, three years of
-what actually happened cannot.
-
-Nothing on it is authored. Every entry is generated from a record carrying a real date, which is
-why a quiet month renders as a quiet month. The activity feed and the timeline read the same
-assembler, so the two can never tell different stories about the same month. Held entries take a
-filled mark and scheduled ones an open ring — form before colour, the same rule as the atlas.
-
-### Archival plates
-
-`.plate-archival` in `primitives.css`, driven from `scripts/enhance.ts`.
-
-A photograph is treated as a print you could pick up: under a fine pointer it shifts a couple of
-millimetres, tilts about a degree and a half, and drops its shadow the other way — the light source
-stays put. The numbers are deliberately small. This is weight, not a card flip. Both displacement
-values live in CSS custom properties that default to zero, so with scripts blocked the plate is a
-plate.
-
-## Content honesty
-
-| Area                      | State                                                                         |
-| ------------------------- | ----------------------------------------------------------------------------- |
-| Events                    | 11 real events, real registration links, real venues                          |
-| Ambassadors               | 1 — Aniket Sahu, Bhopal, with `verifiedVia` recorded                          |
-| Cities                    | 14 plotted; 1 Ambassador-led, 13 `discovery` and explicitly labelled as such  |
-| Builders                  | 2 — publicly credited workshop leads. No invented bios, portraits or links.   |
-| Projects                  | **Empty.** No verified submissions exist yet.                                 |
-| Stories                   | **Empty** of written pieces. Runs on the photographic record instead.         |
-| Use cases                 | **Empty.** Nobody has written up how they actually work yet.                  |
-| Guides                    | **Empty.** A guide is commissioned by a question, never by a keyword.         |
-| Member / prototype counts | Community-reported, kept out of the derived counts, rendered with the source. |
-| `createdAt` timestamps    | Omitted where unknown, so the activity feed can never show invented activity. |
-
-`tests/data.test.ts` enforces this. A city cannot reach `ambassador-led` without a real Ambassador
-record; a city with no events cannot claim an organiser or report figures; every Ambassador must
-say how the status was verified; every record must carry a moderation status; and everything the
-community writes must carry an author with a credential, because an unattributed workflow is
-indistinguishable from a generated one.
-
-The empty archives are designed, not broken. `/projects` states the fact, says what an entry holds
-so a submitter knows what is being asked, and gives one action. Add one real project to
-`src/data/projects.ts` and the grid takes over automatically.
-
-`/use-cases` does something slightly different with its empty state, on purpose — the failure mode
-there is not an empty page, it is a full one. It prints the **anatomy** of an entry and the standard
-it is held to, so anyone arriving with a tips post can tell immediately that it does not qualify.
-The bar is: a named author with a checkable credential, a real problem, what Claude did AND what
-the person did kept separate, and a result that includes what did not work. "How a Bhopal builder
-uses Claude Code to prototype products" passes; "10 best Claude Code tips" does not, and no amount
-of search volume changes that.
-
-### Submissions
-
-There is no backend, and inventing one would be worse than not having one. `SubmitPanel` composes
-what you typed into a clean, complete block of text and hands it to you to send through the channel
-the community actually reads — you press send, so nothing leaves the browser without you doing it.
-When a real endpoint exists, set `endpoint` on the form in `src/data/forms.ts` and the panel posts
-to it instead. Nothing else changes.
-
-### Relationship to Anthropic
-
-This is an independent, non-commercial, volunteer-run community. It is **not** an Anthropic
-property, programme or endorsement. That line lives in `site.affiliation` and renders in the
-footer, the FAQ, `/community` and the JSON-LD — where there is deliberately no
-`parentOrganization`, `sponsor` or `memberOf` pointing at Anthropic, because asserting a
-relationship in structured data is still asserting it.
-
-Every "Become a Claude Community Ambassador" CTA — in the participation paths, on `/community`, on
-every quiet city page, and in the footer — reads `official.ambassadorProgramUrl` in
-`src/data/site.ts` and goes to <https://claude.com/community/ambassadors>. That field is typed as a
-required `string` rather than an optional one specifically so no fallback can exist: someone who
-wants to host events should land on the programme page, not on a homepage to navigate from.
-
-## Adding to the record
-
-**A new event** — add one entry to `src/data/events.ts`. Nothing else: the hero, the masthead chip,
-the meta description, the JSON-LD, the archive and every status badge derive from it. There is no
-"featured" flag to move and no date to update in a second place.
-
-**A new photograph** — drop the file in `src/assets/events/` and add it to that event's `photos`
-with alt text. The site renders it from git immediately; the database does not learn about it until
-somebody runs the backfill — see [Backfilling event photographs](#backfilling-event-photographs).
-
-**A new Ambassador** — add to `src/data/ambassadors.ts` with a real `verifiedVia`. That single edit
-is what turns their city Ambassador-led and gives their events the verified treatment.
-
-**A project, builder or story** — fill in the array with `status: 'published'`. The UI switches out
-of its empty state on its own, and the relevant filters appear because facets are built from what
-is actually there.
-
-**A use case or a guide** — same, with one extra requirement the tests enforce: an `author` with a
-`credential` you could check. A use case must also name what Claude did and what the person did
-separately; a record that cannot say what the human contributed is a product demo, not a workflow.
-
-Everything added this way lands in the search index, the activity feed, the timeline and the
-relevant city, builder and event pages without another edit — that is what the graph in
-`src/data/index.ts` is for.
-
-## Submissions
-
-Every form on the site posts to `POST /api/submit`, which is the only write path the public site
-has. It does exactly this and nothing else:
-
-```
-validate → rate limit → write one submissions row → send an acknowledgement → 202
-```
-
-**A submission is an inbox item.** It publishes nothing, creates no builder and no project, and
-changes no record's status. `id`, `slug`, `status`, `entity_type`, `reviewer_id` and their
-relatives are not fields with strict validation — they are refused by name, because they belong to
-the editorial side of the system and a submitter has no business naming one. Nothing becomes
-public until a person decides it should, which is the same promise every form already made in
-prose and is now enforced in code.
-
-202 rather than 201 is the accurate status: the request was accepted, and no resource was created
-that the caller can go and look at.
-
-**The clipboard fallback still matters.** If the POST fails for any reason, the panel composes what
-you typed into a clean block of text with a copy button and a link to the community channel. A form
-that loses somebody's answers because a server is having a bad afternoon is worse than a form with
-no server, so the path that never needed one is kept.
-
-**Anti-abuse, without a CAPTCHA.** A hidden honeypot, a minimum time-to-submit, a request size
-ceiling, and per-address and per-email rate limits counted straight out of the `submissions` table.
-No Redis: this is a community site receiving single-digit submissions a week, and two indexed counts
-cost less than the round trip to a second always-on service would. No CAPTCHA: it taxes every honest
-visitor, hands a third party a record of them, and loses to the automation it claims to stop.
-
-**Privacy.** A submitter's email is never rendered by the public site — there is no public read path
-to the table at all, which is the only way to actually guarantee it. IP addresses are salted and
-hashed before storage and the original is discarded; the stored value is good for counting and
-useless for identifying anybody. `tests/security.test.ts` searches the built site for the private
-column names and the browser bundle for connection strings.
-
-**The email is honest.** If Resend is not configured, the endpoint still stores the submission and
-still returns 202, but it does not pretend to have sent anything: the response says
-`acknowledgementSent: false` and the panel says so too, rather than promising a message that is
-never going to arrive.
-
-## The database
-
-`db/schema.ts` carries the governance rules that TypeScript can only describe. Read the absences:
-
-- **No city state column.** No `chapter`, no `tier`, no `active`. A city becomes ambassador-led
-  because a verified ambassador row points at it, and there is nothing an editor can set instead.
-  `region` is the Indian state — geography, named so it can never be mistaken for a lifecycle.
-- **No stored event lifecycle.** No `upcoming` / `today` / `live` / `past`. Only `status_override`,
-  for the three door states a clock genuinely cannot know.
-- **`builders.roles` cannot contain `ambassador`** — a CHECK rejects it. The role is read from
-  `ambassadors`, which requires non-empty `verified_via`, or it is not read at all.
-- **Credentials and alt text are NOT NULL.** No anonymous authority, no undescribed image.
-- **A reported figure cannot be stored without its source.**
-- **`audit_log` is append-only** — triggers reject UPDATE, DELETE and TRUNCATE. Created in Phase 1
-  even though the dashboard that writes to it is Phase 2, because a log that starts the day the
-  dashboard ships cannot answer questions about the day before.
-
-`npm run db:import` copies `src/data/*.ts` in. It is idempotent, it deduplicates organisations
-(`The Origin Guild` is one organisation whether it is named on an event or as a city's organiser),
-and it **fails loudly** on any reference it cannot resolve rather than writing a null. It invents no
-timestamps: `created_at` is backfilled only where the repository evidences a date — an event was
-created no later than the day it was held, and the Impact Lab cohort came off a submission form on a
-date the record states in prose. Everything else stays null.
-
-**`src/data/*.ts` remains the public site's source of truth.** Every page still renders from those
-files. The database is populated and tested, and nothing public reads it yet — that is Phase 3.
-
-### Backfilling event photographs
-
-**Committing to `src/assets/events/` is half the job.** `db:import` runs nowhere automatically —
-no workflow and no deploy hook calls it — so a photograph commit does not reach the database until
-somebody runs something. That is how the live gallery came to serve six of the 41 photographs the
-record describes.
-
-`npm run backfill:photos` closes that gap without running the whole importer, which would also
-rewrite every event and project row from the TypeScript record regardless of whether an organiser
-adopted that event into Baserow or a member claimed that project. The backfill is two inserts in a
-single transaction, it deletes nothing, it modifies no row the database already has, and it has an
-inverse:
-
-```bash
-npm run backfill:photos -- rehearse     # the dry run against PGlite, seeded to the live state.
-                                        # Needs no DATABASE_URL and reaches nothing.
-npm run backfill:photos -- plan         # the same dry run against DATABASE_URL. Writes nothing.
-npm run backfill:photos -- apply --yes  # the write. Prints the delta first and refuses on anything
-                                        # the dry run flagged, then writes a receipt to imports/.
-npm run backfill:photos -- rollback --receipt imports/<file>.json --yes
-```
-
-**It is insert-only unless you ask otherwise.** `--with-dimensions` adds the one statement that
-modifies rows the database already has — `width`/`height` on existing `media` rows, measured off
-the files. It is off by default because nothing rendering today reads those two columns for an
-event photograph: `src/data/source-db.ts` maps a plate to `{ src, alt }` and the gallery's
-dimensions come from `requireAsset`, Astro's own asset import. They are read on the project-logo
-path only. New rows always carry measured dimensions either way; the flag is about the existing
-ones. The dry run reports the candidates whether or not you pass it.
-
-A non-local `DATABASE_URL` needs `--allow-remote-db` on top, the same rail `npm run import` uses.
-Read the delta from `plan` before passing `--yes`.
-
-**The dry run is what tells you the delta — do not assume it.** `media` is one row per file, so it
-is the number of photographs the database has not got. `event_photos` can be fewer: a photo-bearing
-event the record describes but the target has no row for is **skipped and reported**, because a
-photograph cannot join to an event that does not exist and creating the event is `db:import`'s job.
-Its media row still lands and the join appears on a re-run once the event does. `apply` refuses
-outright on only two things — a wanted `(event_id, position)` held by different media, which
-`ON CONFLICT DO NOTHING` would otherwise skip in silence, and a path the asset registry would not
-resolve, which would make `/gallery` answer 503 for every room rather than one.
-
-**New rows record consent and what it rests on.** Each inserted `media` row carries
-`consent = true` with `provenance = 'event-showcase-release'` beside it: attendees signed a written
-release permitting their photographs to be used to showcase the community, attested by Vishal on
-2026-10-05. The basis is written because the boolean alone is ambiguous — `provenance = 'upload'`
-on a member cover means *the subject supplied this image of themselves*, which is a different
-permission. Rows the database already has are **not** updated; the dry run lists the ones carrying
-no basis and prints the `UPDATE` for whoever takes that decision, which is a separate one over
-every existing row.
-
-**To undo, run `rollback --receipt`, not the SQL.** The command and the printed SQL do the same two
-deletes, but the command reports what it kept and why. Both guard the `media` delete against every
-column that could have adopted a row since — a cover, a logo, an avatar — because those foreign
-keys are `ON DELETE SET NULL` and would otherwise be blanked without a word. A `--with-dimensions`
-width/height write is *not* reversed; the receipt keeps the previous values under
-`dimensionsUpdated[].was` for a human to restore, because putting a null back would restore the
-defect rather than the state.
-
-**The rollback reaches you before the receipt file does.** `apply` prints the rollback SQL to
-stdout before it writes `imports/<file>.json`, and if that write fails it prints the receipt JSON to
-stderr and exits 3 rather than leaving a committed change with no undo anybody can reach.
-
-`tests/backfill-event-photos.test.ts` runs the whole cycle — delta, idempotency, atomicity, both
-refusals, the missing-event skip and its re-run, consent and its basis, rollback, and the
-receipt-write failure — against a PostgreSQL rewound to the state production is in.
-
-Measuring `media.width` / `media.height` is part of it. `db/import/index.ts` writes only
-`{ path, alt, kind }`, so every photo row it creates carries null dimensions, and a null dimension
-stops being cosmetic as soon as images are served from object storage rather than resolved through
-the Astro asset registry.
-
-## The admin
-
-`admin.withclaude.in` is a **separate Astro application** in `admin/`, deployed as its own Vercel
-project. The two share `db/` and share nothing else — no cookie, no bundle, no build. That is what
-makes "the public site has no authentication" a fact about the artifact rather than a claim about
-the code, and `tests/admin-isolation.test.ts` checks the artifact.
-
-|                   | `withclaude.in`              | `admin.withclaude.in`                          |
-| ----------------- | ---------------------------- | ---------------------------------------------- |
-| Output            | `static` — 71 files on a CDN | `server` — every response rendered per request |
-| Session           | none                         | HttpOnly, Secure, SameSite=Lax, host-only      |
-| Database          | one insert, over HTTP        | pooled, transactional                          |
-| Prerendered pages | 71                           | 0                                              |
-
-**Sign-in is an emailed link, and only for accounts that already exist.** There is no sign-up
-anywhere. `npm run db:create-user` writes the row; the login form checks `users` and, if there is
-no active row with an admin role, sends nothing at all. The confirmation it shows is identical
-either way — a login form that says "no such user" is a way to enumerate who has editorial access
-to this project, and the first step of every targeted phishing attempt that follows.
-
-**Two roles: `admin` and `editor`.** Both can review. The architecture deliberately treats
-Moderator as Editor rather than inventing a third tier that means almost the same thing. `role` and
-`active` are read from the database on _every request_, never from the session token, so
-deactivating an account or demoting a role takes effect on that person's next click rather than
-whenever their session expires.
-
-### The review workflow
-
-```
-draft → pending → in_review ─┬→ changes_requested → pending
-                             ├→ approved
-                             └→ rejected
-```
-
-Every status change goes through one function — `transitionSubmission()` in
-`admin/src/server/transitions.ts` — and no route writes `submissions.status` itself. It checks the
-actor's role, that the transition is on the map above, and that a note was written where refusing
-somebody's work requires one, then writes the audit entry and the status change **in a single
-transaction**. Both halves or neither: the log never records a move that did not happen, and no
-move happens unaccounted for.
-
-`request_changes` and `reject` require a non-empty note. A refusal with no reason is not a review.
-
-**`approved` is not `published`.** Approving records that a person read something and it belongs in
-the record. It puts nothing on the website. Publication is tied to a build and is Phase 3 — which
-is exactly why they are different words.
-
-### Privacy
-
-The queue selects five columns: kind, name, status, received, age. `submitter_email`, `ip_hash` and
-`user_agent` are not hidden from it — they are never fetched, so they are never in memory and
-cannot leak through a template edit or a debug dump. The submitter's email appears on the
-authenticated detail page and on no other screen, because a reviewer asking for changes has to be
-able to reply. `ip_hash` and `user_agent` appear nowhere: they exist for abuse triage, which is not
-editorial review.
-
-### `/audit`
-
-Read-only, and it could not be otherwise — the table rejects UPDATE, DELETE and TRUNCATE at the
-database. Correcting an entry means appending a correcting one, which is the point: the history of
-what was believed is itself part of the record.
-
-### Storage, by phase
-
-- **Neon PostgreSQL** — the database, from Phase 1. Records, submissions, users, audit log.
-- **Vercel Blob** — the planned media store for **Phase 4**. Not installed, not configured, not
-  referenced. A dependency added for a phase that has not started is how a phase boundary stops
-  meaning anything.
-
-## Search visibility
-
-The strategy is topical authority through real entities, not keywords. Every record links to the
-records around it — an event to its city, host, speakers and projects; a builder to their city,
-projects, events and write-ups; a use case to its builder, project, city and event — so the
-internal link graph is the community graph. That is the whole plan, and it is why there is no
-`/claude-meetup-india-2026` page.
-
-**Structured data must match visible content.** `src/lib/seo.ts` emits `Organization` and `WebSite`
-site-wide, `BreadcrumbList` wherever a trail is rendered, `Event` on events, `ProfilePage` +
-`Person` on builders, and `Article` on stories, guides and use cases. Two rules are load-bearing:
-`sameAs` only carries links the page actually shows, and `author` is **omitted** rather than
-defaulted to the organisation when a piece has no byline — a fabricated author is the single most
-damaging thing that could go in this graph, and "the site wrote it" is not an author.
-
-**Breadcrumbs are real links**, not just JSON-LD. A trail that exists only in structured data is a
-claim about a hierarchy the page does not offer.
-
-**Not everything navigable is indexable.** Every city on the atlas gets a real page — clicking a
-dot must always land somewhere honest — but a city with no events, builders, projects or stories
-is `noindex` and is left out of the sitemap. Thirteen of the fourteen city pages are in that state
-today, which is exactly the point: generating them as landing pages would be the thin programmatic
-SEO farm this project refuses to build. One real record of any kind flips a city over.
-
-The rule lives in `src/lib/indexable.ts` and is read by both the page and `astro.config.mjs`, so
-the sitemap can never advertise a page marked `noindex`. That module uses relative imports because
-the Astro config is evaluated before the `@` alias exists — the alternative was two copies of the
-same condition, free to drift.
-
-`/discover` is indexable because it is a genuine ranked directory. `?q=` is not a separate page:
-the site is static, the query is applied by the island, and the canonical tag points at the bare
-path, so no result set can become its own thin URL.
-
-## Accessibility
-
-Semantic landmarks and a logical heading order; a skip link; visible 2px focus rings that are never
-styled away; every atlas node reachable by keyboard with the readout responding to focus as well as
-hover; the WITH strands switching on focus as well as hover; no control anywhere that only works on
-hover; `prefers-reduced-motion` honoured throughout (the reveal system only displaces content once
-JS confirms motion is wanted, so with it off the page is simply finished; the scout never
-initialises and the atlas rings hold still); comfortable touch targets; AA contrast, with the clay
-rule above enforcing the one place it would otherwise slip.
-
-One thing is revealed by hover and should be named rather than glossed: the second caption line on
-an archival plate. It is always in the DOM and so always announced, and it is always visible where
-hover does not exist — on touch, and under reduced motion. A sighted keyboard-only user on a
-desktop pointer is the one case that does not see it, which is why nothing unique to the site is
-ever put there.
-
-`node scripts/audit.mjs` checks heading order, landmarks, alt text, link names, overflow, focus,
-touch targets and the no-JS render across every route.
-
-## Deploying
-
-**Vercel, and only Vercel.** The project is linked to one (`.vercel/project.json`), the headers and
-the nightly cron live in `vercel.json`, analytics come from `@vercel/analytics`, and `/api/submit`
-is built by `@astrojs/vercel`. A `netlify.toml` sat alongside all of that describing a pure-static
-publish of `dist`; it was never used by the live site and, since the submission endpoint landed, it
-described a deployment that would ship a broken form. It has been removed rather than left as a
-second, wrong answer to "where does this run".
-
-The site is still **static-first**: `output: 'static'` prerenders all 71 pages at build time, and
-only routes that opt out with `export const prerender = false` become functions. Today that is
-`/api/submit` and `/api/cron/rebuild`. Everything a visitor reads is a file on a CDN.
-
-**The nightly rebuild.** Event lifecycle is derived from the clock, so a static build goes stale
-without any commit: an event that finished last night keeps saying "Upcoming" until something
-rebuilds. `vercel.json` schedules `/api/cron/rebuild` at `30 22 * * *` UTC — **04:00 IST** — which
-POSTs to a Vercel deploy hook and triggers an ordinary production build. Nothing stays running.
-
-To finish setting it up: create a deploy hook in _Project Settings → Git → Deploy Hooks_ against
-the production branch, and set `VERCEL_DEPLOY_HOOK_URL` to its URL. `CRON_SECRET` is set by Vercel
-and is checked by the route, so the trigger cannot be fired by anyone who finds the URL.
-
-### The admin, as a second Vercel project
-
-`admin/` deploys separately from the same repository. Two projects, one git remote:
-
-| Setting                    | Value                                |
-| -------------------------- | ------------------------------------ |
-| Root Directory             | `admin`                              |
-| Include files outside root | on — the app imports `../db`         |
-| Build Command              | `npm run build` (run inside `admin`) |
-| Output                     | detected from `.vercel/output`       |
-| Domain                     | `admin.withclaude.in`                |
-
-Environment variables, all server-side, none prefixed `PUBLIC_`:
-
-| Variable             | Notes                                                                 |
-| -------------------- | --------------------------------------------------------------------- |
-| `DATABASE_URL`       | the **same** value as the public project. One database, one schema.   |
-| `BETTER_AUTH_SECRET` | 32 random bytes. Rotating it signs everybody out.                     |
-| `BETTER_AUTH_URL`    | `https://admin.withclaude.in`, no trailing slash. Must match exactly. |
-| `RESEND_API_KEY`     | without it, production sign-in fails loudly rather than silently.     |
-| `RESEND_FROM`        | an address on a domain verified in Resend.                            |
-| `RESEND_REPLY_TO`    | optional.                                                             |
-
-`SUBMISSION_IP_SALT` is _not_ set here — it belongs to the public site's `/api/submit`, and the
-admin never stores an address.
-
-Then create the first account, from a machine that has the production `DATABASE_URL`:
+Create the first account from a machine with the production `DATABASE_URL`:
 
 ```bash
 npm run db:create-user -- --email you@example.com --name "Your Name" --role admin
 ```
 
-There is no other way to create one. The web interface cannot, deliberately: access to the admin is
-this project's whole security boundary, and a form that grants it is a form reachable by a stolen
-session or a bug in a role check.
+There's no sign-up and no web form for creating accounts. That's deliberate: admin access is the
+project's main security boundary.
 
-Set `site` in `astro.config.mjs` if the domain changes — canonical URLs, Open Graph tags and the
-sitemap all read from it. Regenerate the share card after a brand change: `node scripts/og.mjs`.
+If the domain changes, update `site` in `astro.config.mjs`. Canonical URLs, Open Graph tags and the
+sitemap read from it. After a brand change, regenerate the share card with `node scripts/og.mjs`.
 
-## Dev tooling
+## Architecture
 
-`scripts/shoot.mjs` and `scripts/shoot-pages.mjs` screenshot the site across the breakpoints the
-design targets, using Playwright. `scripts/audit.mjs` runs the structural accessibility pass.
-`scripts/slice.py` cuts a tall full-page capture into readable bands. None are part of the build.
+`docs/architecture.md` has the detailed notes. In short:
+
+**Data.** `DATA_SOURCE` selects where the public record comes from: `ts` reads the authored
+TypeScript in `src/data/`, and `db` reads Neon, which is what production runs. Both produce the
+same `RecordSet` (`src/data/source.ts`), and every selector sits above that seam, so the two
+sources are checked by comparing one value (`tests/equivalence.test.ts`). With `db`, prerendered
+pages read a snapshot that `db/snapshot.ts` takes once before the build. On-demand pages read Neon
+per request through `loadLiveRecords()` in `src/server/directory.ts`. That function currently
+limits live event listings to events credited to the Bhopal Ambassador.
+
+**Identity.** Members sign in with Privy. `src/server/auth/privy.ts` is the only code that turns a
+token into an identity, and it returns the Privy DID and nothing else. Staff use Better Auth in
+the separate admin app, where role and active status are re-read from the database on every
+request.
+
+**Content authority.** Every field has exactly one writer: the Luma feed, Baserow, members, or
+editors in the admin. `docs/content-authority.md` has the full table, and the projection code
+enforces it.
+
+**Media.** Member uploads go to Vercel Blob. `media.consent` records that the person shown allowed
+publication here, and `media.consent_basis` records how: `self_upload` or `registration_terms`. A
+taken-down image (`status = 'deleted'` or a set `deleted_at`) is excluded from every public read.
+
+**Isolation.** The admin is a separate application with its own build. It shares `db/` with the
+public site and nothing else: no cookie, no bundle. `tests/admin-isolation.test.ts` checks the
+built public bundle for auth code, sessions, credentials and admin routes.
+
+## Governance and data integrity
+
+The data model keeps three kinds of participation apart:
+
+| Kind                      | Who                          | How it's granted              | How it appears                         |
+| ------------------------- | ---------------------------- | ----------------------------- | -------------------------------------- |
+| Ambassador-led activity   | Claude Community Ambassadors | Appointed by Anthropic        | The only filled chip on the site       |
+| Builders and contributors | Anyone building with Claude  | Self-submitted, then reviewed | An outline chip in the builder index   |
+| City interest             | People who live there        | Registered by anyone          | A signal on the atlas, never a chapter |
+
+These rules are enforced in code and in the schema, not by convention:
+
+- **Ambassador status comes from a verified record.** An event is Ambassador-led because its host
+  resolves to a published ambassador, and every ambassador row needs a non-empty `verified_via`.
+  There's no flag to set, and `builders.roles` can't contain `ambassador`.
+- **Cities have no status column.** `cityState()` derives one of four states (`ambassador-led`,
+  `event-activity`, `community-interest`, `discovery`) from verified records.
+- **Nothing self-publishes.** Submissions arrive as inbox items with status `pending`. Public reads
+  return only published rows that moderation hasn't held or removed.
+- **Review is recorded.** Every submission status change goes through `transitionSubmission()` in
+  `admin/src/server/transitions.ts`, which writes the change and its audit entry in one
+  transaction. `audit_log` is append-only: database triggers reject UPDATE, DELETE and TRUNCATE.
+- **Moderation is reversible.** Restrict, restore, archive and delete map to one table in
+  `admin/src/server/moderation.ts`. A restore clears the deletion tombstone as well as the state.
+
+There's deliberately no "start a chapter" flow. Hosting Claude Community events means becoming a
+Claude Community Ambassador, which is Anthropic's programme, and the site links there.
+
+`tests/data.test.ts` enforces the honesty rules on the record. A city can't be Ambassador-led
+without a real Ambassador record. Every Ambassador must say how the status was verified, every
+record must carry a moderation status, and community-written pieces need an author with a
+credential.
+
+## Data operations
+
+Production reads Neon, so most content arrives through the running system:
+
+- events through the Luma sync
+- projects and profiles from members
+- curated changes through the admin or Baserow
+
+The TypeScript record in `src/data/` is the seed and the rollback path. A change there reaches
+production only through a reviewed import or backfill, and only maintainers run those against
+production.
+
+### Backfilling event photographs
+
+Committing a photograph to `src/assets/events/` and listing it on its event in `src/data/events.ts`
+puts it in the repository, not in the database. `backfill:photos` adds those photographs without
+running the full importer:
+
+```bash
+npm run backfill:photos -- rehearse     # dry run against PGlite seeded to the live state
+npm run backfill:photos -- plan         # dry run against DATABASE_URL; writes nothing
+npm run backfill:photos -- apply --yes  # write, after printing the delta; saves a receipt in imports/
+npm run backfill:photos -- rollback --receipt imports/<file>.json --yes
+```
+
+- It's insert-only by default. `--with-dimensions` also updates width and height on existing rows.
+- A non-local `DATABASE_URL` needs `--allow-remote-db`.
+- `apply` refuses when the dry run flags a position clash or a path the asset registry wouldn't
+  resolve.
+- New rows record `consent = true` with `consent_basis = 'registration_terms'`.
+- Undo with `rollback --receipt`. It reports what it kept and why, and it never deletes a media row
+  that something else has adopted since, such as a cover, logo or avatar.
+
+Read the `plan` output before passing `--yes`.
+
+### Importing an event archive
+
+`npm run import` takes a spreadsheet export through `inspect`, `plan`, `apply` and `rollback`.
+Nothing reaches the database before `apply --yes`. Past runs are documented in `docs/imports/`.
+
+## Design, accessibility and search
+
+**Design system.** `src/styles/tokens.css` holds every colour, size and duration, and nothing else
+holds raw values. Shapes are near-square (radii of 0 to 3px, never pills), with hairline rules on a
+warm paper ground. Clay is reserved for live state, the brand mark and the meridian, and the token
+file states its contrast rule: `--clay` on paper is fill only, never text. Display type is Anthropic
+Serif Display, titles use Anthropic Sans Display, the wordmark uses Fraunces, body text is Inter and
+metadata is IBM Plex Mono. The fonts are defined in `src/styles/fonts.css`. Read the tokens before
+changing any UI.
+
+**The atlas** (`src/components/CityAtlas.astro`) is a coordinate plot, not a traced map, so it
+doesn't depict national boundaries. Its four community states differ by shape before colour and
+still read in greyscale.
+
+**Accessibility.** Semantic landmarks, a skip link, visible focus rings, keyboard access to the
+atlas, comfortable touch targets, and `prefers-reduced-motion` honoured throughout. `node
+scripts/audit.mjs` checks heading order, landmarks, alt text, link names, overflow, focus and
+touch targets across the routes.
+
+**Search.** `/discover` uses one index over the whole record, built from the same selectors the
+pages read. There's no model in it. `parseQuery()` reads cities, event formats and Claude surfaces
+out of the data deterministically, and `runSearch()` only returns records that exist. The matcher
+in `src/lib/search-core.ts` runs both on the server and in the browser, so there's one scoring
+implementation.
+
+**SEO.** `src/lib/seo.ts` emits structured data that matches the visible page. Authors are omitted
+rather than invented. `src/lib/indexable.ts` decides what deserves indexing: a city with no
+events, builders, projects or stories is `noindex` and left out of the sitemap.
+
+## Contributing
+
+- Branch from an up-to-date `main` and open a pull request. Don't push to `main` directly, and don't
+  force-push shared branches.
+- A pull request needs a green `CI / check`. Run `npm run build` and the tests you touched locally
+  first.
+- Add or update tests with behaviour changes. Prefer tests that exercise behaviour against PGlite
+  over tests that match source text.
+- Format the files you change with Prettier (`npx prettier --write <files>`).
+- Follow the design tokens and primitives for any UI change.
+- Never write to the production database from a branch. Migrations, backfills and imports against
+  production are run by a maintainer, from reviewed code, after a dry run.
+
+## Security
+
+- Secrets stay server-side, as described in [Configuration](#configuration).
+- Admin access is granted only by `npm run db:create-user`. Sign-in never reveals whether an
+  address has an account.
+- State-changing admin requests are checked against the admin's own origin.
+- Submitter IP addresses are salted and hashed before storage. A submitter's email address never
+  appears on the public site, and the admin queue doesn't fetch it.
+
+Please report security issues privately to the maintainers, not in a public issue.
+
+## Relationship to Anthropic
+
+This is an independent, non-commercial, volunteer-run community. It isn't an Anthropic property,
+programme or endorsement. The affiliation statement lives in `site.affiliation` in
+`src/data/site.ts` and renders in the footer and on `/about` and `/community`. The structured data
+has no `parentOrganization`, `sponsor` or `memberOf` pointing at Anthropic.
+
+Every "Become a Claude Community Ambassador" link reads `official.ambassadorProgramUrl` in
+`src/data/site.ts` and goes to <https://claude.com/community/ambassadors>.
 
 ## Credits
 
 Community events in Bhopal are organised by [The Origin Guild](https://t.me/tog_guild). Event
 photography and the event record come from that community. City photography carries its original
-Wikimedia Commons and Unsplash attribution — see `src/assets/city/`.
+Wikimedia Commons and Unsplash attribution; see `src/assets/city/`.
