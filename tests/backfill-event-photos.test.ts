@@ -708,6 +708,34 @@ describe('rollback when a receipt row has vanished', () => {
     expect(await photoCount()).toBe(41);
     expect(await mediaPhotoCount()).toBe(41);
   });
+
+  /**
+   * The same lie, in the three forms a `Set` keyed on the raw receipt text does
+   * not see. `media.id` is `uuid`, and PostgreSQL canonicalises `uuid` input —
+   * case is ignored, braces and hyphens are stripped — so `A0EE…` and `a0ee…`
+   * are two keys to JavaScript and one value to the DELETE. Found on [VIS-24]:
+   * the shape check waved each pair through, the run deleted all 35, and then
+   * named another actor for one of them.
+   */
+  it.each([
+    ['upper-cased', (id: string) => id.toUpperCase()],
+    ['without its hyphens', (id: string) => id.replace(/-/g, '')],
+    ['brace-wrapped', (id: string) => `{${id}}`],
+  ])('refuses a media id the receipt lists twice, the second copy %s', async (_label, restate) => {
+    const receipt = await applyBackfill(db as never, await buildBackfillPlan(db as never), {
+      databaseHost: 'pglite',
+      databaseName: 'memory',
+    });
+    const first = receipt.insertedMedia[0];
+    const duplicated = {
+      ...receipt,
+      insertedMedia: [...receipt.insertedMedia, { ...first, id: restate(first.id) }],
+    };
+
+    await expect(rollbackBackfill(db as never, duplicated)).rejects.toThrow(/more than once/);
+    expect(await photoCount()).toBe(41);
+    expect(await mediaPhotoCount()).toBe(41);
+  });
 });
 
 /**

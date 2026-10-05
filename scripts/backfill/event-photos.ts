@@ -631,11 +631,24 @@ export async function rollbackBackfill(
   // `photosDeleted` one short of the number the receipt lists, which is a total
   // the CLI prints without explaining — it does not attribute the difference to
   // another actor, so it states nothing false.
+  //
+  // Compared the way PostgreSQL compares them, not the way JavaScript does.
+  // `media.id` is `uuid`, and `uuid` input is canonicalised: case is ignored,
+  // braces are stripped, and hyphens are stripped wherever they fall. So
+  // `A0EE…`, `a0eeb2c4…` and `{a0ee…}` are three distinct JS strings and one
+  // PostgreSQL value, and a `Set` keyed on the raw text would wave the pair
+  // through into the `inArray` that then de-duplicates it — the same defect
+  // this guard exists to stop. Whitespace is not in the list: a padded id is
+  // rejected by `uuid` input outright, so trimming only moves that failure
+  // from a driver-level syntax error to this message. [VIS-24]
+  const asPostgresUuid = (id: string) => id.trim().replace(/[{}-]/g, '').toLowerCase();
   const seen = new Set<string>();
   const duplicated: string[] = [];
   for (const row of receipt.insertedMedia) {
-    if (seen.has(row.id)) duplicated.push(row.id);
-    seen.add(row.id);
+    const key = asPostgresUuid(row.id);
+    // Reported as the receipt spells it, so the operator can find the line.
+    if (seen.has(key)) duplicated.push(row.id);
+    seen.add(key);
   }
   if (duplicated.length) {
     throw new Error(
