@@ -315,7 +315,22 @@ export async function loadRecordSet(db: ReadDatabase): Promise<RecordSet> {
     db.select().from(schema.useCases).where(eq(schema.useCases.status, published)),
     db.select().from(schema.guides).where(eq(schema.guides.status, published)),
     db.select().from(schema.organizations),
-    db.select().from(schema.media),
+    /**
+     * The one read in this wave that used to run unfiltered, which is how a
+     * moderator could mark a photograph `deleted` and watch the prebuild ship
+     * it anyway. `media.status` is the `media_status` enum, NOT the
+     * `content_status` one the `published` const above holds — same text,
+     * different type — so the literal is spelled out rather than reused.
+     *
+     * Safe to filter because every consumer of this reader is the public
+     * projection (`src/server/directory.ts`, `db/snapshot.ts`, and the
+     * tooling over that same snapshot). Admin and authoring read `media`
+     * through their own queries and are untouched.
+     */
+    db
+      .select()
+      .from(schema.media)
+      .where(and(eq(schema.media.status, 'published'), isNull(schema.media.deletedAt))),
     db.select().from(schema.memberProfiles),
   ]);
 
