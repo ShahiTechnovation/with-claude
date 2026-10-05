@@ -616,8 +616,9 @@ record describes.
 
 `npm run backfill:photos` closes that gap without running the whole importer, which would also
 rewrite every event and project row from the TypeScript record regardless of whether an organiser
-adopted that event into Baserow or a member claimed that project. The backfill is two inserts and
-one dimension update in a single transaction, it deletes nothing, and it has an inverse:
+adopted that event into Baserow or a member claimed that project. The backfill is two inserts in a
+single transaction, it deletes nothing, it modifies no row the database already has, and it has an
+inverse:
 
 ```bash
 npm run backfill:photos -- rehearse     # the dry run against PGlite, seeded to the live state.
@@ -648,14 +649,30 @@ outright on only two things — a wanted `(event_id, position)` held by differen
 `ON CONFLICT DO NOTHING` would otherwise skip in silence, and a path the asset registry would not
 resolve, which would make `/gallery` answer 503 for every room rather than one.
 
+**New rows record consent and what it rests on.** Each inserted `media` row carries
+`consent = true` with `provenance = 'event-showcase-release'` beside it: attendees signed a written
+release permitting their photographs to be used to showcase the community, attested by Vishal on
+2026-10-05. The basis is written because the boolean alone is ambiguous — `provenance = 'upload'`
+on a member cover means *the subject supplied this image of themselves*, which is a different
+permission. Rows the database already has are **not** updated; the dry run lists the ones carrying
+no basis and prints the `UPDATE` for whoever takes that decision, which is a separate one over
+every existing row.
+
 **To undo, run `rollback --receipt`, not the SQL.** The command and the printed SQL do the same two
 deletes, but the command reports what it kept and why. Both guard the `media` delete against every
 column that could have adopted a row since — a cover, a logo, an avatar — because those foreign
-keys are `ON DELETE SET NULL` and would otherwise be blanked without a word.
+keys are `ON DELETE SET NULL` and would otherwise be blanked without a word. A `--with-dimensions`
+width/height write is *not* reversed; the receipt keeps the previous values under
+`dimensionsUpdated[].was` for a human to restore, because putting a null back would restore the
+defect rather than the state.
+
+**The rollback reaches you before the receipt file does.** `apply` prints the rollback SQL to
+stdout before it writes `imports/<file>.json`, and if that write fails it prints the receipt JSON to
+stderr and exits 3 rather than leaving a committed change with no undo anybody can reach.
 
 `tests/backfill-event-photos.test.ts` runs the whole cycle — delta, idempotency, atomicity, both
-refusals, the missing-event skip and its re-run, rollback — against a PostgreSQL rewound to the
-state production is in.
+refusals, the missing-event skip and its re-run, consent and its basis, rollback, and the
+receipt-write failure — against a PostgreSQL rewound to the state production is in.
 
 Measuring `media.width` / `media.height` is part of it. `db/import/index.ts` writes only
 `{ path, alt, kind }`, so every photo row it creates carries null dimensions, and a null dimension

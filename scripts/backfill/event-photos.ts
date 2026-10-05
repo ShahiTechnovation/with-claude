@@ -51,11 +51,44 @@
  * cannot fire. `apply` writes a receipt, and `rollback` deletes exactly what
  * that receipt records — reversible without a restore.
  *
- * `media.consent` is left at its `false` default, deliberately. A script
- * asserting consent for photographs of real people, on no evidence beyond the
- * file being in git, would be worse than a column that is honestly empty. An
- * asset plate does not need one to render; whether subject consent should be
- * tracked at all is a question for a human, not for this insert.
+ * `media.consent` is written `true` on the rows this script inserts, with its
+ * basis recorded alongside it in `media.provenance` as `event-showcase-release`.
+ *
+ * That is a reversal, and the reason is evidence rather than preference. The
+ * earlier instruction was to leave the column at its `false` default, because a
+ * script asserting consent for photographs of real people on no evidence beyond
+ * the file being in git is worse than a column that is honestly empty. Vishal
+ * then answered the question directly (VIS-11, interaction `ecd8df0e`, decision
+ * record `consent-decision`): attendees signed a written release permitting
+ * their photographs to be used to showcase the community. The people were asked,
+ * in writing, at the event. So `false` is not cautious here, it is wrong on the
+ * facts.
+ *
+ * The condition that came with the decision is why `provenance` is written in
+ * the same breath. A bare `true` is how this column became a mystery —
+ * `NOT NULL DEFAULT false`, two writers, no reader, no stated meaning. The two
+ * consents this column now carries are not the same consent:
+ *
+ *   - `upload`                  the subject supplied this image of themselves
+ *                               (`src/server/media/covers.ts:137,232`)
+ *   - `event-showcase-release`  covered by the signed event showcase release,
+ *                               attested by Vishal on 2026-10-05
+ *
+ * A short enum-shaped token rather than a sentence, matching the values already
+ * in that column (`upload`, `organiser`, `favicon`) and documented at
+ * `db/schema.ts`, so a reader in a year can tell them apart and `grep` can find
+ * them. The full attestation lives in the decision record, not in 35 copies.
+ *
+ * Rows the target database **already** has are not touched. The same reasoning
+ * that put the dimension update behind a flag applies harder to a consent
+ * column: the run worth approving is pure-insert. Existing event-photograph
+ * rows carrying no basis are measured and reported by the dry run, with the
+ * exact `UPDATE` printed and not executed — see `consentBasisCandidates`. That
+ * correction is arthur's separate issue over every existing row, not a statement
+ * smuggled into this one.
+ *
+ * Nothing reads `media.consent` anywhere in `src` today, so this changes no
+ * rendering: it corrects a record.
  *
  * Before any of it, every path is checked against the asset registry the
  * reader resolves through — see `assetRegistryKeys`.
@@ -87,6 +120,22 @@ export const ASSETS_DIR = join(dirname(fileURLToPath(import.meta.url)), '../../s
  * initial-commit set file for file. Used to seed a rehearsal to the state the
  * real target is in — nothing reads it on the way to a write.
  */
+/**
+ * What `media.provenance` records on an event photograph, and therefore what
+ * `media.consent = true` means on one.
+ *
+ * Covered by the signed event showcase release attendees signed at the event,
+ * attested by Vishal on 2026-10-05 — VIS-11, interaction `ecd8df0e`, decision
+ * record `consent-decision`. Distinct from `upload`, which means the subject
+ * supplied the image of themselves. See the header of this file.
+ *
+ * One constant: the insert writes it, the dry run reports against it, and the
+ * printed correction SQL quotes it. If architect wants a dedicated column
+ * instead — the decision leaves the field choice to them — this is the one
+ * place that changes.
+ */
+export const CONSENT_BASIS = 'event-showcase-release';
+
 export const LIVE_SIX = [
   'events/vol02-1.jpg',
   'events/vol02-2.jpg',
@@ -119,6 +168,20 @@ export interface DimensionUpdate extends Dimensions {
   id: string;
   path: string;
   was: { width: number | null; height: number | null };
+}
+
+/**
+ * An existing `media` row for a photograph the record describes whose consent
+ * basis is missing or says something else.
+ *
+ * Reported by the dry run and never written. See the header: correcting rows
+ * the database already has is a separate decision over every existing row, not
+ * a statement folded into a pure-insert backfill.
+ */
+export interface ConsentBasisCandidate {
+  id: string;
+  path: string;
+  was: { consent: boolean; provenance: string | null };
 }
 
 export interface PhotoInsert {
@@ -167,6 +230,18 @@ export interface BackfillPlan {
   dimensionCandidates: DimensionUpdate[];
   /** Whether this plan intends to write `dimensionCandidates`. */
   withDimensions: boolean;
+  /**
+   * Existing `media` rows for record photographs that carry no consent basis.
+   *
+   * **Always reported, never written** — there is no flag for this one. The
+   * rows this script inserts get `consent = true` and
+   * `provenance = 'event-showcase-release'` for free, at insert time; rows the
+   * database already has would need an `UPDATE`, and the correction belongs to
+   * one decision over every existing row rather than to this backfill. The dry
+   * run prints the exact statement so the number and the fix are both visible
+   * without either being run here.
+   */
+  consentBasisCandidates: ConsentBasisCandidate[];
   /** `event_photos` rows to insert. */
   photoInserts: PhotoInsert[];
   /** Wanted plates already joined to their event. Nothing to do for these. */
@@ -354,6 +429,8 @@ export async function buildBackfillPlan(
       path: schema.media.path,
       width: schema.media.width,
       height: schema.media.height,
+      consent: schema.media.consent,
+      provenance: schema.media.provenance,
     })
     .from(schema.media)
     .where(inArray(schema.media.path, paths.map((p) => p.path)));
@@ -386,6 +463,17 @@ export async function buildBackfillPlan(
     const want = measured.get(path)!;
     if (row.width === want.width && row.height === want.height) continue;
     dimensionCandidates.push({ id: row.id, path, ...want, was: { width: row.width, height: row.height } });
+  }
+
+  // Measured, reported, and left alone. A row already carrying the basis is
+  // not a candidate; one carrying a different provenance is, because that is
+  // exactly the ambiguity the decision asked to end.
+  const consentBasisCandidates: ConsentBasisCandidate[] = [];
+  for (const { path } of paths) {
+    const row = mediaByPath.get(path);
+    if (!row) continue;
+    if (row.consent && row.provenance === CONSENT_BASIS) continue;
+    consentBasisCandidates.push({ id: row.id, path, was: { consent: row.consent, provenance: row.provenance } });
   }
 
   const photoInserts: PhotoInsert[] = [];
@@ -454,6 +542,7 @@ export async function buildBackfillPlan(
     dimensionUpdates: withDimensions ? dimensionCandidates : [],
     dimensionCandidates,
     withDimensions,
+    consentBasisCandidates,
     photoInserts,
     photosAlreadyPresent,
     mediaAlreadyPresent: paths.length - mediaInserts.length,
@@ -523,6 +612,10 @@ export async function applyBackfill(
               kind: 'photo' as const,
               width: row.width,
               height: row.height,
+              // The signed event showcase release, and what it is. Free on an
+              // insert, and the only moment it costs nothing: see the header.
+              consent: true,
+              provenance: CONSENT_BASIS,
             })),
           )
           .onConflictDoNothing({ target: schema.media.path })
@@ -620,6 +713,24 @@ export async function rollbackBackfill(
   /** Receipt rows something else had already deleted. Reported, not an error. */
   mediaAlreadyGone: number;
 }> {
+  // A receipt is a file, and a file can be edited. Listing a media id twice
+  // makes the undo lie rather than fail: `inArray` de-duplicates, so the DELETE
+  // comes back one row short of `deletable.length` and the run reports "1 media
+  // row had already been deleted by something else" about a row it deleted
+  // itself. Nothing downstream can tell the difference, so refuse here.
+  const seen = new Set<string>();
+  const duplicated: string[] = [];
+  for (const row of receipt.insertedMedia) {
+    if (seen.has(row.id)) duplicated.push(row.id);
+    seen.add(row.id);
+  }
+  if (duplicated.length) {
+    throw new Error(
+      `This receipt lists ${duplicated.length} media id(s) more than once (${duplicated.join(', ')}). ` +
+        `Refusing: the counts it reports would be wrong. Nothing was deleted.`,
+    );
+  }
+
   return db.transaction(async (tx) => {
     const photosDeleted = receipt.insertedPhotos.length
       ? (
@@ -636,7 +747,6 @@ export async function rollbackBackfill(
         ).length
       : 0;
 
-    const mediaIds = receipt.insertedMedia.map((row) => row.id);
     const mediaRetained: { path: string; reason: string }[] = [];
     const deletable: string[] = [];
 
@@ -672,15 +782,16 @@ export async function rollbackBackfill(
     // other 34 join-row deletes down with it, leaving nothing undone and no
     // way forward but editing the receipt. One missing row is not a reason to
     // refuse the whole undo — it is a reason to say so.
+    // NO ARITHMETIC GUARD HERE, deliberately. The loop above puts every
+    // receipt row into exactly one of `mediaRetained` or `deletable`, so
+    // `deleted + retained + gone === listed` is an algebraic identity and an
+    // `if` on it cannot fail. One stood here and was removed rather than
+    // reworded: a throw that cannot fire is worse than no throw, because it
+    // reads as a check on the one path where assurance matters most.
+    //
+    // The invariant that can actually break is the receipt's shape, and it is
+    // checked before the deletes instead — see `duplicated` above.
     const mediaAlreadyGone = deletable.length - mediaDeleted;
-
-    if (mediaIds.length && mediaDeleted + mediaRetained.length + mediaAlreadyGone !== mediaIds.length) {
-      // Kept for the case it was written for: a count nothing explains.
-      throw new Error(
-        `Rollback accounted for ${mediaDeleted + mediaRetained.length + mediaAlreadyGone} of the ` +
-          `${mediaIds.length} media rows the receipt lists. Rolled back.`,
-      );
-    }
 
     return { photosDeleted, mediaDeleted, mediaRetained, mediaAlreadyGone };
   });
@@ -895,6 +1006,12 @@ export function renderPlan(plan: BackfillPlan): string {
   );
   lines.push('  deletes           0');
   lines.push('  other tables      untouched');
+  if (plan.mediaInserts.length) {
+    lines.push('');
+    lines.push(`  New media rows carry consent = true, provenance = '${CONSENT_BASIS}' — the signed`);
+    lines.push('  event showcase release, attested by Vishal 2026-10-05 (VIS-11 `consent-decision`).');
+    lines.push('  On the insert, so it is not a separate statement and touches nothing existing.');
+  }
   lines.push('');
 
   if (plan.photoInserts.length) {
@@ -930,6 +1047,26 @@ export function renderPlan(plan: BackfillPlan): string {
         : '  statement that would modify a row the database already has, and nothing rendering today',
     );
     if (!plan.withDimensions) lines.push('  reads these two columns for an event photograph.');
+    lines.push('');
+  }
+
+  if (plan.consentBasisCandidates.length) {
+    lines.push(
+      `media — ${plan.consentBasisCandidates.length} EXISTING row(s) carry no consent basis. NOT writing them:`,
+    );
+    for (const row of plan.consentBasisCandidates) {
+      const was = `consent=${row.was.consent}, provenance=${row.was.provenance === null ? 'null' : quote(row.was.provenance)}`;
+      lines.push(`  ${row.path}  ${was}`);
+    }
+    lines.push('  There is no flag for this one. The rows inserted above get the basis for free; these');
+    lines.push('  would need an UPDATE against rows the database already has, and correcting every');
+    lines.push('  existing row is one decision rather than a statement inside a pure-insert backfill.');
+    lines.push('  The statement, for whoever takes that decision — not run here:');
+    lines.push('');
+    lines.push(`    UPDATE media SET consent = true, provenance = ${quote(CONSENT_BASIS)}`);
+    lines.push('    WHERE id IN (');
+    lines.push(list(plan.consentBasisCandidates.map((row) => row.id), '      '));
+    lines.push('    );');
     lines.push('');
   }
 

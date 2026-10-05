@@ -27,6 +27,7 @@ import {
   ASSET_EXTENSIONS,
   assetRegistryKeys,
   buildBackfillPlan,
+  CONSENT_BASIS,
   isApplicable,
   LIVE_SIX,
   measure,
@@ -35,6 +36,7 @@ import {
   rollbackBackfill,
   wantedPhotos,
 } from '../scripts/backfill/event-photos';
+import { emitReceipt } from '../scripts/backfill/cli';
 
 let db: TestDatabase;
 
@@ -105,6 +107,9 @@ describe('the dry run', () => {
     expect(plan.dimensionUpdates).toEqual([]);
     expect(plan.dimensionCandidates).toHaveLength(6);
     expect(plan.withDimensions).toBe(false);
+    // Same shape, and this one has no flag at all: the six live rows carry no
+    // consent basis, and correcting them is not this operation's business.
+    expect(plan.consentBasisCandidates).toHaveLength(6);
     expect(plan.photosAlreadyPresent).toBe(6);
     expect(plan.unknownEventSlugs).toEqual([]);
     expect(plan.photosSkippedForMissingEvent).toBe(0);
@@ -145,6 +150,8 @@ describe('the dry run', () => {
     expect(printed).toContain('event_photos      +35');
     expect(printed).toContain('deletes           0');
     expect(printed).toContain('APPLICABLE');
+    expect(printed).toContain(`consent = true, provenance = '${CONSENT_BASIS}'`);
+    expect(printed).toContain('6 EXISTING row(s) carry no consent basis. NOT writing them');
   });
 
   it('writes nothing', async () => {
@@ -278,6 +285,78 @@ describe('apply', () => {
     expect(await nullDimensionCount()).toBe(6);
     expect(await mediaPhotoCount()).toBe(7);
     expect(await photoCount()).toBe(7);
+  });
+});
+
+/**
+ * Vishal's answer on VIS-11 (`consent-decision`, interaction `ecd8df0e`):
+ * attendees signed a written release. So `consent = true` is a fact about these
+ * photographs, and the basis for it has to be legible next to it — a bare
+ * boolean is how this column became a mystery in the first place.
+ */
+describe('consent and its basis', () => {
+  it('writes consent with its basis on the rows it inserts, and leaves the live six alone', async () => {
+    const before = await db.select().from(schema.media).where(inArray(schema.media.path, LIVE_SIX));
+    expect(before.every((row) => row.consent === false)).toBe(true);
+
+    await applyBackfill(db as never, await buildBackfillPlan(db as never), {
+      databaseHost: 'pglite',
+      databaseName: 'memory',
+    });
+
+    const inserted = await db
+      .select()
+      .from(schema.media)
+      .where(and(eq(schema.media.kind, 'photo'), notInArray(schema.media.path, LIVE_SIX)));
+    expect(inserted).toHaveLength(35);
+    for (const row of inserted) {
+      expect(row.consent, row.path!).toBe(true);
+      expect(row.provenance, row.path!).toBe(CONSENT_BASIS);
+    }
+
+    // The correction to existing rows is a separate decision over every row,
+    // so this run must not have made it — not even as a side effect.
+    expect(await db.select().from(schema.media).where(inArray(schema.media.path, LIVE_SIX))).toEqual(before);
+  });
+
+  it('reports the existing rows that carry no basis, and prints the UPDATE without running it', async () => {
+    const plan = await buildBackfillPlan(db as never);
+    expect(plan.consentBasisCandidates.map((row) => row.path).sort()).toEqual([...LIVE_SIX].sort());
+    for (const row of plan.consentBasisCandidates) {
+      expect(row.was).toEqual({ consent: false, provenance: null });
+    }
+
+    const printed = renderPlan(plan);
+    expect(printed).toContain(`UPDATE media SET consent = true, provenance = '${CONSENT_BASIS}'`);
+    for (const row of plan.consentBasisCandidates) expect(printed).toContain(row.id);
+
+    // Printed, not applied. The dry run writes nothing, including this.
+    const after = await db.select({ consent: schema.media.consent }).from(schema.media).where(inArray(schema.media.path, LIVE_SIX));
+    expect(after.every((row) => row.consent === false)).toBe(true);
+  });
+
+  it('stops reporting a row once it carries the basis', async () => {
+    await db
+      .update(schema.media)
+      .set({ consent: true, provenance: CONSENT_BASIS })
+      .where(eq(schema.media.path, LIVE_SIX[0]));
+
+    const plan = await buildBackfillPlan(db as never);
+    expect(plan.consentBasisCandidates.map((row) => row.path)).not.toContain(LIVE_SIX[0]);
+    expect(plan.consentBasisCandidates).toHaveLength(5);
+  });
+
+  it('still reports a row whose consent is true but says nothing about why', async () => {
+    // The ambiguity the decision asked to end: `true` with a provenance that
+    // means something else — the subject supplied this image of themselves.
+    await db
+      .update(schema.media)
+      .set({ consent: true, provenance: 'upload' })
+      .where(eq(schema.media.path, LIVE_SIX[0]));
+
+    const plan = await buildBackfillPlan(db as never);
+    const flagged = plan.consentBasisCandidates.find((row) => row.path === LIVE_SIX[0]);
+    expect(flagged?.was).toEqual({ consent: true, provenance: 'upload' });
   });
 });
 
@@ -565,6 +644,85 @@ describe('rollback when a receipt row has vanished', () => {
     // The whole undo completed rather than wedging on the one missing row.
     expect(await photoCount()).toBe(6);
     expect(await mediaPhotoCount()).toBe(6);
+  });
+
+  it('refuses a receipt that lists a media id twice, instead of misreporting the count', async () => {
+    const receipt = await applyBackfill(db as never, await buildBackfillPlan(db as never), {
+      databaseHost: 'pglite',
+      databaseName: 'memory',
+    });
+
+    // A receipt is a file and a file can be edited. Without the shape check
+    // this undoes all 35 and then reports one of them as "already deleted by
+    // something else", which is the opposite of what happened.
+    const duplicated = { ...receipt, insertedMedia: [...receipt.insertedMedia, { ...receipt.insertedMedia[0] }] };
+
+    await expect(rollbackBackfill(db as never, duplicated)).rejects.toThrow(/more than once/);
+    // Refused before the transaction opened, so nothing was undone.
+    expect(await photoCount()).toBe(41);
+    expect(await mediaPhotoCount()).toBe(41);
+  });
+});
+
+/**
+ * The window between `COMMIT` and the undo being reachable.
+ *
+ * Found by `reviewer` on [VIS-17]: the apply used to write the receipt file
+ * first and print the rollback SQL after it, so a failed write left rows
+ * committed with no undo on stdout and no file — and a fresh `plan` cannot
+ * regenerate one, because after a successful apply there is nothing to insert.
+ */
+describe('emitReceipt', () => {
+  const receipt = {
+    appliedAt: '2026-10-05T00:00:00.000Z',
+    databaseHost: 'pglite',
+    databaseName: 'memory',
+    insertedMedia: [{ id: 'm1', path: 'events/vol07-1.jpg' }],
+    insertedPhotos: [],
+    dimensionsUpdated: [],
+    rollbackSql: 'BEGIN;\n-- the undo\nCOMMIT;',
+  };
+
+  const capture = async (io: { mkdir: never; writeFile: never } | undefined) => {
+    const out: string[] = [];
+    const err: string[] = [];
+    const [log, error] = [console.log, console.error];
+    console.log = (...args: unknown[]) => void out.push(args.join(' '));
+    console.error = (...args: unknown[]) => void err.push(args.join(' '));
+    try {
+      const code = await emitReceipt(receipt as never, io as never);
+      return { code, out: out.join('\n'), err: err.join('\n') };
+    } finally {
+      [console.log, console.error] = [log, error];
+    }
+  };
+
+  it('prints the rollback SQL before it writes the receipt', async () => {
+    const order: string[] = [];
+    const result = await capture({
+      mkdir: (async () => void order.push('mkdir')) as never,
+      writeFile: (async () => void order.push('writeFile')) as never,
+    } as never);
+
+    expect(result.code).toBe(0);
+    expect(result.out).toContain('-- the undo');
+    expect(result.out.indexOf('-- the undo')).toBeLessThan(result.out.indexOf('Receipt: imports/'));
+    expect(order).toEqual(['mkdir', 'writeFile']);
+  });
+
+  it('still reaches the undo when the receipt cannot be written, and exits non-zero', async () => {
+    const result = await capture({
+      mkdir: (async () => {}) as never,
+      writeFile: (async () => {
+        throw new Error('EROFS: read-only file system');
+      }) as never,
+    } as never);
+
+    // The rows are committed by this point. Both undo paths must survive it.
+    expect(result.out).toContain('-- the undo');
+    expect(result.err).toContain('EROFS: read-only file system');
+    expect(result.err).toContain('"rollbackSql"');
+    expect(result.code).toBe(3);
   });
 });
 
