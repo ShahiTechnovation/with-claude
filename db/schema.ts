@@ -442,7 +442,29 @@ export const media = pgTable('media', {
   provenance: text('provenance'),
   /** The public URL a fetched file came from. Never a URL with a secret. */
   sourceUrl: text('source_url'),
+  /**
+   * The person shown in this image permitted it to be published here.
+   *
+   * SUBJECT-GIVEN, ALWAYS. This records the permission of the people in the
+   * picture, never the uploader's view of it and never an organiser's account
+   * of someone else's permission. `false` is not a refusal — it is the absence
+   * of a recorded permission, which is also what every row gets by default.
+   *
+   * Read it with `consentBasis`, which says how the permission was given and
+   * therefore how far it reaches. `true` alone does not tell you that.
+   */
   consent: boolean('consent').notNull().default(false),
+  /**
+   * How the permission in `consent` was given: `self_upload` (the subject
+   * uploaded their own image) or `registration_terms` (the subject accepted
+   * the event registration terms, which permit public web use with no end
+   * date — see migration 0017).
+   *
+   * NULL where `consent` is false, because there is no basis to record. A
+   * reader that acts on `consent` must read this too: the two bases do not
+   * grant the same thing, and a third will not either.
+   */
+  consentBasis: text('consent_basis'),
   status: mediaStatus('status').notNull().default('published'),
   kind: mediaKind('kind').notNull().default('other'),
   width: integer('width'),
