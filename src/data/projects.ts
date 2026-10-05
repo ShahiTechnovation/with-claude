@@ -4,13 +4,17 @@ import type { Project } from './types';
  * MADE WITH CLAUDE — the project archive.
  *
  * ── Fable 5.1 Build Day, 20 September 2026 ──────────────────────────────
- * 61 published projects from the Fable 5.1 Build Day.
+ * 76 published projects: the 61 the September import published and the 15
+ * it held that the organisers released later.
  *
  * ── Claude Code Impact Lab 2, 15 September 2026 ─────────────────────────
- * 16 published projects from Impact Lab 2.
+ * 18 published projects, two of them released later.
  *
  * ── Claude Code Impact Lab, 23 August 2026 ──────────────────────────────
- * 26 published projects from the first Impact Lab.
+ * 28 published projects, two of them released later.
+ *
+ * Live, repository and demo-video links for the two September events follow
+ * docs/imports/2026-09-event-archive.md.
  *
  * Sourced from withclaude.in/projects/. All records are authentic
  * submissions. Provenance is stated on every record; no field is fabricated.
@@ -35,6 +39,7 @@ export const projects: Project[] = [
     url: 'https://nyaya.workwithani.tech/',
     image: 'projects/nyaya.jpg',
     repoUrl: 'https://github.com/anirudh12032008/nyaya/',
+    videoUrl: 'https://youtu.be/3tQBP-tWE-I',
     builtAtEventSlug: 'claude-code-build-day-fable',
   },
   {
@@ -51,6 +56,7 @@ export const projects: Project[] = [
     url: 'https://flyinvaders.przknv.cc/',
     image: 'projects/fly-invaders.jpg',
     repoUrl: 'https://github.com/parazeeknova/fly-invaders',
+    videoUrl: 'https://drive.google.com/file/d/1OdJScEiTqZn-NcMXYF-bqLXtJefpMq26/view?usp=sharing',
     builtAtEventSlug: 'claude-code-build-day-fable',
   },
   {
@@ -67,6 +73,7 @@ export const projects: Project[] = [
     url: 'https://synapseos-neural.vercel.app/',
     image: 'projects/synapse-os.jpg',
     repoUrl: 'https://github.com/Rachit-Tiwari-7/SYNAPSE-NEURAL',
+    videoUrl: 'https://drive.google.com/drive/folders/1WZrNidovytFS90-7f2fm83E-IiXi9L-i?usp=sharing',
     builtAtEventSlug: 'claude-code-build-day-fable',
   },
   {
@@ -83,6 +90,7 @@ export const projects: Project[] = [
     url: 'https://strata-puce-ten.vercel.app/',
     image: 'projects/strata.jpg',
     repoUrl: 'https://github.com/Yu-369/Strata',
+    videoUrl: 'https://drive.google.com/file/d/1B-wMOpBKdR86g16YjM8Uk9JSd11vM6iv/view?usp=sharing',
     builtAtEventSlug: 'claude-code-build-day-fable',
   },
   {
@@ -99,6 +107,7 @@ export const projects: Project[] = [
     url: 'https://suchakai.vercel.app/',
     image: 'projects/suchakai.jpg',
     repoUrl: 'https://github.com/PriyanshuRaj2077/BuilderLabs',
+    videoUrl: 'https://drive.google.com/drive/folders/1n_0AughC9ClssTsQGQNEVOTlLXHe9vKl',
     builtAtEventSlug: 'claude-code-build-day-fable',
   },
   {
@@ -133,6 +142,7 @@ export const projects: Project[] = [
     url: 'https://aftershock-by-coffetiers.vercel.app/',
     image: 'projects/aftershock.jpg',
     repoUrl: 'https://github.com/r3ban-hub/AFTERSHOCK-by-coffetiers',
+    videoUrl: 'https://drive.google.com/drive/folders/1dN1RWKxuMdZ9nqYAyYqz-_7YZNChqX6N?usp=drive_link',
     builtAtEventSlug: 'claude-code-build-day-fable',
   },
   {
@@ -149,6 +159,7 @@ export const projects: Project[] = [
     url: 'https://riyadadlani02.github.io/aidebugger/',
     image: 'projects/aidebugger.jpg',
     repoUrl: 'https://github.com/riyadadlani02/aidebugger',
+    videoUrl: 'https://drive.google.com/file/d/12x6Cdr1MM-d7_FU4XIAEFzSBXY8RBSII/view?usp=drivesdk',
     builtAtEventSlug: 'claude-code-build-day-fable',
   },
   {
@@ -165,6 +176,7 @@ export const projects: Project[] = [
     url: 'https://anuvaa.vercel.app/',
     image: 'projects/anuvaa.jpg',
     repoUrl: 'https://github.com/Vinayak109/Anuvaa-app',
+    videoUrl: 'https://drive.google.com/file/d/1xRldEtuw4eW6Ur2JF-pZEuU87-jT-jlO/view?usp=drivesdk',
     builtAtEventSlug: 'claude-code-build-day-fable',
   },
   {
@@ -243,6 +255,7 @@ export const projects: Project[] = [
     category: 'product',
     url: 'https://opd-flow-omega.vercel.app/',
     image: 'https://picsum.photos/seed/chikitsa-setu/800/600',
+    videoUrl: 'https://www.dropbox.com/scl/fi/hgx8atq4895auw42mtww7/Screen-Recording-2026-09-20-at-4.02.15-PM.mov?rlkey=5gi92tqf7c9qllkhblvqjfy6q&st=gancn1f3&dl=0',
     builtAtEventSlug: 'claude-code-build-day-fable',
   },
   {
@@ -305,6 +318,23 @@ export const projects: Project[] = [
     category: 'product',
     repoUrl: 'https://github.com/utksahu30/Alarum',
     image: 'https://picsum.photos/seed/contextual-alarms/800/600',
+    videoUrl: 'https://drive.google.com/file/d/17ocuIM_poujm9fCV_zCfay-GAmLPgKSZ/view?usp=sharing',
+    builtAtEventSlug: 'claude-code-build-day-fable',
+  },
+  {
+    id: 'prj-yieldcompass',
+    slug: 'yieldcompass',
+    status: 'published',
+    title: 'YieldCompass',
+    builderSlugs: [],
+    citySlug: 'bhopal',
+    summary: 'Built at Fable 5.1 Build Day · 20 Sep 2026',
+    createdAt: '2026-09-20',
+    description: 'A search engine for Solana DeFi yields that separates real yield from token emissions and gives each protocol a rule-based 0–100 risk score.',
+    category: 'product',
+    url: 'https://yield-compass-frontend.vercel.app/',
+    image: 'https://picsum.photos/seed/yieldcompass/800/600',
+    repoUrl: 'https://github.com/KartikeyNamdev/YieldCompass_Backend',
     builtAtEventSlug: 'claude-code-build-day-fable',
   },
   {
@@ -352,6 +382,7 @@ export const projects: Project[] = [
     category: 'product',
     repoUrl: 'https://github.com/shriyanshiatgithub/didi/',
     image: 'https://picsum.photos/seed/didi/800/600',
+    videoUrl: 'https://drive.google.com/file/d/17tdXpCdhkbRoA6XhZsU1cT4WrlfKjnxm/view?usp=sharing',
     builtAtEventSlug: 'claude-code-build-day-fable',
   },
   {
@@ -383,6 +414,7 @@ export const projects: Project[] = [
     category: 'creative',
     repoUrl: 'https://github.com/idharanithota/dont-touch-twice',
     image: 'https://picsum.photos/seed/dont-touch-twice/800/600',
+    videoUrl: 'https://drive.google.com/file/d/1LAuoI0GKQMbT9YVpVrlXb1fT1W6Q9Fsh/view?usp=sharing',
     builtAtEventSlug: 'claude-code-build-day-fable',
   },
   {
@@ -430,6 +462,7 @@ export const projects: Project[] = [
     category: 'developer-tool',
     repoUrl: 'https://github.com/abhinavjainn08-beep/existential-crisis-debugger',
     image: 'https://picsum.photos/seed/existential-crisis-debugger/800/600',
+    videoUrl: 'https://youtu.be/iHDpFAtqhAU?si=6Kp-VFt_w2X8siNg',
     builtAtEventSlug: 'claude-code-build-day-fable',
   },
   {
@@ -446,6 +479,7 @@ export const projects: Project[] = [
     url: 'https://knowledge-fact-layer.vercel.app/',
     image: 'https://picsum.photos/seed/fact-knowledge-layer/800/600',
     repoUrl: 'https://github.com/Sumit-Ks1/knowledge-fact-layer',
+    videoUrl: 'https://drive.google.com/file/d/1_MayX_9fGGDKk_oXvMwJN9NRxKS1uJSc/view?usp=sharing',
     builtAtEventSlug: 'claude-code-build-day-fable',
   },
   {
@@ -459,6 +493,7 @@ export const projects: Project[] = [
     createdAt: '2026-09-20',
     description: 'Puts a startup or business decision on trial before several AI advisors — growth, risk, feasibility, assumptions — and returns a final verdict.',
     category: 'agent',
+    videoUrl: 'https://drive.google.com/file/d/1ORpCtbdqnXXdYfjoC5atmC7G1i4VlI9E/view?usp=sharing',
     builtAtEventSlug: 'claude-code-build-day-fable',
   },
   {
@@ -474,6 +509,7 @@ export const projects: Project[] = [
     category: 'product',
     url: 'https://fourbysix.vercel.app/',
     image: 'https://picsum.photos/seed/fourbysix/800/600',
+    videoUrl: 'https://drive.google.com/drive/folders/1DvKkMZ55YsOUWJf2ivsI74DAHCCUNKA7?usp=sharing',
     builtAtEventSlug: 'claude-code-build-day-fable',
   },
   {
@@ -504,6 +540,7 @@ export const projects: Project[] = [
     category: 'product',
     repoUrl: 'https://github.com/aloks1701/Hisaab-Android',
     image: 'https://picsum.photos/seed/hisaab/800/600',
+    videoUrl: 'https://drive.google.com/file/d/1MS_zFo7XGbF7_pMWQGw63mbeYaCCg1yh/view?usp=sharing',
     builtAtEventSlug: 'claude-code-build-day-fable',
   },
   {
@@ -520,6 +557,7 @@ export const projects: Project[] = [
     url: 'https://incident-os-web.vercel.app/',
     image: 'https://picsum.photos/seed/incidentos/800/600',
     repoUrl: 'https://github.com/ikunalkumararya/IncidentOS',
+    videoUrl: 'https://drive.google.com/drive/folders/1dPK3oK4pbGhkjt6FMZ2s3_NhX8Czamwu?usp=drive_link',
     builtAtEventSlug: 'claude-code-build-day-fable',
   },
   {
@@ -533,6 +571,7 @@ export const projects: Project[] = [
     createdAt: '2026-09-20',
     description: 'A holographic 3D design tool: generate a 3D model of anything with AI, then explore and change it part by part with gestures and voice.',
     category: 'creative',
+    videoUrl: 'https://drive.google.com/file/d/1Ed6yWN2EIebwGDHtvj8p_UAgL_QnIX3r/view?usp=drive_link',
     builtAtEventSlug: 'claude-code-build-day-fable',
   },
   {
@@ -595,6 +634,7 @@ export const projects: Project[] = [
     category: 'developer-tool',
     repoUrl: 'https://github.com/sachmeetsb/Claude-Build---Luma-Event-Keys-Dispenser',
     image: 'https://picsum.photos/seed/luma-event-keys-dispenser/800/600',
+    videoUrl: 'https://drive.google.com/file/d/1lAmlAAZFPvMJnKO5numR4sL7PDw_2yvw/view?usp=sharing',
     builtAtEventSlug: 'claude-code-build-day-fable',
   },
   {
@@ -674,6 +714,7 @@ export const projects: Project[] = [
     url: 'https://you-are-working-on-my-petbot.vercel.app/',
     image: 'https://picsum.photos/seed/petbot/800/600',
     repoUrl: 'https://github.com/petbotinofficial-ai/petbot.ai',
+    videoUrl: 'https://drive.google.com/file/d/1HFvogJvReHiueY7e6SMWMmCOokNuh5SM/view?usp=sharing',
     builtAtEventSlug: 'claude-code-build-day-fable',
   },
   {
@@ -719,6 +760,7 @@ export const projects: Project[] = [
     createdAt: '2026-09-20',
     description: 'Scans an uploaded project for leaked secrets, malicious-looking code, corrupted, duplicate and unnecessary files, cleans what it safely can and scans again.',
     category: 'developer-tool',
+    videoUrl: 'https://drive.google.com/file/d/1Ylipgsb1LyTZZ3xz3B1wrnHqWYPOu9Ld/view?usp=sharing',
     builtAtEventSlug: 'claude-code-build-day-fable',
   },
   {
@@ -734,6 +776,7 @@ export const projects: Project[] = [
     category: 'product',
     url: 'https://ration-setu-master.vercel.app/',
     image: 'https://picsum.photos/seed/ration-setu/800/600',
+    videoUrl: 'https://youtu.be/38xR1V2fpuk?si=H51fByw2PYZQWNor',
     builtAtEventSlug: 'claude-code-build-day-fable',
   },
   {
@@ -750,6 +793,7 @@ export const projects: Project[] = [
     url: 'https://reasoning-arena.vercel.app/',
     image: 'https://picsum.photos/seed/reasoning-arena/800/600',
     repoUrl: 'https://github.com/glitchmatrix09/reasoning-arena',
+    videoUrl: 'https://drive.google.com/file/d/1wfjZLccWILYQQMh32WVLgkNXYytJbXyN/view?usp=drivesdk',
     builtAtEventSlug: 'claude-code-build-day-fable',
   },
   {
@@ -766,6 +810,7 @@ export const projects: Project[] = [
     url: 'https://pothole.akshat.fun/',
     image: 'https://picsum.photos/seed/roadwatch-mp/800/600',
     repoUrl: 'https://github.com/Akshatmaurya25/potholes-detection-system',
+    videoUrl: 'https://drive.google.com/file/d/1MNFSqfQv6igjANUv3ODSIZ8OvCsTOMXu/view?usp=sharing',
     builtAtEventSlug: 'claude-code-build-day-fable',
   },
   {
@@ -779,6 +824,7 @@ export const projects: Project[] = [
     createdAt: '2026-09-20',
     description: 'Turns NCERT physics sections for Classes 9 and 10 into three-minute playable labs that work offline on a cheap phone or a classroom projector.',
     category: 'product',
+    videoUrl: 'https://youtube.com/watch?si=DS2oJSpiMa7g9gj5&v=6lXfjNK_I6U&feature=youtu.be',
     builtAtEventSlug: 'claude-code-build-day-fable',
   },
   {
@@ -795,6 +841,7 @@ export const projects: Project[] = [
     url: 'https://safe-not-sorry.vercel.app/',
     image: 'https://picsum.photos/seed/safe-not-sorry/800/600',
     repoUrl: 'https://github.com/abbas-rz/safe-not-sorry',
+    videoUrl: 'https://drive.google.com/drive/folders/1YeKKUf4VyIE9LRwRywA1YYvkF34qA4YX?usp=sharing',
     builtAtEventSlug: 'claude-code-build-day-fable',
   },
   {
@@ -811,6 +858,7 @@ export const projects: Project[] = [
     url: 'https://safesphere-kcas.onrender.com/',
     image: 'https://picsum.photos/seed/safesphere/800/600',
     repoUrl: 'https://github.com/abhaysahu403/SafeSphere',
+    videoUrl: 'https://drive.google.com/file/d/1oFWeyIoR28uKiWRnPMUqtJfPLGJBpvvw/view?usp=sharing',
     builtAtEventSlug: 'claude-code-build-day-fable',
   },
   {
@@ -827,6 +875,7 @@ export const projects: Project[] = [
     url: 'https://simplexplain-ai.vercel.app/',
     image: 'https://picsum.photos/seed/simpleexplain-ai/800/600',
     repoUrl: 'https://github.com/Aditya12119/simplexplain-ai',
+    videoUrl: 'https://youtu.be/EhsdmEYJh00',
     builtAtEventSlug: 'claude-code-build-day-fable',
   },
   {
@@ -874,6 +923,7 @@ export const projects: Project[] = [
     url: 'https://suvidhaportal.netlify.app/',
     image: 'https://picsum.photos/seed/suvidha/800/600',
     repoUrl: 'https://github.com/RinciAtrey/Suvidha',
+    videoUrl: 'https://drive.google.com/file/d/1O0YnUCw_MlgaZDiS0m1rrpTvH6RdDjA3/view?usp=sharing',
     builtAtEventSlug: 'claude-code-build-day-fable',
   },
   {
@@ -922,6 +972,7 @@ export const projects: Project[] = [
     url: 'https://tracex-vasp.vercel.app/',
     image: 'https://picsum.photos/seed/tracex-vasp/800/600',
     repoUrl: 'https://github.com/Ayushdev365/TraceX-VASP',
+    videoUrl: 'https://drive.google.com/file/d/19zl0RUlA0H2v5H2swP4wHBl_l3hEYZoC/view?usp=sharing',
     builtAtEventSlug: 'claude-code-build-day-fable',
   },
   {
@@ -1295,6 +1346,7 @@ export const projects: Project[] = [
     url: 'https://zenox2-0.vercel.app/',
     image: 'https://picsum.photos/seed/digi-ai/800/600',
     repoUrl: 'https://github.com/harsh-1-code/Zenox2.0',
+    videoUrl: 'https://drive.google.com/open?id=1xulODBAVjRAxqZ3Ry8aN8FQQyH8W38VI',
     builtAtEventSlug: 'claude-impact-lab-september',
   },
   {
@@ -1311,6 +1363,7 @@ export const projects: Project[] = [
     url: 'https://disha-three.vercel.app/',
     image: 'https://picsum.photos/seed/disha/800/600',
     repoUrl: 'https://github.com/Laaaaksh/disha',
+    videoUrl: 'https://drive.google.com/open?id=1AoweA-sm1Hzl5_aHPmf3Fh5LrQcuEVIY',
     builtAtEventSlug: 'claude-impact-lab-september',
   },
   {
@@ -1324,6 +1377,8 @@ export const projects: Project[] = [
     createdAt: '2026-09-15',
     description: 'AI-powered job matching and career guidance platform built for India.',
     category: 'product',
+    url: 'https://jobg.vercel.app/',
+    repoUrl: 'https://github.com/shikhaj-stack/jobg',
     builtAtEventSlug: 'claude-impact-lab-september',
   },
   {
@@ -1337,6 +1392,8 @@ export const projects: Project[] = [
     createdAt: '2026-09-15',
     description: 'An AI-powered career and learning path navigator that creates personalised roadmaps based on skills and goals.',
     category: 'product',
+    url: 'https://path-pilot-phi.vercel.app/',
+    repoUrl: 'https://github.com/prathamjain01/CLAUDE-BHOPAL',
     builtAtEventSlug: 'claude-impact-lab-september',
   },
   {
@@ -1350,6 +1407,8 @@ export const projects: Project[] = [
     createdAt: '2026-09-15',
     description: 'Civic cleanliness monitoring system that uses AI to detect and report sanitation issues in public spaces.',
     category: 'product',
+    url: 'https://claude-hackathon-production.up.railway.app/',
+    repoUrl: 'https://github.com/Republic-one/Claude-Hackathon',
     builtAtEventSlug: 'claude-impact-lab-september',
   },
   {
@@ -1363,6 +1422,7 @@ export const projects: Project[] = [
     createdAt: '2026-09-15',
     description: 'An inclusive learning platform that creates adaptive educational paths for students with different abilities and learning needs.',
     category: 'product',
+    repoUrl: 'https://github.com/omsinghethdev/SakshamPath',
     builtAtEventSlug: 'claude-impact-lab-september',
   },
   {
@@ -1376,6 +1436,8 @@ export const projects: Project[] = [
     createdAt: '2026-09-15',
     description: 'An AI assistant that helps identify and protect citizens from online scams and fraud attempts in real time.',
     category: 'product',
+    url: 'https://upright-honest-parallelprocessing--piyushcollege99.replit.app/',
+    repoUrl: 'https://github.com/piyushcollege994-ship-it/scam-security-assistent',
     builtAtEventSlug: 'claude-impact-lab-september',
   },
   {
@@ -1389,6 +1451,8 @@ export const projects: Project[] = [
     createdAt: '2026-09-15',
     description: 'Real-time scam detection and prevention tool that analyses messages and calls to protect users from digital fraud.',
     category: 'product',
+    url: 'https://sacmdetection.netlify.app/',
+    repoUrl: 'https://github.com/Anxhhhh/scam-detection',
     builtAtEventSlug: 'claude-impact-lab-september',
   },
   {
@@ -1402,6 +1466,8 @@ export const projects: Project[] = [
     createdAt: '2026-09-15',
     description: 'AI-powered waste sorting and classification system to help citizens and municipalities manage waste more effectively.',
     category: 'product',
+    url: 'https://sort-x-omega.vercel.app/login',
+    repoUrl: 'https://github.com/abhilash-chaudhary/SortX',
     builtAtEventSlug: 'claude-impact-lab-september',
   },
   {
@@ -1415,6 +1481,8 @@ export const projects: Project[] = [
     createdAt: '2026-09-15',
     description: 'A trust and verification layer for digital transactions and communications, using AI to flag suspicious patterns.',
     category: 'product',
+    repoUrl: 'https://github.com/ayushjainprofile-tech/scam-x',
+    videoUrl: 'https://drive.google.com/open?id=1EluyGdazWJw4ADpg2_N7ck9cqn97Cisl',
     builtAtEventSlug: 'claude-impact-lab-september',
   },
   {
@@ -1428,6 +1496,8 @@ export const projects: Project[] = [
     createdAt: '2026-09-15',
     description: 'An AI-powered educational platform that creates personalised learning journeys for students across India.',
     category: 'product',
+    url: 'https://vidyapaath.vercel.app/',
+    repoUrl: 'https://github.com/adilrehman786/vidyapath',
     builtAtEventSlug: 'claude-impact-lab-september',
   },
   {
@@ -1441,6 +1511,8 @@ export const projects: Project[] = [
     createdAt: '2026-09-15',
     description: 'Recommends the next skill or topic to learn based on current knowledge, goals, and available time — personalised for each learner.',
     category: 'product',
+    url: 'https://claude.ai/artifact/8CFYV4iA6wyBGN1hbTVByh',
+    repoUrl: 'https://github.com/rudrakanya/Claude-ImpactLab',
     builtAtEventSlug: 'claude-impact-lab-september',
   },
   {
@@ -1454,6 +1526,8 @@ export const projects: Project[] = [
     createdAt: '2026-09-15',
     description: 'A platform connecting skilled workers with local employment opportunities across India.',
     category: 'product',
+    url: 'https://workob-in-claude-hackathon-15-sept.vercel.app/',
+    repoUrl: 'https://github.com/Rajdeeppatel1/workob-in-claude-hackathon-15-sept',
     builtAtEventSlug: 'claude-impact-lab-september',
   },
 
