@@ -13,6 +13,7 @@
  * `.env` file to find, so this is a no-op in production.
  */
 import 'dotenv/config';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'astro/config';
 import vercel from '@astrojs/vercel';
 
@@ -152,5 +153,17 @@ export default defineConfig({
     // `db/` lives above this package's root. Vite needs permission to read it
     // in dev; the build bundles it normally.
     server: { fs: { allow: ['..'] } },
+    resolve: {
+      alias: [
+        // The function's entry, wrapped to refuse the adapter's path override
+        // (GHSA-mr6q-rp88-fx84). It is the public site's wrapper, not a copy:
+        // one guard, two projects. Exact match, because the wrapper reaches
+        // the real entry through `@astrojs/vercel/serverless/entrypoint`.
+        {
+          find: /^@astrojs\/vercel\/entrypoint$/,
+          replacement: fileURLToPath(new URL('../src/server/vercel-entrypoint.ts', import.meta.url)),
+        },
+      ],
+    },
   },
 });
