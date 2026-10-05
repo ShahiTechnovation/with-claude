@@ -298,6 +298,42 @@ describe('a taken-down event photograph', () => {
   });
 });
 
+describe('a taken-down project cover', () => {
+  /**
+   * The directory card is not the only reader. `attachCover()` also writes
+   * the blob URL into `projects.image_path`, and the public record copied that
+   * column as it was — so the city pages and the homepage, which render
+   * `project.image`, kept showing a cover the directory had stopped showing.
+   */
+  async function recordImage(projectId: string): Promise<string | undefined> {
+    const set = await loadRecordSet(db as never);
+    const project = set.projects.find((p) => p.id === projectId);
+    expect(project, 'the fixture project is in the public record').toBeTruthy();
+    return project!.image;
+  }
+
+  it('leaves the public record too, not only the directory card', async () => {
+    const mediaId = await mediaRow({ blobUrl: `${BLOB}/cover.png`, kind: 'cover' });
+    const projectId = await publicProject({ imageId: mediaId, imagePath: `${BLOB}/cover.png` });
+    expect(await recordImage(projectId)).toBe(`${BLOB}/cover.png`);
+
+    await db.update(schema.media).set({ status: 'deleted' }).where(eq(schema.media.id, mediaId));
+    expect(await recordImage(projectId)).toBeUndefined();
+
+    // The tombstone alone, status left `published`.
+    await db
+      .update(schema.media)
+      .set({ status: 'published', deletedAt: new Date() })
+      .where(eq(schema.media.id, mediaId));
+    expect(await recordImage(projectId)).toBeUndefined();
+  });
+
+  it('keeps a committed asset key in the public record, which no media row governs', async () => {
+    const projectId = await publicProject({ imagePath: 'projects/nyaya.jpg' });
+    expect(await recordImage(projectId)).toBe('projects/nyaya.jpg');
+  });
+});
+
 // ── 4. and the takedown has to be reversible ────────────────────────────
 
 describe('the moderation round trip', () => {

@@ -817,7 +817,10 @@ export async function loadRecordSet(db: ReadDatabase): Promise<RecordSet> {
       url: row.url ?? undefined,
       repoUrl: row.repoUrl ?? undefined,
       videoUrl: row.videoUrl ?? undefined,
-      image: row.imagePath ?? undefined,
+      // `attachCover()` copies an uploaded cover's blob URL into `image_path`,
+      // so the column alone outlives a takedown. A cover backed by a media row
+      // is public only while `mediaById`, which holds public rows alone, has it.
+      image: row.imageId && !mediaById.has(row.imageId) ? undefined : (row.imagePath ?? undefined),
       tags: optionalList(row.tags),
       claudeUsage: row.claudeUsage ?? undefined,
       builtAtEventSlug: row.builtAtEventId ? eventSlug.get(row.builtAtEventId) : undefined,
