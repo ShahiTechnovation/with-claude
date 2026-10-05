@@ -165,10 +165,21 @@ export async function getPublicBuilderList(db: Db = pooledDb()): Promise<PublicB
  * scheme-bearing value, so a blob URL parked in `builders.image_path` cannot
  * leak through it. A scheme-less curated asset key still renders — a
  * different, committed image, ungoverned by design.
+ *
+ * `deletedAt` is REQUIRED rather than optional, unlike the same field on
+ * `isPublicBuilder()` above, where the optionality is load-bearing because
+ * `isIndexableBuilder()` passes a row without it. Nothing here relies on it,
+ * and optional would fail open: a caller selecting a narrow column list
+ * instead of the whole `media` table — `status` and `blobUrl` but not
+ * `deletedAt`, which is exactly the projection `src/server/public/projects.ts`
+ * uses for covers — would type-check and silently serve a tombstoned blob.
+ * Required makes that a compile error, so the secure path is the only path.
+ * Both call sites below pass `row.media`, the whole table, so this costs them
+ * nothing.
  */
 export function builderImage(
   imagePath: string | null,
-  media: { status: string; blobUrl: string | null; deletedAt?: Date | string | null } | null,
+  media: { status: string; blobUrl: string | null; deletedAt: Date | string | null } | null,
 ): string | undefined {
   if (media?.status === 'published' && !media.deletedAt && media.blobUrl) return media.blobUrl;
   if (imagePath && !/^[a-z][a-z0-9+.-]*:/i.test(imagePath)) return imagePath;
