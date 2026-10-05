@@ -143,6 +143,20 @@ The same script runs locally against any URL:
 BASE=http://localhost:4321 PAGES=/,/events/,/projects/ STRICT=1 node scripts/dev/visual-review.mjs
 ```
 
+`scripts/dev/share-cards-audit.mjs` audits the event share cards: it reads the `og:image` off each
+rendered event page and then fetches it, because eight of seventeen declared a 404 for the life of
+the pages and nothing was checking. Run it by hand against a deployment; it is not in `ci.yml`
+because the event pages are `prerender = false`, so a local build has no event HTML to read a meta
+tag out of, and the smoke workflow does not run it yet.
+
+```bash
+BASE=https://www.withclaude.in node scripts/dev/share-cards-audit.mjs
+```
+
+`STRICT=1` exits non-zero when a share card is broken. `STRICT_PAGES=1` additionally fails on
+sitemap URLs that 404 — off by default, because production's `sitemap.xml` currently lists nine
+event pages that do not exist, which is a separate defect this script only reports.
+
 ## The governance model
 
 This is the part that is structural rather than cosmetic, and the part to not quietly undo.
