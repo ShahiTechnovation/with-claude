@@ -620,6 +620,30 @@ export async function rollbackBackfill(
   /** Receipt rows something else had already deleted. Reported, not an error. */
   mediaAlreadyGone: number;
 }> {
+  // A receipt is a file, and a file can be edited. Listing a media id twice
+  // makes the undo lie rather than fail: `inArray` de-duplicates, so the DELETE
+  // comes back one row short of `deletable.length` and the run reports "1 media
+  // row had already been deleted by something else" about a row it deleted
+  // itself. Nothing downstream can tell the difference, so refuse here, before
+  // the transaction opens. [VIS-17]
+  //
+  // Only `insertedMedia` is checked. A duplicated `insertedPhotos` pair makes
+  // `photosDeleted` one short of the number the receipt lists, which is a total
+  // the CLI prints without explaining — it does not attribute the difference to
+  // another actor, so it states nothing false.
+  const seen = new Set<string>();
+  const duplicated: string[] = [];
+  for (const row of receipt.insertedMedia) {
+    if (seen.has(row.id)) duplicated.push(row.id);
+    seen.add(row.id);
+  }
+  if (duplicated.length) {
+    throw new Error(
+      `This receipt lists ${duplicated.length} media id(s) more than once (${duplicated.join(', ')}). ` +
+        `Refusing: the counts it reports would be wrong. Nothing was deleted.`,
+    );
+  }
+
   return db.transaction(async (tx) => {
     const photosDeleted = receipt.insertedPhotos.length
       ? (
@@ -688,6 +712,12 @@ export async function rollbackBackfill(
     // an uncommitted trigger on `media` is the one thing this repo cannot see.
     // Reporting a surviving row as "already deleted by something else" would
     // undercount the undo, which is the one thing this function must not do.
+    //
+    // This is the second of two guards and neither subsumes the other: the
+    // duplicate check above validates the receipt before the deletes, this one
+    // validates the database after them. With duplicates already refused,
+    // `mediaAlreadyGone` has two causes left — a genuine prior delete and a
+    // suppressed one — and this query is what separates them.
     if (mediaAlreadyGone) {
       const stillThere = await tx
         .select({ id: schema.media.id })

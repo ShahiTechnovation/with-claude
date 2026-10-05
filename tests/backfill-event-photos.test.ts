@@ -685,6 +685,29 @@ describe('rollback when a receipt row has vanished', () => {
     const [still] = await db.select({ id: schema.media.id }).from(schema.media).where(eq(schema.media.id, survivor.id));
     expect(still.id).toBe(survivor.id);
   });
+
+  /**
+   * The other way `mediaAlreadyGone` can be a lie, and the trigger check above
+   * cannot catch it: the row really was deleted, by this very run, and the
+   * receipt listed it twice. Found on [VIS-19] by comparing the two separate
+   * implementations of this fix — each caught one case and neither caught both.
+   */
+  it('refuses a receipt that lists a media id twice, instead of misreporting the count', async () => {
+    const receipt = await applyBackfill(db as never, await buildBackfillPlan(db as never), {
+      databaseHost: 'pglite',
+      databaseName: 'memory',
+    });
+
+    // A receipt is a file and a file can be edited. Without the shape check
+    // this undoes all 35 and then reports one of them as "already deleted by
+    // something else", which is the opposite of what happened.
+    const duplicated = { ...receipt, insertedMedia: [...receipt.insertedMedia, { ...receipt.insertedMedia[0] }] };
+
+    await expect(rollbackBackfill(db as never, duplicated)).rejects.toThrow(/more than once/);
+    // Refused before the transaction opened, so nothing was undone.
+    expect(await photoCount()).toBe(41);
+    expect(await mediaPhotoCount()).toBe(41);
+  });
 });
 
 /**
