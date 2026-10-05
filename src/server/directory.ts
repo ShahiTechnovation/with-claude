@@ -254,15 +254,45 @@ export async function getPublicBuilderBySlug(
  *
  * Callers must pass the returned RecordSet explicitly to selector functions
  * instead of relying on module-scope imports from `src/data/index.ts`.
+ *
+ * ── THE SINGLE-HOST EVENT FILTER ─────────────────────────────────────────
+ *
+ * `loadLiveRecords` also narrows `rs.events` to the events `aniket-sahu`
+ * hosts, as headliner, co-host or credited host. See `hostedByAniketSahu`.
+ *
+ * It KEEPS an event with any of those three attributions, and it DROPS
+ * everything else SILENTLY — no error, no log, no marker on the page. A
+ * published event with no host row simply does not appear on `/events/`,
+ * `/gallery` or anything else reading through here.
+ *
+ * That is deliberate — this site is one ambassador's record, `6e83371` — and
+ * it is a product decision, not a defect. It is written down here because it
+ * sits inside a function whose documentation is otherwise about request
+ * isolation, which is why it went unnoticed for a month.
  */
 export async function loadLiveRecords(db: Db = pooledDb()): Promise<RecordSet> {
   const rs = await loadRecordSet(db);
-  rs.events = rs.events.filter(e => 
-    e.host?.ambassadorSlug === 'aniket-sahu' || 
-    (e.host?.builderSlugs && e.host.builderSlugs.includes('aniket-sahu')) ||
-    (e.host?.credits && e.host.credits.some(c => c.ambassadorSlug === 'aniket-sahu'))
-  );
+  rs.events = rs.events.filter(hostedByAniketSahu);
   return rs;
+}
+
+/**
+ * The single-host filter's predicate, on its own so it can be tested and so
+ * the three attribution paths are legible.
+ *
+ * Exported for `tests/single-host-filter.test.ts`, which pins the invariant
+ * that every event in the curated record passes it. Production currently
+ * holds events this returns `false` for; they are rows no committed record
+ * describes, so no test in this repo can see them. See that file.
+ */
+export function hostedByAniketSahu(event: RecordSet['events'][number]): boolean {
+  const host = event.host;
+  if (!host) return false;
+  return (
+    host.ambassadorSlug === 'aniket-sahu' ||
+    (host.builderSlugs?.includes('aniket-sahu') ?? false) ||
+    (host.credits?.some((credit) => credit.ambassadorSlug === 'aniket-sahu') ?? false)
+  );
 }
 
 /**
