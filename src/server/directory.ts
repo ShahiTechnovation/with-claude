@@ -151,12 +151,26 @@ export async function getPublicBuilderList(db: Db = pooledDb()): Promise<PublicB
  * `asset(undefined)` for its fallback, so no legacy portrait ever rendered.
  * `BuilderIndex` and the detail page both tell the two apart by scheme: an
  * absolute URL is an upload, anything else is an asset key.
+ *
+ * `deletedAt` is checked as well as `status`, because the two are independent
+ * columns and a soft delete is the gesture anyone reaching for a takedown
+ * would use. `mediaModerationPatch()` happens to write `status = 'deleted'`
+ * alongside the tombstone today, so `status` alone was sufficient by
+ * coincidence rather than by construction; a `deleted_at` set with `status`
+ * left `published` kept serving the blob URL on both the builder index and
+ * the SSR detail page. The tombstone is the authority — if it is set, the
+ * blob is not served, whatever `status` says.
+ *
+ * The fallback is unchanged and already safe: the `imagePath` arm rejects any
+ * scheme-bearing value, so a blob URL parked in `builders.image_path` cannot
+ * leak through it. A scheme-less curated asset key still renders — a
+ * different, committed image, ungoverned by design.
  */
 export function builderImage(
   imagePath: string | null,
-  media: { status: string; blobUrl: string | null } | null,
+  media: { status: string; blobUrl: string | null; deletedAt?: Date | string | null } | null,
 ): string | undefined {
-  if (media?.status === 'published' && media.blobUrl) return media.blobUrl;
+  if (media?.status === 'published' && !media.deletedAt && media.blobUrl) return media.blobUrl;
   if (imagePath && !/^[a-z][a-z0-9+.-]*:/i.test(imagePath)) return imagePath;
   return undefined;
 }
