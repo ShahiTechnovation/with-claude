@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { describeAccountError } from '@/lib/account-fetch';
 
 interface ReportModalProps {
@@ -34,7 +34,8 @@ interface ReportModalProps {
  * genuinely not signed in, and is shown as such rather than swallowed.
  */
 export function ReportModal({ entityType, entityId }: ReportModalProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const id = useId();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,24 +43,13 @@ export function ReportModal({ entityType, entityId }: ReportModalProps) {
   const [reason, setReason] = useState<string>('other');
   const [details, setDetails] = useState('');
 
+  // The dialog is closed before this replaces it; focus moves to the notice so
+  // keyboard and screen-reader users are not dropped on <body>.
   if (success) {
     return (
-      <div className="text-sm font-medium text-emerald-600 bg-emerald-50 px-3 py-2 rounded-md border border-emerald-100 inline-flex items-center gap-2">
-        <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" /></svg>
+      <p className="notice notice--success" role="status" tabIndex={-1} ref={(el) => el?.focus()}>
         Thanks — we've received your report.
-      </div>
-    );
-  }
-
-  if (!isOpen) {
-    return (
-      <button
-        onClick={() => setIsOpen(true)}
-        className="text-sm text-neutral-400 hover:text-neutral-700 underline decoration-neutral-300 underline-offset-4"
-        title="Report this content"
-      >
-        Report
-      </button>
+      </p>
     );
   }
 
@@ -87,6 +77,7 @@ export function ReportModal({ entityType, entityId }: ReportModalProps) {
         throw new Error(await describeAccountError(res));
       }
 
+      dialogRef.current?.close();
       setSuccess(true);
     } catch (err: any) {
       setError(err.message);
@@ -95,74 +86,93 @@ export function ReportModal({ entityType, entityId }: ReportModalProps) {
     }
   };
 
+  const close = () => dialogRef.current?.close();
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden border border-neutral-200">
-        <div className="px-5 py-4 border-b border-neutral-100 flex items-center justify-between">
-          <h2 className="font-semibold text-neutral-900">Report Content</h2>
-          <button onClick={() => setIsOpen(false)} className="text-neutral-400 hover:text-neutral-600">
-            <svg viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg>
+    <>
+      <button
+        type="button"
+        className="button button--quiet"
+        onClick={() => dialogRef.current?.showModal()}
+        title="Report this content"
+      >
+        Report
+      </button>
+
+      {/* `* { margin: 0 }` in base.css cancels the browser's own centring of a modal dialog.
+          Built for the cream ground, so it keeps a light scope on a dark page. */}
+      <dialog
+        ref={dialogRef}
+        className="panel"
+        data-theme="light"
+        aria-labelledby={`${id}-title`}
+        style={{ width: '28rem', margin: 'auto' }}
+      >
+        <div className="panel-head">
+          <h2 id={`${id}-title`}>Report content</h2>
+          <button type="button" className="button button--quiet" aria-label="Close" onClick={close}>
+            <svg viewBox="0 0 20 20" fill="currentColor" width="20" height="20" aria-hidden="true">
+              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+            </svg>
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          {error && (
-            <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md">{error}</div>
-          )}
+        <form onSubmit={handleSubmit}>
+          <div className="form-grid">
+            {error && (
+              <div className="notice notice--error" role="alert">
+                {error}
+              </div>
+            )}
 
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">
-              Why are you reporting this?
-            </label>
-            <select
-              required
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              className="w-full text-sm border border-neutral-300 rounded-lg p-2.5 focus:ring-2 focus:ring-black focus:border-black outline-none"
-            >
-              <option value="spam">Spam or misleading</option>
-              <option value="impersonation">Impersonation</option>
-              <option value="harassment">Harassment or abusive</option>
-              <option value="inappropriate_content">Inappropriate content</option>
-              <option value="stolen_work">Stolen work</option>
-              <option value="unsafe_link">Unsafe links</option>
-              <option value="copyright">Copyright violation</option>
-              <option value="privacy">Privacy violation</option>
-              <option value="other">Other</option>
-            </select>
+            <div className="form-field">
+              <label className="field-label" htmlFor={`${id}-reason`}>
+                Why are you reporting this?
+              </label>
+              <select
+                id={`${id}-reason`}
+                className="input"
+                required
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              >
+                <option value="spam">Spam or misleading</option>
+                <option value="impersonation">Impersonation</option>
+                <option value="harassment">Harassment or abusive</option>
+                <option value="inappropriate_content">Inappropriate content</option>
+                <option value="stolen_work">Stolen work</option>
+                <option value="unsafe_link">Unsafe links</option>
+                <option value="copyright">Copyright violation</option>
+                <option value="privacy">Privacy violation</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            <div className="form-field">
+              <label className="field-label" htmlFor={`${id}-details`}>
+                Tell us more <span className="field-tag">optional</span>
+              </label>
+              <textarea
+                id={`${id}-details`}
+                className="input"
+                value={details}
+                onChange={(e) => setDetails(e.target.value)}
+                rows={3}
+                placeholder="Any additional details..."
+              />
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">
-              Tell us more <span className="text-neutral-400 font-normal">(optional)</span>
-            </label>
-            <textarea
-              value={details}
-              onChange={(e) => setDetails(e.target.value)}
-              rows={3}
-              placeholder="Any additional details..."
-              className="w-full text-sm border border-neutral-300 rounded-lg p-2.5 focus:ring-2 focus:ring-black focus:border-black outline-none resize-none"
-            />
-          </div>
-
-          <div className="pt-2 flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={() => setIsOpen(false)}
-              className="px-4 py-2 text-sm font-medium text-neutral-700 hover:text-black"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-4 py-2 text-sm font-medium text-white bg-black hover:bg-neutral-800 rounded-lg disabled:opacity-50"
-            >
+          <div className="form-actions">
+            <button type="submit" className="button button--primary" disabled={isSubmitting}>
               {isSubmitting ? 'Submitting...' : 'Submit report'}
+            </button>
+            <button type="button" className="button button--quiet" onClick={close}>
+              Cancel
             </button>
           </div>
         </form>
-      </div>
-    </div>
+      </dialog>
+    </>
   );
 }

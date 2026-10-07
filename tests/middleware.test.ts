@@ -20,6 +20,22 @@ describe('the public middleware', () => {
     expect(next).not.toHaveBeenCalled();
   });
 
+  it('never reads request headers on a prerendered page (Astro warns on every one)', async () => {
+    const ok = new Response('ok');
+    const ctx = { ...context(), isPrerendered: true };
+    Object.defineProperty(ctx.request, 'headers', {
+      get: () => {
+        throw new Error('headers read while prerendering');
+      },
+    });
+    expect(
+      await onRequest(
+        ctx as never,
+        vi.fn(async () => ok),
+      ),
+    ).toBe(ok);
+  });
+
   it('passes an ordinary request through', async () => {
     const ok = new Response('ok');
     const next = vi.fn(async () => ok);

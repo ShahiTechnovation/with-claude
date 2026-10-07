@@ -13,22 +13,20 @@ import type { LeaderboardEntry } from '@/lib/leaderboard';
  * those implies a measurement over time that a count of events cannot support.
  *
  * Every figure printed is one the record can answer exactly: how many events,
- * how many of them are still to come, how many cities, and the score with its
- * formula stated on the page. §23's "do not show fake metrics", applied at the
- * level of what the markup is even capable of saying.
+ * how many cities, and the score with its formula stated on the page. §23's
+ * "do not show fake metrics", applied at the level of what the markup is even
+ * capable of saying.
  */
 interface Props {
   entries: LeaderboardEntry[];
   heading?: string;
-  eyebrow?: string;
   showHead?: boolean;
   /** Cap the list, for a discovery panel on another page. */
   limit?: number;
   selectors?: RecordSelectors;
 }
 
-const { entries, heading = 'Community activity', eyebrow = 'Ambassadors', showHead = true, limit, selectors } =
-  Astro.props;
+const { entries, heading = 'Community activity', showHead = true, limit, selectors } = Astro.props;
 const data = selectors ?? staticData;
 
 const shown = limit ? entries.slice(0, limit) : entries;
@@ -38,73 +36,41 @@ const shown = limit ? entries.slice(0, limit) : entries;
   {
     showHead && (
       <div class="section-head">
-        <p class="eyebrow">{eyebrow}</p>
         <h2 id="activity-heading">{heading}</h2>
-        <p class="prose">
-          Ranked by an activity score this site calculates from event records. Hosting an
-          event earns a full credit, co-hosting half. The number is an index of activity —
-          it is not a ranking by Anthropic and it is not a measure of anyone's standing.
-        </p>
       </div>
     )
   }
 
-  <ol class="entries">
+  <ol class="entries spotlight">
     {
       shown.map((entry, index) => {
         const { ambassador } = entry;
         const home = data.cityName(ambassador.citySlug);
         return (
-          <li data-reveal>
-            <a class="entry" href={`/ambassadors/${ambassador.slug}`}>
+          <li>
+            <a class="entry" href={`/ambassadors/${ambassador.slug}/`}>
               {/*
                 The rank is `aria-hidden` because the list is already an `<ol>`:
                 a screen reader announces "item 3" from the markup, and the
-                printed "03" would make it "item 3, 03, Name".
+                printed "3" would make it "item 3, 3, Name".
               */}
               <span class="rank" aria-hidden="true">
-                {String(index + 1).padStart(2, '0')}
+                {index + 1}
               </span>
 
-              <span class="body">
-                <span class="name">{ambassador.name}</span>
-                <span class="where">
-                  {home}
-                  {entry.cities.length > 1 && (
-                    <span class="also">
-                      {` · active in ${entry.cities.length} cities`}
-                    </span>
-                  )}
-                </span>
+              <span class="name">{ambassador.name}</span>
 
-                {/*
-                  An ambassador with nothing scored yet says so in words. A row
-                  of zeroes reads as a failure state; "no events on the record
-                  yet" reads as what it is.
-                */}
-                {entry.events.length === 0 ? (
-                  <span class="none">No events on the record yet</span>
-                ) : (
-                  <dl class="figures">
-                    <div>
-                      <dt>Events</dt>
-                      <dd>{String(entry.events.length).padStart(2, '0')}</dd>
-                    </div>
-                    <div>
-                      <dt>Upcoming</dt>
-                      <dd>{String(entry.upcoming.length).padStart(2, '0')}</dd>
-                    </div>
-                    <div>
-                      <dt>Past</dt>
-                      <dd>{String(entry.past.length).padStart(2, '0')}</dd>
-                    </div>
-                  </dl>
-                )}
+              <span class="where">
+                {home}
+                {entry.cities.length > 1 && ` · active in ${entry.cities.length} cities`}
+              </span>
+
+              <span class="events">
+                {entry.events.length === 0 ? 'No events yet' : plural(entry.events.length, 'event')}
               </span>
 
               <span class="score">
-                <span class="score-value">{entry.score.toFixed(2)}</span>
-                <span class="score-label">score</span>
+                <span class="score-value">{entry.score.toFixed(2)}</span> score
               </span>
             </a>
 
@@ -124,141 +90,91 @@ const shown = limit ? entries.slice(0, limit) : entries;
     }
   </ol>
 
-  {shown.length === 0 && <p class="prose empty">No ambassadors are on the record yet.</p>}
+  {shown.length === 0 && <p class="empty">No ambassadors yet.</p>}
 </div>
 
 <style>
+  /* 17px rows: rank, name, city, events, score. */
   .entries {
-    list-style: none;
     margin: 0;
     padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--rule);
   }
 
   .entries > li {
-    border-top: var(--border-hair) solid var(--rule);
+    border-bottom: 1px solid var(--rule);
   }
 
+  /* The list ends its section: the next section's hairline closes it, and the section's
+     padding is the gap, so the last row draws no rule and keeps no padding of its own. */
   .entries > li:last-child {
-    border-bottom: var(--border-hair) solid var(--rule);
+    border-bottom: 0;
+  }
+
+  .entries > li:last-child > .entry:last-child {
+    padding-bottom: 0;
+  }
+
+  .entries > li:last-child > .pending {
+    margin-bottom: 0;
   }
 
   .entry {
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: 2ch minmax(0, 1.4fr) minmax(0, 1.2fr) minmax(0, 0.8fr) auto;
     align-items: baseline;
-    gap: var(--s-4);
-    padding: var(--s-5) 0;
-    text-decoration: none;
-    color: var(--ink);
-    transition: background var(--dur-2) var(--ease-out);
-  }
-
-  .entry:hover,
-  .entry:focus-visible {
-    background: var(--paper-raised);
-  }
-
-  .rank {
-    font-family: var(--font-mono);
-    font-size: var(--t-meta);
+    gap: 6px var(--s-5);
+    padding-block: 18px;
     color: var(--ink-3);
+    font-size: var(--t-body);
+    text-decoration: none;
     font-variant-numeric: tabular-nums;
-  }
-
-  .body {
-    display: grid;
-    gap: var(--s-2);
-    min-width: 0;
   }
 
   .name {
+    color: var(--ink);
     font-family: var(--font-title);
-    font-size: var(--t-h3);
-    line-height: 1.1;
+    font-weight: 600;
   }
 
-  .where {
-    font-size: var(--t-small);
-    color: var(--ink-2);
-  }
-
-  .also {
-    color: var(--ink-3);
-  }
-
-  .none {
-    font-size: var(--t-small);
-    color: var(--ink-3);
-  }
-
-  .figures {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--s-5);
-    margin: var(--s-2) 0 0;
-  }
-
-  .figures div {
-    display: flex;
-    align-items: baseline;
-    gap: var(--s-2);
-  }
-
-  .figures dt {
-    font-size: var(--t-micro);
-    letter-spacing: var(--track-meta);
-    text-transform: uppercase;
-    color: var(--ink-3);
-  }
-
-  .figures dd {
-    margin: 0;
-    font-family: var(--font-mono);
-    font-size: var(--t-small);
-    font-variant-numeric: tabular-nums;
+  .entry:hover .name {
+    color: var(--clay-deep);
   }
 
   .score {
-    display: grid;
-    justify-items: end;
-    gap: 0.1rem;
-    text-align: right;
+    justify-self: end;
   }
 
   .score-value {
-    font-family: var(--font-mono);
-    font-size: var(--t-h3);
-    font-variant-numeric: tabular-nums;
     color: var(--clay-deep);
-    line-height: 1;
-  }
-
-  .score-label {
-    font-size: var(--t-micro);
-    letter-spacing: var(--track-meta);
-    text-transform: uppercase;
-    color: var(--ink-3);
+    font-family: var(--font-title);
+    font-weight: 600;
   }
 
   .pending {
-    margin: 0 0 var(--s-4);
-    font-size: var(--t-micro);
+    margin: -6px 0 14px calc(2ch + var(--s-5));
     color: var(--ink-3);
+    font-size: var(--t-small);
   }
 
   .empty {
-    margin-top: var(--s-5);
+    color: var(--ink-3);
   }
 
-  @media (max-width: 34rem) {
+  @media (max-width: 699px) {
     .entry {
-      grid-template-columns: auto 1fr;
+      grid-template-columns: 2ch minmax(0, 1fr) auto;
+    }
+
+    .where,
+    .events {
+      grid-column: 2 / -1;
     }
 
     .score {
-      grid-column: 2;
-      justify-items: start;
-      text-align: left;
+      grid-column: 3;
+      grid-row: 1;
     }
   }
 </style>

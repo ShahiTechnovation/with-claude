@@ -74,9 +74,15 @@ export function stripCityPrefix(title: string, cityName: string | undefined): st
   return sameCity ? match[2].trim() : title;
 }
 
+/**
+ * A spaced dash keeps to the word before it ("Build Day\u00a0- Fable 5.1"), so a
+ * wrapped heading never starts a line with "- Fable 5.1".
+ */
+export const keepDash = (title: string): string => title.replace(/ ([-–—]) /g, '\u00a0$1 ');
+
 /** The event as the public record shows it. The same object when it is already clean. */
 export function displayEvent(event: CommunityEvent, cityName: string | undefined): CommunityEvent {
-  const title = stripCityPrefix(event.title, cityName);
+  const title = keepDash(stripCityPrefix(event.title, cityName));
   const placeholder = isVenuePlaceholder(event.venue.name);
   if (title === event.title && !placeholder) return event;
 
@@ -86,6 +92,22 @@ export function displayEvent(event: CommunityEvent, cityName: string | undefined
     // A private venue is named by its city, as the curated record names one.
     // The pages print "Shared with confirmed registrants" beneath it, so a
     // name that said the same would say it twice.
-    venue: placeholder ? { ...event.venue, name: cityName ?? PRIVATE_VENUE_NAME, private: true } : event.venue,
+    venue: placeholder
+      ? { ...event.venue, name: cityName ?? PRIVATE_VENUE_NAME, private: true }
+      : event.venue,
   };
+}
+
+/**
+ * Feed titles arrive as "Bhopal | Claude Code Build Day - Fable 5.1"; the city
+ * renders separately. Cleaned by the archive's own rule, so a filter option
+ * and the event page it leads to carry the same name.
+ */
+export function eventLabel(
+  title: string,
+  shortTitle: string | null,
+  cityName: string | null,
+): string {
+  if (shortTitle?.trim()) return keepDash(shortTitle.trim());
+  return keepDash(stripCityPrefix(title, cityName ?? undefined));
 }

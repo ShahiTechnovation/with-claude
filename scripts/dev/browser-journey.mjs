@@ -25,7 +25,7 @@ await mkdir(OUT, { recursive: true });
 
 const run = Date.now().toString(36);
 const token = execFileSync('node', ['scripts/dev/test-auth.mjs', 'token', `did:privy:browser-${run}`], { encoding: 'utf8' });
-const browser = await chromium.launch(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {});
+const browser = await chromium.launch(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : { channel: 'chrome' });
 const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
 await context.addCookies([{ name: 'privy-token', value: token, domain: new URL(BASE).hostname, path: '/' }]);
 const page = await context.newPage();
@@ -105,7 +105,12 @@ check('public project page exists', detail?.status() === 200, `${link} ${detail?
 const html = await page.content();
 check('project page credits the builder', html.includes('Browser Builder'));
 check('project page shows tags', html.includes('Playwright'));
-check('project page shows the placeholder cover, labelled', html.includes('No screenshot yet'));
+check(
+  'project page shows its tile and no cover art',
+  (await page.locator('.pd-head .pd-icon').count()) === 1 &&
+    (await page.locator('.pd-head img').count()) === 0,
+);
+check('project page shows the tagline', html.includes('Made in a real browser session.'));
 await page.screenshot({ path: `${OUT}/project-public.png`, fullPage: true });
 
 check('no uncaught page errors', errors.length === 0, errors.join(' | ').slice(0, 300));

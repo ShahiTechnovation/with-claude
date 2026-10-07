@@ -1,6 +1,7 @@
 ---
 import { guardPage, privateHeaders } from '@/server/http/page-guard';
 import AuthRequired from '@/components/AuthRequired.astro';
+import AccountNavTabs from '@/components/AccountNavTabs.astro';
 import Base from '@/layouts/Base.astro';
 
 export const prerender = false;
@@ -9,37 +10,45 @@ const guard = await guardPage(Astro);
 if (guard.ok) privateHeaders(Astro);
 ---
 
-{!guard.ok ? (
-  <Base title="Sign in" description="Sign in to continue" noindex>
-    <AuthRequired reason={guard.reason} />
-  </Base>
-) : (
-  <Base title="Settings" description="Manage your settings." active="/me" noindex>
-    <div class="account-page">
-      <h1>Settings</h1>
+{
+  !guard.ok ? (
+    <Base title="Sign in" description="Sign in to continue" noindex>
+      <AuthRequired reason={guard.reason} />
+    </Base>
+  ) : (
+    <Base title="Settings" description="Manage your settings." active="/me" noindex>
+      <div class="account-shell account-shell--narrow account-page">
+        <AccountNavTabs current="/me/settings/" />
+        <header class="account-head">
+          <h1>Settings</h1>
+        </header>
 
-      <section class="account-section">
-        <h2>Account</h2>
-        <p class="summary">@{guard.profile.username}</p>
-      </section>
+        <section class="account-section">
+          <h2>Account</h2>
+          <p class="summary">@{guard.profile.username}</p>
+        </section>
 
-      <section class="account-section">
-        <h2>Profile</h2>
-        <p class="summary">Visibility: <strong>{guard.profile.visibility}</strong></p>
-        <div class="actions">
-          <a href="/me/profile/edit/" class="btn-secondary">Edit profile</a>
-        </div>
-      </section>
+        <section class="account-section">
+          <h2>Profile</h2>
+          <p class="summary">
+            Visibility: <strong>{guard.profile.visibility}</strong>
+          </p>
+          <div class="actions">
+            <a href="/me/profile/edit/" class="btn-secondary">
+              Edit profile
+            </a>
+          </div>
+        </section>
 
-      <section class="account-section">
-        <h2>Authentication</h2>
-        <p class="summary">Connected sign-in methods are managed securely by Privy.</p>
-      </section>
+        <section class="account-section">
+          <h2>Authentication</h2>
+          <p class="summary">Connected sign-in methods are managed securely by Privy.</p>
+        </section>
 
-      <section class="account-section danger-zone">
-        <h2>Sign out</h2>
-        <div class="actions">
-          {/*
+        <section class="account-section danger-zone">
+          <h2>Sign out</h2>
+          <div class="actions">
+            {/*
             Portaled by `PrivyRoot`'s `SignOutSlot`, the same way the
             masthead's account control and the sign-in CTA are placed on
             other pages — one `PrivyProvider`, several visual slots. This
@@ -47,70 +56,60 @@ if (guard.ok) privateHeaders(Astro);
             island with no provider ancestor, so `logout()` there threw
             every time and the button did nothing. See `PrivyRoot.tsx`.
           */}
-          <div id="signout-slot-root" />
-        </div>
-      </section>
-    </div>
-  </Base>
-)}
+            <div id="signout-slot-root" />
+          </div>
+        </section>
+      </div>
+    </Base>
+  )
+}
 
 <style>
-  .account-page {
-    width: min(100% - 2rem, 42rem);
-    margin: 4rem auto;
-    font-family: var(--font-sans);
-  }
-  .account-page h1 {
-    font-family: var(--font-display);
-    font-size: 2.5rem;
-    font-weight: 300;
-    margin-bottom: 3rem;
-  }
   .account-section {
-    margin-bottom: 3rem;
-    padding-bottom: 3rem;
-    border-bottom: 1px solid var(--rule);
+    margin-bottom: var(--s-7);
+    padding-bottom: var(--s-7);
+    border-bottom: var(--border-hair) solid var(--rule);
   }
   .account-section:last-child {
     border-bottom: none;
   }
   .account-section h2 {
-    font-size: 0.9rem;
-    font-family: var(--font-mono);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--ink-2);
-    margin-bottom: 1rem;
+    font-family: var(--font-title);
+    font-size: var(--t-title);
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: var(--s-3);
   }
   .summary {
-    font-size: 1.1rem;
-    margin-bottom: 1.5rem;
+    font-size: var(--t-body);
+    color: var(--ink-2);
+    margin-bottom: var(--s-5);
   }
   .actions {
     display: flex;
-    gap: 1rem;
+    gap: var(--s-3);
   }
   .danger-zone h2 {
-    color: var(--clay, #b45309);
+    color: var(--clay-deep);
   }
+  /* Also styles the Sign out button PrivyRoot portals into #signout-slot-root. Matches `.button` in forms.css. */
   .account-page :global(.btn-secondary) {
     display: inline-flex;
     align-items: center;
-    padding: 0.5rem 1rem;
-    font-family: var(--font-mono);
-    font-size: 0.8rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    min-height: 2.75rem;
+    padding: 0.6rem 1.15rem;
+    font-family: var(--font-title);
+    font-size: var(--t-ui);
+    font-weight: 600;
     text-decoration: none;
     color: var(--ink);
-    border: 1px solid var(--rule);
-    border-radius: 2px;
-    background: transparent;
+    border: var(--border-hair) solid var(--ink);
+    border-radius: var(--radius-xs);
+    background: var(--paper);
     cursor: pointer;
-    transition: all var(--dur-1) var(--ease-out);
+    transition: background var(--dur-1) var(--ease-out);
   }
   .account-page :global(.btn-secondary:hover) {
-    border-color: var(--ink);
-    background: var(--shade-1);
+    background: var(--paper-sunk);
   }
 </style>

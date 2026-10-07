@@ -1,32 +1,47 @@
 ---
 /**
- * THE PROJECT DIRECTORY — /projects/
+ * MADE WITH CLAUDE — /projects/
  *
- * A dense, filterable list of every public project, laid out like a company
- * directory: a filter sidebar, a search field over the results, a count and a
- * sort, then compact rows. Every row says which event the project was built
- * at, with the date that event was actually held.
+ * Every public project. The default view (no filter, no search, page 1, the
+ * default sort) is one group per event, newest first: the event's plate and
+ * name, six cards, the rest behind "Show N more". Anything else is the
+ * filtered view: one line saying how many match, the active filters as
+ * removable pills, and a flat grid of the page's cards with a pager.
  *
- * The URL is the state: `?q=…&event=a&event=b&category=…&city=…&status=…&
- * has=repo&sort=name&page=2`. Everything is a plain GET form or link, so it
- * works without JavaScript and every view can be shared, refreshed and
- * navigated with back/forward. `src/scripts/directory.ts` only makes it
- * faster: it fetches the same URL, swaps the results in place, keeps focus,
- * and ignores stale responses.
+ * The URL is the state: `?q=…&event=…&category=…` from the toolbar, and the
+ * older `city`, `status`, `has`, `sort` and `page` parameters, which still
+ * work (`normaliseDirectoryQuery`) and show as pills. The toolbar is a plain
+ * GET form, so it works without JavaScript (Apply). `src/scripts/directory.ts`
+ * only makes it faster: it fetches the same URL, swaps the results in place,
+ * keeps focus, and ignores stale responses.
  *
- * Counts, facets and rows all come from `listPublicProjects()`, which uses
- * the one public predicate — a hidden or draft project can never be counted.
+ * Counts, pills and the lead come from `listPublicProjects()`, which uses the
+ * one public predicate, so a hidden or draft project can never be counted.
  */
 export const prerender = false;
 
 import Base from '@/layouts/Base.astro';
-import ProjectRow from '@/components/directory/ProjectRow.astro';
+import PageIntro from '@/components/PageIntro.astro';
+import ProjectGrid from '@/components/ProjectGrid.astro';
+import ProjectGroup from '@/components/ProjectGroup.astro';
 import Icon from '@/components/directory/Icon.astro';
 import { itemListSchema, titles, trail } from '@/lib/seo';
-import { formatDateCompact } from '@/lib/datetime';
-import { categoryLabel } from '@/lib/project-display';
-import { directoryHref, INDEPENDENT, type DirectoryQuery, type Facet } from '@/server/public/projects';
-import { projectArchive, type ProjectListResult } from '@/server/public/pages';
+import { formatDateLong, formatMonthYear } from '@/lib/datetime';
+import { eventPlate } from '@/lib/event-plate';
+import {
+  buildStatusLabel,
+  cardProps,
+  categoryLabel,
+  type BuildStatusValue,
+} from '@/lib/project-display';
+import { listJoin, plural } from '@/lib/words';
+import {
+  directoryHref,
+  INDEPENDENT,
+  type DirectoryQuery,
+  type PublicEventRef,
+} from '@/server/public/projects';
+import { projectArchive, projectGroups, type ProjectListResult } from '@/server/public/pages';
 import { privateCache, publicCache } from '@/server/http/cache';
 import { logReadFailure, type ReadFailure } from '@/server/public/read-failure';
 import '@/styles/directory.css';
@@ -37,33 +52,73 @@ import '@/styles/directory.css';
  */
 let failure: ReadFailure | null = null;
 let result: ProjectListResult;
+let groups: Awaited<ReturnType<typeof projectGroups>> = [];
+const empty: ProjectListResult = {
+  items: [],
+  total: 0,
+  totalPublic: 0,
+  atEvents: 0,
+  page: 1,
+  pageCount: 1,
+  pageSize: 60,
+  query: { events: [], categories: [], cities: [], statuses: [], has: [], sort: 'event', page: 1 },
+  facets: { events: [], categories: [], cities: [], statuses: [], has: [] },
+  featuredAvailable: false,
+};
 try {
   result = await projectArchive(Astro.url.searchParams);
+  const { query } = result;
+  const unfiltered =
+    !query.q &&
+    query.events.length +
+      query.categories.length +
+      query.cities.length +
+      query.statuses.length +
+      query.has.length ===
+      0;
+  if (unfiltered && query.page === 1 && query.sort === 'event' && result.totalPublic > 0)
+    groups = await projectGroups();
   publicCache(Astro);
 } catch (error) {
   failure = logReadFailure('projects', error);
   Astro.response.status = 503;
   Astro.response.headers.set('Retry-After', '30');
   privateCache(Astro);
-  result = {
-    items: [],
-    total: 0,
-    totalPublic: 0,
-    page: 1,
-    pageCount: 1,
-    pageSize: 60,
-    query: { events: [], categories: [], cities: [], statuses: [], has: [], sort: 'event', page: 1 },
-    facets: { events: [], categories: [], cities: [], statuses: [], has: [] },
-    featuredAvailable: false,
-  };
+  result = empty;
+  groups = [];
 }
 const devHint = import.meta.env.DEV && failure === 'schema-behind';
 
-const { items, total, totalPublic, page, pageCount, pageSize, query, facets, featuredAvailable } = result;
-const filterCount = query.events.length + query.categories.length + query.cities.length + query.statuses.length + query.has.length;
+const { items, total, totalPublic, atEvents, page, pageCount, query, facets } = result;
+const filterCount =
+  query.events.length +
+  query.categories.length +
+  query.cities.length +
+  query.statuses.length +
+  query.has.length;
 const filtered = Boolean(query.q) || filterCount > 0;
+const grouped = groups.length > 0;
 const nothingPublished = totalPublic === 0;
-const eventsRepresented = facets.events.filter((e) => e.value !== INDEPENDENT).length;
+
+// The lead: "122 projects built at 3 events in Bhopal." Projects with a public event only,
+// counted the same way as the homepage, so the sentence stays true on both.
+const eventCount = facets.events.filter((e) => e.value !== INDEPENDENT).length;
+const cityNames = facets.cities.map((c) => c.label);
+const lead =
+  eventCount > 0
+    ? `${plural(atEvents, 'project')} built at ${plural(eventCount, 'event')}${cityNames.length ? ` in ${listJoin(cityNames)}` : ''}.`
+    : `${plural(totalPublic, 'project')}.`;
+
+// Two events with the same label (two "Claude Code Impact Lab"s) get the month.
+const labelOf = new Map(
+  facets.events.map((f) => {
+    const twin = facets.events.some((o) => o !== f && o.label === f.label);
+    return [f.value, twin && f.date ? `${f.label}, ${formatMonthYear(f.date)}` : f.label];
+  }),
+);
+const eventName = (slug: string) => labelOf.get(slug) ?? slug;
+const allCount = facets.events.reduce((n, f) => n + f.count, 0);
+const oneEvent = query.events.length === 1 ? query.events[0]! : undefined;
 
 const without = (group: keyof DirectoryQuery, value?: string): string =>
   directoryHref({
@@ -71,64 +126,67 @@ const without = (group: keyof DirectoryQuery, value?: string): string =>
     page: 1,
     ...(group === 'q'
       ? { q: undefined }
-      : { [group]: value === undefined ? [] : (query[group] as string[]).filter((v) => v !== value) }),
+      : {
+          [group]: value === undefined ? [] : (query[group] as string[]).filter((v) => v !== value),
+        }),
   });
 const pageHref = (n: number) => directoryHref({ ...query, page: n });
-
-const first = total === 0 ? 0 : (page - 1) * pageSize + 1;
-const last = Math.min(page * pageSize, total);
 const pageNumbers = [...new Set([1, page - 1, page, page + 1, pageCount])]
   .filter((n) => n >= 1 && n <= pageCount)
   .sort((a, b) => a - b);
 
-const eventFacetLabel = (f: Facet) => (f.date ? `${f.label} · ${formatDateCompact(f.date)}` : f.label);
 const labelFor: Record<string, (v: string) => string> = {
-  events: (v) => {
-    const f = facets.events.find((e) => e.value === v);
-    return f ? eventFacetLabel(f) : v;
-  },
+  events: eventName,
   categories: (v) => categoryLabel(v),
   cities: (v) => facets.cities.find((c) => c.value === v)?.label ?? v,
-  statuses: (v) => facets.statuses.find((s) => s.value === v)?.label ?? v,
+  statuses: (v) =>
+    facets.statuses.find((s) => s.value === v)?.label ??
+    buildStatusLabel(v as BuildStatusValue) ??
+    v,
   has: (v) => facets.has.find((h) => h.value === v)?.label ?? v,
 };
 const activeChips = [
-  ...(query.q ? [{ label: `“${query.q}”`, href: without('q'), group: 'Search' }] : []),
+  ...(query.q ? [{ label: `“${query.q}”`, href: without('q') }] : []),
   ...(['events', 'categories', 'cities', 'statuses', 'has'] as const).flatMap((group) =>
-    (query[group] as string[]).map((v) => ({ label: labelFor[group](v), href: without(group, v), group })),
+    (query[group] as string[]).map((v) => ({
+      label: labelFor[group]!(v),
+      href: without(group, v),
+    })),
   ),
 ];
 
-type GroupSpec = {
-  key: 'events' | 'categories' | 'cities' | 'statuses' | 'has';
-  param: string;
-  legend: string;
-  note?: string;
-  options: Facet[];
-  label: (f: Facet) => string;
-  showAll?: boolean;
-};
-const allGroups: GroupSpec[] = [
-  { key: 'events', param: 'event', legend: 'Built at event', options: facets.events, label: eventFacetLabel, showAll: true },
-  { key: 'categories', param: 'category', legend: 'Category', options: facets.categories, label: (f) => categoryLabel(f.value) },
-  { key: 'cities', param: 'city', legend: 'Event city', note: 'Where it was built', options: facets.cities, label: (f) => f.label },
-  { key: 'statuses', param: 'status', legend: 'Build status', note: 'Self-reported', options: facets.statuses, label: (f) => f.label },
-  { key: 'has', param: 'has', legend: 'Available links', options: facets.has, label: (f) => f.label },
-];
-const groups = allGroups.filter((g) => g.options.length > 0);
-const VISIBLE = 6;
-
-const sortOptions = [
-  { value: 'event', label: 'Newest event first' },
-  { value: 'recent', label: 'Recently added' },
-  { value: 'name', label: 'Name A–Z' },
-  ...(featuredAvailable ? [{ value: 'featured', label: 'Featured' }] : []),
+/**
+ * Filters the toolbar has no control for (city, status, links, sort) ride along
+ * as hidden fields, so changing the event or type keeps them. They sit in the
+ * swapped region, so removing a pill removes its field too.
+ * ponytail: an old link with several events shows them as pills, but the radios hold one; the
+ * next toolbar change keeps only the chosen event.
+ */
+const carried: [string, string][] = [
+  ...query.cities.map((v): [string, string] => ['city', v]),
+  ...query.statuses.map((v): [string, string] => ['status', v]),
+  ...query.has.map((v): [string, string] => ['has', v]),
+  ...(query.sort !== 'event' ? [['sort', query.sort] as [string, string]] : []),
 ];
 
-const schema = items.length
-  ? [itemListSchema(items.map((p) => ({ name: p.title, href: `/projects/${p.slug}/` })), 'WITH CLAUDE Project Directory')]
+const groupMeta = (event: PublicEventRef, n?: number) =>
+  [formatDateLong(event.date), event.city?.name, n === undefined ? undefined : plural(n, 'project')]
+    .filter(Boolean)
+    .join(' · ');
+const oneEventRef = oneEvent ? items.find((p) => p.event?.slug === oneEvent)?.event : undefined;
+
+// The ItemList describes what is on screen: every group in the grouped view, else the page.
+const listed = grouped ? groups.flatMap((g) => g.items) : items;
+const schema = listed.length
+  ? [
+      itemListSchema(
+        listed.map((p) => ({ name: p.title, href: `/projects/${p.slug}/` })),
+        'WITH CLAUDE Project Directory',
+      ),
+    ]
   : [];
-const description = 'Explore projects built at WITH CLAUDE events and by our builder community — filter by the event, category, city and status.';
+const description =
+  'Explore projects built at WITH CLAUDE events and by our builder community — filter by the event, category, city and status.';
 ---
 
 <Base
@@ -140,233 +198,222 @@ const description = 'Explore projects built at WITH CLAUDE events and by our bui
   schema={schema}
   noindex={filtered || page > 1}
 >
-  <div class="dir" data-directory>
-    <header class="dir-head">
-      <div>
-        <h1 class="dir-title">Project Directory</h1>
-        <p class="dir-lede">Explore projects built at WITH CLAUDE events and by our builder community.</p>
-        {
-          !nothingPublished && !failure && (
-            <p class="dir-stats" data-dir-stats>
-              {totalPublic} {totalPublic === 1 ? 'project' : 'projects'}
-              {eventsRepresented > 0 && ` from ${eventsRepresented} ${eventsRepresented === 1 ? 'event' : 'events'}`}
-            </p>
-          )
-        }
-      </div>
-      <a class="dir-cta" href="/me/projects/new/">Submit a project <span aria-hidden="true">→</span></a>
-    </header>
+  <PageIntro title="Made with Claude." size="lg">{!failure && !nothingPublished && lead}</PageIntro>
 
+  <div class="dir-page" data-directory>
     {
       failure ? (
-        <div class="dir-panel dir-empty" role="alert">
-          <h2>The directory could not be loaded</h2>
-          <p>Something went wrong on our side while reading the projects. Please try again in a moment.</p>
+        <div class="container dir-empty" role="alert">
+          <h2 class="t-h3">The directory could not be loaded</h2>
+          <p>
+            Something went wrong on our side while reading the projects. Please try again in a
+            moment.
+          </p>
           {devHint && (
             <p>
-              <strong>Development:</strong> the database behind <code>DATABASE_URL</code> is missing migrations this
-              code needs. Run <code>npm run db:migrate</code> against it, or point the dev server at a migrated
-              database.
+              <strong>Development:</strong> the database behind <code>DATABASE_URL</code> is missing
+              migrations this code needs. Run <code>npm run db:migrate</code> against it, or point
+              the dev server at a migrated database.
             </p>
           )}
-          <a class="dir-button" href={Astro.url.pathname + Astro.url.search}>Try again</a>
+          <a class="btn" href={Astro.url.pathname + Astro.url.search}>
+            Try again
+          </a>
         </div>
       ) : nothingPublished ? (
-        <div class="dir-panel dir-empty">
-          <h2>No projects are published yet</h2>
-          <p>The directory fills as builders publish their work and organisers add the projects from past events.</p>
-          <a class="dir-button dir-button--solid" href="/me/projects/new/">Submit a project</a>
+        <div class="container dir-empty">
+          <h2 class="t-h3">No projects are published yet</h2>
+          <a class="btn btn-primary" href="/me/projects/new/">
+            Submit a project
+          </a>
         </div>
       ) : (
-        <div class="dir-grid">
-          <aside class="dir-filters dir-panel" id="dir-filters" aria-labelledby="dir-filters-title" data-dir-filters>
-            <div class="dir-drawer-head">
-              <h2 id="dir-filters-title">Filters</h2>
-              <button type="button" class="dir-button" data-close-filters>
-                <Icon name="close" />
-                <span class="visually-hidden">Close filters</span>
-              </button>
-            </div>
-            <form class="dir-filters-scroll" id="dir-form" method="get" action="/projects/" role="search" aria-label="Filter projects">
-              <h2 class="visually-hidden">Filter projects</h2>
-              {groups.map((g) => {
-                const selected = query[g.key] as string[];
-                const visible = g.options.slice(0, VISIBLE);
-                const rest = g.options.slice(VISIBLE);
-                const option = (f: Facet) => (
-                  <li>
-                    <label class="fopt" data-empty={f.count === 0 && !selected.includes(f.value) ? '' : undefined}>
-                      <input
-                        type="checkbox"
-                        name={g.param}
-                        value={f.value}
-                        checked={selected.includes(f.value)}
-                        data-facet={`${g.key}:${f.value}`}
-                      />
-                      <span>{g.label(f)}</span>
-                      <span class="fopt-count" data-count={`${g.key}:${f.value}`}>
-                        {f.count}
-                      </span>
-                    </label>
-                  </li>
-                );
-                return (
-                  <div class="fgroup">
-                    <fieldset>
-                      <legend class="fgroup-legend">
-                        <span>{g.legend}</span>
-                        {g.note && <span class="fgroup-note">{g.note}</span>}
-                      </legend>
-                      {g.showAll && (
-                        <a
-                          class="fall"
-                          href={directoryHref({ ...query, events: [], page: 1 })}
-                          aria-current={selected.length === 0 ? 'true' : undefined}
-                          data-all-events
-                        >
-                          <span>All events</span>
-                          <span class="fall-count" data-count="events:*">{facets.events.reduce((n, f) => n + f.count, 0)}</span>
-                        </a>
-                      )}
-                      <ul class="fopt-list">{visible.map(option)}</ul>
-                      {rest.length > 0 && (
-                        <details class="fmore" open={rest.some((f) => selected.includes(f.value)) || undefined}>
-                          <summary>
-                            <span class="fmore-closed">Show {rest.length} more</span>
-                            <span class="fmore-open">Show fewer</span>
-                          </summary>
-                          <ul class="fopt-list">{rest.map(option)}</ul>
-                        </details>
-                      )}
-                    </fieldset>
-                  </div>
-                );
-              })}
-              <noscript>
-                <p class="fgroup-note">Choose filters, then apply. Event attribution and build status come from the organisers’ records and the teams’ own entries.</p>
-              </noscript>
-            </form>
-            <div class="dir-filters-actions">
-              <a class="dir-button" href={directoryHref({ q: query.q, sort: query.sort })} data-clear-filters>Clear</a>
-              <button class="dir-button dir-button--solid" type="submit" form="dir-form" data-apply>Apply filters</button>
-            </div>
-          </aside>
-          <div class="dir-scrim" data-dir-scrim hidden></div>
-
-          <section class="dir-results" aria-labelledby="dir-results-title" data-dir-results>
-            <h2 id="dir-results-title" class="visually-hidden">Projects</h2>
-            <label class="dir-search">
-              <span class="visually-hidden">Search projects</span>
-              <Icon name="search" size={18} />
-              <input
-                type="search"
-                name="q"
-                form="dir-form"
-                value={query.q ?? ''}
-                maxlength="80"
-                placeholder="Search projects, teams, or what they do…"
-                autocomplete="off"
-                enterkeyhint="search"
-                data-dir-q
-              />
-            </label>
-
-            <div class="dir-toolbar">
-              <p class="dir-count" aria-live="polite" tabindex="-1" data-dir-count>
-                {total === 0 ? (
-                  'No projects match'
-                ) : pageCount > 1 ? (
-                  <>
-                    Showing <strong>{first}–{last}</strong> of <strong>{total}</strong> {total === 1 ? 'project' : 'projects'}
-                  </>
-                ) : (
-                  <>
-                    <strong>{total}</strong> {total === 1 ? 'project' : 'projects'}
-                  </>
-                )}
-              </p>
-              <div class="dir-tools">
-                <button
-                  type="button"
-                  class="dir-button dir-filter-toggle"
-                  aria-controls="dir-filters"
-                  aria-expanded="false"
-                  data-open-filters
-                >
-                  <Icon name="filter" />
-                  Filters{filterCount > 0 && ` (${filterCount})`}
-                </button>
-                <label class="dir-sort">
-                  <span>Sort</span>
-                  <select name="sort" form="dir-form" data-dir-sort>
-                    {sortOptions.map((o) => (
-                      <option value={o.value} selected={query.sort === o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
+        <>
+          <div class="dir-bar">
+            <form
+              class="container dir-tools"
+              id="dir-form"
+              method="get"
+              action="/projects/"
+              role="search"
+              aria-label="Filter projects"
+            >
+              <label class="dir-search">
+                <span class="visually-hidden">Search projects</span>
+                <Icon name="search" size={19} />
+                <input
+                  type="search"
+                  name="q"
+                  value={query.q ?? ''}
+                  maxlength="80"
+                  placeholder="Search projects"
+                  autocomplete="off"
+                  enterkeyhint="search"
+                  data-dir-q
+                />
+              </label>
+              <fieldset class="dir-events">
+                <legend class="visually-hidden">Built at</legend>
+                <label class="chip dir-pill">
+                  <input
+                    class="visually-hidden"
+                    type="radio"
+                    name="event"
+                    value=""
+                    checked={query.events.length === 0}
+                    data-facet="events:*"
+                  />
+                  All<span class="visually-hidden">,</span>{' '}
+                  <span class="dir-n" data-count="events:*" set:text={allCount || ''} />
                 </label>
-              </div>
-            </div>
+                {facets.events.map((f) => (
+                  <label class="chip dir-pill">
+                    <input
+                      class="visually-hidden"
+                      type="radio"
+                      name="event"
+                      value={f.value}
+                      checked={oneEvent === f.value}
+                      data-facet={`events:${f.value}`}
+                    />
+                    {eventName(f.value)}
+                    <span class="visually-hidden">,</span>{' '}
+                    <span class="dir-n" data-count={`events:${f.value}`} set:text={f.count || ''} />
+                  </label>
+                ))}
+              </fieldset>
+              <label class="dir-type">
+                <span class="visually-hidden">Type of project</span>
+                <select name="category" data-dir-category>
+                  <option value="">All types</option>
+                  {facets.categories.map((f) => (
+                    <option value={f.value} selected={query.categories[0] === f.value}>
+                      {f.count > 0
+                        ? `${categoryLabel(f.value)} (${f.count})`
+                        : categoryLabel(f.value)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button class="btn btn-sm no-js-only" type="submit">
+                Apply
+              </button>
+            </form>
+          </div>
 
+          <section
+            class="container dir-results"
+            aria-labelledby="dir-results-title"
+            data-dir-results
+          >
+            <h2 id="dir-results-title" class="visually-hidden">
+              Projects
+            </h2>
             {/* Persistent: announced on every update, and never under aria-busy. */}
-            <p class="dir-status" role="status" data-dir-status></p>
+            {/* Always has text, so focus after Clear all lands on something said aloud;
+                the grouped view hides it visually. */}
+            <p
+              class:list={[
+                'dir-count',
+                ((grouped && !filtered) || total === 0) && 'visually-hidden',
+              ]}
+              aria-live="polite"
+              tabindex="-1"
+              data-dir-count
+            >
+              {`${plural(total, 'project')} ${total === 1 ? 'matches' : 'match'}.`}
+            </p>
+            <p class="dir-status" role="status" data-dir-status />
 
             {/* Only this region is replaced when the results change. */}
             <div class="dir-swap" data-dir-swap>
-            {
-              activeChips.length > 0 && (
+              {carried.map(([name, value]) => (
+                <input type="hidden" form="dir-form" name={name} value={value} />
+              ))}
+              {activeChips.length > 0 && (
                 <ul class="dir-chips" aria-label="Active filters">
                   {activeChips.map((chip) => (
                     <li>
-                      <a class="dir-chip" href={chip.href}>
+                      <a class="chip dir-chip" href={chip.href}>
                         <span>{chip.label}</span>
-                        <Icon name="close" size={13} />
+                        <Icon name="close" size={15} />
                         <span class="visually-hidden">Remove filter</span>
                       </a>
                     </li>
                   ))}
                   <li>
-                    <a class="dir-clear" href="/projects/">
+                    <a class="link" href="/projects/">
                       Clear all
                     </a>
                   </li>
                 </ul>
-              )
-            }
+              )}
 
-            {
-              items.length === 0 ? (
-                <div class="dir-panel dir-empty">
-                  <h2>No projects match these filters</h2>
-                  <p>Try a broader search, or remove a filter.</p>
-                  <a class="dir-button" href="/projects/">Show all projects</a>
+              {grouped ? (
+                <div class="dir-groups">
+                  {groups.map((g) =>
+                    g.event ? (
+                      <ProjectGroup
+                        id={`g-${g.event.slug}`}
+                        title={eventName(g.event.slug)}
+                        meta={groupMeta(g.event, g.items.length)}
+                        href={`/events/${g.event.slug}/`}
+                        plate={eventPlate(g.event)}
+                        items={g.items.map((p) => cardProps(p))}
+                      />
+                    ) : (
+                      <ProjectGroup
+                        id="g-independent"
+                        title={eventName(INDEPENDENT)}
+                        meta={plural(g.items.length, 'project')}
+                        items={g.items.map((p) => cardProps(p))}
+                      />
+                    ),
+                  )}
                 </div>
+              ) : items.length === 0 ? (
+                <div class="dir-empty">
+                  <p class="t-h3">Nothing matches that yet.</p>
+                  <a class="btn" href="/projects/">
+                    Show all {totalPublic} projects
+                  </a>
+                </div>
+              ) : oneEvent ? (
+                <ProjectGroup
+                  id={`g-${oneEvent}`}
+                  title={eventName(oneEvent)}
+                  meta={oneEventRef ? groupMeta(oneEventRef) : undefined}
+                  href={oneEventRef ? `/events/${oneEvent}/` : undefined}
+                  plate={oneEventRef ? eventPlate(oneEventRef) : undefined}
+                  items={items.map((p) => cardProps(p))}
+                  visible={items.length}
+                />
               ) : (
-                <ol class="dir-list" start={first}>
-                  {items.map((project, i) => (
-                    <li>
-                      <ProjectRow project={project} eager={i < 4} />
-                    </li>
-                  ))}
-                </ol>
-              )
-            }
+                <>
+                  <h2 class="visually-hidden">Results</h2>
+                  <ProjectGrid items={items.map((p) => cardProps(p))} level="h3" />
+                </>
+              )}
 
-            {
-              pageCount > 1 && (
+              {!grouped && pageCount > 1 && (
                 <nav class="dir-pager" aria-label="Pages of projects">
                   {page > 1 ? (
                     <a href={pageHref(page - 1)} rel="prev">
                       ← Previous
                     </a>
                   ) : (
-                    <span class="is-off" aria-hidden="true">← Previous</span>
+                    <span class="is-off" aria-hidden="true">
+                      ← Previous
+                    </span>
                   )}
                   <ol>
                     {pageNumbers.map((n, i) => (
                       <>
-                        {i > 0 && n - pageNumbers[i - 1]! > 1 && <li aria-hidden="true"><span>…</span></li>}
+                        {i > 0 && n - pageNumbers[i - 1]! > 1 && (
+                          <li aria-hidden="true">
+                            <span>…</span>
+                          </li>
+                        )}
                         <li>
                           {n === page ? (
                             <span aria-current="page">
@@ -388,14 +435,34 @@ const description = 'Explore projects built at WITH CLAUDE events and by our bui
                       Next →
                     </a>
                   ) : (
-                    <span class="is-off" aria-hidden="true">Next →</span>
+                    <span class="is-off" aria-hidden="true">
+                      Next →
+                    </span>
                   )}
                 </nav>
-              )
-            }
+              )}
             </div>
+
+            <aside class="dir-submit" aria-labelledby="dir-submit-title">
+              <h2 id="dir-submit-title" class="dir-submit-title">
+                Built something with Claude?
+              </h2>
+              <a class="btn btn-primary" href="/me/projects/new/">
+                Add your build
+                <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+                  <path
+                    d="M4 10h11m-4.5-4.5L15 10l-4.5 4.5"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </a>
+            </aside>
           </section>
-        </div>
+        </>
       )
     }
   </div>

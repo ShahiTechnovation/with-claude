@@ -53,7 +53,12 @@ const initialData = project
       <AuthRequired reason={guard.reason} />
     </Base>
   ) : (
-    <Base title={project ? `Edit ${project.title}` : 'Project not found'} description="Edit your project." active="/me" noindex>
+    <Base
+      title={project ? `Edit ${project.title}` : 'Project not found'}
+      description="Edit your project."
+      active="/me"
+      noindex
+    >
       <div class="account-shell account-shell--narrow">
         <AccountNavTabs current="/me/projects/" />
         {project && initialData ? (
@@ -72,11 +77,13 @@ const initialData = project
           </>
         ) : (
           <div class="panel">
-            <h1 class="account-head">Project not found</h1>
-            <p>This project does not exist, or it is not one of yours.</p>
-            <p style="margin-top: var(--s-5)">
-              <a class="btn" href="/me/projects/">Back to your projects</a>
-            </p>
+            <header class="account-head">
+              <h1>Project not found</h1>
+              <p>This project does not exist, or it is not one of yours.</p>
+            </header>
+            <a class="button" href="/me/projects/">
+              Back to your projects
+            </a>
           </div>
         )}
       </div>

@@ -1,14 +1,10 @@
 /**
- * The plate.
+ * Coordinates for the site's map of India.
  *
- * The map on this site is not a traced outline of India — it is a coordinate
- * field. Cities are plotted from their real latitude and longitude onto a
- * graticule, the way a survey sheet does it. That is a deliberate choice:
- *
- *  1. It is honest. Every dot is where the city actually is.
- *  2. It sidesteps depicting national boundaries, which is a regulated matter
- *     in India and not something a community site should get wrong.
- *  3. It looks like a cartographic artifact rather than a Google Maps clone.
+ * The boundary decision (DataMeet's outline, which follows the Survey of India boundary)
+ * and its CC BY 2.5 IN credit are recorded in src/components/CityAtlas.astro and pinned by
+ * tests/india-map.test.ts. projectIndia() places a city on that map; project() is the
+ * older city-only frame, kept for the data checks.
  */
 
 /**
@@ -24,7 +20,7 @@ export const EXTENT = {
 } as const;
 
 /** The drawing frame every projected point lands in. */
-export const PLATE = { width: 720, height: 800, pad: 34 } as const;
+const PLATE = { width: 720, height: 800, pad: 34 } as const;
 
 /**
  * Longitude degrees shrink as you move away from the equator. Correcting by
@@ -46,7 +42,7 @@ const inner = {
   width: PLATE.width - PLATE.pad * 2,
   height: PLATE.height - PLATE.pad * 2,
 };
-export const SCALE = Math.min(inner.width / spanLon, inner.height / spanLat);
+const SCALE = Math.min(inner.width / spanLon, inner.height / spanLat);
 const OFFSET_X = PLATE.pad + (inner.width - spanLon * SCALE) / 2;
 const OFFSET_Y = PLATE.pad + (inner.height - spanLat * SCALE) / 2;
 
@@ -58,24 +54,6 @@ export function project(lat: number, lon: number): Point {
   };
 }
 
-/** Graticule positions at whole-degree intervals, for the grid and its ticks. */
-export function graticule(stepDeg = 5) {
-  const meridians: { lon: number; x: number }[] = [];
-  const parallels: { lat: number; y: number }[] = [];
-
-  const firstLon = Math.ceil(EXTENT.minLon / stepDeg) * stepDeg;
-  for (let lon = firstLon; lon <= EXTENT.maxLon; lon += stepDeg) {
-    meridians.push({ lon, x: project(0, lon).x });
-  }
-
-  const firstLat = Math.ceil(EXTENT.minLat / stepDeg) * stepDeg;
-  for (let lat = firstLat; lat <= EXTENT.maxLat; lat += stepDeg) {
-    parallels.push({ lat, y: project(lat, 0).y });
-  }
-
-  return { meridians, parallels };
-}
-
 /** `23.26° N, 77.41° E` — the coordinate stamp used all over the site. */
 export function formatCoords(lat: number, lon: number, precision = 2): string {
   const ns = lat >= 0 ? 'N' : 'S';
@@ -83,26 +61,7 @@ export function formatCoords(lat: number, lon: number, precision = 2): string {
   return `${Math.abs(lat).toFixed(precision)}° ${ns}, ${Math.abs(lon).toFixed(precision)}° ${ew}`;
 }
 
-/**
- * A gently bowed connector between two plotted points. A straight line reads as
- * a network diagram; an arc reads as a drawn thread, which is the brand device.
- */
-export function threadPath(from: Point, to: Point, bow = 0.16): string {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  const mx = from.x + dx / 2;
-  const my = from.y + dy / 2;
-  // Push the control point perpendicular to the run.
-  const cx = mx - dy * bow;
-  const cy = my + dx * bow;
-  return `M${from.x.toFixed(1)} ${from.y.toFixed(1)} Q${cx.toFixed(1)} ${cy.toFixed(1)} ${to.x.toFixed(1)} ${to.y.toFixed(1)}`;
-}
-
-/**
- * Great-circle distance in kilometres. Used to tell each open city how far it
- * is from the first chapter — a real number that varies, in place of thirteen
- * identical "no chapter yet" labels.
- */
+/** Great-circle distance in kilometres. */
 export function distanceKm(
   from: { lat: number; lon: number },
   to: { lat: number; lon: number },
@@ -117,28 +76,28 @@ export function distanceKm(
   return Math.round(2 * R * Math.asin(Math.sqrt(a)));
 }
 
-/**
- * A scale bar for the plate, in real kilometres.
- *
- * One degree of latitude is 110.574 km everywhere, so the vertical scale is
- * exact — which is why the bar is measured against latitude rather than the
- * cosine-corrected longitude axis.
+/*
+ * The India map's frame (src/data/india-map.ts, built by scripts/map/build.sh): Lambert
+ * conformal conic on WGS84, standard parallels 12N and 28N, origin 22N 80E (Snyder 1987,
+ * eq. 15-1 to 15-10), then x = (E + 1268500) / 2925, y = (1754300 - N) / 2925.
  */
-const KM_PER_DEG_LAT = 110.574;
+const WGS84_A = 6378137;
+const WGS84_E = Math.sqrt((1 / 298.257223563) * (2 - 1 / 298.257223563));
+const RAD = Math.PI / 180;
+const lccM = (p: number) => Math.cos(p) / Math.sqrt(1 - (WGS84_E * Math.sin(p)) ** 2);
+const lccT = (p: number) =>
+  Math.tan(Math.PI / 4 - p / 2) /
+  ((1 - WGS84_E * Math.sin(p)) / (1 + WGS84_E * Math.sin(p))) ** (WGS84_E / 2);
+const LCC_N = Math.log(lccM(12 * RAD) / lccM(28 * RAD)) / Math.log(lccT(12 * RAD) / lccT(28 * RAD));
+const LCC_F = lccM(12 * RAD) / (LCC_N * lccT(12 * RAD) ** LCC_N);
+const lccRho = (p: number) => WGS84_A * LCC_F * lccT(p) ** LCC_N;
+const LCC_RHO0 = lccRho(22 * RAD);
 
-export function scaleBar(targetKm = 500): { km: number; width: number } {
-  const unitsPerKm = SCALE / KM_PER_DEG_LAT;
-  // Snap to a round number a reader can actually use.
-  const steps = [100, 200, 250, 500, 1000];
-  const km = steps.reduce((best, step) =>
-    Math.abs(step - targetKm) < Math.abs(best - targetKm) ? step : best,
-  );
-  return { km, width: km * unitsPerKm };
+/** Place a latitude and longitude in INDIA_MAP's viewBox (0 0 1040 1176). */
+export function projectIndia(lat: number, lon: number): Point {
+  const r = lccRho(lat * RAD);
+  const th = LCC_N * (lon * RAD - 80 * RAD);
+  const E = r * Math.sin(th);
+  const N = LCC_RHO0 - r * Math.cos(th);
+  return { x: (E + 1268500) / 2925, y: (1754300 - N) / 2925 };
 }
-
-/**
- * The compass rose sits at true north because the projection has no rotation:
- * meridians are vertical by construction. Exported as a constant so the map
- * cannot drift from the claim its furniture makes.
- */
-export const NORTH_IS_UP = true;

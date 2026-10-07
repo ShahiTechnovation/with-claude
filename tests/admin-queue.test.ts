@@ -359,6 +359,23 @@ describe('the submission detail', () => {
     // The history of one submission never mentions another's private data.
     expect(JSON.stringify(history)).not.toMatch(/asha@example\.com/);
   });
+
+  it('keeps newest first when two entries share a timestamp', async () => {
+    const id = await seed({ status: 'pending' });
+    const at = new Date();
+    for (const toStatus of ['in_review', 'rejected']) {
+      await db.insert(schema.auditLog).values({
+        action: 'submission.test',
+        entityType: 'submission',
+        entityId: id,
+        toStatus,
+        createdAt: at,
+      });
+    }
+
+    const history = await historyOf(db, id);
+    expect(history.map((h) => h.toStatus)).toEqual(['rejected', 'in_review']);
+  });
 });
 
 describe('the payload reads in the order it was filled in', () => {

@@ -31,6 +31,7 @@
 
 import type { CitySignal, RecordSelectors } from '@/data/selectors';
 import { formatName, lifecycleOf } from '@/lib/status';
+import { ownSummary } from '@/lib/project-display';
 import { SEARCH_KINDS, parseQuery, runSearch } from '@/lib/search-core';
 import type { SearchRecord, SearchResult, SearchVocabulary } from '@/lib/search-core';
 
@@ -62,8 +63,9 @@ function personRecords(selectors: RecordSelectors): SearchRecord[] {
       kind: 'person' as const,
       title: builder.name,
       subtitle: [selectors.cityName(builder.citySlug), builder.role].filter(Boolean).join(' · '),
-      summary: builder.building ?? builder.bio ?? builder.role,
-      href: `/builders/${builder.slug}`,
+      // Not the role: the meta line beside the summary already prints it.
+      summary: builder.building || builder.bio || '',
+      href: `/builders/${builder.slug}/`,
       facets: {
         city: builder.citySlug,
         category: roles[0],
@@ -116,9 +118,12 @@ function ambassadorRecords(selectors: RecordSelectors): SearchRecord[] {
       id: `ambassador:${ambassador.slug}`,
       kind: 'person' as const,
       title: ambassador.name,
-      subtitle: [selectors.cityName(ambassador.citySlug), ambassador.title].filter(Boolean).join(' · '),
-      summary: ambassador.bio ?? `${ambassador.title} in ${selectors.cityName(ambassador.citySlug)}.`,
-      href: `/ambassadors/${ambassador.slug}`,
+      subtitle: [selectors.cityName(ambassador.citySlug), ambassador.title]
+        .filter(Boolean)
+        .join(' · '),
+      summary:
+        ambassador.bio ?? `${ambassador.title} in ${selectors.cityName(ambassador.citySlug)}.`,
+      href: `/ambassadors/${ambassador.slug}/`,
       facets: {
         city: ambassador.citySlug,
         category: 'ambassador',
@@ -141,8 +146,8 @@ function projectRecords(selectors: RecordSelectors): SearchRecord[] {
     kind: 'project' as const,
     title: project.title,
     subtitle: [selectors.cityName(project.citySlug), formatName(project.category)].join(' · '),
-    summary: project.summary,
-    href: `/projects/${project.slug}`,
+    summary: ownSummary(project.summary) ?? '',
+    href: `/projects/${project.slug}/`,
     facets: {
       city: project.citySlug,
       category: project.category,
@@ -156,7 +161,8 @@ function projectRecords(selectors: RecordSelectors): SearchRecord[] {
       selectors.cityName(project.citySlug),
       project.category,
       (project.tags ?? []).join(' '),
-      selectors.buildersOf(project)
+      selectors
+        .buildersOf(project)
         .map((b) => b.name)
         .concat(selectors.builderNamesOf(project).map((b) => b.name))
         .join(' '),
@@ -176,7 +182,7 @@ function eventRecords(selectors: RecordSelectors, now: Date): SearchRecord[] {
       title: event.title,
       subtitle: [selectors.cityName(event.citySlug), formatName(event.format)].join(' · '),
       summary: event.summary,
-      href: `/events/${event.slug}`,
+      href: `/events/${event.slug}/`,
       facets: { city: event.citySlug, format: event.format },
       terms: lower([
         event.title,
@@ -200,9 +206,10 @@ function cityRecords(signals: CitySignal[]): SearchRecord[] {
     id: `city:${city.slug}`,
     kind: 'city' as const,
     title: city.name,
-    subtitle: [city.state, formatName(state)].join(' · '),
-    summary: city.blurb,
-    href: `/cities/${city.slug}`,
+    // Delhi is in Delhi: a state that repeats the name says nothing.
+    subtitle: city.state === city.name ? '' : city.state,
+    summary: '',
+    href: `/cities/${city.slug}/`,
     facets: { city: city.slug, category: state },
     terms: lower([city.name, city.state, city.blurb, state.replace(/-/g, ' ')]),
     // Ranked by what is actually there, so searching a state name surfaces the
@@ -225,7 +232,7 @@ function useCaseRecords(selectors: RecordSelectors): SearchRecord[] {
       .filter(Boolean)
       .join(' · '),
     summary: useCase.summary,
-    href: `/use-cases/${useCase.slug}`,
+    href: `/use-cases/${useCase.slug}/`,
     facets: {
       city: useCase.citySlug,
       category: useCase.category,
@@ -252,11 +259,14 @@ function storyRecords(selectors: RecordSelectors): SearchRecord[] {
     id: `story:${story.slug}`,
     kind: 'story' as const,
     title: story.title,
-    subtitle: [story.citySlug ? selectors.cityName(story.citySlug) : undefined, formatName(story.kind)]
+    subtitle: [
+      story.citySlug ? selectors.cityName(story.citySlug) : undefined,
+      formatName(story.kind),
+    ]
       .filter(Boolean)
       .join(' · '),
     summary: story.standfirst,
-    href: `/stories/${story.slug}`,
+    href: `/stories/${story.slug}/`,
     facets: { city: story.citySlug, category: story.kind },
     terms: lower([
       story.title,
@@ -278,7 +288,7 @@ function guideRecords(selectors: RecordSelectors): SearchRecord[] {
     title: guide.title,
     subtitle: 'Guide',
     summary: guide.standfirst,
-    href: `/guides/${guide.slug}`,
+    href: `/guides/${guide.slug}/`,
     facets: {},
     terms: lower([
       guide.title,
@@ -299,7 +309,10 @@ function guideRecords(selectors: RecordSelectors): SearchRecord[] {
  * renders, which is what makes the page useful with scripts blocked: it is a
  * complete, ranked, browsable index before anything is typed.
  */
-export function buildSearchIndex(selectors: RecordSelectors, now: Date = new Date()): SearchRecord[] {
+export function buildSearchIndex(
+  selectors: RecordSelectors,
+  now: Date = new Date(),
+): SearchRecord[] {
   const signals = selectors.citySignalsRanked(now);
   const all = [
     ...personRecords(selectors),
@@ -347,6 +360,10 @@ export function parse(selectors: RecordSelectors, input: string) {
 }
 
 /** The whole round trip, for callers that only have a string. */
-export function search(index: SearchRecord[], selectors: RecordSelectors, input: string): SearchResult[] {
+export function search(
+  index: SearchRecord[],
+  selectors: RecordSelectors,
+  input: string,
+): SearchResult[] {
   return runSearch(index, parse(selectors, input));
 }

@@ -32,25 +32,6 @@ export function cityState(facts: CityFacts): CityState {
   return 'discovery';
 }
 
-/** The label shown on a chip or a legend. Kept short enough for a map key. */
-export const CITY_STATE_LABEL: Record<CityState, string> = {
-  'ambassador-led': 'Ambassador-led',
-  'event-activity': 'Event activity',
-  'community-interest': 'Community interest',
-  discovery: 'Discovery',
-};
-
-/**
- * The sentence a city page leads with. These are the load-bearing strings for
- * the whole governance model — every one of them says what is true and stops.
- */
-export const CITY_STATE_NOTE: Record<CityState, string> = {
-  'ambassador-led': 'Claude Community events are hosted here by a verified Ambassador.',
-  'event-activity': 'Events have happened here. No Ambassador is currently assigned.',
-  'community-interest': 'People here have registered interest. Nothing is scheduled yet.',
-  discovery: 'No verified community activity here yet.',
-};
-
 /** Ordering for indexes and legends — most active first. */
 export const CITY_STATE_ORDER: CityState[] = [
   'ambassador-led',

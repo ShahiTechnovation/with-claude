@@ -62,14 +62,22 @@ if (guard.ok) {
           </>
         ) : (
           <div class="panel">
-            <h1 class="account-head">This project cannot be claimed</h1>
-            <p>Only imported projects without an owner on the site can be claimed.</p>
+            <header class="account-head">
+              <h1>This project cannot be claimed</h1>
+              <p>Only imported projects without an owner on the site can be claimed.</p>
+            </header>
           </div>
         )}
       </div>
     </Base>
   )
 }
+
+<style>
+  .panel > .account-head:last-child {
+    margin-bottom: 0;
+  }
+</style>
 
 <script>
   // Sends JSON with the session cookie; the server derives who is asking.

@@ -445,21 +445,53 @@ Nothing reaches the database before `apply --yes`. Past runs are documented in `
 ## Design, accessibility and search
 
 **Design system.** `src/styles/tokens.css` holds every colour, size and duration, and nothing else
-holds raw values. Shapes are near-square (radii of 0 to 3px, never pills), with hairline rules on a
-warm paper ground. Clay is reserved for live state, the brand mark and the meridian, and the token
-file states its contrast rule: `--clay` on paper is fill only, never text. Display type is Anthropic
-Serif Display, titles use Anthropic Sans Display, the wordmark uses Fraunces, body text is Inter and
-metadata is IBM Plex Mono. The fonts are defined in `src/styles/fonts.css`. Read the tokens before
-changing any UI.
+holds raw values. Token names describe roles, not colours: `--paper` is the page ground and `--ink`
+the strongest text in either theme. Shared classes (containers, the heading pair, buttons, chips,
+fields) live in `src/styles/primitives.css`, and components don't redefine them. Read the tokens
+before changing any UI.
 
-**The atlas** (`src/components/CityAtlas.astro`) is a coordinate plot, not a traced map, so it
-doesn't depict national boundaries. Its four community states differ by shape before colour and
-still read in greyscale.
+**Themes.** Dark is the default on every public page. The server renders `data-theme="dark"`, so
+with JavaScript off the site is dark and complete and the theme toggle is hidden. Cream is the
+visitor's choice: the toggle in the masthead switches the theme and saves it as `wc-theme` in
+`localStorage`, and an inline script in the `<head>` of `src/layouts/Base.astro` applies the saved
+choice before first paint. The site doesn't follow the device's colour scheme. Everything under
+`/me/` is locked light and hides the toggle, and print is always light. Every colour token has a
+literal value in the dark, light and print blocks; `tests/theme.test.ts` checks that, along with the
+head script and the `/me/` lock.
 
-**Accessibility.** Semantic landmarks, a skip link, visible focus rings, keyboard access to the
-atlas, comfortable touch targets, and `prefers-reduced-motion` honoured throughout. `node
-scripts/audit.mjs` checks heading order, landmarks, alt text, link names, overflow, focus and
-touch targets across the routes.
+**Shape and type.** Buttons, chips, fields and icon buttons are pills. The primary button is clay
+with a glow and dark text, and the rest are outlined. Clay text uses `--clay-deep`, the text-safe
+clay, and text on a clay fill uses `--btn-ink`. Headings are Anthropic Serif Display Light, and a
+section opens with a serif heading over one sentence of grey sans. Titles and controls use Anthropic
+Sans Display Semibold, and body text is Inter. The serif never goes below 21px, and no text goes
+below 15px (`--t-small`, checked by `tests/theme.test.ts`). Fraunces sets the wordmark and nothing
+else. There's no monospace anywhere. The fonts are defined in `src/styles/fonts.css`.
+
+**Motion.** Animation either plays once on load or follows the scroll, and nothing loops:
+`tests/theme.test.ts` fails on any `infinite` in `src`. The hero's sunrise and headline play once on
+load, and the headline only rises and sharpens, so it is never below full opacity. The live dot, the
+next-event pulse and the lead city's ring on the map run twice and stop. Reveals, and the map's pins
+and routes, run on CSS scroll timelines inside both `prefers-reduced-motion: no-preference` and
+`@supports (animation-timeline: view())`. The static state is the finished state, so reduced-motion
+visitors and browsers without scroll timelines get the complete page, and with reduced motion every
+remaining animation and transition is cut to near zero. The film grain over the page is a static
+layer.
+
+**The India map** (`src/components/CityAtlas.astro`) is drawn from DataMeet's state boundaries,
+which follow the official Survey of India outline, simplified and reprojected by
+`scripts/map/build.sh` into `src/data/india-map.ts`. `tests/india-map.test.ts` checks the official
+boundary: Gilgit, Aksai Chin and the Shaksgam valley must fall inside it and Lahore outside, and the
+small islands must survive simplification. The credit for DataMeet and the Creative Commons
+Attribution 2.5 India licence is on /about/, with both links. City dots are placed
+from each city's latitude and longitude in three kinds: the lead city glows, cities that have held
+an event are lit, and every other city is a quiet dot. Colours come only from the `--map-*` tokens,
+so the map works in both themes.
+
+**Accessibility.** Semantic landmarks, a skip link, visible focus rings in both themes, comfortable
+touch targets, and `prefers-reduced-motion` honoured throughout. The map is a named picture
+(`role="img"` with an `aria-label`), so nothing in it is focusable; the city links sit beside it.
+`node scripts/audit.mjs` checks heading order, landmarks, alt text, link names, overflow, focus,
+touch targets, the map's name across the routes and its credit on /about/.
 
 **Search.** `/discover` uses one index over the whole record, built from the same selectors the
 pages read. There's no model in it. `parseQuery()` reads cities, event formats and Claude surfaces

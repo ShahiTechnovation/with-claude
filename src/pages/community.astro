@@ -4,7 +4,6 @@ import Section from '@/components/Section.astro';
 import PageIntro from '@/components/PageIntro.astro';
 import Participation from '@/components/Participation.astro';
 import { faq, official, partners, publicAmbassadors, site } from '@/data';
-import { CITY_STATE_LABEL, CITY_STATE_NOTE, CITY_STATE_ORDER } from '@/lib/city';
 import { trail } from '@/lib/seo';
 
 const faqSchema = [
@@ -28,22 +27,19 @@ const faqSchema = [
  */
 const entities = [
   {
-    kind: 'Ambassador-led activity',
+    kind: 'Claude Community events',
     who: 'Claude Community Ambassadors',
     granted: 'Appointed by Anthropic',
-    onSite: 'Verified chip on events and cities',
   },
   {
     kind: 'Builders and contributors',
     who: 'Anyone building with Claude',
     granted: 'Self-submitted, then reviewed',
-    onSite: 'Listed in the builder index',
   },
   {
     kind: 'City interest',
     who: 'People who live there',
     granted: 'Registered by anyone',
-    onSite: 'A signal on the map — not a chapter',
   },
 ];
 ---
@@ -55,7 +51,7 @@ const entities = [
   breadcrumbs={trail({ name: 'How this works', href: '/community' })}
   schema={faqSchema}
 >
-  <PageIntro eyebrow="How this works" title="Who runs what." stamp="Volunteer-run">
+  <PageIntro title="Who runs what." size="lg">
     <p>
       {site.positioning} It is organised by volunteers, it is free, and it is not an Anthropic programme.
     </p>
@@ -63,12 +59,7 @@ const entities = [
 
   <Section id="model" tone="sunk" labelledby="model-heading">
     <div class="section-head">
-      <p class="eyebrow">The model</p>
       <h2 id="model-heading">Three different things.</h2>
-      <p class="prose">
-        These get mixed together on most community sites, and mixing them is how people end up
-        believing something was official when it was not.
-      </p>
     </div>
 
     <div class="entities">
@@ -76,16 +67,14 @@ const entities = [
         <span>What</span>
         <span>Who</span>
         <span>How it is granted</span>
-        <span>How it appears here</span>
       </div>
       <ul>
         {
           entities.map((entity) => (
             <li class="entity">
-              <span class="entity-kind">{entity.kind}</span>
+              <span class="entity-kind t-title">{entity.kind}</span>
               <span class="entity-cell">{entity.who}</span>
               <span class="entity-cell">{entity.granted}</span>
-              <span class="entity-cell">{entity.onSite}</span>
             </li>
           ))
         }
@@ -96,22 +85,18 @@ const entities = [
   <Section id="ambassador" labelledby="ambassador-heading">
     <div class="amb">
       <div class="amb-main">
-        <p class="eyebrow">Ambassadors</p>
         <h2 id="ambassador-heading" class="amb-title">
           Hosting is <em>Anthropic’s</em> to grant.
         </h2>
         <p class="prose">
-          Claude Community events are hosted globally by Claude Community Ambassadors. Ambassadors
-          are appointed by Anthropic. This website records who holds the status where we can confirm
-          it — it does not confer it, apply for it on anyone's behalf, or influence it.
+          Claude Community events are hosted by Claude Community Ambassadors, who are appointed by
+          Anthropic.
         </p>
         <p class="prose">
-          That is why arbitrary visitors cannot create an event here, and why no city on the map can
-          be claimed. If you want to run Claude Community events where you live, the route is
-          Anthropic's programme.
+          To run Claude Community events where you live, apply to Anthropic’s programme.
         </p>
         <a
-          class="btn btn-solid amb-cta"
+          class="btn btn-primary amb-cta"
           href={official.ambassadorProgramUrl}
           target="_blank"
           rel="noopener"
@@ -122,51 +107,24 @@ const entities = [
       </div>
 
       <div class="amb-side">
-        <h3 class="label amb-side-head">On the record</h3>
+        <h3 class="amb-side-head">Ambassadors in India</h3>
         {
           publicAmbassadors.length > 0 ? (
             <ul class="amb-list">
               {publicAmbassadors.map((ambassador) => (
                 <li>
-                  <span class="chip chip-verified">Verified</span>
-                  <span class="amb-name">{ambassador.name}</span>
-                  <span class="amb-role">{ambassador.title}</span>
-                  <span class="amb-source">{ambassador.verifiedVia}</span>
+                  <a class="amb-name t-title" href={`/ambassadors/${ambassador.slug}/`}>
+                    {ambassador.name}
+                  </a>
                 </li>
               ))}
             </ul>
           ) : (
-            <p class="amb-empty">No Ambassador status has been confirmed to us yet.</p>
+            <p class="amb-empty meta">None yet.</p>
           )
         }
-        <p class="amb-note">
-          Every entry names how the status was confirmed. If we cannot say how we know, there is no
-          entry.
-        </p>
       </div>
     </div>
-  </Section>
-
-  <Section id="cities" tone="sunk" labelledby="citystates-heading">
-    <div class="section-head">
-      <p class="eyebrow">Cities</p>
-      <h2 id="citystates-heading">What a dot on the map means.</h2>
-      <p class="prose">
-        A city's state is derived from verified records. There is no field anyone can set to make a
-        chapter appear, and no city is ever presented as available to claim.
-      </p>
-    </div>
-
-    <ul class="states">
-      {
-        CITY_STATE_ORDER.map((state) => (
-          <li class="state">
-            <span class:list={['chip', `chip-${state}`]}>{CITY_STATE_LABEL[state]}</span>
-            <span class="state-note">{CITY_STATE_NOTE[state]}</span>
-          </li>
-        ))
-      }
-    </ul>
   </Section>
 
   <Section id="involved" labelledby="join-heading">
@@ -175,17 +133,15 @@ const entities = [
 
   <Section id="faq" tone="sunk" labelledby="faq-heading">
     <div class="section-head">
-      <p class="eyebrow">Good to know</p>
       <h2 id="faq-heading">Questions</h2>
     </div>
 
     <div class="faq-list">
       {
-        faq.map((item, i) => (
+        faq.map((item) => (
           <details name="faq">
             <summary>
-              <span class="faq-num">{String(i + 1).padStart(2, '0')}</span>
-              <span class="faq-q">{item.q}</span>
+              <span class="faq-q t-title">{item.q}</span>
               <span class="faq-marker" aria-hidden="true" />
             </summary>
             <p class="faq-a">{item.a}</p>
@@ -197,19 +153,14 @@ const entities = [
 
   <Section id="partners" labelledby="partners-heading">
     <div class="section-head">
-      <p class="eyebrow">Partners</p>
       <h2 id="partners-heading">Who helps</h2>
-      <p class="prose">
-        The organisations that host rooms, lend venues and co-run days — listed with what they
-        actually did. No logo wall, and no implied endorsements.
-      </p>
     </div>
 
     <ul class="partners">
       {
         partners.map((partner) => (
           <li>
-            <span class="partner-name">
+            <span class="partner-name t-title">
               {partner.url ? (
                 <a href={partner.url} target="_blank" rel="noopener">
                   {partner.name}
@@ -218,25 +169,23 @@ const entities = [
                 partner.name
               )}
             </span>
-            <span class="partner-role">{partner.role}</span>
+            <span class="partner-role meta">{partner.role}</span>
           </li>
         ))
       }
     </ul>
-
-    <p class="affiliation">{site.affiliation}</p>
   </Section>
 </Base>
 
 <style>
   /* --- The model table ---------------------------------------------------- */
   .entities {
-    border-top: var(--border-heavy) solid var(--ink);
+    border-top: var(--border-hair) solid var(--rule-strong);
   }
 
   .entity {
     display: grid;
-    grid-template-columns: minmax(0, 1.2fr) repeat(3, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1.2fr) repeat(2, minmax(0, 1fr));
     gap: var(--s-4);
     align-items: baseline;
     padding-block: var(--s-5);
@@ -245,21 +194,8 @@ const entities = [
 
   .entity-head {
     padding-block: var(--s-3);
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: var(--track-meta);
-    text-transform: uppercase;
+    font-size: var(--t-small);
     color: var(--ink-3);
-  }
-
-  .entity-kind {
-    font-family: var(--font-title);
-    font-size: var(--t-h3);
-    font-weight: 600;
-    font-variation-settings:
-      'SOFT' 0,
-      'WONK' 1;
-    letter-spacing: -0.02em;
   }
 
   .entity-cell {
@@ -274,9 +210,7 @@ const entities = [
   }
 
   .amb-title {
-    margin-top: var(--s-3);
-    margin-bottom: var(--s-5);
-    font-size: var(--t-h2);
+    margin-bottom: var(--head-gap);
     max-width: 14ch;
   }
 
@@ -296,6 +230,9 @@ const entities = [
 
   .amb-side-head {
     padding-bottom: var(--s-3);
+    font-family: var(--font-body);
+    font-size: var(--t-small);
+    font-weight: 400;
     border-bottom: var(--border-hair) solid var(--rule-strong);
     color: var(--ink-3);
   }
@@ -308,80 +245,39 @@ const entities = [
     border-bottom: var(--border-hair) solid var(--rule);
   }
 
-  .amb-name {
-    font-family: var(--font-title);
-    font-size: var(--t-h3);
-    font-weight: 600;
-    font-variation-settings:
-      'SOFT' 0,
-      'WONK' 1;
-    letter-spacing: -0.02em;
-  }
-
-  .amb-role {
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--clay-deep);
-  }
-
-  .amb-source,
-  .amb-note,
-  .amb-empty {
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    line-height: 1.7;
-    color: var(--ink-3);
-  }
-
-  .amb-note {
-    margin-top: var(--s-4);
-    max-width: 40ch;
-  }
-
   .amb-empty {
     padding-block: var(--s-5);
   }
 
-  /* --- City states --------------------------------------------------------- */
-  .states {
-    display: grid;
-    gap: var(--s-4);
-    border-top: var(--border-hair) solid var(--rule);
-    padding-top: var(--s-5);
-  }
-
-  .state {
-    display: grid;
-    grid-template-columns: minmax(0, 12rem) minmax(0, 1fr);
-    align-items: center;
-    gap: var(--s-5);
-    padding-bottom: var(--s-4);
-    border-bottom: var(--border-hair) solid var(--rule);
-  }
-
-  .state .chip {
-    justify-self: start;
-  }
-
-  .state-note {
-    font-size: var(--t-small);
-    color: var(--ink-2);
+  /* Both lists end their sections: the hairline that follows closes them, so the last row
+     draws none and the two lines never stack. */
+  .amb-list li:last-child,
+  .partners li:last-child {
+    border-bottom: 0;
   }
 
   /* --- FAQ ----------------------------------------------------------------- */
   .faq-list {
-    border-top: var(--border-heavy) solid var(--ink);
+    border-top: var(--border-hair) solid var(--rule-strong);
   }
 
   .faq-list details {
     border-bottom: var(--border-hair) solid var(--rule);
   }
 
+  /* The band's edge closes the list. The last question keeps its padding as hit area;
+     the list just overlaps it into the section padding instead of stacking on it. */
+  .faq-list {
+    margin-bottom: calc(-1 * var(--s-5));
+  }
+
+  .faq-list details:last-child {
+    border-bottom: 0;
+  }
+
   .faq-list summary {
     display: grid;
-    grid-template-columns: 4ch minmax(0, 1fr) 1.5rem;
+    grid-template-columns: minmax(0, 1fr) 1.5rem;
     align-items: baseline;
     gap: var(--s-4);
     padding-block: var(--s-5);
@@ -391,23 +287,6 @@ const entities = [
 
   .faq-list summary::-webkit-details-marker {
     display: none;
-  }
-
-  .faq-num {
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: var(--track-meta);
-    color: var(--ink-3);
-  }
-
-  .faq-q {
-    font-family: var(--font-title);
-    font-size: clamp(1.1rem, 2.2vw, 1.45rem);
-    font-weight: 500;
-    font-variation-settings:
-      'SOFT' 0,
-      'WONK' 1;
-    letter-spacing: -0.02em;
   }
 
   .faq-list summary:hover .faq-q {
@@ -441,7 +320,7 @@ const entities = [
   }
 
   .faq-a {
-    padding: 0 0 var(--s-6) calc(4ch + var(--s-4));
+    padding: 0 0 var(--s-6);
     max-width: 68ch;
     color: var(--ink-2);
   }
@@ -461,38 +340,12 @@ const entities = [
     border-bottom: var(--border-hair) solid var(--rule);
   }
 
-  .partner-name {
-    font-family: var(--font-title);
-    font-size: var(--t-h3);
-    font-weight: 500;
-    font-variation-settings:
-      'SOFT' 0,
-      'WONK' 1;
-  }
-
   .partner-name a {
     text-decoration: none;
   }
 
   .partner-name a:hover {
     color: var(--clay-deep);
-  }
-
-  .partner-role {
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--ink-3);
-  }
-
-  .affiliation {
-    margin-top: var(--s-6);
-    max-width: 70ch;
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    line-height: 1.8;
-    color: var(--ink-3);
   }
 
   @media (min-width: 62em) {
@@ -511,11 +364,6 @@ const entities = [
 
     .entity-head {
       display: none;
-    }
-
-    .state {
-      grid-template-columns: 1fr;
-      gap: var(--s-3);
     }
   }
 </style>

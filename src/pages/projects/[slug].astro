@@ -2,16 +2,16 @@
 /**
  * A PROJECT PAGE — /projects/[slug]/
  *
- * Two columns, like a company page in a directory: the header (logo, name,
- * tagline, event, links), then the narrative on the left and a facts card on
- * the right. On a phone the facts and links come straight after the header,
- * before the long text.
+ * The project's icon tile beside its name, one sentence saying where and when
+ * it was built, and its links (Live demo, Code, Video). Then the team's own
+ * words, "How Claude was used" when there is any, the team, and a short list
+ * of details. Then three more projects from the same event.
  *
  * What is on the page is what the record actually holds. A section with no
- * content is not rendered; "How Claude was used" says "Not documented in the
- * submission" rather than inferring it from the event; the placeholder logo
- * is labelled as directory artwork; links are typed (live / repository /
- * demo / download / artifact) and an absent one has no button.
+ * content is not rendered, "How Claude was used" included (never inferred
+ * from the event); links are typed (live / repository / demo / download /
+ * artifact) and an absent one has no button. No cover image and no placeholder
+ * art: a member's uploaded image stays the share image only.
  *
  * Serving rules (unchanged): public means `published` + `clean` + not deleted
  * (`publicProjectWhere()`); anything else is a real 404 for the public; a
@@ -21,12 +21,9 @@
  */
 export const prerender = false;
 
-import { Image } from 'astro:assets';
 import Base from '@/layouts/Base.astro';
 import NotFound from '@/components/NotFound.astro';
-import ProjectLogo from '@/components/ProjectLogo.astro';
-import ProjectRow from '@/components/directory/ProjectRow.astro';
-import EventBadge from '@/components/directory/EventBadge.astro';
+import ProjectGrid from '@/components/ProjectGrid.astro';
 import Narrative from '@/components/directory/Narrative.astro';
 import Icon from '@/components/directory/Icon.astro';
 import ModeratorControls from '@/components/ModeratorControls.astro';
@@ -35,14 +32,24 @@ import { isDirectoryHost, MAIN_ORIGIN } from '@/lib/directory-host';
 import { site } from '@/data';
 import { formatDateLong } from '@/lib/datetime';
 import { resolveProjectCover } from '@/lib/project-cover';
-import { artifactActions, buildStatusLabel, categoryLabel, excerpt } from '@/lib/project-display';
+import { projectIcon } from '@/lib/project-icon';
+import {
+  artifactActions,
+  buildStatusLabel,
+  cardProps,
+  cardText,
+  categoryLabel,
+  excerpt,
+  ownSummary,
+  type ArtifactAction,
+} from '@/lib/project-display';
 import { titles, trail } from '@/lib/seo';
+import { plural } from '@/lib/words';
 import { directoryHref } from '@/server/public/projects';
 import { projectPage } from '@/server/public/pages';
 import { isRequestModerator } from '@/server/moderation';
 import { privateCache, publicCache } from '@/server/http/cache';
 import { logReadFailure, type ReadFailure } from '@/server/public/read-failure';
-import '@/styles/directory.css';
 
 const slug = Astro.params.slug ?? '';
 /** A failed read is a 503 with an honest message, not a raw 500 (see `read-failure.ts`). */
@@ -59,7 +66,9 @@ const loaded = await projectPage(slug).catch((error: unknown) => {
  */
 const wantsModeration = Astro.url.searchParams.has('moderate');
 const isModerator =
-  loaded && (!loaded.project.isPublic || wantsModeration) ? await isRequestModerator(Astro.request) : false;
+  loaded && (!loaded.project.isPublic || wantsModeration)
+    ? await isRequestModerator(Astro.request)
+    : false;
 const visible = loaded && (loaded.project.isPublic || isModerator);
 
 if (failure) {
@@ -77,35 +86,74 @@ if (failure) {
 
 const project = loaded?.project;
 const related = loaded?.related ?? [];
+const eventTotal = loaded?.eventTotal ?? 0;
 const cover = resolveProjectCover(project?.image);
-const shareImage = cover.kind === 'blob' ? cover.blobUrl : cover.kind === 'asset' ? cover.imageMetadata!.src : undefined;
+const shareImage =
+  cover.kind === 'blob'
+    ? cover.blobUrl
+    : cover.kind === 'asset'
+      ? cover.imageMetadata!.src
+      : undefined;
+const icon = project ? projectIcon(project.slug) : undefined;
+// Short names so the "From …" sentence stays on one line in the template: a line break
+// between </a> and the comma would render as a space before it.
+const eventHref = project?.event ? `/events/${project.event.slug}/` : '';
+const eventName = project?.event?.name;
+const eventTail = project?.event
+  ? `${project.event.city ? `, ${project.event.city.name}` : ''}, ${formatDateLong(project.event.date)}.`
+  : '';
 
 const has = (text: string | null | undefined) => Boolean(text && text.trim());
-const actions = project ? artifactActions(project) : [];
+const tagline = ownSummary(project?.summary);
 const status = buildStatusLabel(project?.buildStatus);
-const videos = actions.filter((a) => a.kind === 'video' || a.kind === 'altVideo');
-const hasDemo = Boolean(cover.kind !== 'none' || videos.length);
 const hasTeam = Boolean(project && (project.team || project.credits.length));
 
-const sections = project
-  ? [
-      // The summary is the header's tagline; Overview is only for a longer description.
-      { id: 'overview', label: 'Overview', show: has(project.description) },
-      { id: 'problem', label: 'Problem', show: has(project.problem) },
-      { id: 'solution', label: 'How it works', show: has(project.solution) },
-      { id: 'demo', label: 'Demo', show: hasDemo },
-      { id: 'team', label: 'Team', show: hasTeam || project.imported },
-    ].filter((s) => s.show)
-  : [];
+/**
+ * The buttons: "Live demo" first and filled, then "Code" and the video's own
+ * short word ("Video", or "Demo" for a Drive folder); anything rarer keeps
+ * its full label. The accessible name starts with the visible words.
+ */
+const shownFor = (a: ArtifactAction) =>
+  a.kind === 'live'
+    ? 'Live demo'
+    : a.kind === 'repo'
+      ? 'Code'
+      : a.kind === 'video'
+        ? a.short
+        : a.label;
+const actions = (project ? artifactActions(project) : []).map((a) => {
+  const shown = shownFor(a);
+  const named = a.label.toLowerCase().includes(shown.toLowerCase())
+    ? a.label
+    : `${shown}: ${a.label}`;
+  return { ...a, shown, name: `${named}, opens in a new tab` };
+});
+const iconFor = (kind: string) =>
+  kind === 'live'
+    ? 'live'
+    : kind === 'repo'
+      ? 'repo'
+      : kind === 'download'
+        ? 'download'
+        : kind === 'artifact'
+          ? 'artifact'
+          : 'video';
 
-const description = project ? excerpt(project.summary ?? project.solution ?? `${project.title} — a WITH CLAUDE project.`) : '';
+const description = project
+  ? excerpt(
+      tagline ??
+        cardText(project) ??
+        project.solution ??
+        `${project.title} — a WITH CLAUDE project.`,
+    )
+  : '';
 
 const schema = project
   ? [
       {
         '@type': 'CreativeWork',
         name: project.title,
-        description: project.summary ?? project.title,
+        description: tagline ?? cardText(project) ?? project.title,
         url: `${site.url}/projects/${project.slug}/`,
         ...(project.url ? { sameAs: [project.url] } : {}),
         ...(project.team ? { creator: { '@type': 'Organization', name: project.team } } : {}),
@@ -115,7 +163,9 @@ const schema = project
         ...(project.event
           ? {
               dateCreated: project.event.date,
-              ...(project.event.city ? { locationCreated: { '@type': 'Place', name: project.event.city.name } } : {}),
+              ...(project.event.city
+                ? { locationCreated: { '@type': 'Place', name: project.event.city.name } }
+                : {}),
               isPartOf: {
                 '@type': 'Event',
                 name: project.event.title,
@@ -131,27 +181,31 @@ const schema = project
   : [];
 
 const crumbs = project
-  ? trail({ name: 'Projects', href: '/projects/' }, { name: project.title, href: `/projects/${project.slug}/` })
+  ? trail(
+      { name: 'Projects', href: '/projects/' },
+      ...(project.event
+        ? [{ name: project.event.label, href: `/events/${project.event.slug}/` }]
+        : []),
+      { name: project.title, href: `/projects/${project.slug}/` },
+    )
   : undefined;
-const iconFor = (kind: string) =>
-  kind === 'live' ? 'live' : kind === 'repo' ? 'repo' : kind === 'download' ? 'download' : kind === 'artifact' ? 'artifact' : 'video';
 ---
 
 {
   failure ? (
     <Base title="Could not load" description="This project could not be loaded right now." noindex>
-      <div class="dir pd">
-        <div class="dir-panel dir-empty" role="alert">
-          <h2>This project could not be loaded</h2>
-          <p>Something went wrong on our side. Please try again in a moment.</p>
-          {import.meta.env.DEV && failure === 'schema-behind' && (
-            <p>
-              <strong>Development:</strong> the database behind <code>DATABASE_URL</code> is missing migrations. Run{' '}
-              <code>npm run db:migrate</code> against it, or use a migrated database.
-            </p>
-          )}
-          <a class="dir-button" href={Astro.url.pathname}>Try again</a>
-        </div>
+      <div class="container pd pd-failed" role="alert">
+        <h1 class="t-h3">This project could not be loaded</h1>
+        <p>Something went wrong on our side. Please try again in a moment.</p>
+        {import.meta.env.DEV && failure === 'schema-behind' && (
+          <p>
+            <strong>Development:</strong> the database behind <code>DATABASE_URL</code> is missing
+            migrations. Run <code>npm run db:migrate</code> against it, or use a migrated database.
+          </p>
+        )}
+        <a class="btn" href={Astro.url.pathname}>
+          Try again
+        </a>
       </div>
     </Base>
   ) : !project || !visible ? (
@@ -161,7 +215,10 @@ const iconFor = (kind: string) =>
   ) : (
     <Base
       title={project.title}
-      seoTitle={titles.project(project.title, project.event?.city?.name ?? project.city?.name ?? 'India')}
+      seoTitle={titles.project(
+        project.title,
+        project.event?.city?.name ?? project.city?.name ?? 'India',
+      )}
       description={description}
       active="/projects"
       breadcrumbs={crumbs}
@@ -172,42 +229,39 @@ const iconFor = (kind: string) =>
     >
       {!project.isPublic && (
         <div class="mod-banner" role="status">
-          Not visible to the public — {project.publicationStatus} · {project.moderationState}. You are seeing it because
-          you are a moderator.
+          Not visible to the public — {project.publicationStatus} · {project.moderationState}. You
+          are seeing it because you are a moderator.
         </div>
       )}
 
-      <div class="dir pd">
+      <article class="container pd">
         <header class="pd-head">
-          <ProjectLogo logo={project.logo} category={project.category} slug={project.slug} size="header" eager />
+          {icon ? (
+            <span class="pd-icon" aria-hidden="true" set:html={icon} />
+          ) : (
+            <span class="pd-icon is-empty" aria-hidden="true" />
+          )}
           <div class="pd-head-body">
-            <h1 class="pd-title">{project.title}</h1>
-            {project.summary && <p class="pd-tagline">{project.summary}</p>}
-            <div class="pd-meta">
-              {project.event && <EventBadge event={project.event} size="md" />}
-              {project.event?.city && (
-                <span class="meta-chip" title="Event city">
-                  <Icon name="pin" size={12} />
-                  {project.event.city.name}
-                </span>
-              )}
-              <a class="meta-chip pd-chip-link" href={directoryHref({ categories: [project.category] })}>
-                {categoryLabel(project.category)}
-              </a>
-            </div>
+            <h1 class="t-h1 pd-title">{project.title}</h1>
+            {project.event && (
+              <p class="lead pd-from">
+                From <a href={eventHref}>{eventName}</a>
+                {eventTail}
+              </p>
+            )}
             {actions.length > 0 && (
-              <ul class="dir-actions pd-actions" aria-label="Project links">
+              <ul class="pd-actions" aria-label="Project links">
                 {actions.map((a, i) => (
                   <li>
                     <a
-                      class:list={['dir-action', 'dir-action--lg', { 'dir-action--primary': i === 0 }]}
+                      class:list={['btn', i === 0 && a.kind === 'live' && 'btn-primary']}
                       href={a.href}
                       target="_blank"
                       rel="noopener noreferrer nofollow ugc"
+                      aria-label={a.name}
                     >
-                      <Icon name={iconFor(a.kind)} size={15} />
-                      <span>{a.label}</span>
-                      <span class="visually-hidden"> (opens {a.host} in a new tab)</span>
+                      <Icon name={iconFor(a.kind)} size={18} />
+                      {a.shown}
                     </a>
                   </li>
                 ))}
@@ -217,110 +271,119 @@ const iconFor = (kind: string) =>
         </header>
 
         <div class="pd-grid">
+          <div class="pd-main">
+            {tagline && <p class="pd-tagline">{tagline}</p>}
+            {has(project.description) && <Narrative text={project.description} />}
+
+            {has(project.problem) && (
+              <section class="pd-section" aria-labelledby="problem-h">
+                <h2 id="problem-h" class="t-h3">
+                  The problem
+                </h2>
+                <Narrative text={project.problem} />
+              </section>
+            )}
+
+            {has(project.solution) && (
+              <section class="pd-section" aria-labelledby="solution-h">
+                <h2 id="solution-h" class="t-h3">
+                  How it works
+                </h2>
+                <Narrative text={project.solution} />
+              </section>
+            )}
+
+            {has(project.claudeUsage) && (
+              <section id="claude" class="pd-section" aria-labelledby="claude-h">
+                <h2 id="claude-h" class="t-h3">
+                  How Claude was used
+                </h2>
+                <Narrative text={project.claudeUsage} />
+              </section>
+            )}
+
+            {hasTeam && (
+              <section id="team" class="pd-section" aria-labelledby="team-h">
+                <h2 id="team-h" class="t-h3">
+                  Team
+                </h2>
+                {project.team && <p class="pd-team-name">{project.team}</p>}
+                {project.credits.length > 0 && (
+                  <ul class="pd-people">
+                    {project.credits.map((c) => (
+                      <li>
+                        {c.href ? <a href={c.href}>{c.name}</a> : <span>{c.name}</span>}
+                        {c.role && <span class="pd-role"> · {c.role}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            )}
+          </div>
+
           <aside class="pd-side" aria-label="Project facts">
-            <div class="dir-panel facts-card">
-              <ProjectLogo logo={project.logo} category={project.category} slug={project.slug} size="card" />
+            <dl class="pd-facts">
               <div>
-                <p class="facts-card-name">{project.title}</p>
-                {project.team && <p class="pd-team">{project.team}</p>}
+                <dt>Kind</dt>
+                <dd>
+                  <a href={directoryHref({ categories: [project.category] })}>
+                    {categoryLabel(project.category)}
+                  </a>
+                </dd>
               </div>
-              <dl class="facts-list">
-                {project.event && (
-                  <>
-                    <div>
-                      <dt>Built at</dt>
-                      <dd>
-                        <a href={`/events/${project.event.slug}/`}>{project.event.name}</a>
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>Event date</dt>
-                      <dd>
-                        <time datetime={project.event.date}>{formatDateLong(project.event.date)}</time>
-                      </dd>
-                    </div>
-                    {project.event.city && (
-                      <div>
-                        <dt>Event city</dt>
-                        <dd>
-                          <a href={`/cities/${project.event.city.slug}/`}>{project.event.city.name}</a>
-                        </dd>
-                      </div>
-                    )}
-                  </>
-                )}
-                {!project.event && project.city && (
-                  <div>
-                    <dt>City</dt>
-                    <dd>
-                      <a href={`/cities/${project.city.slug}/`}>{project.city.name}</a>
-                    </dd>
-                  </div>
-                )}
+              {status && (
                 <div>
-                  <dt>Category</dt>
+                  <dt>Status</dt>
+                  <dd>{status}</dd>
+                </div>
+              )}
+              {has(project.builtWith) && (
+                <div>
+                  <dt>Built with</dt>
+                  <dd class="pd-built-with">{project.builtWith}</dd>
+                </div>
+              )}
+              {!project.event && project.city && (
+                <div>
+                  <dt>City</dt>
                   <dd>
-                    <a href={directoryHref({ categories: [project.category] })}>{categoryLabel(project.category)}</a>
+                    <a href={`/cities/${project.city.slug}/`}>{project.city.name}</a>
                   </dd>
                 </div>
-                {status && (
-                  <div>
-                    <dt>Status</dt>
-                    <dd>
-                      {status}
-                      <span class="facts-note">Self-reported by the team</span>
-                    </dd>
-                  </div>
-                )}
-                {project.useCases.length > 0 && (
-                  <div>
-                    <dt>Written up</dt>
-                    <dd>
-                      {project.useCases.map((u) => (
-                        <a href={`/use-cases/${u.slug}/`}>{u.title}</a>
-                      ))}
-                    </dd>
-                  </div>
-                )}
-              </dl>
-              {actions.length > 0 && (
-                <ul class="dir-actions" aria-label="Project links">
-                  {actions.map((a) => (
-                    <li>
-                      <a class="dir-action" href={a.href} target="_blank" rel="noopener noreferrer nofollow ugc">
-                        <Icon name={iconFor(a.kind)} size={14} />
-                        <span>{a.label}</span>
-                        <span class="visually-hidden"> (opens {a.host} in a new tab)</span>
-                      </a>
-                    </li>
-                  ))}
-                </ul>
               )}
-              {project.logo.kind === 'placeholder' && (
-                <p class="facts-note">The artwork is the directory’s placeholder — the team has not supplied a logo.</p>
+              {project.useCases.length > 0 && (
+                <div>
+                  <dt>Written up</dt>
+                  <dd>
+                    {project.useCases.map((u) => (
+                      <a href={`/use-cases/${u.slug}/`}>{u.title}</a>
+                    ))}
+                  </dd>
+                </div>
               )}
-              {project.logo.kind === 'logo' && project.logo.origin === 'favicon' && (
-                <p class="facts-note">Icon taken from the project’s own website.</p>
-              )}
-              {project.imported && (
-                <p class="pd-claim">
-                  Added from the event’s project entries, as the organisers recorded them.{' '}
-                  <a href={`/me/projects/claim/?project=${project.slug}`}>Is this your project? Claim it</a>
-                </p>
-              )}
-            </div>
+            </dl>
+            {project.imported && (
+              <p class="pd-claim">
+                <a class="link" href={`/me/projects/claim/?project=${project.slug}`}>
+                  Is this your project? Claim it
+                </a>
+              </p>
+            )}
             <div class="pd-side-actions">
               {/* Reporting needs the www session, which projects.withclaude.in never has. */}
               {isDirectoryHost(Astro.url.hostname) ? (
                 <a
-                  class="text-sm text-neutral-400 hover:text-neutral-700 underline decoration-neutral-300 underline-offset-4"
+                  class="button button--quiet"
                   href={`${MAIN_ORIGIN}/projects/${project.slug}/`}
                   title="Report this content on www.withclaude.in, where you are signed in"
                 >
                   Report
                 </a>
               ) : (
-                <ReportModal client:visible entityType="project" entityId={project.id} />
+                <div class="js-only">
+                  <ReportModal client:visible entityType="project" entityId={project.id} />
+                </div>
               )}
               <ModeratorControls
                 entityType="projects"
@@ -330,460 +393,271 @@ const iconFor = (kind: string) =>
               />
             </div>
           </aside>
-
-          <div class="pd-main">
-            {sections.length >= 3 && (
-              <nav class="pd-nav" aria-label="On this page">
-                <ul>
-                  {sections.map((s) => (
-                    <li>
-                      <a href={`#${s.id}`}>{s.label}</a>
-                    </li>
-                  ))}
-                </ul>
-              </nav>
-            )}
-
-            {has(project.description) && (
-              <section id="overview" class="pd-section" aria-labelledby="overview-h">
-                <h2 id="overview-h">Overview</h2>
-                <Narrative text={project.description} />
-              </section>
-            )}
-
-            {has(project.problem) && (
-              <section id="problem" class="pd-section" aria-labelledby="problem-h">
-                <h2 id="problem-h">The problem</h2>
-                <Narrative text={project.problem} />
-              </section>
-            )}
-
-            {has(project.solution) && (
-              <section id="solution" class="pd-section" aria-labelledby="solution-h">
-                <h2 id="solution-h">How it works</h2>
-                <Narrative text={project.solution} />
-              </section>
-            )}
-
-            {has(project.builtWith) && (
-              <section id="built-with" class="pd-section" aria-labelledby="built-h">
-                <h2 id="built-h">Built with</h2>
-                <p class="pd-source-note">As stated by the team.</p>
-                <Narrative text={project.builtWith} />
-              </section>
-            )}
-
-            <section id="claude" class="pd-section" aria-labelledby="claude-h">
-              <h2 id="claude-h">How Claude was used</h2>
-              {has(project.claudeUsage) ? (
-                <>
-                  {project.imported && <p class="pd-source-note">In the team’s own words, from their submission.</p>}
-                  <Narrative text={project.claudeUsage} />
-                </>
-              ) : (
-                <p class="pd-undocumented">Not documented in the submission.</p>
-              )}
-            </section>
-
-            {hasDemo && (
-              <section id="demo" class="pd-section" aria-labelledby="demo-h">
-                <h2 id="demo-h">Demo and screenshots</h2>
-                {cover.kind === 'blob' && (
-                  <img class="pd-shot" src={cover.blobUrl} alt={`Screenshot of ${project.title}`} loading="lazy" decoding="async" width="1600" height="1000" />
-                )}
-                {cover.kind === 'asset' && (
-                  <Image
-                    class="pd-shot"
-                    src={cover.imageMetadata!}
-                    alt={`Screenshot of ${project.title}`}
-                    widths={[640, 1100, 1600]}
-                    sizes="(max-width: 63.99em) 92vw, 760px"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                )}
-                {videos.length > 0 && (
-                  <ul class="pd-videos">
-                    {videos.map((v) => (
-                      <li>
-                        <a class="pd-video" href={v.href} target="_blank" rel="noopener noreferrer nofollow ugc">
-                          <span class="pd-video-play" aria-hidden="true">
-                            <Icon name="video" size={22} />
-                          </span>
-                          <span>
-                            <span class="pd-video-label">{v.label}</span>
-                            <span class="pd-video-host">{v.host} · opens in a new tab</span>
-                          </span>
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
-            )}
-
-            {(hasTeam || project.imported) && (
-              <section id="team" class="pd-section" aria-labelledby="team-h">
-                <h2 id="team-h">Team</h2>
-                {project.team && <p class="pd-team-name">{project.team}</p>}
-                {project.credits.length > 0 && (
-                  <ul class="pd-people">
-                    {project.credits.map((c) => (
-                      <li>
-                        {c.href ? <a href={c.href}>{c.name}</a> : <span>{c.name}</span>}
-                        {c.role && <span class="facts-note">{c.role}</span>}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {project.imported && project.credits.length === 0 && (
-                  <p class="pd-source-note">Individual builders are not listed yet — names are published only with their permission.</p>
-                )}
-              </section>
-            )}
-          </div>
         </div>
+      </article>
 
-        {related.length > 0 && (
-          <section class="pd-related" aria-labelledby="related-h">
-            <div class="pd-related-head">
-              <h2 id="related-h">{project.event ? `More from ${project.event.label}` : 'More projects'}</h2>
-              {project.event && (
-                <a class="dir-clear" href={directoryHref({ events: [project.event.slug] })}>
-                  See all projects from this event →
-                </a>
-              )}
-            </div>
-            <ul class="dir-list">
-              {related.map((item) => (
-                <li>
-                  <ProjectRow project={item} />
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        <p class="pd-back">
-          <a class="dir-clear" href="/projects/">← Back to the Project Directory</a>
-        </p>
-      </div>
+      {related.length > 0 && (
+        <section class="container pd-related" aria-labelledby="related-h">
+          <h2 id="related-h" class="t-h2">
+            {project.event ? `More from ${project.event.label}` : 'More projects'}
+          </h2>
+          <ProjectGrid items={related.map((p) => cardProps(p))} level="h3" />
+          {project.event && (
+            <p class="pd-more">
+              <a class="link" href={directoryHref({ events: [project.event.slug] })}>
+                All {plural(eventTotal, 'project')} from {project.event.label}
+                <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+                  <path
+                    d="M4 10h11m-4.5-4.5L15 10l-4.5 4.5"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </a>
+            </p>
+          )}
+        </section>
+      )}
     </Base>
   )
 }
 
 <style>
   .mod-banner {
-    padding: var(--s-3) var(--gutter);
+    padding: 12px var(--gutter);
     background: var(--clay-deep);
-    color: var(--paper-raised);
-    font-family: var(--font-mono);
+    color: var(--paper);
     font-size: var(--t-small);
     text-align: center;
   }
 
-  .pd {
-    padding-bottom: 4rem;
+  .pd-failed {
+    display: grid;
+    justify-items: start;
+    gap: 18px;
+    padding-block: var(--section-y);
+  }
+
+  .pd-failed :is(h1, p) {
+    margin: 0;
   }
 
   .pd-head {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 1.25rem;
-    align-items: start;
-    padding-block: 1.5rem 1.75rem;
-    border-bottom: 1px solid var(--panel-border);
+    gap: 20px;
+    justify-items: start;
+    padding-block: clamp(28px, 4vw, 56px) clamp(32px, 4vw, 56px);
+  }
+
+  .pd-icon {
+    display: block;
+    width: 80px;
+    height: 80px;
+    border-radius: 16px;
+    overflow: hidden;
+    background: var(--clay);
+    box-shadow: var(--glow-tile);
+  }
+
+  .pd-icon :global(svg) {
+    display: block;
+    width: 100%;
+    height: 100%;
   }
 
   .pd-head-body {
     display: grid;
-    gap: 0.65rem;
+    gap: 18px;
     min-width: 0;
   }
 
   .pd-title {
     margin: 0;
-    font-family: var(--font-display);
-    font-size: clamp(1.9rem, 3.6vw, 2.6rem);
-    font-weight: 300;
-    line-height: 1.08;
-    letter-spacing: -0.02em;
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
+    text-wrap: balance;
   }
 
-  .pd-tagline {
+  .pd-from {
     margin: 0;
-    max-width: 68ch;
-    font-size: 1.125rem;
-    line-height: 1.5;
+    max-width: 48ch;
     color: var(--ink-2);
   }
 
-  .pd-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.45rem;
-    align-items: center;
-  }
-
-  .pd-chip-link {
-    text-decoration: none;
-  }
-
-  .pd-chip-link:hover {
+  .pd-from a,
+  .pd-facts a,
+  .pd-people a {
+    color: var(--ink);
     text-decoration: underline;
+    text-decoration-color: var(--rule-strong);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 4px;
+  }
+
+  .pd-from a:hover,
+  .pd-facts a:hover,
+  .pd-people a:hover {
+    text-decoration-color: var(--clay);
   }
 
   .pd-actions {
-    margin-top: 0.35rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 6px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .pd-actions .btn {
+    white-space: normal;
+  }
+
+  @media (min-width: 700px) {
+    .pd-head {
+      grid-template-columns: 120px minmax(0, 1fr);
+      align-items: start;
+      gap: clamp(24px, 3vw, 40px);
+    }
+
+    .pd-icon {
+      width: 120px;
+      height: 120px;
+      border-radius: 22px;
+    }
   }
 
   .pd-grid {
     display: grid;
-    grid-template-columns: minmax(0, 2fr) minmax(18rem, 1fr);
-    grid-template-areas: 'main side';
-    gap: 2.25rem;
-    align-items: start;
-    padding-top: 1.75rem;
+    gap: clamp(36px, 4vw, 56px);
+    padding-block: clamp(32px, 4vw, 48px) var(--section-y);
+    border-top: 1px solid var(--rule);
+  }
+
+  @media (min-width: 1100px) {
+    .pd-grid {
+      grid-template-columns: minmax(0, 64ch) minmax(18rem, 24rem);
+      justify-content: space-between;
+      align-items: start;
+    }
   }
 
   .pd-main {
-    grid-area: main;
     display: grid;
-    gap: 2rem;
+    gap: clamp(32px, 3vw, 44px);
     min-width: 0;
   }
 
-  .pd-side {
-    grid-area: side;
+  /* The team's words at body size, 64ch. */
+  .pd-main :global(.narrative) {
+    max-width: 64ch;
+    font-size: var(--t-body);
+  }
+
+  .pd-tagline {
+    margin: 0;
+    max-width: 64ch;
+  }
+
+  .pd-section {
     display: grid;
-    gap: 1rem;
-    position: sticky;
-    top: calc(var(--masthead-h, 4.5rem) + 1rem);
+    gap: 14px;
   }
 
-  @media (max-width: 63.99em) {
-    .pd-grid {
-      grid-template-columns: minmax(0, 1fr);
-      grid-template-areas: 'side' 'main';
-      gap: 1.5rem;
-    }
-
-    .pd-side {
-      position: static;
-    }
-
-    /* The header already carries the links; the card keeps the facts. */
-    .pd-side .dir-actions {
-      display: none;
-    }
-
-    .pd-side .facts-card :global(.plogo--card) {
-      display: none;
-    }
+  .pd-section h2 {
+    margin: 0;
   }
 
-  @media (max-width: 40em) {
-    /* Logo and name share the first line; everything else runs full width. */
-    .pd-head {
-      gap: 0.9rem;
-      align-items: center;
-    }
-
-    .pd-head-body {
-      display: contents;
-    }
-
-    .pd-tagline,
-    .pd-meta,
-    .pd-actions {
-      grid-column: 1 / -1;
-    }
-
-    .pd-actions :global(.dir-action) {
-      min-height: 2.75rem;
-    }
+  .pd-team-name {
+    margin: 0;
+    font-family: var(--font-title);
+    font-size: var(--t-title);
+    font-weight: 600;
+    color: var(--ink);
   }
 
-  .pd-team {
-    margin: 0.2rem 0 0;
+  .pd-people {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .pd-role {
     color: var(--ink-3);
-    font-size: 0.9375rem;
+  }
+
+  .pd-side {
+    display: grid;
+    gap: 20px;
+    align-content: start;
+  }
+
+  .pd-facts {
+    margin: 0;
+    border-top: 1px solid var(--rule);
+  }
+
+  .pd-facts > div {
+    display: grid;
+    grid-template-columns: minmax(7rem, auto) minmax(0, 1fr);
+    gap: 16px;
+    padding-block: 14px;
+    border-bottom: 1px solid var(--rule);
+    font-size: var(--t-body);
+  }
+
+  .pd-facts dt {
+    color: var(--ink-3);
+  }
+
+  .pd-facts dd {
+    display: grid;
+    gap: 4px;
+    margin: 0;
+    color: var(--ink);
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+
+  /* Long text from the form: keep the team's own line breaks and list lines. */
+  .pd-built-with {
+    white-space: pre-line;
   }
 
   .pd-claim {
     margin: 0;
-    padding-top: 0.75rem;
-    border-top: 1px solid var(--panel-border);
-    font-size: 0.875rem;
-    color: var(--ink-2);
-  }
-
-  .pd-claim a {
-    color: var(--clay-deep);
   }
 
   .pd-side-actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
-  .pd-nav ul {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.25rem 1.25rem;
-    margin: 0;
-    padding: 0 0 0.75rem;
-    list-style: none;
-    border-bottom: 1px solid var(--panel-border);
-  }
-
-  .pd-nav a {
-    display: inline-block;
-    padding: 0.35rem 0;
-    font-size: 0.9375rem;
-    font-weight: 600;
-    color: var(--ink-2);
-    text-decoration: none;
-  }
-
-  .pd-nav a:hover {
-    color: var(--ink);
-    text-decoration: underline;
-    text-underline-offset: 4px;
-  }
-
-  .pd-section {
-    display: grid;
-    gap: 0.75rem;
-    scroll-margin-top: calc(var(--masthead-h, 4.5rem) + 1rem);
-  }
-
-  .pd-section h2 {
-    margin: 0;
-    font-family: var(--font-title, var(--font-body));
-    font-size: 1.25rem;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-  }
-
-  .pd-lead {
-    margin: 0;
-    font-size: 1.0625rem;
-    line-height: 1.6;
-    color: var(--ink);
-    max-width: 72ch;
-  }
-
-  .pd-source-note {
-    margin: 0;
-    font-size: 0.8125rem;
-    color: var(--ink-3);
-  }
-
-  .pd-undocumented {
-    margin: 0;
-    color: var(--ink-3);
-    font-style: italic;
-  }
-
-  .pd-shot {
-    display: block;
-    width: 100%;
-    height: auto;
-    aspect-ratio: 16 / 10;
-    object-fit: cover;
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-lg);
-  }
-
-  .pd-videos {
-    display: grid;
-    gap: 0.6rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .pd-video {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 0.9rem;
     align-items: center;
-    padding: 0.85rem 1rem;
-    color: var(--ink);
-    text-decoration: none;
-    background: var(--panel);
-    border: 1px solid var(--panel-border);
-    border-radius: var(--radius-md);
+    gap: 10px;
   }
 
-  .pd-video:hover,
-  .pd-video:focus-visible {
-    border-color: var(--ink-3);
-  }
-
-  .pd-video-play {
-    display: grid;
-    place-items: center;
-    width: 2.75rem;
-    height: 2.75rem;
-    color: var(--paper-raised);
-    background: var(--ink);
-    border-radius: var(--radius-xs);
-  }
-
-  .pd-video-label {
-    display: block;
-    font-weight: 600;
-  }
-
-  .pd-video-host {
-    display: block;
-    font-size: 0.8125rem;
-    color: var(--ink-3);
-  }
-
-  .pd-team-name {
-    margin: 0;
-    font-weight: 600;
-  }
-
-  .pd-people {
-    display: grid;
-    gap: 0.4rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .pd-people a {
-    color: var(--clay-deep);
+  /* Same ground as the article above: one --section-y between them, split at the hairline
+     (as Section does). The full one before the footer keeps a wrapped link's underline clear of its rule. */
+  .pd:has(+ .pd-related) .pd-grid {
+    padding-bottom: calc(var(--section-y) / 2);
   }
 
   .pd-related {
     display: grid;
-    gap: 0.9rem;
-    margin-top: 3rem;
+    gap: var(--head-after);
+    padding-block: calc(var(--section-y) / 2) var(--section-y);
+    border-top: 1px solid var(--rule);
   }
 
-  .pd-related-head {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 0.5rem 1rem;
-  }
-
-  .pd-related-head h2 {
+  .pd-related h2 {
     margin: 0;
-    font-family: var(--font-title, var(--font-body));
-    font-size: 1.25rem;
-    font-weight: 600;
+    text-wrap: balance;
   }
 
-  .pd-back {
-    margin: 2rem 0 0;
+  .pd-more {
+    margin: 0;
   }
 </style>

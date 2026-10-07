@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { cities } from '../src/data/cities';
 import { isCityIndexable, isPrivatePath, nonIndexablePaths } from '../src/lib/indexable';
@@ -43,6 +44,20 @@ describe('the timeline', () => {
     for (const item of communitySignal(50)) {
       expect(onRail, item.subject).toContain(`${item.date}:${item.subject}`);
     }
+  });
+});
+
+describe('the timeline component', () => {
+  const source = readFileSync('src/components/Timeline.astro', 'utf8');
+
+  it('heads each month with a serif h2 and keeps the filled and open marks', () => {
+    expect(source).toContain('<h2 class="t-h3 month-name"');
+    expect(source).toContain("{ 'is-ahead': entry.ahead }");
+    expect(source).toContain('.entry.is-ahead .entry-mark');
+  });
+
+  it('sets no mono, tracked or uppercase type', () => {
+    expect(source).not.toMatch(/font-mono|text-transform:\s*uppercase|track-meta|t-micro/);
   });
 });
 
@@ -101,7 +116,14 @@ describe('indexability', () => {
   });
 
   it('does not treat a public route as private', () => {
-    for (const path of ['/', '/builders/', '/projects/', '/events/', '/cities/bhopal/', '/record/']) {
+    for (const path of [
+      '/',
+      '/builders/',
+      '/projects/',
+      '/events/',
+      '/cities/bhopal/',
+      '/record/',
+    ]) {
       expect(isPrivatePath(path), path).toBe(false);
     }
   });

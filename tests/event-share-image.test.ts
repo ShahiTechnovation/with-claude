@@ -76,7 +76,6 @@ describe('every event declares a share image that resolves', () => {
       expect(before, 'event.coverImage read without asset()').toMatch(/asset\($/);
     }
   });
-
 });
 
 describe('the share images are real pictures of a usable size', () => {
@@ -106,6 +105,27 @@ describe('the share images are real pictures of a usable size', () => {
     const { width, height } = await sharp(join('public', DEFAULT_SHARE_IMAGE)).metadata();
     expect(width).toBe(CARD_WIDTH);
     expect(height).toBe(CARD_HEIGHT);
+  });
+
+  /**
+   * An event with no cover of its own shows, and shares, its Claude Community plate. One helper
+   * decides (`eventPlate`: the cover, else the plate), and the page takes both the head image and
+   * the share image from it, so the page and its card never disagree.
+   */
+  it('falls back to the event’s plate, and every plate is a usable picture of a real event', async () => {
+    expect(readFileSync('src/lib/event-plate.ts', 'utf8')).toContain(
+      'asset(event.coverImage ?? undefined) ?? asset(`plates/${event.slug}.jpg`)',
+    );
+    const page = readFileSync(PAGE, 'utf8');
+    expect(page).toMatch(/const plate = eventPlate\(event\);/);
+    expect(page).toMatch(/const shareImage = plate\?\.src;/);
+    expect(page).toMatch(/<Image[\s\S]{0,80}src=\{plate\}/);
+    const slugs = new Set(events.map((e) => e.slug));
+    for (const file of readdirSync('src/assets/plates')) {
+      expect(slugs.has(file.replace(/\.jpg$/, '')), `${file} names no event`).toBe(true);
+      const { width, height } = await sharp(join('src/assets/plates', file)).metadata();
+      expect(Math.min(width!, height!), file).toBeGreaterThanOrEqual(400);
+    }
   });
 });
 
@@ -169,7 +189,9 @@ describe('the built output serves every share image it declares', () => {
         return;
       }
 
-      const declared = resolve(coverImage)?.src ?? DEFAULT_SHARE_IMAGE;
+      // The page's own fallback order: the cover, then the event's plate, then the card.
+      const declared =
+        (resolve(coverImage) ?? resolve(`plates/${slug}.jpg`))?.src ?? DEFAULT_SHARE_IMAGE;
       const response = await fetch(origin + declared);
       expect(response.status, `${slug} declares ${declared}`).toBe(200);
 

@@ -2,54 +2,30 @@
 /**
  * A movement of the page.
  *
- * Deliberately thin. The previous version stamped every section with a serial
- * number and a tick on the meridian, which made eleven different ideas read as
- * eleven entries in one scientific report. Sections now differ by ground,
- * width and air — and each one writes its own eyebrow.
+ * Deliberately thin: one rhythm (`--section-y`), a hairline on top, and a
+ * ground. `night` and `deep` are older names for the sunk ground.
  */
 interface Props {
   id: string;
-  /** The ground this section sits on. */
+  /** The ground this section sits on. `night` and `deep` render as `sunk`. */
   tone?: 'paper' | 'sunk' | 'raised' | 'night' | 'deep';
-  /** Vertical air. `lg` is for the moments that should slow a reader down. */
-  size?: 'sm' | 'md' | 'lg';
   /** Content manages its own container — used for full-bleed photography. */
   bleed?: boolean;
-  width?: 'standard' | 'wide';
   /** Id of the heading that names this section. */
   labelledby?: string;
   class?: string;
 }
 
-const {
-  id,
-  tone = 'paper',
-  size = 'md',
-  bleed = false,
-  width = 'wide',
-  labelledby,
-  class: className = '',
-} = Astro.props;
-
-const isDark = tone === 'night' || tone === 'deep';
+const { id, tone = 'paper', bleed = false, labelledby, class: className = '' } = Astro.props;
+const ground = tone === 'night' || tone === 'deep' ? 'sunk' : tone;
 ---
 
-<section
-  id={id}
-  class:list={[
-    'section',
-    `is-${tone}`,
-    `is-${size}`,
-    { 'on-night': isDark, 'on-deep': tone === 'deep' },
-    className,
-  ]}
-  aria-labelledby={labelledby}
->
+<section id={id} class:list={['section', `is-${ground}`, className]} aria-labelledby={labelledby}>
   {
     bleed ? (
       <slot />
     ) : (
-      <div class:list={[width === 'wide' ? 'container-wide' : 'container', 'section-body']}>
+      <div class="container section-body">
         <slot />
       </div>
     )
@@ -59,8 +35,34 @@ const isDark = tone === 'night' || tone === 'deep';
 <style>
   .section {
     position: relative;
+    padding-block: var(--section-y);
     background: var(--paper);
-    color: var(--ink);
+    border-top: 1px solid var(--rule);
+  }
+
+  /* One gap where two sections on the same ground meet, not two: each gives up
+     half its padding, so the hairline sits in the middle of one --section-y.
+     Where the ground changes both keep theirs; there the padding is inside a band.
+     A ruled list that ends a section drops its last row's border-bottom: the next
+     section's (or the footer's) hairline closes it, or the two rules sit 20-26px apart. */
+  .is-paper:has(+ .is-paper),
+  .is-sunk:has(+ .is-sunk),
+  .is-raised:has(+ .is-raised) {
+    padding-bottom: calc(var(--section-y) / 2);
+  }
+
+  .is-paper + .is-paper,
+  .is-sunk + .is-sunk,
+  .is-raised + .is-raised,
+  :global(.page-intro) + .is-paper {
+    padding-top: calc(var(--section-y) / 2);
+  }
+
+  /* A last section on paper meets the paper footer: it gives up half its padding and
+     the footer's top padding finishes the gap. A sunk or raised one keeps its band, and
+     a section with a sun in it keeps its room: the sun is sized to that padding. */
+  .is-paper:not(:has(~ :not(script, style)), :has(> .sunrise)) {
+    padding-bottom: calc(var(--section-y) / 2);
   }
 
   .is-sunk {
@@ -69,18 +71,6 @@ const isDark = tone === 'night' || tone === 'deep';
 
   .is-raised {
     background: var(--paper-raised);
-  }
-
-  .is-sm {
-    padding-block: var(--section-y-sm);
-  }
-
-  .is-md {
-    padding-block: var(--section-y);
-  }
-
-  .is-lg {
-    padding-block: var(--section-y-lg);
   }
 
   .section-body {

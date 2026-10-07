@@ -11,6 +11,9 @@ interface Props {
 const { entityType, entityId, initialState, isModerator } = Astro.props;
 ---
 
+{/* Built for the cream ground, so it keeps a light scope on a dark page. */}
 {isModerator && (
-  <ReactModeratorControls client:load entityType={entityType} entityId={entityId} initialState={initialState} />
+  <div data-theme="light">
+    <ReactModeratorControls client:load entityType={entityType} entityId={entityId} initialState={initialState} />
+  </div>
 )}

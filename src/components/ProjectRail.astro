@@ -1,0 +1,140 @@
+---
+/**
+ * A sideways row of big cards that bleeds to the content edge, with native scroll snap. The region
+ * is focusable, so a keyboard scrolls it with the arrow keys; the two arrow buttons are a JS-only
+ * convenience (hidden under 700px, where a thumb does it).
+ */
+import ProjectCard from '@/components/ProjectCard.astro';
+import type { CardProps } from '@/lib/project-display';
+
+interface Props {
+  label: string;
+  items: CardProps[];
+  more?: { href: string; label: string };
+}
+
+const { label, items, more } = Astro.props;
+const arrow = 'M4 10h11m-4.5-4.5L15 10l-4.5 4.5';
+---
+
+<div class="rail-wrap" data-rail>
+  <div class="rail" role="region" tabindex="0" aria-label={label}>
+    {items.map((p) => <ProjectCard {...p} size="lg" />)}
+  </div>
+  <div class="rail-foot">
+    {
+      more && (
+        <a class="btn" href={more.href}>
+          {more.label}
+          <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+            <path
+              d={arrow}
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </a>
+      )
+    }
+    <span class="rail-arrows js-only">
+      <button class="icon-btn" type="button" data-rail-dir="-1" aria-label="Scroll back">
+        <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+          <path
+            d="M12 4.5L6.5 10l5.5 5.5"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"></path>
+        </svg>
+      </button>
+      <button class="icon-btn" type="button" data-rail-dir="1" aria-label="Scroll forward">
+        <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+          <path
+            d="M8 4.5l5.5 5.5L8 15.5"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"></path>
+        </svg>
+      </button>
+    </span>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('click', (e) => {
+    const button = (e.target as Element | null)?.closest?.<HTMLButtonElement>('[data-rail-dir]');
+    const rail = button?.closest('[data-rail]')?.querySelector<HTMLElement>('.rail');
+    if (!button || !rail) return;
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    rail.scrollBy({
+      left: Number(button.dataset.railDir) * rail.clientWidth * 0.8,
+      behavior: still ? 'auto' : 'smooth',
+    });
+  });
+
+  // Chrome leaves a tab stop that is already partly on screen where it is: bring the whole card in.
+  document.addEventListener('focusin', (e) => {
+    const card = (e.target as Element).closest('.rail .pcard');
+    card?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  });
+</script>
+
+<style>
+  .rail {
+    /* The content edge: the gutter, or the margin beside the centred measure on wide screens. */
+    --edge: max(var(--gutter), calc((100vw - var(--measure)) / 2));
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 82vw;
+    gap: 14px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    /* Bleed from the content box to the viewport edge. */
+    margin-inline: calc(-1 * var(--edge));
+    padding: 4px var(--edge) 6px;
+    scroll-padding-inline: var(--edge);
+  }
+
+  /* The arrows need JS; without it the scrollbar stays, so a mouse can reach every card. */
+  :global(.js) .rail {
+    scrollbar-width: none;
+  }
+
+  :global(.js) .rail::-webkit-scrollbar {
+    display: none;
+  }
+
+  .rail > :global(.pcard) {
+    scroll-snap-align: start;
+  }
+
+  .rail-foot {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 20px;
+  }
+
+  .rail-arrows {
+    display: none;
+    gap: 10px;
+    margin-left: auto;
+  }
+
+  @media (min-width: 700px) {
+    .rail {
+      grid-auto-columns: clamp(280px, 29vw, 410px);
+      gap: 20px;
+    }
+
+    :global(.js) .rail-arrows {
+      display: flex;
+    }
+  }
+</style>

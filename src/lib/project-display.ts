@@ -22,6 +22,12 @@ export function categoryLabel(category: string): string {
   return category === 'developer-tool' ? 'Developer tool' : formatName(category);
 }
 
+/** Import-generated summaries ("Built at X · 20 Sep 2026") repeat the event badge. */
+export function ownSummary(summary: string | null | undefined): string | undefined {
+  const s = summary?.trim();
+  return s && !/^(Built|Submitted) at .+ · \d{1,2} [A-Z][a-z]{2} \d{4}$/.test(s) ? s : undefined;
+}
+
 export type ArtifactKind = 'live' | 'repo' | 'video' | 'altVideo' | 'download' | 'artifact';
 
 export interface ArtifactAction {
@@ -52,7 +58,10 @@ function pathOf(url: string): string {
 }
 
 /** A typed link → an honest label. Only http(s) links are ever returned. */
-export function artifactAction(kind: ArtifactKind, href: string | null | undefined): ArtifactAction | null {
+export function artifactAction(
+  kind: ArtifactKind,
+  href: string | null | undefined,
+): ArtifactAction | null {
   if (!href || !/^https?:\/\//i.test(href)) return null;
   const host = hostOf(href);
   const path = pathOf(href);
@@ -68,7 +77,13 @@ export function artifactAction(kind: ArtifactKind, href: string | null | undefin
     case 'altVideo': {
       const second = kind === 'altVideo';
       if (drive && path.includes('/folders/')) {
-        return { kind, href, label: second ? 'Second demo (Drive folder)' : 'Demo files (Drive folder)', short: 'Demo', host };
+        return {
+          kind,
+          href,
+          label: second ? 'Second demo (Drive folder)' : 'Demo files (Drive folder)',
+          short: 'Demo',
+          host,
+        };
       }
       const where =
         host === 'youtube.com' || host === 'youtu.be' || host === 'm.youtube.com'
@@ -80,10 +95,22 @@ export function artifactAction(kind: ArtifactKind, href: string | null | undefin
               : host.endsWith('dropbox.com')
                 ? 'Dropbox'
                 : '';
-      return { kind, href, label: `${second ? 'Watch second demo' : 'Watch demo'}${where ? ` (${where})` : ''}`, short: 'Video', host };
+      return {
+        kind,
+        href,
+        label: `${second ? 'Watch second demo' : 'Watch demo'}${where ? ` (${where})` : ''}`,
+        short: 'Video',
+        host,
+      };
     }
     case 'download':
-      return { kind, href, label: host === 'github.com' ? 'Download (GitHub release)' : 'Download', short: 'Download', host };
+      return {
+        kind,
+        href,
+        label: host === 'github.com' ? 'Download (GitHub release)' : 'Download',
+        short: 'Download',
+        host,
+      };
     case 'artifact': {
       const label =
         host === 'docs.google.com' && path.startsWith('/presentation')
@@ -170,13 +197,17 @@ function inline(text: string): Inline[] {
  * template (there is no HTML path), so nothing a team typed can become markup.
  */
 export function narrativeBlocks(text: string | null | undefined): Block[] {
-  const source = (text ?? '').replace(/\r\n?/g, '\n').replace(/[​-‍﻿]/g, '').trim();
+  const source = (text ?? '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .trim();
   if (!source) return [];
   const blocks: Block[] = [];
   let para: string[] = [];
   let list: string[] = [];
   const flushPara = () => {
-    if (para.length) blocks.push({ type: 'p', content: inline(para.join(' ').replace(/\s+/g, ' ').trim()) });
+    if (para.length)
+      blocks.push({ type: 'p', content: inline(para.join(' ').replace(/\s+/g, ' ').trim()) });
     para = [];
   };
   const flushList = () => {
@@ -215,4 +246,59 @@ export function excerpt(text: string | null | undefined, max = 155): string {
   if (t.length <= max) return t;
   const cut = t.slice(0, max);
   return `${cut.slice(0, Math.max(cut.lastIndexOf(' '), max - 20)).replace(/[,;:—–-]+$/, '')}…`;
+}
+
+// ── cards ────────────────────────────────────────────────────────────────
+
+/** What a project card renders: its icon, name, one line and its links. Nothing else. */
+export interface CardProps {
+  /** The href /projects/<slug>/ and the icon. */
+  slug: string;
+  title: string;
+  /** One line: cardText(). */
+  text?: string | null;
+  links?: { live?: string | null; repo?: string | null; video?: string | null };
+  /** md: 64px tile (56 on phones); lg: 88px tile (72 on phones). */
+  size?: 'md' | 'lg';
+  /** Default 'h3'. */
+  level?: 'h2' | 'h3' | 'h4';
+}
+
+/**
+ * One plain line for a card. The first paragraph block of narrativeBlocks(description), its inlines'
+ * text joined (Markdown markers and line breaks gone), cut by excerpt(…, 160); else ownSummary(summary)
+ * (null for the generated "Built at … · date" line); else null.
+ */
+export function cardText(p: {
+  description?: string | null;
+  summary?: string | null;
+}): string | null {
+  const first = narrativeBlocks(p.description).find((b) => b.type === 'p');
+  const text = first?.type === 'p' ? excerpt(first.content.map((i) => i.text).join(''), 160) : '';
+  return text || ownSummary(p.summary) || null;
+}
+
+/** Takes the directory DTO (links.live/repo/video) or a record-set Project (url/repoUrl/videoUrl). */
+export function cardProps(
+  p: {
+    slug: string;
+    title: string;
+    description?: string | null;
+    summary?: string | null;
+    links?: { live: string | null; repo: string | null; video: string | null };
+    url?: string;
+    repoUrl?: string;
+    videoUrl?: string;
+  },
+  extra: Pick<CardProps, 'size' | 'level'> = {},
+): CardProps {
+  return {
+    slug: p.slug,
+    title: p.title,
+    text: cardText(p),
+    links: p.links
+      ? { live: p.links.live, repo: p.links.repo, video: p.links.video }
+      : { live: p.url ?? null, repo: p.repoUrl ?? null, video: p.videoUrl ?? null },
+    ...extra,
+  };
 }

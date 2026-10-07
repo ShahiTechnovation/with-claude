@@ -5,9 +5,12 @@ import type { CommunityEvent } from '../src/data/types';
 import {
   PRIVATE_VENUE_NAME,
   displayEvent,
+  eventLabel,
   isVenuePlaceholder,
+  keepDash,
   stripCityPrefix,
 } from '../src/lib/event-display';
+import { parseQuery, runSearch } from '../src/lib/search-core';
 
 /**
  * Feed events arrive exactly as an organiser typed them into Luma. The stored
@@ -39,17 +42,25 @@ describe('stripCityPrefix', () => {
   });
 
   it('matches the aliases a feed writes for the same city', () => {
-    expect(stripCityPrefix('Bangalore | Claude Fable Build Day', 'Bengaluru')).toBe('Claude Fable Build Day');
+    expect(stripCityPrefix('Bangalore | Claude Fable Build Day', 'Bengaluru')).toBe(
+      'Claude Fable Build Day',
+    );
     expect(stripCityPrefix('Bombay | Claude Meetup', 'Mumbai')).toBe('Claude Meetup');
     expect(stripCityPrefix('Delhi NCR | Claude Meetup', 'Delhi')).toBe('Claude Meetup');
     expect(stripCityPrefix('New  Delhi | Claude Meetup', 'Delhi')).toBe('Claude Meetup');
   });
 
   it('keeps a suburb or satellite city: that is a place, not a second spelling', () => {
-    expect(stripCityPrefix('Gandhinagar | Claude Meetup', 'Ahmedabad')).toBe('Gandhinagar | Claude Meetup');
+    expect(stripCityPrefix('Gandhinagar | Claude Meetup', 'Ahmedabad')).toBe(
+      'Gandhinagar | Claude Meetup',
+    );
     expect(stripCityPrefix('Thane | Claude Meetup', 'Mumbai')).toBe('Thane | Claude Meetup');
-    expect(stripCityPrefix('Navi Mumbai | Claude Meetup', 'Mumbai')).toBe('Navi Mumbai | Claude Meetup');
-    expect(stripCityPrefix('Secunderabad | Claude Meetup', 'Hyderabad')).toBe('Secunderabad | Claude Meetup');
+    expect(stripCityPrefix('Navi Mumbai | Claude Meetup', 'Mumbai')).toBe(
+      'Navi Mumbai | Claude Meetup',
+    );
+    expect(stripCityPrefix('Secunderabad | Claude Meetup', 'Hyderabad')).toBe(
+      'Secunderabad | Claude Meetup',
+    );
     expect(stripCityPrefix('Mohali | Claude Meetup', 'Chandigarh')).toBe('Mohali | Claude Meetup');
   });
 
@@ -80,7 +91,7 @@ describe('isVenuePlaceholder', () => {
     expect(isVenuePlaceholder('Paytm, see https://paytm.com')).toBe(false);
   });
 
-  it("recognises the stand-in that ingestion itself stores, so rows already synced read the same", () => {
+  it('recognises the stand-in that ingestion itself stores, so rows already synced read the same', () => {
     expect(isVenuePlaceholder(PRIVATE_VENUE_NAME)).toBe(true);
   });
 
@@ -102,14 +113,49 @@ describe('displayEvent', () => {
   });
 
   it('names a venue that ingestion already stored as private by its city too', () => {
-    const synced = { ...base, title: 'Claude Meetup', venue: { name: PRIVATE_VENUE_NAME, private: true } };
+    const synced = {
+      ...base,
+      title: 'Claude Meetup',
+      venue: { name: PRIVATE_VENUE_NAME, private: true },
+    };
     expect(displayEvent(synced, 'Mumbai').venue).toEqual({ name: 'Mumbai', private: true });
-    const link = { ...base, title: 'Claude Meetup', venue: { name: 'https://luma.com/event/evt-x' } };
+    const link = {
+      ...base,
+      title: 'Claude Meetup',
+      venue: { name: 'https://luma.com/event/evt-x' },
+    };
     expect(displayEvent(link, 'Mumbai').venue).toEqual({ name: 'Mumbai', private: true });
   });
 
   it('falls back to the stand-in when the city is not in the record', () => {
-    expect(displayEvent(base, undefined).venue).toEqual({ name: PRIVATE_VENUE_NAME, private: true });
+    expect(displayEvent(base, undefined).venue).toEqual({
+      name: PRIVATE_VENUE_NAME,
+      private: true,
+    });
+  });
+
+  it('keeps a spaced dash with the word before it, so a heading never starts a line with "- …"', () => {
+    const fable = { ...base, title: 'Bhopal | Claude Code Build Day - Fable 5.1' };
+    expect(displayEvent(fable, 'Bhopal').title).toBe('Claude Code Build Day\u00a0- Fable 5.1');
+    expect(eventLabel(fable.title, null, 'Bhopal')).toBe('Claude Code Build Day\u00a0- Fable 5.1');
+    expect(eventLabel(fable.title, 'Build Day – Fable', null)).toBe('Build Day\u00a0– Fable');
+    // A hyphen inside a word is not a spaced dash.
+    expect(keepDash('Claude Code Build-Day')).toBe('Claude Code Build-Day');
+    // Search still finds the title when the visitor types a plain space.
+    const title = 'Claude Code Build Day\u00a0- Fable 5.1';
+    const record = {
+      id: 'event:fable',
+      kind: 'event' as const,
+      title,
+      subtitle: 'Bhopal',
+      summary: '',
+      href: '/events/fable/',
+      facets: {},
+      terms: title.toLowerCase(),
+      weight: 0,
+    };
+    const intent = parseQuery('build day - fable', { cities: [], surfaces: [], formats: [] });
+    expect(runSearch([record], intent).map((r) => r.record.id)).toEqual(['event:fable']);
   });
 
   it('returns the same record when there is nothing to clean', () => {

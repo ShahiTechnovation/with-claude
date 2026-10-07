@@ -1,49 +1,55 @@
 ---
 /**
- * Interior page opening.
- *
- * Replaces the old header, which stamped "Field record № NN" across every
- * page on the site. One archival device applied everywhere stops being a
- * device and becomes a template — so the eyebrow is now whatever the page is
- * actually about, and the stamp is optional data rather than a serial number.
+ * Interior page opening: the title, one sentence, and at most one action, under a
+ * static corner sunrise.
  */
 interface Props {
-  eyebrow: string;
+  /** A trailing "." renders as the clay full stop. */
   title: string;
-  /** Right-hand slug: coordinates, a count, a date. Real data only. */
-  stamp?: string;
+  /** md (default): `.t-h1`. lg: `.t-display`, for titles of 24 characters or fewer. */
   size?: 'md' | 'lg';
-  /** Facts worth putting under the lede, e.g. `[{ label, value }]`. */
-  facts?: { label: string; value: string }[];
+  action?: { href: string; label: string };
+  /** The corner sunrise. */
+  glow?: boolean;
 }
 
-const { eyebrow, title, stamp, size = 'md', facts = [] } = Astro.props;
+const { title, size = 'md', action, glow = true } = Astro.props;
+const stop = title.endsWith('.');
+const words = stop ? title.slice(0, -1) : title;
 ---
 
-<header class:list={['page-intro', `is-${size}`]}>
-  <div class="container-wide page-intro-inner">
-    <div class="page-slug">
-      <p class="eyebrow">{eyebrow}</p>
-      {stamp && <p class="coords">{stamp}</p>}
-    </div>
-    <hr class="rule-line" />
-
-    <h1 class="page-title">{title}</h1>
-
-    <div class="page-lede">
-      <slot />
-    </div>
+<header class="page-intro">
+  {glow && <i class="sunrise is-corner" aria-hidden="true" />}
+  <div class="container page-intro-inner">
+    <h1 class:list={['page-title', size === 'lg' ? 't-display' : 't-h1']}>
+      {words}{stop && <span class="dot">.</span>}
+    </h1>
 
     {
-      facts.length > 0 && (
-        <dl class="page-facts">
-          {facts.map((fact) => (
-            <div>
-              <dt>{fact.label}</dt>
-              <dd>{fact.value}</dd>
-            </div>
-          ))}
-        </dl>
+      Astro.slots.has('default') && (
+        <div class="lead page-lede">
+          <slot />
+        </div>
+      )
+    }
+
+    {
+      action && (
+        <p class="page-action">
+          <a class="btn btn-primary" href={action.href}>
+            {action.label}
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path
+                d="M4 10h11m-4.5-4.5L15 10l-4.5 4.5"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </a>
+        </p>
       )
     }
   </div>
@@ -51,38 +57,27 @@ const { eyebrow, title, stamp, size = 'md', facts = [] } = Astro.props;
 
 <style>
   .page-intro {
-    padding-top: clamp(1.25rem, 3.5vw, 2.5rem);
-    padding-bottom: clamp(2.2rem, 4.5vw, 4rem);
+    position: relative;
+    /* clip, not just hidden: a hidden box can still be scrolled, and iOS pans to the sun. */
+    overflow: hidden;
+    overflow: clip;
+    isolation: isolate;
+    padding-block: clamp(40px, 5vw, 72px) clamp(20px, 2.2vw, 32px);
   }
 
-  .page-slug {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: var(--s-3);
-    padding-bottom: var(--s-3);
+  .page-intro-inner {
+    display: grid;
+    gap: 22px;
+    justify-items: start;
   }
 
   .page-title {
-    margin-top: clamp(var(--s-6), 5vw, var(--s-9));
-    font-size: var(--t-display);
-    font-weight: 300;
-    line-height: var(--lh-display);
-    letter-spacing: -0.035em;
     max-width: 18ch;
-  }
-
-  .is-lg .page-title {
-    font-size: clamp(2.6rem, 8vw, 6rem);
-    line-height: 0.92;
-    letter-spacing: -0.042em;
+    text-wrap: balance;
   }
 
   .page-lede {
-    margin-top: var(--s-5);
-    max-width: 58ch;
-    font-size: var(--t-lead);
+    max-width: 48ch;
     color: var(--ink-2);
   }
 
@@ -90,33 +85,7 @@ const { eyebrow, title, stamp, size = 'md', facts = [] } = Astro.props;
     display: none;
   }
 
-  .page-facts {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--s-6);
-    margin-top: var(--s-7);
-    padding-top: var(--s-5);
-    border-top: var(--border-hair) solid var(--rule);
-  }
-
-  .page-facts dt {
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: var(--track-meta);
-    text-transform: uppercase;
-    color: var(--ink-3);
-  }
-
-  .page-facts dd {
-    margin-top: var(--s-2);
-    font-family: var(--font-title);
-    font-size: 1.5rem;
-    font-weight: 600;
-    font-variation-settings:
-      'SOFT' 0,
-      'WONK' 1;
-    line-height: 1;
-    letter-spacing: -0.03em;
-    font-variant-numeric: lining-nums tabular-nums;
+  .page-action {
+    margin-top: 6px;
   }
 </style>

@@ -23,11 +23,25 @@
  * either a published Blob URL or a repository asset key — never an arbitrary
  * URL, and never something fetched while a page renders.
  */
-import { and, asc, count, desc, eq, ilike, inArray, isNotNull, isNull, ne, or, sql, type SQL } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNotNull,
+  isNull,
+  ne,
+  or,
+  sql,
+  type SQL,
+} from 'drizzle-orm';
 import { alias, type PgDatabase, type PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import * as schema from '../../../db/schema';
 import { publicProjectWhere } from '../projects/lifecycle';
-import { stripCityPrefix } from '../../lib/event-display';
+import { eventLabel } from '../../lib/event-display';
 import { resolveLogoSource, type LogoSource } from '../../lib/project-logo';
 import type { IsoDate } from '../../data/types';
 
@@ -57,6 +71,8 @@ export interface PublicEventRef {
   /** The originally announced date, when it moved. Display-only. */
   rescheduledFrom: IsoDate | null;
   city: { slug: string; name: string } | null;
+  /** The event's own cover, an asset key; `eventPlate()` falls back to its kit plate. */
+  coverImage: string | null;
 }
 
 export interface PublicProjectLinks {
@@ -71,6 +87,8 @@ export interface PublicProjectCard {
   slug: string;
   title: string;
   summary: string | null;
+  /** The team's own words; a card shows its first paragraph (`cardText()`). */
+  description: string | null;
   category: ProjectCategory;
   /** The project's own city (a member project's home). NOT the event city. */
   city: { slug: string; name: string } | null;
@@ -91,7 +109,6 @@ export interface PublicProjectCard {
 }
 
 export interface PublicProjectDetail extends PublicProjectCard {
-  description: string | null;
   claudeUsage: string | null;
   problem: string | null;
   solution: string | null;
@@ -126,6 +143,7 @@ const cardColumns = {
   slug: schema.projects.slug,
   title: schema.projects.title,
   summary: schema.projects.summary,
+  description: schema.projects.description,
   category: schema.projects.category,
   tags: schema.projects.tags,
   featured: schema.projects.featured,
@@ -146,6 +164,7 @@ const cardColumns = {
   eventShortTitle: schema.events.shortTitle,
   eventDate: schema.events.date,
   eventRescheduledFrom: schema.events.rescheduledFrom,
+  eventCoverImage: schema.events.coverImagePath,
   eventCitySlug: eventCity.slug,
   eventCityName: eventCity.name,
   mediaUrl: cover.blobUrl,
@@ -192,7 +211,8 @@ export function publicCover(row: {
   mediaStatus: string | null;
   mediaDeletedAt: Date | string | null;
 }): string | undefined {
-  if (row.mediaStatus !== null && (row.mediaStatus !== 'published' || row.mediaDeletedAt)) return undefined;
+  if (row.mediaStatus !== null && (row.mediaStatus !== 'published' || row.mediaDeletedAt))
+    return undefined;
   if (row.mediaUrl) return row.mediaUrl;
   if (row.imagePath && !/^[a-z][a-z0-9+.-]*:/i.test(row.imagePath)) return row.imagePath;
   return undefined;
@@ -203,18 +223,17 @@ const publicEventJoin = and(
   eq(schema.events.id, schema.projects.builtAtEventId),
   eq(schema.events.status, 'published'),
 );
-const publicProjectCityJoin = and(eq(projectCity.id, schema.projects.cityId), eq(projectCity.status, 'published'));
-const publicEventCityJoin = and(eq(eventCity.id, schema.events.cityId), eq(eventCity.status, 'published'));
+const publicProjectCityJoin = and(
+  eq(projectCity.id, schema.projects.cityId),
+  eq(projectCity.status, 'published'),
+);
+const publicEventCityJoin = and(
+  eq(eventCity.id, schema.events.cityId),
+  eq(eventCity.status, 'published'),
+);
 
-/**
- * Feed titles arrive as "Bhopal | Claude Code Build Day - Fable 5.1"; the city
- * renders separately. Cleaned by the archive's own rule, so a filter option
- * and the event page it leads to carry the same name.
- */
-export function eventLabel(title: string, shortTitle: string | null, cityName: string | null): string {
-  if (shortTitle?.trim()) return shortTitle.trim();
-  return stripCityPrefix(title, cityName ?? undefined);
-}
+// Lives in src/lib/event-display.ts so components can label an event without importing the server.
+export { eventLabel };
 
 function selectCards(db: AnyDatabase) {
   return db
@@ -236,18 +255,27 @@ function toEventRef(row: CardRow): PublicEventRef | null {
     name: eventLabel(row.eventTitle, null, row.eventCityName),
     label: eventLabel(row.eventTitle, row.eventShortTitle, row.eventCityName),
     date: String(row.eventDate).slice(0, 10) as IsoDate,
-    rescheduledFrom: row.eventRescheduledFrom ? (String(row.eventRescheduledFrom).slice(0, 10) as IsoDate) : null,
-    city: row.eventCitySlug ? { slug: row.eventCitySlug, name: row.eventCityName ?? row.eventCitySlug } : null,
+    rescheduledFrom: row.eventRescheduledFrom
+      ? (String(row.eventRescheduledFrom).slice(0, 10) as IsoDate)
+      : null,
+    city: row.eventCitySlug
+      ? { slug: row.eventCitySlug, name: row.eventCityName ?? row.eventCitySlug }
+      : null,
+    coverImage: row.eventCoverImage,
   };
 }
 
-function toCard(row: CardRow, credits: { team: string | null; people: PublicCredit[] }): PublicProjectCard {
+function toCard(
+  row: CardRow,
+  credits: { team: string | null; people: PublicCredit[] },
+): PublicProjectCard {
   const image = publicCover(row);
   return {
     id: row.id,
     slug: row.slug,
     title: row.title,
     summary: row.summary,
+    description: row.description,
     category: row.category,
     tags: row.tags ?? [],
     featured: row.featured,
@@ -263,7 +291,12 @@ function toCard(row: CardRow, credits: { team: string | null; people: PublicCred
       // its own, because a soft delete writes `deleted_at` too.
       logoMedia:
         row.logoUrl && row.logoStatus === 'published' && !row.logoDeletedAt
-          ? { url: row.logoUrl, provenance: row.logoProvenance, width: row.logoWidth, height: row.logoHeight }
+          ? {
+              url: row.logoUrl,
+              provenance: row.logoProvenance,
+              width: row.logoWidth,
+              height: row.logoHeight,
+            }
           : null,
       cover: image ?? null,
     }),
@@ -274,6 +307,17 @@ function toCard(row: CardRow, credits: { team: string | null; people: PublicCred
 }
 
 const TEAM_ROLE = 'Team';
+
+/**
+ * A builder a public page credits: not archived, not held by a moderator, not
+ * deleted. Directory search matches these names and no others, so a takedown
+ * cannot be found by typing its subject's name either.
+ */
+const creditedBuilder = and(
+  ne(schema.builders.status, 'archived'),
+  inArray(schema.builders.moderationState, ['clean', 'reported']),
+  isNull(schema.builders.deletedAt),
+)!;
 
 /**
  * Credits for a batch of projects, in ONE query per source.
@@ -313,15 +357,11 @@ export async function creditsFor(
       })
       .from(schema.projectBuilders)
       .innerJoin(schema.builders, eq(schema.builders.id, schema.projectBuilders.builderId))
-      .leftJoin(schema.memberProfiles, eq(schema.memberProfiles.memberId, schema.builders.ownerMemberId))
-      .where(
-        and(
-          inArray(schema.projectBuilders.projectId, projectIds),
-          ne(schema.builders.status, 'archived'),
-          inArray(schema.builders.moderationState, ['clean', 'reported']),
-          isNull(schema.builders.deletedAt),
-        ),
+      .leftJoin(
+        schema.memberProfiles,
+        eq(schema.memberProfiles.memberId, schema.builders.ownerMemberId),
       )
+      .where(and(inArray(schema.projectBuilders.projectId, projectIds), creditedBuilder))
       .orderBy(asc(schema.projectBuilders.position), asc(schema.builders.name)),
     db
       .select({
@@ -340,8 +380,14 @@ export async function creditsFor(
 
   for (const row of builderRows) {
     // Unlisted means direct-link only: credited by name, never promoted by a link.
-    const linkable = row.status === 'published' && row.moderationState === 'clean' && row.visibility !== 'unlisted';
-    entry(row.projectId).people.push({ name: row.name, ...(linkable ? { href: `/builders/${row.slug}/` } : {}) });
+    const linkable =
+      row.status === 'published' &&
+      row.moderationState === 'clean' &&
+      row.visibility !== 'unlisted';
+    entry(row.projectId).people.push({
+      name: row.name,
+      ...(linkable ? { href: `/builders/${row.slug}/` } : {}),
+    });
   }
   for (const row of importedRows) {
     const e = entry(row.projectId);
@@ -350,7 +396,8 @@ export async function creditsFor(
       continue;
     }
     if (e.people.some((c) => c.name.toLowerCase() === row.name.toLowerCase())) continue;
-    const linkable = row.builderSlug && row.builderStatus === 'published' && row.builderModeration === 'clean';
+    const linkable =
+      row.builderSlug && row.builderStatus === 'published' && row.builderModeration === 'clean';
     e.people.push({
       name: row.name,
       ...(row.role ? { role: row.role } : {}),
@@ -363,7 +410,10 @@ export async function creditsFor(
 const NO_CREDITS = { team: null, people: [] as PublicCredit[] };
 
 async function cards(db: AnyDatabase, rows: CardRow[]): Promise<PublicProjectCard[]> {
-  const credits = await creditsFor(db, rows.map((r) => r.id));
+  const credits = await creditsFor(
+    db,
+    rows.map((r) => r.id),
+  );
   return rows.map((row) => toCard(row, credits.get(row.id) ?? NO_CREDITS));
 }
 
@@ -423,6 +473,8 @@ export interface ProjectListResult {
   total: number;
   /** Every public project, regardless of filters. */
   totalPublic: number;
+  /** Public projects built at a public event, regardless of filters (the homepage counts the same). */
+  atEvents: number;
   page: number;
   pageCount: number;
   pageSize: number;
@@ -468,7 +520,12 @@ export function normaliseDirectoryQuery(params: URLSearchParams): DirectoryQuery
     .slice(0, 80);
   const rawSort = params.get('sort') ?? '';
   // `newest` was the previous name of `recent`; old links keep working.
-  const sort: DirectorySort = rawSort === 'newest' ? 'recent' : (DIRECTORY_SORTS as string[]).includes(rawSort) ? (rawSort as DirectorySort) : 'event';
+  const sort: DirectorySort =
+    rawSort === 'newest'
+      ? 'recent'
+      : (DIRECTORY_SORTS as string[]).includes(rawSort)
+        ? (rawSort as DirectorySort)
+        : 'event';
   const page = Math.max(1, Math.min(500, Number.parseInt(params.get('page') ?? '1', 10) || 1));
   return {
     ...(q ? { q } : {}),
@@ -476,7 +533,9 @@ export function normaliseDirectoryQuery(params: URLSearchParams): DirectoryQuery
     categories: many(params, 'category', (v) => CATEGORY_VALUES.has(v)) as ProjectCategory[],
     cities: many(params, 'city', (v) => SLUG_RE.test(v)),
     statuses: many(params, 'status', (v) => STATUS_VALUES.has(v)) as BuildStatus[],
-    has: many(params, 'has', (v) => (LINK_REQUIREMENTS as string[]).includes(v)) as LinkRequirement[],
+    has: many(params, 'has', (v) =>
+      (LINK_REQUIREMENTS as string[]).includes(v),
+    ) as LinkRequirement[],
     sort,
     page,
   };
@@ -516,8 +575,10 @@ type Group = 'q' | 'events' | 'categories' | 'cities' | 'statuses' | 'has';
  *   OR within a group   event A or event B; category X or Y; city; status
  *   AND across groups   (events) AND (categories) AND (cities) AND …
  *   AND within `has`    each link switch is a requirement
- *   search              every word must appear in the title, summary, team
- *                       label or event name (any of them, per word)
+ *   search              every word must appear in the title, summary,
+ *                       description, tags, event name or a credited name —
+ *                       team label, organiser credit or credited builder
+ *                       (any of them, per word)
  *
  * `except` drops one group — that is how a facet counts "what you would get
  * if you picked this option instead", while every OTHER active group still
@@ -532,9 +593,11 @@ function filterWhere(query: DirectoryQuery, except?: Group): SQL {
     if (query.events.includes(INDEPENDENT)) alternatives.push(isNull(schema.events.id));
     parts.push(or(...alternatives)!);
   }
-  if (except !== 'categories' && query.categories.length) parts.push(inArray(schema.projects.category, query.categories));
+  if (except !== 'categories' && query.categories.length)
+    parts.push(inArray(schema.projects.category, query.categories));
   if (except !== 'cities' && query.cities.length) parts.push(inArray(eventCity.slug, query.cities));
-  if (except !== 'statuses' && query.statuses.length) parts.push(inArray(schema.projects.buildStatus, query.statuses));
+  if (except !== 'statuses' && query.statuses.length)
+    parts.push(inArray(schema.projects.buildStatus, query.statuses));
   if (except !== 'has') for (const h of query.has) parts.push(HAS_COLUMN[h]);
   if (except !== 'q' && query.q) {
     for (const word of query.q.split(' ').filter(Boolean).slice(0, 6)) {
@@ -543,10 +606,13 @@ function filterWhere(query: DirectoryQuery, except?: Group): SQL {
         or(
           ilike(schema.projects.title, pattern),
           ilike(schema.projects.summary, pattern),
+          ilike(schema.projects.description, pattern),
           sql`array_to_string(${schema.projects.tags}, ' ') ILIKE ${pattern}`,
           ilike(schema.events.title, pattern),
           ilike(schema.events.shortTitle, pattern),
-          sql`EXISTS (SELECT 1 FROM ${schema.projectCredits} pc WHERE pc.project_id = ${schema.projects.id} AND pc.role = ${TEAM_ROLE} AND pc.display_name ILIKE ${pattern})`,
+          // Imported credits are shown by name (the team label and the people), so they are searched by name.
+          sql`EXISTS (SELECT 1 FROM ${schema.projectCredits} pc WHERE pc.project_id = ${schema.projects.id} AND pc.display_name ILIKE ${pattern})`,
+          sql`EXISTS (SELECT 1 FROM ${schema.projectBuilders} JOIN ${schema.builders} ON ${schema.builders.id} = ${schema.projectBuilders.builderId} WHERE ${schema.projectBuilders.projectId} = ${schema.projects.id} AND ${creditedBuilder} AND ${schema.builders.name} ILIKE ${pattern})`,
         )!,
       );
     }
@@ -561,7 +627,11 @@ function orderFor(sort: DirectorySort): SQL[] {
   // "BhopalFlow".
   const byName = [sql`lower(${schema.projects.title}) COLLATE "C" ASC`, asc(schema.projects.slug)];
   // Two events held on the same day stay in separate blocks.
-  const byEvent = [sql`${schema.events.date} DESC NULLS LAST`, sql`${schema.events.slug} ASC NULLS LAST`, ...byName];
+  const byEvent = [
+    sql`${schema.events.date} DESC NULLS LAST`,
+    sql`${schema.events.slug} ASC NULLS LAST`,
+    ...byName,
+  ];
   switch (sort) {
     case 'name':
       return byName;
@@ -613,15 +683,18 @@ export async function listPublicProjects(
   const pageSize = Math.max(1, Math.min(MAX_PAGE_SIZE, query.pageSize ?? DEFAULT_PAGE_SIZE));
   const where = filterWhere(query);
 
-  const [[{ total }], [{ totalPublic, featuredCount }], facets] = await Promise.all([
+  const [[{ total }], [{ totalPublic, atEvents, featuredCount }], facets] = await Promise.all([
     countFrom(db, { total: count() }).where(where) as unknown as Promise<{ total: number }[]>,
-    db
-      .select({
-        totalPublic: count(),
-        featuredCount: sql<number>`count(*) FILTER (WHERE ${schema.projects.featured})`.mapWith(Number),
-      })
-      .from(schema.projects)
-      .where(publicProjectWhere()),
+    countFrom(db, {
+      totalPublic: count(),
+      // The join keeps only public events, so a null id is an independent project.
+      atEvents: count(schema.events.id),
+      featuredCount: sql<number>`count(*) FILTER (WHERE ${schema.projects.featured})`.mapWith(
+        Number,
+      ),
+    }).where(publicProjectWhere()) as unknown as Promise<
+      { totalPublic: number; atEvents: number; featuredCount: number }[]
+    >,
     directoryFacets(db, query),
   ]);
 
@@ -638,6 +711,7 @@ export async function listPublicProjects(
     items: await cards(db, rows),
     total,
     totalPublic,
+    atEvents,
     page,
     pageCount,
     pageSize,
@@ -667,54 +741,86 @@ const HAS_LABEL: Record<LinkRequirement, string> = {
  * link switches are requirements, so each switch counts with the OTHER active
  * switches still applied.
  */
-export async function directoryFacets(db: AnyDatabase, query: DirectoryQuery): Promise<ProjectListResult['facets']> {
+export async function directoryFacets(
+  db: AnyDatabase,
+  query: DirectoryQuery,
+): Promise<ProjectListResult['facets']> {
   const pub = publicProjectWhere();
   const counted = (group: Group) => filterWhere(query, group);
-  const [eventOptions, eventCounts, categories, categoryCounts, cities, cityCounts, statuses, statusCounts, hasRow] =
-    await Promise.all([
-      countFrom(db, {
-        value: sql<string>`coalesce(${schema.events.slug}, ${INDEPENDENT})`,
-        title: schema.events.title,
-        shortTitle: schema.events.shortTitle,
-        date: schema.events.date,
-        city: eventCity.name,
-      })
-        .where(pub)
-        .groupBy(schema.events.slug, schema.events.title, schema.events.shortTitle, schema.events.date, eventCity.name) as unknown as Promise<
-        { value: string; title: string | null; shortTitle: string | null; date: string | null; city: string | null }[]
-      >,
-      countFrom(db, { value: sql<string>`coalesce(${schema.events.slug}, ${INDEPENDENT})`, n: count() })
-        .where(counted('events'))
-        .groupBy(schema.events.slug) as unknown as Promise<{ value: string; n: number }[]>,
-      countFrom(db, { value: schema.projects.category }).where(pub).groupBy(schema.projects.category) as unknown as Promise<{ value: string }[]>,
-      countFrom(db, { value: schema.projects.category, n: count() })
-        .where(counted('categories'))
-        .groupBy(schema.projects.category) as unknown as Promise<{ value: string; n: number }[]>,
-      countFrom(db, { value: eventCity.slug, label: eventCity.name })
-        .where(and(pub, isNotNull(eventCity.slug)))
-        .groupBy(eventCity.slug, eventCity.name) as unknown as Promise<{ value: string; label: string }[]>,
-      countFrom(db, { value: eventCity.slug, n: count() })
-        .where(and(counted('cities'), isNotNull(eventCity.slug)))
-        .groupBy(eventCity.slug) as unknown as Promise<{ value: string; n: number }[]>,
-      countFrom(db, { value: schema.projects.buildStatus })
-        .where(and(pub, isNotNull(schema.projects.buildStatus)))
-        .groupBy(schema.projects.buildStatus) as unknown as Promise<{ value: string }[]>,
-      countFrom(db, { value: schema.projects.buildStatus, n: count() })
-        .where(and(counted('statuses'), isNotNull(schema.projects.buildStatus)))
-        .groupBy(schema.projects.buildStatus) as unknown as Promise<{ value: string; n: number }[]>,
-      countFrom(
-        db,
-        Object.fromEntries(
-          LINK_REQUIREMENTS.map((h) => {
-            const others = query.has.filter((x) => x !== h).map((x) => HAS_COLUMN[x]);
-            const condition = and(HAS_COLUMN[h], ...others)!;
-            return [h, sql<number>`count(*) FILTER (WHERE ${condition})`.mapWith(Number)];
-          }),
-        ),
-      ).where(counted('has')) as unknown as Promise<Record<LinkRequirement, number>[]>,
-    ]);
+  const [
+    eventOptions,
+    eventCounts,
+    categories,
+    categoryCounts,
+    cities,
+    cityCounts,
+    statuses,
+    statusCounts,
+    hasRow,
+  ] = await Promise.all([
+    countFrom(db, {
+      value: sql<string>`coalesce(${schema.events.slug}, ${INDEPENDENT})`,
+      title: schema.events.title,
+      shortTitle: schema.events.shortTitle,
+      date: schema.events.date,
+      city: eventCity.name,
+    })
+      .where(pub)
+      .groupBy(
+        schema.events.slug,
+        schema.events.title,
+        schema.events.shortTitle,
+        schema.events.date,
+        eventCity.name,
+      ) as unknown as Promise<
+      {
+        value: string;
+        title: string | null;
+        shortTitle: string | null;
+        date: string | null;
+        city: string | null;
+      }[]
+    >,
+    countFrom(db, {
+      value: sql<string>`coalesce(${schema.events.slug}, ${INDEPENDENT})`,
+      n: count(),
+    })
+      .where(counted('events'))
+      .groupBy(schema.events.slug) as unknown as Promise<{ value: string; n: number }[]>,
+    countFrom(db, { value: schema.projects.category })
+      .where(pub)
+      .groupBy(schema.projects.category) as unknown as Promise<{ value: string }[]>,
+    countFrom(db, { value: schema.projects.category, n: count() })
+      .where(counted('categories'))
+      .groupBy(schema.projects.category) as unknown as Promise<{ value: string; n: number }[]>,
+    countFrom(db, { value: eventCity.slug, label: eventCity.name })
+      .where(and(pub, isNotNull(eventCity.slug)))
+      .groupBy(eventCity.slug, eventCity.name) as unknown as Promise<
+      { value: string; label: string }[]
+    >,
+    countFrom(db, { value: eventCity.slug, n: count() })
+      .where(and(counted('cities'), isNotNull(eventCity.slug)))
+      .groupBy(eventCity.slug) as unknown as Promise<{ value: string; n: number }[]>,
+    countFrom(db, { value: schema.projects.buildStatus })
+      .where(and(pub, isNotNull(schema.projects.buildStatus)))
+      .groupBy(schema.projects.buildStatus) as unknown as Promise<{ value: string }[]>,
+    countFrom(db, { value: schema.projects.buildStatus, n: count() })
+      .where(and(counted('statuses'), isNotNull(schema.projects.buildStatus)))
+      .groupBy(schema.projects.buildStatus) as unknown as Promise<{ value: string; n: number }[]>,
+    countFrom(
+      db,
+      Object.fromEntries(
+        LINK_REQUIREMENTS.map((h) => {
+          const others = query.has.filter((x) => x !== h).map((x) => HAS_COLUMN[x]);
+          const condition = and(HAS_COLUMN[h], ...others)!;
+          return [h, sql<number>`count(*) FILTER (WHERE ${condition})`.mapWith(Number)];
+        }),
+      ),
+    ).where(counted('has')) as unknown as Promise<Record<LinkRequirement, number>[]>,
+  ]);
 
-  const countOf = (rows: { value: string; n: number }[], value: string) => Number(rows.find((r) => r.value === value)?.n ?? 0);
+  const countOf = (rows: { value: string; n: number }[], value: string) =>
+    Number(rows.find((r) => r.value === value)?.n ?? 0);
 
   const events: Facet[] = eventOptions
     .filter((e) => e.value !== INDEPENDENT)
@@ -726,7 +832,11 @@ export async function directoryFacets(db: AnyDatabase, query: DirectoryQuery): P
     }))
     .sort((a, b) => String(b.date).localeCompare(String(a.date)) || a.label.localeCompare(b.label));
   if (eventOptions.some((e) => e.value === INDEPENDENT)) {
-    events.push({ value: INDEPENDENT, label: 'Independent projects', count: countOf(eventCounts, INDEPENDENT) });
+    events.push({
+      value: INDEPENDENT,
+      label: 'Independent projects',
+      count: countOf(eventCounts, INDEPENDENT),
+    });
   }
 
   return {
@@ -740,7 +850,11 @@ export async function directoryFacets(db: AnyDatabase, query: DirectoryQuery): P
     statuses: (schema.projectBuildStatus.enumValues as readonly BuildStatus[])
       .filter((s) => statuses.some((r) => r.value === s))
       .map((s) => ({ value: s, label: STATUS_LABEL[s], count: countOf(statusCounts, s) })),
-    has: LINK_REQUIREMENTS.map((h) => ({ value: h, label: HAS_LABEL[h], count: Number(hasRow[0]?.[h] ?? 0) })),
+    has: LINK_REQUIREMENTS.map((h) => ({
+      value: h,
+      label: HAS_LABEL[h],
+      count: Number(hasRow[0]?.[h] ?? 0),
+    })),
   };
 }
 
@@ -757,11 +871,18 @@ export async function publicProjectsForEvent(
   return cards(db, rows);
 }
 
-export async function publicProjectCountForEvent(db: AnyDatabase, eventId: string): Promise<number> {
+export async function publicProjectCountForEvent(
+  db: AnyDatabase,
+  eventId: string,
+): Promise<number> {
   // The same joins as the directory, so an event whose own row is not public
   // reports zero here exactly as its directory filter would.
   const [{ n }] = (await countFrom(db, { n: count() }).where(
-    and(publicProjectWhere(), eq(schema.projects.builtAtEventId, eventId), isNotNull(schema.events.id)),
+    and(
+      publicProjectWhere(),
+      eq(schema.projects.builtAtEventId, eventId),
+      isNotNull(schema.events.id),
+    ),
   )) as unknown as { n: number }[];
   return Number(n);
 }
@@ -773,7 +894,9 @@ export async function publicProjectsForBuilder(
   limit = 60,
 ): Promise<PublicProjectCard[]> {
   const credited = sql`${schema.projects.id} IN (SELECT project_id FROM project_builders WHERE builder_id = ${builder.id})`;
-  const owned = builder.ownerMemberId ? eq(schema.projects.ownerMemberId, builder.ownerMemberId) : undefined;
+  const owned = builder.ownerMemberId
+    ? eq(schema.projects.ownerMemberId, builder.ownerMemberId)
+    : undefined;
   const rows = (await selectCards(db)
     .where(and(publicProjectWhere(), owned ? or(credited, owned) : credited))
     .orderBy(...orderFor('recent'))
@@ -781,8 +904,25 @@ export async function publicProjectsForBuilder(
   return cards(db, rows);
 }
 
+/**
+ * Every public project as a card, in the directory's default order (newest event first, no event last,
+ * title A–Z within an event): the grouped /projects/ view. The predicate `publicProjectsForEvent` uses;
+ * two queries (the select and `creditsFor`).
+ */
+export async function allPublicProjectCards(db: AnyDatabase): Promise<PublicProjectCard[]> {
+  return cards(
+    db,
+    (await selectCards(db)
+      .where(publicProjectWhere())
+      .orderBy(...orderFor('event'))) as CardRow[],
+  );
+}
+
 /** The homepage's strip: featured first when anything is featured, otherwise newest event. */
-export async function featuredPublicProjects(db: AnyDatabase, limit = 6): Promise<PublicProjectCard[]> {
+export async function featuredPublicProjects(
+  db: AnyDatabase,
+  limit = 6,
+): Promise<PublicProjectCard[]> {
   const result = await listPublicProjects(db, { sort: 'featured', pageSize: limit });
   return result.items;
 }
@@ -794,13 +934,15 @@ export async function featuredPublicProjects(db: AnyDatabase, limit = 6): Promis
  * `isPublic`, whether to render it, 404 it, or show a moderator banner with
  * a private response. Three bounded queries in total.
  */
-export async function getProjectDetail(db: AnyDatabase, slug: string): Promise<PublicProjectDetail | null> {
+export async function getProjectDetail(
+  db: AnyDatabase,
+  slug: string,
+): Promise<PublicProjectDetail | null> {
   if (!/^[a-z0-9][a-z0-9-]{0,120}$/.test(slug)) return null;
 
   const [row] = await db
     .select({
       ...cardColumns,
-      description: schema.projects.description,
       claudeUsage: schema.projects.claudeUsage,
       problem: schema.projects.problem,
       solution: schema.projects.solution,
@@ -831,11 +973,11 @@ export async function getProjectDetail(db: AnyDatabase, slug: string): Promise<P
       .where(and(eq(schema.useCases.projectId, row.id), eq(schema.useCases.status, 'published'))),
   ]);
 
-  const isPublic = row.publicationStatus === 'published' && row.moderationState === 'clean' && !row.deletedAt;
+  const isPublic =
+    row.publicationStatus === 'published' && row.moderationState === 'clean' && !row.deletedAt;
 
   return {
     ...toCard(row as CardRow, credits.get(row.id) ?? NO_CREDITS),
-    description: row.description,
     claudeUsage: row.claudeUsage,
     problem: row.problem,
     solution: row.solution,

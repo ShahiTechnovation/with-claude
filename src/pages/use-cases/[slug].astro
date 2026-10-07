@@ -48,7 +48,7 @@ const project = useCase.projectSlug ? projectBySlug.get(useCase.projectSlug) : u
 const event = useCase.eventSlug ? eventBySlug.get(useCase.eventSlug) : undefined;
 const cover = asset(useCase.image);
 
-const url = `${site.url}/use-cases/${useCase.slug}`;
+const url = `${site.url}/use-cases/${useCase.slug}/`;
 const crumbs = trail(
   { name: 'Use cases', href: '/use-cases' },
   { name: useCase.title, href: `/use-cases/${useCase.slug}` },
@@ -62,7 +62,7 @@ const schema = [
       published: useCase.date,
       modified: useCase.updatedAt,
       authorName: byline,
-      authorUrl: author ? `${site.url}/builders/${author.slug}` : undefined,
+      authorUrl: author ? `${site.url}/builders/${author.slug}/` : undefined,
       image: cover ? new URL(cover.src, site.url).href : undefined,
       sources: useCase.sources,
     },
@@ -80,31 +80,31 @@ const schema = [
   schema={schema}
   ogType="article"
 >
-  <PageIntro
-    eyebrow={formatName(useCase.category)}
-    title={useCase.title}
-    stamp={[city, formatDate(useCase.date)].filter(Boolean).join(' · ')}
-  >
+  <PageIntro title={useCase.title}>
     <p>{useCase.summary}</p>
   </PageIntro>
 
-  <Section id="byline" size="sm">
+  <Section id="byline">
     <div class="byline">
       <div>
         <p class="label byline-label">Written by</p>
         <p class="byline-name">
-          {author ? <a href={`/builders/${author.slug}`}>{byline}</a> : byline}
+          {author ? <a href={`/builders/${author.slug}/`}>{byline}</a> : byline}
         </p>
         <p class="byline-credential">{useCase.author.credential}</p>
       </div>
 
       <dl class="byline-facts">
+        <div>
+          <dt class="label">Category</dt>
+          <dd>{formatName(useCase.category)}</dd>
+        </div>
         {
           city && (
             <div>
               <dt class="label">City</dt>
               <dd>
-                <a href={`/cities/${useCase.citySlug}`}>{city}</a>
+                <a href={`/cities/${useCase.citySlug}/`}>{city}</a>
               </dd>
             </div>
           )
@@ -140,7 +140,6 @@ const schema = [
 
   <Section id="workflow" labelledby="workflow-heading">
     <div class="section-head">
-      <p class="eyebrow">Workflow</p>
       <h2 id="workflow-heading">What actually happened.</h2>
     </div>
 
@@ -148,7 +147,7 @@ const schema = [
       {
         useCase.workflow.map((step, i) => (
           <li class:list={['step', `is-${step.by}`]}>
-            <span class="step-num">{String(i + 1).padStart(2, '0')}</span>
+            <span class="step-num">{i + 1}</span>
             <div class="step-body">
               <h3 class="step-title">{step.title}</h3>
               <p class="step-detail">{step.detail}</p>
@@ -164,9 +163,8 @@ const schema = [
 
   <!-- The split. Two columns, deliberately equal weight — a workflow that
        cannot name the human contribution is a product demo. -->
-  <Section id="split" tone="night" size="lg" labelledby="split-heading">
+  <Section id="split" tone="sunk" labelledby="split-heading">
     <div class="section-head">
-      <p class="eyebrow">The split</p>
       <h2 id="split-heading">Who did what.</h2>
     </div>
 
@@ -201,7 +199,6 @@ const schema = [
     useCase.artifacts && useCase.artifacts.length > 0 && (
       <Section id="artifacts" tone="sunk" labelledby="artifacts-heading">
         <div class="section-head">
-          <p class="eyebrow">Artifacts</p>
           <h2 id="artifacts-heading">Shared by the author.</h2>
         </div>
         <div class="artifacts">
@@ -227,13 +224,12 @@ const schema = [
     (project || event || useCase.sources?.length) && (
       <Section id="connected" tone="sunk" labelledby="connected-heading">
         <div class="section-head">
-          <p class="eyebrow">Connected</p>
           <h2 id="connected-heading">What this touches.</h2>
         </div>
 
         <div class="links">
           {project && (
-            <a class="link-card" href={`/projects/${project.slug}`}>
+            <a class="link-card" href={`/projects/${project.slug}/`}>
               <span class="label">Project</span>
               <span class="link-card-title">{project.title}</span>
               <span class="arrow" aria-hidden="true">
@@ -242,7 +238,7 @@ const schema = [
             </a>
           )}
           {event && (
-            <a class="link-card" href={`/events/${event.slug}`}>
+            <a class="link-card" href={`/events/${event.slug}/`}>
               <span class="label">Came out of</span>
               <span class="link-card-title">{event.title}</span>
               <span class="arrow" aria-hidden="true">
@@ -251,7 +247,7 @@ const schema = [
             </a>
           )}
           {author && (
-            <a class="link-card" href={`/builders/${author.slug}`}>
+            <a class="link-card" href={`/builders/${author.slug}/`}>
               <span class="label">Written by</span>
               <span class="link-card-title">{author.name}</span>
               <span class="arrow" aria-hidden="true">
@@ -370,9 +366,7 @@ const schema = [
   }
 
   .step-num {
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: var(--track-meta);
+    font-size: var(--t-small);
     color: var(--ink-3);
     font-variant-numeric: tabular-nums;
   }
@@ -394,10 +388,7 @@ const schema = [
   }
 
   .step-by {
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: var(--track-meta);
-    text-transform: uppercase;
+    font-size: var(--t-small);
     color: var(--ink-3);
     white-space: nowrap;
   }
@@ -419,8 +410,8 @@ const schema = [
   .split-head {
     display: block;
     padding-bottom: var(--s-3);
-    border-bottom: var(--border-hair) solid var(--rule-night);
-    color: var(--on-night-2);
+    border-bottom: var(--border-hair) solid var(--rule);
+    color: var(--ink-3);
   }
 
   .split-list {
@@ -434,7 +425,7 @@ const schema = [
     padding-left: var(--s-5);
     padding-block: var(--s-3);
     font-size: var(--t-lead);
-    border-bottom: var(--border-hair) solid var(--rule-night);
+    border-bottom: var(--border-hair) solid var(--rule);
   }
 
   .split-list li::before {
@@ -456,17 +447,14 @@ const schema = [
   }
 
   .tools-label {
-    color: var(--on-night-2);
+    color: var(--ink-3);
   }
 
   .tool {
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: var(--track-meta);
-    text-transform: uppercase;
+    font-size: var(--t-small);
     padding: var(--s-1) var(--s-3);
-    border: var(--border-hair) solid var(--rule-night);
-    border-radius: var(--radius-xs);
+    border: var(--border-hair) solid var(--rule);
+    border-radius: var(--radius-pill);
   }
 
   /* ---- artifacts ---- */
@@ -492,7 +480,7 @@ const schema = [
   .artifact-body {
     margin: 0;
     padding: var(--s-4);
-    font-family: var(--font-mono);
+    font-family: var(--font-body);
     font-size: var(--t-small);
     line-height: 1.7;
     white-space: pre-wrap;
@@ -583,8 +571,7 @@ const schema = [
 
   .source-date {
     margin-left: var(--s-3);
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
+    font-size: var(--t-small);
     color: var(--ink-3);
   }
 

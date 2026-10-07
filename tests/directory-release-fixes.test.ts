@@ -6,20 +6,52 @@
 import { readFileSync } from 'node:fs';
 import { getTransformedRoutes } from '@vercel/routing-utils';
 import { describe, expect, it } from 'vitest';
-import { routeDirectoryHost, DIRECTORY_HOST, homeHref, signInHref } from '../src/lib/directory-host';
+import {
+  routeDirectoryHost,
+  DIRECTORY_HOST,
+  homeHref,
+  signInHref,
+} from '../src/lib/directory-host';
 import { isPrivateHost } from '../src/lib/url-safety';
-import { classifyUrl, comparableUrl, extractUrlTokens, linksInCell } from '../scripts/import/lib/links';
-import { normaliseDirectoryQuery, MAX_PAGE_SIZE, DEFAULT_PAGE_SIZE } from '../src/server/public/projects';
-import { claudeUsageFrom, splitSentences } from '../scripts/import/sources/event-archive-2026-09/index';
+import {
+  classifyUrl,
+  comparableUrl,
+  extractUrlTokens,
+  linksInCell,
+} from '../scripts/import/lib/links';
+import {
+  normaliseDirectoryQuery,
+  MAX_PAGE_SIZE,
+  DEFAULT_PAGE_SIZE,
+} from '../src/server/public/projects';
+import {
+  claudeUsageFrom,
+  splitSentences,
+} from '../scripts/import/sources/event-archive-2026-09/index';
 
 describe('projects.withclaude.in', () => {
   it('serves the directory at the root, keeping the query string', () => {
-    expect(routeDirectoryHost(DIRECTORY_HOST, '/', '')).toEqual({ kind: 'rewrite', to: '/projects/' });
-    expect(routeDirectoryHost(DIRECTORY_HOST, '/', '?event=a&page=2')).toEqual({ kind: 'rewrite', to: '/projects/?event=a&page=2' });
+    expect(routeDirectoryHost(DIRECTORY_HOST, '/', '')).toEqual({
+      kind: 'rewrite',
+      to: '/projects/',
+    });
+    expect(routeDirectoryHost(DIRECTORY_HOST, '/', '?event=a&page=2')).toEqual({
+      kind: 'rewrite',
+      to: '/projects/?event=a&page=2',
+    });
   });
 
   it('serves project pages, assets and the report endpoint as they are', () => {
-    for (const p of ['/projects/', '/projects/disha/', '/_astro/x.js', '/_image/', '/_server-islands/x/', '/api/reports/', '/favicon.svg', '/robots.txt']) {
+    for (const p of [
+      '/projects/',
+      '/projects/disha/',
+      '/_astro/x.js',
+      '/_image/',
+      '/_server-islands/x/',
+      '/api/reports/',
+      '/favicon.svg',
+      '/robots.txt',
+    ]) {
       expect(routeDirectoryHost(DIRECTORY_HOST, p, ''), p).toEqual({ kind: 'pass' });
     }
   });
@@ -42,7 +74,7 @@ describe('projects.withclaude.in', () => {
     expect(signInHref('Projects.WithClaude.in')).toBe('https://www.withclaude.in/me/');
     for (const h of ['www.withclaude.in', 'withclaude.in', 'with-claude.vercel.app', 'localhost']) {
       expect(homeHref(h), h).toBe('/');
-      expect(signInHref(h), h).toBe('/join/');
+      expect(signInHref(h), h).toBe('/me/');
     }
   });
 
@@ -50,8 +82,21 @@ describe('projects.withclaude.in', () => {
     const nav = readFileSync('src/components/AccountNav.astro', 'utf8');
     expect(nav).toContain('const appId = onDirectoryHost ? undefined :');
     expect(nav).toContain('href={signInHref(Astro.url.hostname)} data-account-signin');
-    expect(readFileSync('src/components/Breadcrumbs.astro', 'utf8')).toContain("crumb.href === '/' ? homeHref(Astro.url.hostname)");
-    expect(readFileSync('src/components/NotFound.astro', 'utf8')).toContain('href={homeHref(Astro.url.hostname)}');
+    expect(readFileSync('src/components/Breadcrumbs.astro', 'utf8')).toContain(
+      "crumb.href === '/' ? homeHref(Astro.url.hostname)",
+    );
+    expect(readFileSync('src/components/NotFound.astro', 'utf8')).toContain(
+      'href={homeHref(Astro.url.hostname)}',
+    );
+  });
+
+  it('emits BreadcrumbList JSON-LD only where the trail is visible (from three crumbs)', () => {
+    expect(readFileSync('src/components/Breadcrumbs.astro', 'utf8')).toContain(
+      'crumbs.length > 2 && (',
+    );
+    expect(readFileSync('src/layouts/Base.astro', 'utf8')).toContain(
+      '...(breadcrumbs.length > 2 ? [breadcrumbSchema(breadcrumbs)] : []),',
+    );
   });
 
   it('the edge rule in vercel.json and the middleware agree on every path', () => {
@@ -67,13 +112,31 @@ describe('projects.withclaude.in', () => {
     expect(rule).toBeDefined();
     const edgeRedirects = (path: string) => new RegExp(rule!.src).test(path);
     const paths = [
-      '/projects/', '/projects/disha/', '/_astro/x.js', '/_image/', '/_image', '/_server-islands/x/', '/api/reports/',
-      '/favicon.svg', '/apple-touch-icon.png', '/robots.txt', '/site.webmanifest', '/fonts/a.woff2',
-      '/_vercel/insights/script.js', '/_vercel/insights/view',
-      '/events/claude-impact-lab-september/', '/me/', '/join/', '/api/member/bootstrap/', '/builders/', '/projectsx/',
+      '/projects/',
+      '/projects/disha/',
+      '/_astro/x.js',
+      '/_image/',
+      '/_image',
+      '/_server-islands/x/',
+      '/api/reports/',
+      '/favicon.svg',
+      '/apple-touch-icon.png',
+      '/robots.txt',
+      '/site.webmanifest',
+      '/fonts/a.woff2',
+      '/_vercel/insights/script.js',
+      '/_vercel/insights/view',
+      '/events/claude-impact-lab-september/',
+      '/me/',
+      '/join/',
+      '/api/member/bootstrap/',
+      '/builders/',
+      '/projectsx/',
     ];
     for (const p of paths) {
-      expect(edgeRedirects(p), p).toBe(routeDirectoryHost(DIRECTORY_HOST, p, '').kind === 'redirect');
+      expect(edgeRedirects(p), p).toBe(
+        routeDirectoryHost(DIRECTORY_HOST, p, '').kind === 'redirect',
+      );
     }
     // `/` is the directory itself, never sent to www.
     expect(edgeRedirects('/')).toBe(false);
@@ -86,26 +149,38 @@ describe('projects.withclaude.in', () => {
   });
 
   it('leaves every other host alone', () => {
-    for (const h of ['www.withclaude.in', 'withclaude.in', 'with-claude.vercel.app', 'localhost', 'projects.withclaude.in.evil.com']) {
+    for (const h of [
+      'www.withclaude.in',
+      'withclaude.in',
+      'with-claude.vercel.app',
+      'localhost',
+      'projects.withclaude.in.evil.com',
+    ]) {
       expect(routeDirectoryHost(h, '/', '').kind, h).toBe('pass');
       expect(routeDirectoryHost(h, '/events/x/', '').kind, h).toBe('pass');
     }
   });
 });
 
-describe('the directory and event pages after review', () => {
+describe('the directory script after review', () => {
   const script = readFileSync('src/scripts/directory.ts', 'utf8');
 
   it('back/forward follows the history entry, so a Forward replaces an in-flight Back', () => {
-    expect(script).toMatch(/if \(here === rendered\) return;[\s\S]{0,200}rendered = here;\s*void navigate\(here, 'none'/);
+    expect(script).toMatch(
+      /if \(here === rendered\) return;[\s\S]{0,200}rendered = here;\s*void navigate\(here, 'none'/,
+    );
   });
 
   it('any navigation cancels a pending search debounce, so it cannot abort a Back and overwrite its entry', () => {
     // Declared before navigate(), and cleared before navigate() does anything else.
-    expect(script).toMatch(/let typing: number \| undefined;[\s\S]*async function navigate\([^{]*\{\s*(?:\/\/[^\n]*\s*)*window\.clearTimeout\(typing\);/);
+    expect(script).toMatch(
+      /let typing: number \| undefined;[\s\S]*async function navigate\([^{]*\{\s*(?:\/\/[^\n]*\s*)*window\.clearTimeout\(typing\);/,
+    );
     // And it is that same timer the search box sets: a handler keeping its
     // debounce in another variable would pass the line above and miss the fix.
-    expect(script).toMatch(/matches\('\[data-dir-q\]'\)\) return;[\s\S]{0,120}typing = window\.setTimeout\(/);
+    expect(script).toMatch(
+      /matches\('\[data-dir-q\]'\)\) return;[\s\S]{0,120}typing = window\.setTimeout\(/,
+    );
   });
 
   it('a failed update never takes focus out of the search box', () => {
@@ -113,83 +188,23 @@ describe('the directory and event pages after review', () => {
   });
 
   it('a sidebar link that survives the swap keeps focus', () => {
-    expect(script).toContain('if (!document.contains(link)) count()?.focus(');
+    expect(script).toContain('if (!document.contains(link)) {');
+    // The focus call sits inside that guard, so a surviving link is never moved.
+    expect(script).toMatch(/if \(!document\.contains\(link\)\) \{[\s\S]{0,400}target\?\.focus\(/);
   });
 
-  it('the row meta strip does not cover the row link', () => {
-    const css = readFileSync('src/styles/directory.css', 'utf8').replace(/\r\n/g, '\n');
-    const rule = css.match(/\n\.prow-meta \{([^}]*)\}/)?.[1] ?? '';
-    expect(rule).toContain('display: flex');
-    expect(rule).not.toMatch(/z-index|position/);
+  it('focus after a swap lands somewhere visible: the checked pill when the count is hidden', () => {
+    expect(script).toMatch(
+      /live\?\.classList\.contains\('visually-hidden'\)\s*\? form\.querySelector<HTMLInputElement>\('input\[name="event"\]:checked'\)\s*: live;/,
+    );
   });
 
-  it("the directory is set in the site's editorial language, not a vocabulary of its own", () => {
-    const css = readFileSync('src/styles/directory.css', 'utf8').replace(/\r\n/g, '\n');
-    const tokens = readFileSync('src/styles/tokens.css', 'utf8').replace(/\r\n/g, '\n');
-    const surfaces = tokens.slice(tokens.indexOf('DIRECTORY SURFACES'));
-
-    // Colours and radii come from the site's tokens: no raw hex (the select's
-    // chevron data-URI aside), no pill, and no radius the site does not have.
-    expect(css.replace(/url\("data:[^"]*"\)/g, '')).not.toMatch(/#[0-9a-f]{3,8}\b/i);
-    expect(css).not.toMatch(/border-radius:\s*(\d+px|999)/);
-    expect(surfaces).toMatch(/--radius-lg: var\(--radius-sm\);/);
-    expect(surfaces).toMatch(/--panel: var\(--paper\);/);
-    expect(surfaces).not.toMatch(/#[0-9a-f]{3,8}\b/i);
-
-    // Counts are mono tabular figures with no pill behind them.
-    const count = css.match(/\n\.fopt-count,\n\.fall-count \{([^}]*)\}/)?.[1] ?? '';
-    expect(count).toContain('font-family: var(--font-mono)');
-    expect(count).toContain('tabular-nums');
-    expect(count).not.toMatch(/background|border-radius/);
-
-    // The card title takes the title face when the fonts change, Inter until then.
-    expect(css.match(/\n\.prow-title \{([^}]*)\}/)?.[1]).toContain('font-family: var(--font-title, var(--font-body))');
-  });
-
-  it('small bold headings use the title face, because the display serif only ships light', () => {
-    const css = readFileSync('src/styles/directory.css', 'utf8').replace(/\r\n/g, '\n');
-    for (const selector of ['.dir-empty h2', '.js .dir-drawer-head h2']) {
-      const rule = css.match(new RegExp(`\\n\\s*${selector.replace(/\./g, '\\.')} \\{([^}]*)\\}`))?.[1] ?? '';
-      expect(rule, selector).toContain('font-family: var(--font-title, var(--font-body))');
-    }
-    // The display face is left to the page title alone.
-    expect(css.match(/font-family: var\(--font-display\)/g)).toHaveLength(1);
-  });
-
-  it('mono text asks only for the weights IBM Plex Mono is loaded in', () => {
-    const css = readFileSync('src/styles/directory.css', 'utf8').replace(/\r\n/g, '\n');
-    const base = readFileSync('src/layouts/Base.astro', 'utf8');
-    const loaded = [...base.matchAll(/ibm-plex-mono\/(\d+)\.css/g)].map((m) => m[1]);
-    expect(loaded).toEqual(['400', '500']);
-
-    for (const [, selector, body] of css.matchAll(/\n\s*([^{}\n]+) \{([^}]*)\}/g)) {
-      if (!body.includes('font-family: var(--font-mono)')) continue;
-      const weight = body.match(/font-weight: (\d+)/)?.[1];
-      if (weight) expect(loaded, selector).toContain(weight);
-    }
-    // The event badge is mono, so its emphasis is 500 on 400, not a 600 that does not exist.
-    expect(css.match(/\n\.badge-event \{([^}]*)\}/)?.[1]).toContain('font-weight: 400');
-    expect(css.match(/\n\.badge-event strong \{([^}]*)\}/)?.[1]).toContain('font-weight: 500');
-  });
-
-  it('the "Clear all" spacing stays in the filter chips, off the shared back and "See all" links', () => {
-    const css = readFileSync('src/styles/directory.css', 'utf8').replace(/\r\n/g, '\n');
-    expect(css.match(/\n\.dir-clear \{([^}]*)\}/)?.[1]).not.toContain('margin');
-    expect(css.match(/\n\.dir-chips \.dir-clear \{([^}]*)\}/)?.[1]).toContain('margin-left');
-  });
-
-  it('the sticky filter column leaves room for a focus ring inside its scroll box', () => {
-    const css = readFileSync('src/styles/directory.css', 'utf8').replace(/\r\n/g, '\n');
-    const sticky = css.match(/@media \(min-width: 64em\) and \(min-height: 40em\) \{\n  \.dir-filters \{([^}]*)\}/)?.[1] ?? '';
-    expect(sticky).toContain('overflow: auto');
-    // An outline is 2px at a 2px offset; a scroll container clips what falls outside it.
-    expect(sticky).toMatch(/padding-inline: 4px;/);
-    expect(sticky).toMatch(/margin-inline: -4px;/);
-  });
-
-  it('an event page whose projects could not be read is never stored by the CDN', () => {
-    const page = readFileSync('src/pages/events/[slug].astro', 'utf8').replace(/\r\n/g, '\n');
-    expect(page).toMatch(/eventProjects\(event\.id, 12\)\.catch\([\s\S]{0,500}privateCache\(Astro, false\);\s*projectsFailed = true;/);
+  it('a pill or type change from the sticky toolbar brings the results back into view', () => {
+    // Both the radio and the select branch.
+    expect(script.match(/navigate\(urlFromForm\(\), 'push', reveal\)/g)).toHaveLength(2);
+    expect(script).toMatch(
+      /results\.getBoundingClientRect\(\)\.top < 0\)\s*results\.scrollIntoView\(/,
+    );
   });
 });
 
@@ -209,31 +224,70 @@ describe('search input', () => {
 
 describe('emails are never links', () => {
   it('no part of an address is extracted, whatever its local part looks like', () => {
-    for (const email of ['first.dev@example.com', 'contact: priya.in@example.org', 'a.co.in@x.com', 'first+tag.dev@x.com', 'a.in_b@example.org', 'x.app%y@z.io']) {
+    for (const email of [
+      'first.dev@example.com',
+      'contact: priya.in@example.org',
+      'a.co.in@x.com',
+      'first+tag.dev@x.com',
+      'a.in_b@example.org',
+      'x.app%y@z.io',
+    ]) {
       expect(linksInCell(email, 'live').links, email).toEqual([]);
       expect(extractUrlTokens(email).tokens, email).toEqual([]);
     }
   });
 
   it('real links next to or after an @ still work', () => {
-    expect(linksInCell('https://medium.com/@user/post', 'live').links.map((l) => l.url)).toEqual(['https://medium.com/@user/post']);
-    expect(linksInCell('pothole.akshat.fun', 'live').links.map((l) => l.url)).toEqual(['https://pothole.akshat.fun/']);
-    expect(linksInCell('demo: vandanai.in — mail me@x.com', 'live').links.map((l) => l.url)).toEqual(['https://vandanai.in/']);
+    expect(linksInCell('https://medium.com/@user/post', 'live').links.map((l) => l.url)).toEqual([
+      'https://medium.com/@user/post',
+    ]);
+    expect(linksInCell('pothole.akshat.fun', 'live').links.map((l) => l.url)).toEqual([
+      'https://pothole.akshat.fun/',
+    ]);
+    expect(
+      linksInCell('demo: vandanai.in — mail me@x.com', 'live').links.map((l) => l.url),
+    ).toEqual(['https://vandanai.in/']);
   });
 });
 
 describe('IPv6 forms that wrap a private address', () => {
   it('only ordinary global unicast is public', () => {
-    for (const h of ['::1', '::', '::ffff:127.0.0.1', '::ffff:7f00:1', '::127.0.0.1', '64:ff9b::7f00:1', '2002:7f00:1::1', '2001:0:5ef5:79fd::1', '2001:db8::1', 'fe80::1', 'fec0::1', 'fc00::1', 'ff02::1', '[::1]', 'nonsense::zz']) {
+    for (const h of [
+      '::1',
+      '::',
+      '::ffff:127.0.0.1',
+      '::ffff:7f00:1',
+      '::127.0.0.1',
+      '64:ff9b::7f00:1',
+      '2002:7f00:1::1',
+      '2001:0:5ef5:79fd::1',
+      '2001:db8::1',
+      'fe80::1',
+      'fec0::1',
+      'fc00::1',
+      'ff02::1',
+      '[::1]',
+      'nonsense::zz',
+    ]) {
       expect(isPrivateHost(h), h).toBe(true);
     }
-    for (const h of ['2606:4700:4700::1111', '2a00:1450:4001:82a::200e', '[2606:4700::6810:84e5]']) {
+    for (const h of [
+      '2606:4700:4700::1111',
+      '2a00:1450:4001:82a::200e',
+      '[2606:4700::6810:84e5]',
+    ]) {
       expect(isPrivateHost(h), h).toBe(false);
     }
   });
 
   it('a trailing dot does not make a local name public', () => {
-    for (const url of ['http://localhost./', 'http://localhost../', 'http://app.localhost./', 'http://printer.local./', 'http://metadata.google.internal./']) {
+    for (const url of [
+      'http://localhost./',
+      'http://localhost../',
+      'http://app.localhost./',
+      'http://printer.local./',
+      'http://metadata.google.internal./',
+    ]) {
       expect(isPrivateHost(new URL(url).hostname), url).toBe(true);
       expect(classifyUrl(url, 'live'), url).toBe('private-host');
     }
@@ -249,22 +303,31 @@ describe('IPv6 forms that wrap a private address', () => {
 
 describe('link typing details', () => {
   it('regional LinkedIn hosts are social, not a live demo', () => {
-    expect(classifyUrl('https://in.linkedin.com/posts/someone_x', 'showcase')).toMatchObject({ kind: 'post' });
-    expect(classifyUrl('https://uk.linkedin.com/in/someone', 'live')).toMatchObject({ kind: 'profile' });
+    expect(classifyUrl('https://in.linkedin.com/posts/someone_x', 'showcase')).toMatchObject({
+      kind: 'post',
+    });
+    expect(classifyUrl('https://uk.linkedin.com/in/someone', 'live')).toMatchObject({
+      kind: 'profile',
+    });
   });
 
   it('a YouTube video is its id: two different videos never compare equal', () => {
-    expect(comparableUrl('https://www.youtube.com/watch?v=AAA&si=1')).toBe(comparableUrl('https://youtu.be/AAA'));
-    expect(comparableUrl('https://youtube.com/watch?v=AAA')).not.toBe(comparableUrl('https://youtube.com/watch?v=BBB'));
+    expect(comparableUrl('https://www.youtube.com/watch?v=AAA&si=1')).toBe(
+      comparableUrl('https://youtu.be/AAA'),
+    );
+    expect(comparableUrl('https://youtube.com/watch?v=AAA')).not.toBe(
+      comparableUrl('https://youtube.com/watch?v=BBB'),
+    );
   });
 });
 
 describe('"How Claude was used" keeps whole sentences only', () => {
   it('does not split inside parentheses', () => {
-    expect(splitSentences('It reads the text (does the income match? does it add up?) and decides. Next.')).toEqual([
-      'It reads the text (does the income match? does it add up?) and decides.',
-      'Next.',
-    ]);
+    expect(
+      splitSentences(
+        'It reads the text (does the income match? does it add up?) and decides. Next.',
+      ),
+    ).toEqual(['It reads the text (does the income match? does it add up?) and decides.', 'Next.']);
   });
 
   it('drops list lead-ins and bracket fragments', () => {

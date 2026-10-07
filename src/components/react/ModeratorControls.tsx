@@ -43,15 +43,15 @@ export function ModeratorControls({ entityType, entityId, initialState }: Modera
 
   return (
     <div style={{ padding: '16px', background: 'var(--ink-5, #f5f5f5)', borderRadius: '8px', border: '1px solid var(--rule)', marginTop: '24px' }}>
-      <h3 style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Moderator Controls</h3>
-      <p style={{ fontSize: '13px', marginBottom: '12px' }}>Current State: <strong>{state}</strong></p>
+      <h3 style={{ fontSize: '15px', fontWeight: 'bold', marginBottom: '8px' }}>Moderator Controls</h3>
+      <p style={{ fontSize: '15px', marginBottom: '12px' }}>Current State: <strong>{state}</strong></p>
       
       <div style={{ display: 'flex', gap: '8px' }}>
         {isHidden ? (
           <button 
             disabled={loading} 
             onClick={() => handleAction('restore')}
-            style={{ padding: '6px 12px', background: '#000', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' }}
+            style={{ padding: '6px 12px', background: '#000', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '15px' }}
           >
             {loading ? 'Processing...' : 'Restore'}
           </button>
@@ -59,7 +59,7 @@ export function ModeratorControls({ entityType, entityId, initialState }: Modera
           <button 
             disabled={loading} 
             onClick={() => handleAction('hide')}
-            style={{ padding: '6px 12px', background: '#e00', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' }}
+            style={{ padding: '6px 12px', background: '#e00', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '15px' }}
           >
             {loading ? 'Processing...' : 'Hide (Restrict)'}
           </button>
@@ -69,7 +69,7 @@ export function ModeratorControls({ entityType, entityId, initialState }: Modera
           <button 
             disabled={loading} 
             onClick={() => handleAction('remove')}
-            style={{ padding: '6px 12px', background: '#900', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' }}
+            style={{ padding: '6px 12px', background: '#900', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '15px' }}
           >
             {loading ? 'Processing...' : 'Remove (Delete)'}
           </button>

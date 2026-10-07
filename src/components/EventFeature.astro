@@ -1,0 +1,373 @@
+---
+/**
+ * One event, made unmissable: its plate, when and where, the room's own words, who hosts it, and the
+ * way in. Rendered on the server with no client script; the chip reads the clock at render time and
+ * the CDN keeps a page about a minute, so it is never stale for long.
+ *
+ * The host line names a host only when the host resolves to a published Ambassador record (the rule
+ * the record uses everywhere). With no event, it says so and points to the Telegram.
+ */
+import { Image } from 'astro:assets';
+import { communityChannel } from '@/data';
+import type { RecordSelectors } from '@/data/selectors';
+import type { CommunityEvent } from '@/data/types';
+import { registrationLink } from '@/lib/attribution';
+import { formatDayLong, formatHours, isoDateTime, relativeDay } from '@/lib/datetime';
+import { eventPlate } from '@/lib/event-plate';
+import { isRegistrationOpen, lifecycleLabel, lifecycleOf } from '@/lib/status';
+import { listJoin } from '@/lib/words';
+
+interface Props {
+  /** Absent: the "No event on the calendar yet." state. */
+  event?: CommunityEvent;
+  selectors: RecordSelectors;
+  headingId?: string;
+  level?: 'h2' | 'h3';
+  /** The "All events" button. */
+  allEvents?: boolean;
+  /** The plate is the page's largest paint (on /events/): load it eagerly. */
+  priority?: boolean;
+}
+
+const {
+  event,
+  selectors,
+  headingId = 'next-heading',
+  level = 'h2',
+  allEvents = true,
+  priority = false,
+} = Astro.props;
+const Heading = level;
+
+const plate = event ? eventPlate(event) : undefined;
+const lifecycle = event ? lifecycleOf(event) : undefined;
+const when = event ? relativeDay(event.date) : '';
+const chip =
+  lifecycle === 'upcoming' || lifecycle === 'today'
+    ? when.charAt(0).toUpperCase() + when.slice(1)
+    : lifecycle
+      ? lifecycleLabel(lifecycle)
+      : '';
+const city = event ? selectors.cityName(event.citySlug) : '';
+// Short names keep the lead on one line: prettier splits a long one after </time>, and Astro then
+// renders that line break as a space before the comma.
+const startsAt = event ? isoDateTime(event.date, event.startTime) : '';
+const day = event ? formatDayLong(event.date) : '';
+const hours = event ? formatHours(event.startTime, event.endTime) : '';
+const venue = event ? selectors.venueLabel(event) : undefined;
+const entry = event
+  ? `Entry is ${event.free ? 'free, with approval' : 'ticketed'}${
+      event.venue.private
+        ? ', and the venue is shared with confirmed registrants'
+        : venue
+          ? `, at ${venue}`
+          : ''
+    }.`
+  : '';
+const host = event ? selectors.hostAmbassador(event) : undefined;
+const initials = host
+  ? host.name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((w) => w[0]!.toUpperCase())
+      .join('')
+  : '';
+const organisations = listJoin(event?.host.organisations ?? []);
+const register =
+  event && isRegistrationOpen(event) ? registrationLink(event.registrationUrl) : null;
+// A regex, not a URL parse that can throw: registrationLink() passes a non-URL through unchanged.
+const onLuma = /^https?:\/\/([^/?#]+\.)?(luma\.com|lu\.ma)([/?#:]|$)/i.test(register ?? '');
+const arrowOut = 'M7 13l6.5-6.5M8 6.5h5.5V12';
+---
+
+{
+  event ? (
+    <div class:list={['feature', !plate && 'no-plate']}>
+      {plate && (
+        <figure class="feature-plate">
+          <Image
+            class="feature-amb"
+            src={plate}
+            alt=""
+            aria-hidden="true"
+            widths={[240]}
+            sizes="240px"
+            loading={priority ? 'eager' : 'lazy'}
+          />
+          <Image
+            class="feature-pl"
+            src={plate}
+            alt=""
+            widths={[440, 880]}
+            sizes="(min-width: 900px) 520px, min(440px, 100vw)"
+            loading={priority ? 'eager' : 'lazy'}
+            fetchpriority={priority ? 'high' : undefined}
+          />
+          <figcaption class="feature-chip">
+            <span class="feature-pulse" aria-hidden="true" />
+            {chip}
+          </figcaption>
+        </figure>
+      )}
+      <div class="feature-copy">
+        {!plate && (
+          <p class="feature-chip">
+            <span class="feature-pulse" aria-hidden="true" />
+            {chip}
+          </p>
+        )}
+        <Heading class="t-h2 feature-title" id={headingId}>
+          <a href={`/events/${event.slug}/`}>{event.title}</a>
+        </Heading>
+        <p class="lead">
+          <time datetime={startsAt}>{day}</time>, {hours}, in {city}.
+        </p>
+        <p class="feature-body">{`${event.summary} ${entry}`}</p>
+        {host ? (
+          <div class="feature-host">
+            <span class="feature-av" aria-hidden="true">
+              {initials}
+            </span>
+            <p>
+              Hosted by <b>{host.name}</b>
+              {organisations ? `, with ${organisations}.` : '.'}
+            </p>
+          </div>
+        ) : (
+          organisations && (
+            <div class="feature-host">
+              <p>With {organisations}.</p>
+            </div>
+          )
+        )}
+        {(register || allEvents) && (
+          <div class="feature-actions">
+            {register && (
+              <a class="btn btn-primary" href={register} target="_blank" rel="noopener">
+                {onLuma ? 'Register on Luma' : 'Register'}
+                <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+                  <path
+                    d={arrowOut}
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </a>
+            )}
+            {allEvents && (
+              <a class="btn" href="/events/">
+                All events
+              </a>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  ) : (
+    <div class="feature no-plate">
+      <div class="feature-copy">
+        <Heading class="t-h2" id={headingId}>
+          No event on the calendar yet.
+        </Heading>
+        <div class="feature-actions">
+          <a class="btn" href={communityChannel.url} target="_blank" rel="noopener">
+            Join the Telegram
+          </a>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+<style>
+  .feature {
+    display: grid;
+    gap: clamp(40px, 6vw, 96px);
+    align-items: center;
+  }
+
+  @media (min-width: 900px) {
+    .feature:not(.no-plate) {
+      grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    }
+  }
+
+  .feature-plate {
+    position: relative;
+    isolation: isolate;
+    width: 100%;
+    max-width: 440px;
+    margin: 0;
+  }
+
+  @media (min-width: 900px) {
+    .feature-plate {
+      max-width: 520px;
+    }
+  }
+
+  .feature-amb {
+    position: absolute;
+    inset: 4%;
+    z-index: -1;
+    width: 92%;
+    height: 92%;
+    object-fit: cover;
+    filter: blur(64px) saturate(1.4);
+    opacity: 0.75;
+    transform: scale(1.12);
+    pointer-events: none;
+  }
+
+  :global([data-theme='light']) .feature-amb {
+    opacity: 0.45;
+  }
+
+  .feature-pl {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
+    object-fit: contain;
+    border-radius: var(--radius-lg);
+    box-shadow: 0 40px 80px -30px rgb(0 0 0 / 0.6);
+  }
+
+  .feature-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    padding: 10px 16px 10px 14px;
+    border-radius: var(--radius-pill);
+    background: rgb(12 11 10 / 0.78);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    color: #faf9f5;
+    font-family: var(--font-title);
+    font-size: var(--t-small);
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  /* Print keeps the dark pill: without this, Chrome drops the fill and leaves cream text on white. */
+  @media print {
+    .feature-chip {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+  }
+
+  figure .feature-chip {
+    position: absolute;
+    left: 20px;
+    top: 20px;
+  }
+
+  .feature-pulse {
+    flex: none;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #f4a184;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .feature-pulse {
+      animation: feature-pulse 2.2s ease-out 2;
+    }
+  }
+
+  @keyframes feature-pulse {
+    0% {
+      box-shadow: 0 0 0 0 rgb(var(--glow) / 0.7);
+    }
+    70% {
+      box-shadow: 0 0 0 10px rgb(var(--glow) / 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgb(var(--glow) / 0);
+    }
+  }
+
+  .feature-copy {
+    display: grid;
+    gap: 22px;
+    justify-items: start;
+  }
+
+  .feature-copy > * {
+    margin: 0;
+  }
+
+  .feature-title a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .feature-title a:hover,
+  .feature-title a:focus-visible {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 0.15em;
+  }
+
+  .feature-copy .lead {
+    color: var(--ink-2);
+  }
+
+  .feature-body {
+    max-width: 52ch;
+    font-size: var(--t-body);
+    line-height: 1.6;
+    color: var(--ink-2);
+  }
+
+  .feature-host {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    max-width: 560px;
+    padding-block: 18px;
+    border-block: 1px solid var(--rule);
+  }
+
+  .feature-host p {
+    margin: 0;
+    font-size: var(--t-ui);
+    line-height: 1.45;
+    color: var(--ink-2);
+  }
+
+  .feature-host b {
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .feature-av {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, #f0a080, #c6613f);
+    color: var(--btn-ink);
+    font-family: var(--font-title);
+    font-size: var(--t-small);
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .feature-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 6px;
+  }
+</style>

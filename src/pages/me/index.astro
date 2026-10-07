@@ -26,8 +26,16 @@ const published = Boolean(profile?.publishedAt && builderSlug);
 const blockers = profile ? missingForPublish(profile) : [];
 const count = (status: string) => projects.filter((p) => p.publicationStatus === status).length;
 const recent = projects.slice(0, 5);
-const STATUS: Record<string, string> = { published: 'Published', draft: 'Draft', archived: 'Archived' };
-const ROLE: Record<string, string> = { owner: 'Owner', collaborator: 'Collaborator', contributor: 'Credited' };
+const STATUS: Record<string, string> = {
+  published: 'Published',
+  draft: 'Draft',
+  archived: 'Archived',
+};
+const ROLE: Record<string, string> = {
+  owner: 'Owner',
+  collaborator: 'Collaborator',
+  contributor: 'Credited',
+};
 const name = profile?.displayName?.trim() || 'there';
 const unlisted = profile?.visibility === 'unlisted';
 ---
@@ -62,7 +70,9 @@ const unlisted = profile?.visibility === 'unlisted';
                   : 'Listed in the builders directory.'}
               </p>
             ) : blockers.length > 0 ? (
-              <div class="notice notice--info">To publish, your profile still needs {blockers.join(', ')}.</div>
+              <div class="notice notice--info">
+                To publish, your profile still needs {blockers.join(', ')}.
+              </div>
             ) : (
               <p class="panel-hint">Everything needed is filled in. Publish when you are ready.</p>
             )}
@@ -87,7 +97,8 @@ const unlisted = profile?.visibility === 'unlisted';
             </div>
             {recent.length === 0 ? (
               <p class="panel-hint">
-                Nothing yet. A project needs only a name to start; you can publish once it is complete.
+                Nothing yet. A project needs only a name to start; you can publish once it is
+                complete.
               </p>
             ) : (
               <ul class="dash-list">
@@ -157,8 +168,7 @@ const unlisted = profile?.visibility === 'unlisted';
   }
 
   .dash-role {
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
+    font-size: var(--t-small);
     color: var(--ink-3);
   }
 </style>

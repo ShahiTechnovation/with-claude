@@ -14,7 +14,6 @@ import Section from '@/components/Section.astro';
 import PageIntro from '@/components/PageIntro.astro';
 import EventArchive from '@/components/EventArchive.astro';
 import { site } from '@/data/site';
-import { CREDIT_WEIGHT_LABELS } from '@/lib/credits';
 import { formatDate } from '@/lib/datetime';
 import { plural } from '@/lib/words';
 
@@ -47,27 +46,37 @@ import { plural } from '@/lib/words';
 const { slug } = Astro.params;
 if (!slug) return Astro.rewrite('/not-found/');
 
-
 const standing = selectors.ambassadorStanding(String(slug));
 // `getStaticPaths` only ever emits published ambassadors, so this is a guard
 // against a build-order surprise rather than a reachable state.
 if (!standing) return Astro.rewrite('/not-found/');
 
-const { allTime, year, rank } = standing;
+const { allTime, year } = standing;
 const ambassador = allTime.ambassador;
 const home = selectors.cityName(ambassador.citySlug);
 const builder = selectors.builderForAmbassador(ambassador);
 const projects = builder ? selectors.projectsOf(builder) : [];
 
-const url = `${site.url}/ambassadors/${ambassador.slug}`;
+const url = `${site.url}/ambassadors/${ambassador.slug}/`;
 const description =
   allTime.events.length > 0
-    ? `${ambassador.name} is a Claude Community Ambassador in ${home}, on the record for ` +
+    ? `${ambassador.name} is a Claude Community Ambassador in ${home}, with ` +
       `${plural(allTime.events.length, 'Claude community event')} across ` +
       `${plural(allTime.cities.length || 1, 'city', 'cities')}.`
     : `${ambassador.name} is a Claude Community Ambassador in ${home}.`;
 
-const formula = CREDIT_WEIGHT_LABELS.map((w) => `${w.label} ×${w.weight}`).join(' · ');
+/**
+ * The activity figures, non-zero ones only. §21: the year's score sits beside
+ * the all-time one, never instead of it, and only when the two differ.
+ */
+const figures = [
+  { label: 'Events hosted', value: allTime.roleCounts.primary_host },
+  { label: 'Co-hosted', value: allTime.roleCounts.co_host },
+  { label: 'Organised', value: allTime.roleCounts.organizer },
+  { label: 'Cities', value: allTime.cities.length },
+  { label: 'Activity score', value: allTime.score, score: true },
+  ...(year.score !== allTime.score ? [{ label: 'This year', value: year.score, score: true }] : []),
+].filter((figure) => figure.value > 0);
 
 /**
  * The links the page renders — and therefore the only ones `sameAs` may carry.
@@ -77,10 +86,13 @@ const formula = CREDIT_WEIGHT_LABELS.map((w) => `${w.label} ×${w.weight}`).join
  */
 const links = [
   ...(ambassador.links ?? []).map((link) => ({ label: link.label, url: link.url })),
-  ...(ambassador.lumaProfileUrl
-    ? [{ label: 'Luma', url: ambassador.lumaProfileUrl }]
-    : []),
+  ...(ambassador.lumaProfileUrl ? [{ label: 'Luma', url: ambassador.lumaProfileUrl }] : []),
 ];
+const hasOverview =
+  Boolean(builder) ||
+  links.length > 0 ||
+  allTime.upcoming.length > 0 ||
+  allTime.events.length === 0;
 ---
 
 <Base
@@ -107,20 +119,10 @@ const links = [
     url,
   )}
 >
-  <PageIntro
-    eyebrow="Ambassador"
-    title={ambassador.name}
-    stamp={`${home} · rank ${String(rank).padStart(2, '0')}`}
-    size="lg"
-    facts={[
-      { label: 'Events', value: String(allTime.events.length).padStart(2, '0') },
-      { label: 'Upcoming', value: String(allTime.upcoming.length).padStart(2, '0') },
-      { label: 'Score', value: allTime.score.toFixed(2) },
-    ]}
-  >
+  <PageIntro title={ambassador.name} size="lg">
     <p>
       <strong>{ambassador.title}</strong> in {home}.
-      {ambassador.since && ` On the record since ${formatDate(ambassador.since)}.`}
+      {ambassador.since && ` Since ${formatDate(ambassador.since)}.`}
     </p>
     {ambassador.bio && <p>{ambassador.bio}</p>}
     <p class="provenance">
@@ -129,60 +131,64 @@ const links = [
     </p>
   </PageIntro>
 
+  {/* Everything here shares the paper ground: one Section, in parts. */}
   {
-    (builder || links.length > 0) && (
-      <Section id="elsewhere" labelledby="elsewhere-heading">
-        <div class="container-wide">
-          <h2 id="elsewhere-heading" class="label">Elsewhere on the record</h2>
-          <ul class="links">
-            {builder && (
-              <li>
-                <a href={`/builders/${builder.slug}`}>
-                  Builder profile
-                  <span class="link-note">
-                    {ambassador.memberLinked
-                      ? 'A claimed WITH CLAUDE account'
-                      : 'A community profile on this site'}
-                  </span>
-                </a>
-              </li>
-            )}
-            {projects.length > 0 && (
-              <li>
-                <a href={`/builders/${builder!.slug}#projects`}>
-                  {plural(projects.length, 'project')}
-                  <span class="link-note">Built with Claude</span>
-                </a>
-              </li>
-            )}
-            {links.map((link) => (
-              <li>
-                <a href={link.url} rel="me noopener" target="_blank">
-                  {link.label}
-                  <span class="link-note">Off this site</span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </Section>
-    )
-  }
+    hasOverview && (
+      <Section id="overview">
+        {(builder || links.length > 0) && (
+          <section id="elsewhere" class="part" aria-labelledby="elsewhere-heading">
+            <h2 id="elsewhere-heading" class="t-title">
+              Links
+            </h2>
+            <ul class="links">
+              {builder && (
+                <li>
+                  <a class="btn btn-sm" href={`/builders/${builder.slug}/`}>
+                    Builder profile
+                  </a>
+                </li>
+              )}
+              {projects.length > 0 && (
+                <li>
+                  <a class="btn btn-sm" href={`/builders/${builder!.slug}/#projects`}>
+                    {plural(projects.length, 'project')}
+                  </a>
+                </li>
+              )}
+              {links.map((link) => (
+                <li>
+                  <a class="btn btn-sm" href={link.url} rel="me noopener" target="_blank">
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
-  {/*
-    §23's two lists. `EventArchive` is the same component the events index and
-    the city pages use, so a room reads identically wherever it appears —
-    which is what §50 asks for and what a second bespoke event list here
-    would quietly break.
-  */}
-  {
-    allTime.upcoming.length > 0 && (
-      <Section id="upcoming" labelledby="upcoming-heading">
-        <div class="container-wide section-head">
-          <p class="eyebrow">Ahead</p>
-          <h2 id="upcoming-heading">Upcoming events</h2>
-        </div>
-        <EventArchive events={allTime.upcoming} showHead={false} selectors={selectors} />
+        {/*
+          §23's two lists. `EventArchive` is the same component the events index and
+          the city pages use, so a room reads identically wherever it appears —
+          which is what §50 asks for and what a second bespoke event list here
+          would quietly break.
+        */}
+        {allTime.upcoming.length > 0 && (
+          <section id="upcoming" class="part" aria-labelledby="upcoming-heading">
+            <div class="section-head">
+              <h2 id="upcoming-heading">Upcoming events</h2>
+            </div>
+            <EventArchive events={allTime.upcoming} showHead={false} selectors={selectors} />
+          </section>
+        )}
+
+        {allTime.events.length === 0 && (
+          <section id="no-events" class="part" aria-labelledby="no-events-heading">
+            <h2 id="no-events-heading" class="t-title">
+              Events
+            </h2>
+            <p class="note">No events yet.</p>
+          </section>
+        )}
       </Section>
     )
   }
@@ -190,8 +196,7 @@ const links = [
   {
     allTime.past.length > 0 && (
       <Section id="past" tone="sunk" labelledby="past-heading">
-        <div class="container-wide section-head">
-          <p class="eyebrow">Archive</p>
+        <div class="section-head">
           <h2 id="past-heading">Past events</h2>
         </div>
         <EventArchive events={allTime.past} showHead={false} selectors={selectors} />
@@ -199,149 +204,114 @@ const links = [
     )
   }
 
-  {
-    allTime.events.length === 0 && (
-      <Section id="no-events" labelledby="no-events-heading">
-        <div class="container-wide">
-          <h2 id="no-events-heading" class="label">Events</h2>
-          <p class="prose">
-            No events are attributed to {ambassador.name} on this site yet. Events are
-            recorded from the curated archive and from the public Claude Community
-            calendar; an event only carries a host credit once that attribution has been
-            confirmed.
-          </p>
-        </div>
-      </Section>
-    )
-  }
-
   <Section id="activity" labelledby="activity-heading">
-    <div class="container-wide">
-      <p class="eyebrow">Community activity</p>
-      <hr class="rule-line" />
-      <h2 id="activity-heading">What is on the record</h2>
+    <div>
+      <div class="section-head">
+        <h2 id="activity-heading">Activity</h2>
+      </div>
 
-      <dl class="activity">
-        <div>
-          <dt>Events hosted</dt>
-          <dd>{String(allTime.roleCounts.primary_host).padStart(2, '0')}</dd>
-        </div>
-        <div>
-          <dt>Co-hosted</dt>
-          <dd>{String(allTime.roleCounts.co_host).padStart(2, '0')}</dd>
-        </div>
-        <div>
-          <dt>Organised</dt>
-          <dd>{String(allTime.roleCounts.organizer).padStart(2, '0')}</dd>
-        </div>
-        <div>
-          <dt>Cities</dt>
-          <dd>{String(allTime.cities.length).padStart(2, '0')}</dd>
-        </div>
-        <div>
-          <dt>Activity score</dt>
-          <dd>{allTime.score.toFixed(2)}</dd>
-        </div>
-        <div>
-          {/*
-            §21 — recent activity alongside the all-time figure, never instead
-            of it. A page that showed only the current year would make a
-            long-term organiser look inactive for eleven months of it.
-          */}
-          <dt>This year</dt>
-          <dd>{year.score.toFixed(2)}</dd>
-        </div>
-      </dl>
+      {
+        figures.length > 0 && (
+          <dl class="activity">
+            {figures.map((figure) => (
+              <div>
+                <dt>{figure.label}</dt>
+                <dd>{figure.score ? figure.value.toFixed(2) : figure.value}</dd>
+              </div>
+            ))}
+          </dl>
+        )
+      }
 
-      <p class="prose note">
-        The activity score is an index this site calculates from event records:
-        <strong>{` ${formula}`}</strong>. It is not an Anthropic ranking and implies no
-        endorsement. Attendance and registration figures are not counted, because the
-        sources do not publish them.
-        {allTime.unscoredCredits > 0 &&
-          ` ${plural(allTime.unscoredCredits, 'further attribution')} is on the record awaiting confirmation and is not counted here.`}
+      <p class="note">
+        {
+          allTime.unscoredCredits > 0 &&
+            `${plural(allTime.unscoredCredits, 'further attribution')} ${allTime.unscoredCredits === 1 ? 'is' : 'are'} awaiting confirmation and not counted here. `
+        }
+        <a class="link" href="/ambassadors/#method">
+          How the score works <span aria-hidden="true">→</span>
+        </a>
       </p>
 
-      <p class="prose">
-        <a href="/ambassadors">All ambassadors</a>
-        <span class="sep">·</span>
-        <a href={`/cities/${ambassador.citySlug}`}>{`Claude community in ${home}`}</a>
+      <p class="more">
+        <a class="link" href="/ambassadors/">All ambassadors</a>
+        <a class="link" href={`/cities/${ambassador.citySlug}/`}>{`Claude community in ${home}`}</a>
       </p>
     </div>
   </Section>
 </Base>
 
 <style>
-  .provenance {
-    display: grid;
-    gap: 0.15rem;
-    margin-top: var(--s-4);
-    font-size: var(--t-small);
-    color: var(--ink-2);
+  /* Blocks that share a ground: one Section, a hairline between them. */
+  .part + .part {
+    margin-top: calc(var(--section-y) * 0.4);
+    padding-top: calc(var(--section-y) * 0.4);
+    border-top: 1px solid var(--rule);
   }
 
-  .provenance-label {
-    font-size: var(--t-micro);
-    letter-spacing: var(--track-meta);
-    text-transform: uppercase;
-    color: var(--ink-3);
+  /* With no past-events band between them the two paper Sections meet like parts. */
+  :global(#overview:has(+ #activity)) {
+    padding-bottom: calc(var(--section-y) * 0.4);
+  }
+
+  :global(#overview + #activity) {
+    padding-top: calc(var(--section-y) * 0.4);
+  }
+
+  /* A heading that opens a part after a hairline sits nearer its content than the joint
+     above it: --s-6, the value --head-after already has on small screens. */
+  .part + .part > .section-head,
+  :global(#overview + #activity) .section-head {
+    margin-bottom: var(--s-6);
+  }
+
+  .provenance {
+    display: grid;
+    gap: 2px;
+    margin-top: 18px;
+    color: var(--ink-2);
+    font-size: var(--t-small);
   }
 
   .links {
-    list-style: none;
-    margin: var(--s-4) 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-3);
+    margin: 18px 0 0;
     padding: 0;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
-    gap: var(--s-4);
-  }
-
-  .links a {
-    display: grid;
-    gap: 0.2rem;
-    padding: var(--s-4);
-    border: var(--border-hair) solid var(--rule-strong);
-    text-decoration: none;
-    color: var(--ink);
-  }
-
-  .links a:hover,
-  .links a:focus-visible {
-    background: var(--paper-raised);
-  }
-
-  .link-note {
-    font-size: var(--t-micro);
-    color: var(--ink-3);
+    list-style: none;
   }
 
   .activity {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
     gap: var(--s-5);
-    margin: var(--s-5) 0 var(--s-6);
+    margin: 0 0 var(--s-6);
   }
 
   .activity dt {
-    font-size: var(--t-micro);
-    letter-spacing: var(--track-meta);
-    text-transform: uppercase;
     color: var(--ink-3);
+    font-size: var(--t-small);
   }
 
   .activity dd {
-    margin: 0.2rem 0 0;
-    font-family: var(--font-mono);
+    margin: 4px 0 0;
+    color: var(--ink);
+    font-family: var(--font-display);
     font-size: var(--t-h3);
+    font-weight: 300;
     font-variant-numeric: tabular-nums;
   }
 
   .note {
     max-width: 66ch;
+    margin: 0 0 var(--s-5);
+    color: var(--ink-2);
   }
 
-  .sep {
-    margin: 0 var(--s-3);
-    color: var(--ink-3);
+  .more {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-3) var(--s-6);
   }
 </style>

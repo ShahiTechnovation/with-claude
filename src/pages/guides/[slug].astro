@@ -41,7 +41,7 @@ const { guide } = Astro.props;
 const author = authorOf(guide);
 const byline = authorName(guide);
 const cover = asset(guide.image);
-const url = `${site.url}/guides/${guide.slug}`;
+const url = `${site.url}/guides/${guide.slug}/`;
 
 const related = {
   builders: (guide.builderSlugs ?? []).map((slug) => builderBySlug.get(slug)).filter(Boolean),
@@ -64,7 +64,7 @@ const schema = [
       published: guide.published,
       modified: guide.modified,
       authorName: byline,
-      authorUrl: author ? `${site.url}/builders/${author.slug}` : undefined,
+      authorUrl: author ? `${site.url}/builders/${author.slug}/` : undefined,
       image: cover ? new URL(cover.src, site.url).href : undefined,
       sources: guide.sources,
     },
@@ -80,28 +80,28 @@ const schema = [
   active="/guides"
   breadcrumbs={crumbs}
   schema={schema}
+  ogType="article"
 >
-  <PageIntro
-    eyebrow="Guide"
-    title={guide.title}
-    stamp={guide.readingMinutes ? `${guide.readingMinutes} min read` : undefined}
-  >
+  <PageIntro title={guide.title}>
     <p>{guide.standfirst}</p>
   </PageIntro>
 
-  <Section id="authority" size="sm">
+  <Section id="authority">
     <div class="authority">
       <div>
         <p class="label authority-label">Written by</p>
         <p class="authority-name">
-          {author ? <a href={`/builders/${author.slug}`}>{byline}</a> : byline}
+          {author ? <a href={`/builders/${author.slug}/`}>{byline}</a> : byline}
         </p>
         <p class="authority-credential">{guide.author.credential}</p>
       </div>
       <dl class="authority-dates">
         <div>
           <dt class="label">Published</dt>
-          <dd><time datetime={guide.published}>{formatDate(guide.published)}</time></dd>
+          <dd>
+            <time datetime={guide.published}>{formatDate(guide.published)}</time>
+            {guide.readingMinutes && ` · ${guide.readingMinutes} min read`}
+          </dd>
         </div>
         {
           guide.modified && (
@@ -142,32 +142,31 @@ const schema = [
     (hasRelated || guide.sources?.length) && (
       <Section id="connected" tone="sunk" labelledby="connected-heading">
         <div class="section-head">
-          <p class="eyebrow">Connected</p>
           <h2 id="connected-heading">What this touches.</h2>
         </div>
 
         {hasRelated && (
           <div class="links">
             {related.useCases.map((useCase) => (
-              <a class="link-card" href={`/use-cases/${useCase!.slug}`}>
+              <a class="link-card" href={`/use-cases/${useCase!.slug}/`}>
                 <span class="label">Use case</span>
                 <span class="link-card-title">{useCase!.title}</span>
               </a>
             ))}
             {related.projects.map((project) => (
-              <a class="link-card" href={`/projects/${project!.slug}`}>
+              <a class="link-card" href={`/projects/${project!.slug}/`}>
                 <span class="label">Project</span>
                 <span class="link-card-title">{project!.title}</span>
               </a>
             ))}
             {related.events.map((event) => (
-              <a class="link-card" href={`/events/${event!.slug}`}>
+              <a class="link-card" href={`/events/${event!.slug}/`}>
                 <span class="label">Event</span>
                 <span class="link-card-title">{event!.title}</span>
               </a>
             ))}
             {related.builders.map((builder) => (
-              <a class="link-card" href={`/builders/${builder!.slug}`}>
+              <a class="link-card" href={`/builders/${builder!.slug}/`}>
                 <span class="label">Builder</span>
                 <span class="link-card-title">{builder!.name}</span>
               </a>
@@ -347,8 +346,7 @@ const schema = [
 
   .source-date {
     margin-left: var(--s-3);
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
+    font-size: var(--t-small);
     color: var(--ink-3);
   }
 </style>

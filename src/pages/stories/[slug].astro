@@ -32,7 +32,7 @@ const people = (story.builderSlugs ?? [])
   .filter((b) => Boolean(b));
 const image = asset(story.image);
 
-const url = `${site.url}/stories/${story.slug}`;
+const url = `${site.url}/stories/${story.slug}/`;
 
 // `author` is omitted entirely rather than defaulted to the organisation when
 // a piece carries no byline. "The site wrote it" is not an author.
@@ -65,12 +65,7 @@ const crumbs = trail(
   schema={schema}
   ogType="article"
 >
-  <PageIntro
-    eyebrow={`${formatName(story.kind)}${story.citySlug ? ` · ${cityName(story.citySlug)}` : ''}`}
-    title={story.title}
-    size="lg"
-    stamp={formatDate(story.date)}
-  >
+  <PageIntro title={story.title} size={story.title.length <= 24 ? 'lg' : 'md'}>
     <p>{story.standfirst}</p>
   </PageIntro>
 
@@ -80,7 +75,7 @@ const crumbs = trail(
     <article class="story">
       {
         image && (
-          <div class="plate plate-framed story-image">
+          <div class="story-image">
             <Image
               src={image}
               alt=""
@@ -93,7 +88,10 @@ const crumbs = trail(
         )
       }
 
-      <div class="story-meta">
+      <div class="meta story-meta">
+        <span>
+          {`${formatName(story.kind)}${story.citySlug ? ` · ${cityName(story.citySlug)}` : ''}`}
+        </span>
         {story.author && <span>{story.author}</span>}
         <span>{formatDate(story.date)}</span>
         {story.readingMinutes && <span>{`${story.readingMinutes} min read`}</span>}
@@ -113,19 +111,19 @@ const crumbs = trail(
         (event || people.length > 0) && (
           <footer class="story-links">
             {event && (
-              <a class="story-link" href={`/events/${event.slug}`}>
-                <span class="label">The event</span>
-                <span class="story-link-title">{event.title}</span>
-                <span class="story-link-meta">
+              <a class="story-link" href={`/events/${event.slug}/`}>
+                <span class="meta">The event</span>
+                <span class="t-h3 story-link-title">{event.title}</span>
+                <span class="meta">
                   {`${formatDate(event.date)} · ${cityName(event.citySlug)}`}
                 </span>
               </a>
             )}
             {people.map((person) => (
-              <a class="story-link" href={`/builders/${person!.slug}`}>
-                <span class="label">Builder</span>
-                <span class="story-link-title">{person!.name}</span>
-                <span class="story-link-meta">{cityName(person!.citySlug)}</span>
+              <a class="story-link" href={`/builders/${person!.slug}/`}>
+                <span class="meta">Builder</span>
+                <span class="t-h3 story-link-title">{person!.name}</span>
+                <span class="meta">{cityName(person!.citySlug)}</span>
               </a>
             ))}
           </footer>
@@ -134,10 +132,18 @@ const crumbs = trail(
     </article>
   </Section>
 
-  <Section id="back" size="sm">
-    <a class="link-arrow" href="/stories">
-      <span>All stories</span>
-      <span class="arrow" aria-hidden="true">→</span>
+  <Section id="back">
+    <a class="link" href="/stories/">
+      All stories
+      <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+        <path
+          d="M4 10h11m-4.5-4.5L15 10l-4.5 4.5"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"></path>
+      </svg>
     </a>
   </Section>
 </Base>
@@ -149,66 +155,52 @@ const crumbs = trail(
 
   .story-image {
     aspect-ratio: 16 / 9;
-    margin-bottom: var(--s-6);
+    margin-bottom: 32px;
+    overflow: hidden;
+    border-radius: var(--radius-md);
+    background: var(--paper-raised);
+  }
+
+  .story-image :global(img) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
 
   .story-meta {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--s-2) var(--s-5);
-    padding-bottom: var(--s-5);
-    border-bottom: var(--border-hair) solid var(--rule);
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: var(--track-meta);
-    text-transform: uppercase;
-    color: var(--ink-3);
+    gap: 6px 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--rule);
   }
 
   .story-body {
-    margin-top: var(--s-6);
+    margin-top: 32px;
     font-size: var(--t-lead);
-    color: var(--ink-2);
+    line-height: 1.6;
   }
 
   .story-body p + p {
-    margin-top: var(--s-5);
+    margin-top: 1.1em;
   }
 
   .story-links {
     display: grid;
-    gap: var(--s-4);
-    margin-top: var(--s-9);
-    padding-top: var(--s-5);
-    border-top: var(--border-heavy) solid var(--ink);
+    gap: 16px;
+    margin-top: clamp(48px, 5vw, 72px);
+    padding-top: 20px;
+    border-top: 1px solid var(--rule);
   }
 
   .story-link {
     display: grid;
-    gap: var(--s-1);
-    padding-block: var(--s-3);
+    gap: 4px;
+    padding-block: 12px;
     text-decoration: none;
-    color: var(--ink);
-  }
-
-  .story-link-title {
-    font-family: var(--font-title);
-    font-size: var(--t-h3);
-    font-weight: 600;
-    font-variation-settings:
-      'SOFT' 0,
-      'WONK' 1;
-    letter-spacing: -0.02em;
   }
 
   .story-link:hover .story-link-title {
     color: var(--clay-deep);
-  }
-
-  .story-link-meta {
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: 0.06em;
-    color: var(--ink-3);
   }
 </style>

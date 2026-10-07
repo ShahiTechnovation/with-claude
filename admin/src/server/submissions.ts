@@ -14,7 +14,7 @@
  * sometimes has to write back to a person, and even there it is fetched by a
  * separate function with a name that says so out loud.
  */
-import { and, asc, count, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import * as schema from '../../../db/schema';
 import { formById } from '../../../src/data/forms';
@@ -184,21 +184,31 @@ export async function getSubmission(
 
 /** Everything that has happened to one submission, newest first. */
 export async function historyOf(db: AnyDatabase, submissionId: string) {
-  return db
-    .select({
-      id: schema.auditLog.id,
-      action: schema.auditLog.action,
-      fromStatus: schema.auditLog.fromStatus,
-      toStatus: schema.auditLog.toStatus,
-      note: schema.auditLog.note,
-      actorEmail: schema.auditLog.actorEmail,
-      createdAt: schema.auditLog.createdAt,
-    })
-    .from(schema.auditLog)
-    .where(
-      and(eq(schema.auditLog.entityType, 'submission'), eq(schema.auditLog.entityId, submissionId)),
-    )
-    .orderBy(desc(schema.auditLog.createdAt));
+  return (
+    db
+      .select({
+        id: schema.auditLog.id,
+        action: schema.auditLog.action,
+        fromStatus: schema.auditLog.fromStatus,
+        toStatus: schema.auditLog.toStatus,
+        note: schema.auditLog.note,
+        actorEmail: schema.auditLog.actorEmail,
+        createdAt: schema.auditLog.createdAt,
+      })
+      .from(schema.auditLog)
+      .where(
+        and(
+          eq(schema.auditLog.entityType, 'submission'),
+          eq(schema.auditLog.entityId, submissionId),
+        ),
+      )
+      // Two transitions inside one clock tick (PGlite keeps milliseconds) tie on
+      // created_at, and the uuid id is random. The table is append-only (its
+      // triggers refuse UPDATE and DELETE), so heap position follows insert order.
+      // ponytail: a slot freed by a rolled-back insert can be reused after vacuum;
+      // add a bigserial column if the tie order ever has to be exact.
+      .orderBy(desc(schema.auditLog.createdAt), sql`${schema.auditLog}.ctid desc`)
+  );
 }
 
 /**

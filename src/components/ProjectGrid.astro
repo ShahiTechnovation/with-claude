@@ -1,0 +1,112 @@
+---
+/**
+ * Cards in a grid: the first `visible` items, the rest behind a native "Show N more" disclosure.
+ *
+ * The summary stays on screen and reads "Show fewer" when open, so keyboard focus never drops to
+ * <body>; no JS. `more` is required when there are more items than `visible`. `moreTail`
+ * (" from {event}") follows it, visually hidden on a phone so the button stays one line; the
+ * accessible name keeps the whole string.
+ */
+import ProjectCard from '@/components/ProjectCard.astro';
+import type { CardProps } from '@/lib/project-display';
+
+interface Props {
+  items: CardProps[];
+  visible?: number;
+  more?: string;
+  moreTail?: string;
+  level?: 'h2' | 'h3' | 'h4';
+}
+
+const { items, visible = items.length, more, moreTail, level } = Astro.props;
+const shown = items.slice(0, visible);
+const rest = items.slice(visible);
+if (rest.length && !more)
+  throw new Error('ProjectGrid: `more` is required when items exceed `visible`.');
+const card = (p: CardProps) => ({ ...p, ...(level ? { level } : {}) });
+---
+
+<div class="pgrid">
+  {shown.map((p) => <ProjectCard {...card(p)} />)}
+</div>
+{
+  rest.length > 0 && (
+    <details class="more">
+      <summary class="btn">
+        <span class="more-show">
+          {more}
+          {moreTail && <span class="more-tail">{moreTail}</span>}
+        </span>
+        <span class="more-hide">Show fewer</span>
+      </summary>
+      <div class="pgrid">
+        {rest.map((p) => (
+          <ProjectCard {...card(p)} />
+        ))}
+      </div>
+    </details>
+  )
+}
+
+<style>
+  .pgrid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  @media (min-width: 700px) {
+    .pgrid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 20px;
+    }
+
+    .pgrid > :global(.pcard) {
+      min-height: 236px;
+    }
+  }
+
+  @media (min-width: 1100px) {
+    .pgrid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  .more {
+    margin-top: 20px;
+  }
+
+  .more summary {
+    list-style: none;
+    cursor: pointer;
+    width: 100%;
+    /* A long event name wraps instead of pushing the page sideways on a phone. */
+    white-space: normal;
+    text-align: center;
+    padding-block: 12px;
+  }
+
+  .more summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .more[open] summary {
+    margin-bottom: 20px;
+  }
+
+  @media (max-width: 699.98px) {
+    .more-tail {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+  }
+
+  .more:not([open]) .more-hide,
+  .more[open] .more-show {
+    display: none;
+  }
+</style>

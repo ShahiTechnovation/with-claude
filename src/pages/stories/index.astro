@@ -4,10 +4,7 @@ import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
 import PageIntro from '@/components/PageIntro.astro';
 import StoryStrip from '@/components/StoryStrip.astro';
-import { communityChannel, photoRecord, publicStories } from '@/data';
-
-const plates = photoRecord();
-const rooms = new Set(plates.map((p) => p.event.slug)).size;
+import { communityChannel, publicStories } from '@/data';
 ---
 
 <Base
@@ -17,24 +14,12 @@ const rooms = new Set(plates.map((p) => p.event.slug)).size;
   active="/stories"
   breadcrumbs={trail({ name: 'Stories', href: '/stories' })}
 >
-  <PageIntro
-    eyebrow="Stories"
-    title="Stories from the Claude Community"
-    stamp={`${String(plates.length).padStart(2, '0')} plates`}
-    facts={[
-      { label: 'Photographs', value: String(plates.length).padStart(2, '0') },
-      { label: 'Rooms', value: String(rooms).padStart(2, '0') },
-      { label: 'Written', value: String(publicStories.length).padStart(2, '0') },
-    ]}
-  >
-    <p><strong>From the community.</strong></p>
-    <p>
-      The photographic record of the rooms and the people. We are currently seeking written editorial recaps, builder profiles, and stories from the Claude community to build out this archive.
-    </p>
+  <PageIntro title="Stories from the Claude Community">
+    <p>Photos from community events. Written recaps are welcome.</p>
   </PageIntro>
 
-  <Section id="plates" size="lg" bleed labelledby="stories-heading">
-    <StoryStrip heading="The photographic record" eyebrow="Plates" />
+  <Section id="plates" bleed labelledby="stories-heading">
+    <StoryStrip heading="Photos" />
   </Section>
 
   {
@@ -42,32 +27,34 @@ const rooms = new Set(plates.map((p) => p.event.slug)).size;
       <Section id="write" tone="sunk" labelledby="write-heading">
         <div class="write">
           <div class="write-main">
-            <p class="eyebrow">Writing</p>
-            <h2 id="write-heading" class="write-title">
+            <h2 id="write-heading" class="t-h2">
               No written pieces yet.
             </h2>
-            <p class="prose">
-              Nobody has written one, so there are none — putting words in the mouths of people who
-              were in those rooms is not something this archive is willing to do.
-            </p>
-            <p class="prose">
-              If you were at an event, a recap is the most useful thing you can give the record. So
-              is a photograph nobody has, or a note on what you took away from it.
+            <p class="lead write-lead">
+              Were you at an event? A recap, or a photo nobody else has, is the most useful thing
+              you can send.
             </p>
             <a
-              class="btn btn-solid write-cta"
+              class="btn btn-primary write-cta"
               href={communityChannel.url}
               target="_blank"
               rel="noopener"
             >
-              <span>Write one</span>
-              <span class="arrow" aria-hidden="true">
-                ↗
-              </span>
+              Write one
+              <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+                <path
+                  d="M7 13l6.5-6.5M8 6.5h5.5V12"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
             </a>
           </div>
 
-          <ul class="write-kinds">
+          <ul class="meta write-kinds">
             <li>Event recaps</li>
             <li>Builder profiles</li>
             <li>Project stories</li>
@@ -84,43 +71,36 @@ const rooms = new Set(plates.map((p) => p.event.slug)).size;
 <style>
   .write {
     display: grid;
-    gap: var(--s-8);
+    gap: var(--head-after);
   }
 
-  .write-title {
-    margin-top: var(--s-3);
-    margin-bottom: var(--s-4);
-    font-size: var(--t-h2);
+  .write-main {
+    display: grid;
+    gap: var(--head-gap);
+    justify-items: start;
   }
 
-  .write .prose + .prose {
-    margin-top: var(--s-4);
+  .write-lead {
+    max-width: 48ch;
   }
 
   .write-cta {
-    margin-top: var(--s-6);
+    margin-top: 12px;
   }
 
   .write-kinds {
-    display: grid;
-    align-content: start;
-    border-top: var(--border-hair) solid var(--rule-strong);
+    border-top: 1px solid var(--rule-strong);
   }
 
   .write-kinds li {
-    padding-block: var(--s-3);
-    border-bottom: var(--border-hair) solid var(--rule);
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: var(--track-meta);
-    text-transform: uppercase;
-    color: var(--ink-3);
+    padding-block: 12px;
+    border-bottom: 1px solid var(--rule);
   }
 
-  @media (min-width: 56em) {
+  @media (min-width: 900px) {
     .write {
       grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.55fr);
-      gap: var(--s-9);
+      gap: clamp(48px, 6vw, 96px);
       align-items: start;
     }
   }

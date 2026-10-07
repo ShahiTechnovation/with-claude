@@ -88,11 +88,17 @@ const [first, second] = site.wordmark.split(' ');
     font-weight: 700;
   }
 
+  /* sm: the header (30px logo). md: the footer (38px logo). */
   .wm-sm .wm-text {
-    font-size: 1rem;
+    font-size: 17px;
   }
   .wm-md .wm-text {
-    font-size: 1.22rem;
+    font-size: 22px;
+  }
+  @media (max-width: 399.98px) {
+    .wm-sm .wm-text {
+      font-size: 15px;
+    }
   }
   .wm-lg .wm-text {
     font-size: clamp(1.8rem, 3.4vw, 2.6rem);
@@ -119,13 +125,13 @@ const [first, second] = site.wordmark.split(' ');
   }
 
   .wm-sm .wm-logo-wrap {
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
   }
 
   .wm-md .wm-logo-wrap {
-    width: 48px;
-    height: 48px;
+    width: 38px;
+    height: 38px;
   }
 
   .wm-lg .wm-logo-wrap {

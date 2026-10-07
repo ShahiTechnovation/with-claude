@@ -15,19 +15,13 @@
 html {
   -webkit-text-size-adjust: 100%;
   scroll-behavior: smooth;
-  scroll-padding-top: 5.5rem;
-}
-
-@media (min-width: 48em) {
-  html {
-    zoom: 0.8;
-  }
+  scroll-padding-top: calc(var(--nav-h) + 1rem);
 }
 
 body {
   min-height: 100vh;
   background: var(--paper);
-  color: var(--ink);
+  color: var(--ink-2);
   font-family: var(--font-body);
   font-size: var(--t-body);
   line-height: var(--lh-body);
@@ -77,38 +71,43 @@ ol {
 }
 
 /* --- Headings -----------------------------------------------------------
-   The official display serif; its italics fall through to Fraunces, and the
-   WONK setting below is for them. h3/h4 take the display sans, where the
-   light serif would thin out. */
+   The official display serif, cream on dark; its italics fall through to
+   Fraunces, and the WONK setting below is for them. h3/h4 take the display
+   sans at the title size, where the light serif would thin out; `.t-h3` is
+   what makes an h3 serif. */
 h1,
 h2,
 h3,
 h4 {
+  color: var(--ink);
   font-family: var(--font-display);
   font-weight: 300;
   font-variation-settings:
     'SOFT' 0,
     'WONK' 1;
-  line-height: var(--lh-heading);
-  letter-spacing: var(--track-display);
+  line-height: 1;
+  letter-spacing: -0.03em;
   text-wrap: balance;
 }
 
 h3,
 h4 {
   font-family: var(--font-title);
+  font-size: var(--t-title);
   font-weight: 600;
-  letter-spacing: -0.01em;
+  line-height: 1.25;
+  letter-spacing: -0.006em;
 }
 
 h1 {
-  font-size: var(--t-display);
+  font-size: var(--t-h1);
+  line-height: var(--lh-h1);
+  letter-spacing: var(--track-h1);
 }
 h2 {
   font-size: var(--t-h2);
-}
-h3 {
-  font-size: var(--t-h3);
+  line-height: var(--lh-h2);
+  letter-spacing: var(--track-h2);
 }
 
 p {
@@ -117,19 +116,15 @@ p {
 
 ::selection {
   background: var(--clay);
-  color: var(--night);
+  color: var(--btn-ink);
 }
 
 /* --- Focus --------------------------------------------------------------
    Visible, high-contrast, and it never gets styled away. */
 :focus-visible {
-  outline: 2px solid var(--ink);
+  outline: 2px solid var(--focus);
   outline-offset: 3px;
   border-radius: var(--radius-xs);
-}
-
-.on-night :focus-visible {
-  outline-color: var(--clay-lift);
 }
 
 /* --- Accessibility utilities ------------------------------------------- */
@@ -149,13 +144,15 @@ p {
   top: var(--s-3);
   left: var(--s-3);
   z-index: 999;
-  padding: var(--s-3) var(--s-5);
+  padding: 10px 16px;
+  border-radius: var(--radius-pill);
   background: var(--ink);
   color: var(--paper);
-  font-family: var(--font-mono);
-  font-size: var(--t-meta);
-  letter-spacing: var(--track-meta);
-  text-transform: uppercase;
+  font-family: var(--font-title);
+  font-size: var(--t-small);
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
   transform: translateY(-160%);
   transition: transform var(--dur-2) var(--ease-out);
 }
@@ -175,55 +172,65 @@ html.js .no-js-only {
   display: none !important;
 }
 
-/* --- Paper grain --------------------------------------------------------
-   A whisper of tooth so the ground reads as stock, not as a hex value. */
+/* The masthead's theme toggle has nothing to do where the theme is locked. */
+[data-theme-lock] [data-theme-toggle] {
+  display: none;
+}
+
+/* --- Film grain ---------------------------------------------------------
+   One fixed, static layer over everything. No flicker, no other noise. */
 body::after {
   content: '';
   position: fixed;
   inset: 0;
   z-index: var(--z-grain);
   pointer-events: none;
-  opacity: 0.03;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: var(--grain-o);
+  background-image: var(--grain);
+}
+
+@media print {
+  body::after {
+    display: none;
+  }
 }
 
 /* =========================================================================
-   THE REVEAL SYSTEM
-   Elements start settled and are only displaced once JS confirms motion is
-   wanted — so with JS off, or motion reduced, the page is simply finished.
-   Nothing is ever hidden behind an animation.
-
-   Three variants, because one reveal applied to everything is what makes a
-   page feel automated:
-     [data-reveal]           rise
-     [data-reveal="fade"]    opacity only, for dense tables
-     [data-reveal="mask"]    a wipe, for photography
+   THE REVEAL
+   CSS only, on a scroll timeline, for every `[data-reveal]` variant. The
+   static state is the finished state: with motion reduced, without scroll
+   timelines (Firefox, Safari before 26) or without JS, nothing is hidden.
+   Every scroll-driven effect on the site sits inside this same double gate.
+   Never put `data-reveal` on anything in the first screen.
    ========================================================================= */
 @media (prefers-reduced-motion: no-preference) {
-  html.js [data-reveal] {
+  @supports (animation-timeline: view()) {
+    [data-reveal] {
+      animation: rise linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 100%;
+    }
+  }
+}
+
+/* Print the finished state: a scroll effect below the scroll position (a reveal, the
+   map's pins and arcs) would print blank, and a transition would print half-way. Glows
+   have no use on paper, and some PDF viewers draw a blurred shadow as a solid block. */
+@media print {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+}
+
+@keyframes rise {
+  from {
     opacity: 0;
-    transform: translateY(16px);
-    transition:
-      opacity var(--dur-3) var(--ease-out),
-      transform var(--dur-3) var(--ease-out),
-      clip-path var(--dur-4) var(--ease-out);
-    transition-delay: var(--reveal-delay, 0ms);
-  }
-
-  html.js [data-reveal='fade'] {
-    transform: none;
-  }
-
-  html.js [data-reveal='mask'] {
-    opacity: 1;
-    transform: none;
-    clip-path: inset(0 0 100% 0);
-  }
-
-  html.js [data-reveal].is-revealed {
-    opacity: 1;
-    transform: none;
-    clip-path: inset(0 0 0 0);
+    transform: translateY(40px);
   }
 }
 

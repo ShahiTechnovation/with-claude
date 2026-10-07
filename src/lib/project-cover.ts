@@ -15,7 +15,9 @@
  *      for them because they are not in the registry — so they must be
  *      rendered as a plain `<img src>` instead.
  *
- * The distinction is structural: an absolute http(s) URL is a Blob URL.
+ * An absolute URL counts only when it is a public Vercel Blob URL. Any other
+ * host (a stock-photo service, a hotlink) is not a cover anyone uploaded, so
+ * it resolves to none and the card shows its honest placeholder.
  * A relative path (no `://`) is a repository asset key.
  *
  * Without this module, every template that renders a project cover had to
@@ -26,6 +28,19 @@
 
 import type { ImageMetadata } from 'astro';
 import { asset } from '@/lib/images';
+
+// The same host rule as src/server/media/covers.ts, which isn't imported here
+// because it pulls in the database.
+const BLOB_HOST = /^[a-z0-9-]+\.public\.blob\.vercel-storage\.com$/i;
+
+function isBlobUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' && BLOB_HOST.test(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
 
 export type CoverKind = 'blob' | 'asset' | 'none';
 
@@ -49,9 +64,9 @@ export interface ResolvedCover {
 export function resolveProjectCover(image: string | null | undefined): ResolvedCover {
   if (!image) return { kind: 'none' };
 
-  // Absolute URL → Blob upload. Render as a plain <img>.
+  // Absolute URL → a member's Blob upload, rendered as a plain <img>.
   if (/^https?:\/\//i.test(image)) {
-    return { kind: 'blob', blobUrl: image };
+    return isBlobUrl(image) ? { kind: 'blob', blobUrl: image } : { kind: 'none' };
   }
 
   // Relative key → repo asset. Run through the Astro image pipeline.

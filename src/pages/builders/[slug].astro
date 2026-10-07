@@ -28,9 +28,11 @@ import {
   site,
   useCasesBy,
 } from '@/data';
-import { formatDate } from '@/lib/datetime';
 import { asset } from '@/lib/images';
-import { formatName, lifecycleLabel, lifecycleOf, lifecycleTone } from '@/lib/status';
+import { cardProps } from '@/lib/project-display';
+import { formatName } from '@/lib/status';
+import ProjectGrid from '@/components/ProjectGrid.astro';
+import EventRecord from '@/components/EventRecord.astro';
 import { profileSchema, titles, trail } from '@/lib/seo';
 import ClaimProfile from '@/components/ClaimProfile.astro';
 import { getPublicBuilderBySlug, isPublicBuilder } from '@/server/directory';
@@ -77,14 +79,9 @@ const portrait = builderRow?.image && !uploadedImage ? asset(builderRow.image) :
 // routes into the event list: speaking, and hosting as an Ambassador.
 const allEvents = [...new Set([...events, ...hosted])].sort((a, b) => (a.date < b.date ? 1 : -1));
 
-// The record is thin for most people. Say so plainly rather than padding it.
-const missing = [
-  !builderRow?.bio && 'a short bio',
-  !uploadedImage && !portrait && 'a portrait',
-].filter(Boolean) as string[];
-
 const description = builderRow
-  ? builderRow.bio ?? `${builderRow.name} — ${builderRow.role} in ${cityName(builderRow.citySlug)}.`
+  ? (builderRow.bio ??
+    `${builderRow.name} — ${builderRow.role} in ${cityName(builderRow.citySlug)}.`)
   : 'Not found.';
 
 // The practice half of this person's record. Empty until somebody writes one.
@@ -125,361 +122,269 @@ const schema = builderRow
       <NotFound />
     </Base>
   ) : (
-<Base
-  title={builderRow.name}
-  noindex={!isPublic || builderRow.profileVisibility === 'unlisted'}
-  seoTitle={titles.builder(builderRow.name, cityName(builderRow.citySlug))}
-  description={description}
-  active="/builders"
-  breadcrumbs={crumbs}
-  schema={schema}
->
-  {(!isPublic && isModerator) && (
-    <div class="moderator-banner" style="background-color: var(--clay-deep); color: white; padding: 1rem; text-align: center; font-weight: bold; margin-bottom: 2rem;">
-      RESTRICTED / REMOVED — not visible to the public.
-    </div>
-  )}
+    <Base
+      title={builderRow.name}
+      noindex={!isPublic || builderRow.profileVisibility === 'unlisted'}
+      seoTitle={titles.builder(builderRow.name, cityName(builderRow.citySlug))}
+      description={description}
+      active="/builders"
+      breadcrumbs={crumbs}
+      schema={schema}
+    >
+      {!isPublic && isModerator && (
+        <div class="moderator-banner">RESTRICTED / REMOVED — not visible to the public.</div>
+      )}
 
-  <PageIntro
-    eyebrow={`${cityName(builderRow.citySlug)} · ${builderRow.role}`}
-    title={builderRow.name}
-    size="lg"
-    stamp={ambassador ? ambassador.title : undefined}
-  >
-    {builderRow.bio && <p>{builderRow.bio}</p>}
-  </PageIntro>
+      <PageIntro title={builderRow.name} size="lg">
+        <div class="who">
+          {uploadedImage ? (
+            <img
+              class="portrait"
+              src={uploadedImage}
+              alt={builderRow.name}
+              width="96"
+              height="96"
+              loading="eager"
+              decoding="async"
+            />
+          ) : portrait ? (
+            <Image
+              class="portrait"
+              src={portrait}
+              alt={builderRow.name}
+              widths={[96, 192]}
+              sizes="96px"
+              loading="eager"
+              decoding="async"
+            />
+          ) : null}
+          <p>
+            {builderRow.role}
+            {' · '}
+            <a href={`/cities/${builderRow.citySlug}/`}>{cityName(builderRow.citySlug)}</a>
+          </p>
+        </div>
+        {builderRow.bio && <p>{builderRow.bio}</p>}
+        {(ambassador || builderRow.roles.some((role) => role !== 'ambassador')) && (
+          <p class="roles">
+            {ambassador ? <span class="chip chip-verified">{ambassador.title}</span> : null}
+            {(builderRow.roles as string[])
+              .filter((role) => role !== 'ambassador')
+              .map((role) => (
+                <span class="chip chip-role">{formatName(role)}</span>
+              ))}
+          </p>
+        )}
+        {ambassador && (
+          <p class="intro-links">
+            <a class="btn btn-sm" href={`/ambassadors/${ambassador.slug}/`}>
+              Ambassador page <span aria-hidden="true">→</span>
+            </a>
+          </p>
+        )}
+      </PageIntro>
 
-      <Section id="record" tone="sunk" labelledby="record-heading">
-        <h2 id="record-heading" class="visually-hidden">{`${builderRow.name} on the record`}</h2>
-
-        <div class="profile">
-          <div class="profile-main">
-            <div class="roles">
-              {ambassador ? <span class="chip chip-verified">{ambassador.title}</span> : null}
-              {
-                (builderRow.roles as string[])
-                  .filter((role) => role !== 'ambassador')
-                  .map((role) => <span class="chip chip-role">{formatName(role)}</span>)
-              }
+      {/* Projects, events, practice and the claim share the paper ground: one Section, in parts. */}
+      <Section id="profile">
+        {allProjects.length > 0 && (
+          <section id="projects" class="part" aria-labelledby="projects-heading">
+            <div class="section-head">
+              <h2 id="projects-heading">Projects</h2>
             </div>
+            <ProjectGrid items={allProjects.map((project) => cardProps(project))} />
+          </section>
+        )}
 
-            {
-              ambassador && (
-                <p class="amb-source">
-                  {ambassador.verifiedVia}. Ambassadors are appointed by Anthropic — this site records
-                  the status, it does not grant it.
-                </p>
-              )
-            }
-
-            {
-              allEvents.length > 0 && (
-                <div class="block">
-                  <h3 class="label block-head">Events</h3>
-                  <ul class="list">
-                    {allEvents.map((event) => (
-                      <li>
-                        <a href={`/events/${event.slug}`}>
-                          <span class="list-title">{event.title}</span>
-                          <span class="list-meta">
-                            {`${formatDate(event.date)} · ${cityName(event.citySlug)}`}
-                          </span>
-                          <span class:list={['pip', `pip-${lifecycleTone(lifecycleOf(event))}`]}>
-                            {lifecycleLabel(lifecycleOf(event))}
-                          </span>
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )
-            }
-
-            <div class="block">
-              <h3 class="label block-head">Projects</h3>
-              {
-                allProjects.length > 0 ? (
-                  <ul class="list">
-                    {allProjects.map((project) => (
-                      <li>
-                        <a href={`/projects/${project.slug}/`}>
-                          <span class="list-title">{project.title}</span>
-                          <span class="list-meta">{project.summary}</span>
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p class="block-empty">
-                    Nothing from {builderRow.name} is in the archive yet.{' '}
-                    <a href="/submit/">Submissions are open.</a>
-                  </p>
-                )
-              }
+        {allEvents.length > 0 && (
+          <section id="events" class="part" aria-labelledby="events-heading">
+            <div class="section-head">
+              <h2 id="events-heading">Events</h2>
             </div>
+            <EventRecord events={allEvents} />
+          </section>
+        )}
 
-            {
-              (written.length > 0 || guides.length > 0) && (
-                <div class="block">
-                  <h3 class="label block-head">Practice</h3>
-                  <ul class="list">
-                    {written.map((useCase) => (
-                      <li>
-                        <a href={`/use-cases/${useCase.slug}`}>
-                          <span class="list-title">{useCase.title}</span>
-                          <span class="list-meta">{useCase.summary}</span>
-                        </a>
-                      </li>
-                    ))}
-                    {guides.map((guide) => (
-                      <li>
-                        <a href={`/guides/${guide.slug}`}>
-                          <span class="list-title">{guide.title}</span>
-                          <span class="list-meta">{guide.standfirst}</span>
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )
-            }
-          </div>
+        {(written.length > 0 || guides.length > 0) && (
+          <section id="practice" class="part" aria-labelledby="practice-heading">
+            <div class="section-head">
+              <h2 id="practice-heading">Practice</h2>
+            </div>
+            <ul class="rows">
+              {written.map((useCase) => (
+                <li>
+                  <a class="row row-text" href={`/use-cases/${useCase.slug}/`}>
+                    <span class="row-body">
+                      <span class="row-title">{useCase.title}</span>
+                      <span class="row-meta">{useCase.summary}</span>
+                    </span>
+                  </a>
+                </li>
+              ))}
+              {guides.map((guide) => (
+                <li>
+                  <a class="row row-text" href={`/guides/${guide.slug}/`}>
+                    <span class="row-body">
+                      <span class="row-title">{guide.title}</span>
+                      <span class="row-meta">{guide.standfirst}</span>
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
-          <aside class="profile-side">
-            {
-              uploadedImage ? (
-                <div class="plate plate-framed portrait">
-                  <img
-                    src={uploadedImage}
-                    alt={builderRow.name}
-                    width="640"
-                    height="800"
-                    loading="eager"
-                    decoding="async"
-                  />
-                </div>
-              ) : portrait ? (
-                <div class="plate plate-framed portrait">
-                  <Image
-                    src={portrait}
-                    alt={builderRow.name}
-                    widths={[320, 640]}
-                    sizes="(max-width: 61.99em) 60vw, 280px"
-                    loading="eager"
-                    decoding="async"
-                  />
-                </div>
-              ) : null
-            }
-
-            <dl class="facts">
-              <div>
-                <dt>City</dt>
-                <dd><a href={`/cities/${builderRow.citySlug}`}>{cityName(builderRow.citySlug)}</a></dd>
-              </div>
-              <div>
-                <dt>Events</dt>
-                <dd>{String(allEvents.length).padStart(2, '0')}</dd>
-              </div>
-              <div>
-                <dt>Projects</dt>
-                <dd>{String(allProjects.length).padStart(2, '0')}</dd>
-              </div>
-            </dl>
-
-            {
-              missing.length > 0 && (
-                <p class="thin">
-                  This entry is missing {missing.join(', ')}. If it is yours,{' '}
-                  <a href="/me/profile/edit/">send the rest</a> and it will be filled in.
-                </p>
-              )
-            }
-
-            <div class="mt-8 pt-6 border-t border-neutral-100">
+        <div id="claim" class="part">
+          <ClaimProfile
+            slug={builderRow.slug}
+            name={builderRow.name}
+            owned={Boolean(builderRow.ownerMemberId)}
+          />
+          <div class="foot" id="back">
+            <a class="link" href="/builders/">
+              All builders <span aria-hidden="true">→</span>
+            </a>
+            {/* The report form needs its script, so without JS it is not rendered. */}
+            <div class="js-only">
               <ReportModal client:load entityType="builder" entityId={builderRow.id} />
-              <ModeratorControls entityType="builders" entityId={builderRow.id} initialState={builderRow.moderationState} isModerator={isModerator} />
             </div>
-          </aside>
+          </div>
+          <ModeratorControls
+            entityType="builders"
+            entityId={builderRow.id}
+            initialState={builderRow.moderationState}
+            isModerator={isModerator}
+          />
         </div>
       </Section>
-
-      <Section id="claim" size="sm">
-        <ClaimProfile slug={builderRow.slug} name={builderRow.name} owned={Boolean(builderRow.ownerMemberId)} />
-      </Section>
-  <Section id="back" size="sm">
-    <a class="link-arrow" href="/builders">
-      <span>The whole index</span>
-      <span class="arrow" aria-hidden="true">→</span>
-    </a>
-  </Section>
-</Base>
+    </Base>
   )
 }
 
 <style>
-  .profile {
-    display: grid;
-    gap: var(--s-8);
+  .moderator-banner {
+    padding: 1rem var(--gutter);
+    background: var(--clay-deep);
+    color: var(--paper);
+    font-family: var(--font-title);
+    font-weight: 600;
+    text-align: center;
+  }
+
+  /* --- The page head: portrait, role and city, chips, links ---------------- */
+  .who {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+
+  .portrait {
+    flex: none;
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid var(--rule-strong);
+  }
+
+  .who a {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-color: var(--rule-strong);
+    text-underline-offset: 3px;
+  }
+
+  .who a:hover {
+    text-decoration-color: var(--clay);
   }
 
   .roles {
     display: flex;
     flex-wrap: wrap;
     gap: var(--s-2);
-    padding-bottom: var(--s-4);
-    border-bottom: var(--border-heavy) solid var(--ink);
+    margin-top: 18px;
   }
 
-  .amb-source {
-    margin-top: var(--s-4);
-    max-width: 60ch;
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    line-height: 1.8;
-    color: var(--ink-3);
-  }
-
-  .block {
-    margin-top: var(--s-7);
-  }
-
-  .block-head {
-    padding-bottom: var(--s-3);
-    border-bottom: var(--border-hair) solid var(--rule-strong);
-    color: var(--ink-3);
-  }
-
-  .list a {
+  .intro-links {
     display: flex;
     flex-wrap: wrap;
-    align-items: baseline;
-    gap: var(--s-2) var(--s-5);
-    padding-block: var(--s-4);
-    border-bottom: var(--border-hair) solid var(--rule);
-    text-decoration: none;
+    gap: var(--s-3);
+    margin-top: 18px;
+  }
+
+  /* --- Rows: practice ------------------------------------------------------ */
+  .rows {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--rule);
+  }
+
+  .row {
+    display: grid;
+    align-items: center;
+    gap: 18px;
+    padding-block: 14px;
+    border-bottom: 1px solid var(--rule);
     color: var(--ink);
-  }
-
-  .list-title {
-    font-family: var(--font-title);
-    font-size: 1.15rem;
-    font-weight: 500;
-    font-variation-settings:
-      'SOFT' 0,
-      'WONK' 1;
-    letter-spacing: -0.02em;
-  }
-
-  .list a:hover .list-title {
-    color: var(--clay-deep);
-  }
-
-  .list-meta {
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: 0.05em;
-    color: var(--ink-3);
-  }
-
-  .list .pip {
-    margin-left: auto;
-  }
-
-  .block-empty {
-    padding-block: var(--s-5);
-    font-size: var(--t-small);
-    color: var(--ink-2);
-  }
-
-  /* --- Side ---------------------------------------------------------------- */
-  .profile-side {
-    display: grid;
-    gap: var(--s-6);
-    align-content: start;
-  }
-
-  .portrait {
-    aspect-ratio: 4 / 5;
-  }
-
-  .portrait img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .facts {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--s-4);
-    padding-top: var(--s-4);
-    border-top: var(--border-heavy) solid var(--ink);
-  }
-
-  .facts dt {
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: var(--track-meta);
-    text-transform: uppercase;
-    color: var(--ink-3);
-  }
-
-  .facts dd {
-    margin-top: var(--s-2);
-    font-family: var(--font-title);
-    font-size: 1.35rem;
-    font-weight: 600;
-    font-variation-settings:
-      'SOFT' 0,
-      'WONK' 1;
-    line-height: 1;
-    font-variant-numeric: lining-nums tabular-nums;
-  }
-
-  .facts a {
     text-decoration: none;
   }
 
-  .facts a:hover {
+  .row-text {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .row-body {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .row-title {
+    font-family: var(--font-title);
+    font-size: var(--t-title);
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: -0.006em;
+  }
+
+  .row:hover .row-title {
     color: var(--clay-deep);
   }
 
-  .links ul {
+  .row-meta {
+    color: var(--ink-3);
+    font-size: var(--t-small);
+    line-height: 1.45;
+  }
+
+  /* --- Parts: blocks that share a ground, a hairline between them ---------- */
+  .part + .part {
+    margin-top: calc(var(--section-y) * 0.4);
+    padding-top: calc(var(--section-y) * 0.4);
+    border-top: 1px solid var(--rule);
+  }
+
+  /* A heading that opens a part after a hairline sits nearer its content than the joint
+     above it: --s-6, the value --head-after already has on small screens. */
+  .part + .part > .section-head {
+    margin-bottom: var(--s-6);
+  }
+
+  /* The claim card carries its own border; a hairline right above it would double it. */
+  .part + #claim {
+    margin-top: var(--s-6);
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  /* --- Claim, back, report ------------------------------------------------- */
+  .foot {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--s-3) var(--s-5);
-    padding-top: var(--s-4);
-  }
-
-  .links a {
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: var(--track-meta);
-    text-transform: uppercase;
-    color: var(--ink-2);
-    text-decoration: none;
-  }
-
-  .links a:hover {
-    color: var(--clay-deep);
-  }
-
-  .thin {
-    padding-top: var(--s-4);
-    border-top: var(--border-hair) solid var(--rule);
-    max-width: 40ch;
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    line-height: 1.8;
-    color: var(--ink-3);
-  }
-
-  @media (min-width: 62em) {
-    .profile {
-      grid-template-columns: minmax(0, 1.25fr) minmax(240px, 0.75fr);
-      gap: var(--s-9);
-      align-items: start;
-    }
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-4);
+    margin-top: var(--s-6);
   }
 </style>

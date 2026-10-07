@@ -2,7 +2,7 @@
 import Wordmark from './Wordmark.astro';
 import { site } from '@/data';
 import AccountNav from '@/components/AccountNav.astro';
-import { homeHref } from '@/lib/directory-host';
+import { homeHref, signInHref } from '@/lib/directory-host';
 
 interface Props {
   /** Route prefix of the current page, e.g. `/events`. */
@@ -20,31 +20,29 @@ const home = homeHref(Astro.url.hostname);
  * reachable from their own pages and the footer — they do not need a header
  * slot. The rule: if it is not where someone starts, it is not here.
  */
+// `active` is a slash-less route prefix ('/events'), so it is compared with its slash added.
+const current = (href: string) => `${active}/`.startsWith(href);
 const nav = [
-  { href: '/events', label: 'Events' },
-  { href: '/cities', label: 'Cities' },
-  { href: '/builders', label: 'Builders' },
-  { href: '/projects', label: 'Projects' },
-  { href: '/gallery', label: 'Gallery' },
+  { href: '/events/', label: 'Events' },
+  { href: '/cities/', label: 'Cities' },
+  { href: '/builders/', label: 'Builders' },
+  { href: '/projects/', label: 'Projects' },
+  { href: '/gallery/', label: 'Gallery' },
 ];
 ---
 
 <header class="masthead" data-masthead>
-  <div class="masthead-inner container-wide">
+  <div class="masthead-inner container">
     <a href={home} class="brand" aria-label={`${site.wordmark} — home`}>
-      <Wordmark mark />
+      <Wordmark mark size="sm" />
     </a>
 
-    <nav class="nav-desktop" aria-label="Primary">
+    <nav class="nav-links" aria-label="Primary">
       <ul>
         {
           nav.map((item) => (
             <li>
-              <a
-                href={item.href}
-                class:list={['nav-link', { 'is-active': active.startsWith(item.href) }]}
-                aria-current={active.startsWith(item.href) ? 'page' : undefined}
-              >
+              <a href={item.href} aria-current={current(item.href) ? 'page' : undefined}>
                 {item.label}
               </a>
             </li>
@@ -53,57 +51,87 @@ const nav = [
       </ul>
     </nav>
 
-    <a
-      href="/discover"
-      class:list={['nav-search', { 'is-active': active.startsWith('/discover') }]}
-      aria-current={active.startsWith('/discover') ? 'page' : undefined}
-      aria-label="Search"
-    >
-      <span class="nav-search-glyph" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <circle cx="10.5" cy="10.5" r="6.5"></circle>
-          <line x1="15.4" y1="15.4" x2="21" y2="21"></line>
+    <div class="nav-actions">
+      <a
+        href="/discover/"
+        class="icon-btn nav-search"
+        aria-current={current('/discover/') ? 'page' : undefined}
+        aria-label="Search"
+      >
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <circle cx="9" cy="9" r="5.6" fill="none" stroke="currentColor" stroke-width="1.6"
+          ></circle>
+          <path d="M13.2 13.2L17 17" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"
+          ></path>
         </svg>
-      </span>
-      <span class="nav-search-label">Search</span>
-    </a>
+      </a>
 
-    <AccountNav />
+      {/* Hidden without JS (nothing could switch it) and on the locked-light account pages. */}
+      <button
+        class="icon-btn js-only theme-toggle"
+        type="button"
+        data-theme-toggle
+        aria-label="Switch to light theme"
+      >
+        <svg class="i-sun" viewBox="0 0 20 20" aria-hidden="true">
+          <circle cx="10" cy="10" r="3.4" fill="none" stroke="currentColor" stroke-width="1.5"
+          ></circle>
+          <path
+            d="M10 2.5v1.8M10 15.7v1.8M2.5 10h1.8M15.7 10h1.8M4.7 4.7l1.3 1.3M14 14l1.3 1.3M4.7 15.3L6 14M14 6l1.3-1.3"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"></path>
+        </svg>
+        <svg class="i-moon" viewBox="0 0 20 20" aria-hidden="true">
+          <path
+            d="M15.8 12.6A6.6 6.6 0 0 1 7.4 4.2a6.6 6.6 0 1 0 8.4 8.4z"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linejoin="round"></path>
+        </svg>
+      </button>
 
-    <button
-      class="nav-toggle"
-      type="button"
-      data-nav-toggle
-      aria-expanded="false"
-      aria-controls="nav-drawer"
-      aria-label="Open menu"
-    >
-      <span class="visually-hidden">Menu</span>
-      <span class="nav-toggle-bars" aria-hidden="true"><i></i><i></i></span>
-    </button>
-  </div>
+      {/* The one account slot, at every width: PrivyRoot portals into it by id. */}
+      <AccountNav />
 
-  <div class="nav-drawer" id="nav-drawer" data-nav-drawer aria-hidden="true">
-    <nav aria-label="Primary, mobile">
-      <ul>
-        {
-          nav.map((item, i) => (
-            <li style={`--i:${i}`}>
-              <a href={item.href} aria-current={active.startsWith(item.href) ? 'page' : undefined}>
-                <span class="nav-drawer-index">{String(i + 1).padStart(2, '0')}</span>
-                {item.label}
-              </a>
-            </li>
-          ))
-        }
-        <li style={`--i:${nav.length}`}>
-          <a href="/discover" aria-current={active.startsWith('/discover') ? 'page' : undefined}>
-            <span class="nav-drawer-index">{String(nav.length + 1).padStart(2, '0')}</span>
-            Search
-          </a>
-        </li>
-      </ul>
-    </nav>
+      {/* Under 900px. A <details>, so it opens with JS off; Sign in is a plain link. */}
+      <details class="menu">
+        <summary class="icon-btn">
+          <span class="visually-hidden">Menu</span>
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path
+              d="M3.5 7h13M3.5 13h13"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"></path>
+          </svg>
+        </summary>
+        <div class="menu-sheet">
+          <nav aria-label="Primary, mobile">
+            <ul>
+              <li>
+                <a href="/discover/" aria-current={current('/discover/') ? 'page' : undefined}
+                  >Search</a
+                >
+              </li>
+              {
+                nav.map((item) => (
+                  <li>
+                    <a href={item.href} aria-current={current(item.href) ? 'page' : undefined}>
+                      {item.label}
+                    </a>
+                  </li>
+                ))
+              }
+            </ul>
+          </nav>
+          <a class="btn menu-signin" href={signInHref(Astro.url.hostname)} data-account-signin
+            >Sign in</a
+          >
+        </div>
+      </details>
+    </div>
   </div>
 </header>
 
@@ -112,347 +140,294 @@ const nav = [
     position: sticky;
     top: 0;
     z-index: var(--z-nav);
-    background: color-mix(in srgb, var(--paper) 92%, transparent);
-    border-bottom: var(--border-hair) solid transparent;
-    transition:
-      border-color var(--dur-2) var(--ease-out),
-      background var(--dur-2) var(--ease-out);
+    height: var(--nav-h);
+    /* --nav-bg is 95% paper: the --ink-3 links keep AA over photos and white embeds
+       scrolling under the bar. */
+    background: var(--nav-bg);
+    -webkit-backdrop-filter: blur(18px) saturate(1.3);
+    backdrop-filter: blur(18px) saturate(1.3);
+    border-bottom: 1px solid var(--rule);
   }
 
-  .masthead.is-condensed {
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .masthead {
+      background: var(--paper);
+    }
+  }
+
+  /* A blurred ancestor is the containing block of a fixed child: drop the blur so the
+     sheet covers the viewport, not the 60px bar. */
+  .masthead:has(.menu[open]) {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
     background: var(--paper);
-    border-bottom-color: var(--rule);
   }
 
   .masthead-inner {
     display: flex;
     align-items: center;
-    gap: var(--s-5);
-    min-height: 68px;
-    padding-block: var(--s-3);
-    transition: min-height var(--dur-2) var(--ease-out);
-  }
-
-  .is-condensed .masthead-inner {
-    min-height: 58px;
+    gap: 32px;
+    height: 100%;
   }
 
   .brand {
-    padding-block: 10px;
+    display: flex;
+    flex: none;
     text-decoration: none;
-    margin-right: auto;
   }
 
-  .brand :global(.mark),
-  .brand :global(.wm-logo-wrap) {
-    transition:
-      transform var(--dur-3) var(--ease-out),
-      box-shadow var(--dur-3) var(--ease-out);
-  }
-
-  .brand:hover :global(.mark),
-  .brand:focus-visible :global(.mark) {
-    transform: rotate(45deg);
-  }
-
-  .brand:hover :global(.wm-logo-wrap),
-  .brand:focus-visible :global(.wm-logo-wrap) {
-    transform: scale(1.08);
-    box-shadow:
-      0 2px 8px rgba(217, 119, 6, 0.35),
-      0 0 0 1.5px var(--clay-deep);
+  /* The root's scroll-padding-top covers this bar, so Chrome counts a focused control in
+     it as hidden and scrolls the page to it: the sticky bar stays, the content jumps.
+     Move each control's scroll area below that padding. The sheet scrolls on its own. */
+  .masthead-inner :global(:is(a, button, summary):not(.menu-sheet *)) {
+    scroll-margin-top: calc(-1 * (var(--nav-h) + 1rem));
   }
 
   /* --- Desktop nav ------------------------------------------------------ */
-  .nav-desktop ul {
-    display: flex;
-    align-items: center;
-    gap: var(--s-5);
+  .nav-links {
+    margin-left: auto;
   }
 
-  .nav-link {
+  .nav-links ul {
+    display: flex;
+    gap: 30px;
+  }
+
+  .nav-links a {
     position: relative;
     display: block;
-    padding-block: var(--s-2);
-    font-family: var(--font-mono);
-    font-size: var(--t-meta);
-    font-weight: 500;
-    letter-spacing: var(--track-meta);
-    text-transform: uppercase;
-    color: var(--ink-2);
+    padding-block: 10px;
+    font-family: var(--font-title);
+    font-size: var(--t-small);
+    font-weight: 600;
+    line-height: 1;
+    color: var(--ink-3);
     text-decoration: none;
     transition: color var(--dur-1) var(--ease-out);
   }
 
-  .nav-link::after {
+  .nav-links a:hover,
+  .nav-links a[aria-current] {
+    color: var(--ink);
+  }
+
+  .nav-links a[aria-current]::after {
     content: '';
     position: absolute;
     left: 0;
     right: 0;
-    bottom: 0;
+    bottom: 2px;
     height: 1px;
     background: var(--clay);
-    transform: scaleX(0);
-    transform-origin: left;
-    transition: transform var(--dur-2) var(--ease-out);
   }
 
-  .nav-link:hover,
-  .nav-link:focus-visible,
-  .nav-link.is-active {
-    color: var(--ink);
-  }
-
-  .nav-link:hover::after,
-  .nav-link:focus-visible::after,
-  .nav-link.is-active::after {
-    transform: scaleX(1);
-  }
-
-  /* --- Search ------------------------------------------------------------ */
-  .nav-search {
-    display: inline-flex;
+  .nav-actions {
+    display: flex;
     align-items: center;
-    gap: var(--s-2);
-    padding: var(--s-2) var(--s-3);
-    border: var(--border-hair) solid var(--rule-strong);
-    border-radius: var(--radius-xs);
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: var(--track-meta);
-    text-transform: uppercase;
-    color: var(--ink-2);
-    text-decoration: none;
-    transition:
-      border-color var(--dur-1) var(--ease-out),
-      color var(--dur-1) var(--ease-out);
+    gap: 10px;
   }
 
-  .nav-search:hover,
-  .nav-search:focus-visible,
-  .nav-search.is-active {
+  .nav-search[aria-current] {
     border-color: var(--ink);
+  }
+
+  .theme-toggle .i-moon,
+  :global([data-theme='light']) .theme-toggle .i-sun {
+    display: none;
+  }
+
+  :global([data-theme='light']) .theme-toggle .i-moon {
+    display: block;
+  }
+
+  /* --- Phone menu --------------------------------------------------------- */
+  .menu {
+    display: none;
+  }
+
+  .menu summary {
+    list-style: none;
+  }
+
+  .menu summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .menu-sheet {
+    position: fixed;
+    top: var(--nav-h);
+    left: 0;
+    right: 0;
+    height: calc(100dvh - var(--nav-h));
+    display: flex;
+    flex-direction: column;
+    padding: 24px var(--gutter) 40px;
+    overflow-y: auto;
+    background: var(--paper);
+    border-top: 1px solid var(--rule);
+  }
+
+  .menu-sheet a:not(.btn) {
+    display: block;
+    padding-block: 14px;
+    border-bottom: 1px solid var(--rule);
+    font-family: var(--font-display);
+    font-size: 34px;
+    font-weight: 300;
+    line-height: 1.1;
+    letter-spacing: -0.015em;
     color: var(--ink);
+    text-decoration: none;
   }
 
-  .nav-search-glyph {
-    display: block;
-    width: 0.85rem;
-    height: 0.85rem;
+  /* Not colour alone: the same underline as the bar. */
+  .menu-sheet a[aria-current] {
+    color: var(--clay-deep);
+    text-decoration: underline 1px var(--clay);
+    text-underline-offset: 8px;
   }
 
-  .nav-search-glyph svg {
+  .menu-signin {
     width: 100%;
-    height: 100%;
-    stroke-linecap: round;
+    margin-top: auto;
   }
 
-  /* --- Mobile ----------------------------------------------------------- */
-  .nav-toggle {
-    display: none;
-    padding: 13px var(--s-3);
-    margin-right: calc(var(--s-3) * -1);
-  }
-
-  .nav-toggle-bars {
-    display: block;
-    width: 22px;
-  }
-
-  .nav-toggle-bars i {
-    display: block;
-    height: 1.5px;
-    background: var(--ink);
-    transition: transform var(--dur-2) var(--ease-out);
-  }
-
-  .nav-toggle-bars i + i {
-    margin-top: 6px;
-  }
-
-  .nav-toggle[aria-expanded='true'] .nav-toggle-bars i:first-child {
-    transform: translateY(3.75px) rotate(45deg);
-  }
-
-  .nav-toggle[aria-expanded='true'] .nav-toggle-bars i:last-child {
-    transform: translateY(-3.75px) rotate(-45deg);
-  }
-
-  .nav-drawer {
+  /* Gone once a member is signed in: their badge is in the bar. */
+  .masthead:has(
+      .account-slot:not(
+        [data-account-state='anonymous'],
+        [data-account-state='loading'],
+        [data-account-state='unavailable']
+      )
+    )
+    .menu-signin {
     display: none;
   }
 
-  @media (max-width: 63.99em) {
-    .nav-desktop,
+  @media (max-width: 899.98px) {
+    .masthead-inner {
+      gap: 12px;
+    }
+
+    .nav-links,
     .nav-search {
       display: none;
     }
 
-    .nav-toggle {
-      display: block;
-      order: 3;
+    .nav-actions {
+      gap: 8px;
+      margin-left: auto;
     }
 
-    .nav-drawer {
+    .menu {
       display: block;
-      position: fixed;
-      inset: 68px 0 0;
-      background: var(--paper);
-      border-top: var(--border-hair) solid var(--rule);
-      padding: var(--s-6) var(--gutter) var(--s-9);
-      transform: translateY(-8px);
-      opacity: 0;
+    }
+
+    /* Without JS nothing sets `inert`: hide the page under the open sheet so Tab
+       cannot land on links it covers. */
+    :global(body:has(.masthead .menu[open]) > :is(.skip-link, main, footer)) {
       visibility: hidden;
-      transition:
-        opacity var(--dur-2) var(--ease-out),
-        transform var(--dur-2) var(--ease-out),
-        visibility var(--dur-2);
-      overflow-y: auto;
-    }
-
-    .nav-drawer[data-open] {
-      opacity: 1;
-      visibility: visible;
-      transform: none;
-    }
-
-    .nav-drawer[aria-hidden='true'] {
-      pointer-events: none;
-    }
-
-    .nav-drawer ul {
-      display: grid;
-      gap: var(--s-1);
-    }
-
-    .nav-drawer a {
-      display: flex;
-      align-items: baseline;
-      gap: var(--s-4);
-      padding-block: var(--s-4);
-      border-bottom: var(--border-hair) solid var(--rule);
-      font-family: var(--font-display);
-      font-size: clamp(1.8rem, 8vw, 2.6rem);
-      font-variation-settings:
-        'SOFT' 0,
-        'WONK' 1;
-      letter-spacing: -0.02em;
-      text-decoration: none;
-      color: var(--ink);
-    }
-
-    .nav-drawer a[aria-current='page'] {
-      color: var(--clay-deep);
-      font-style: italic;
-    }
-
-    .nav-drawer-index {
-      font-family: var(--font-mono);
-      font-size: var(--t-micro);
-      letter-spacing: var(--track-meta);
-      color: var(--ink-3);
-    }
-  }
-
-  /* On short viewports the drawer must not trap content off-screen. */
-  /*
-   * Narrow phones: brand, account control and menu toggle must all fit in
-   * ~335px. At 375px the 1.5rem gaps pushed the toggle 26px off-screen and
-   * made every page scroll sideways.
-   */
-  @media (max-width: 29.99em) {
-    .masthead-inner {
-      gap: var(--s-3);
-    }
-
-    .brand {
-      min-width: 0;
-      flex: 0 1 auto;
-    }
-
-    .masthead-inner :global(.account-join),
-    .masthead-inner :global(.account-link) {
-      padding-inline: 0.6rem;
-    }
-
-    /* The wordmark yields first, so the account control never overlaps it. */
-    .masthead-inner .brand :global(.wm-text) {
-      font-size: 0.92rem;
-      white-space: nowrap;
-    }
-  }
-
-  @media (max-width: 22.49em) {
-    .masthead-inner .brand :global(.wm-text) {
-      display: none;
-    }
-  }
-
-  @media (max-width: 63.99em) and (max-height: 30rem) {
-    .nav-drawer a {
-      font-size: 1.5rem;
-      padding-block: var(--s-3);
     }
   }
 </style>
 
 <script>
   /**
-   * Masthead behaviours:
-   * 1. Condensed header on scroll.
-   * 2. Mobile drawer toggle with Escape key and aria-hidden.
-   *
-   * The account control (AccountNav) lives in the top bar, not the drawer,
-   * and stays visible at every width — no separate mobile auth affordance.
+   * The theme toggle (the only writer of `wc-theme`; Base.astro's head script reads it
+   * before first paint) and the phone menu's keyboard exits.
    */
-  const masthead = document.querySelector('[data-masthead]') as HTMLElement | null;
-  const toggle = document.querySelector('[data-nav-toggle]') as HTMLButtonElement | null;
-  const drawer = document.querySelector('[data-nav-drawer]') as HTMLElement | null;
+  const root = document.documentElement;
+  const toggle = document.querySelector<HTMLButtonElement>('[data-theme-toggle]');
+  const themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
 
-  // 1. Condensed on scroll
-  if (masthead) {
-    const observer = new IntersectionObserver(
-      ([entry]) => masthead.classList.toggle('is-condensed', !entry.isIntersecting),
-      { rootMargin: '-1px 0px 0px 0px', threshold: 0 },
-    );
-    const sentinel = document.createElement('div');
-    sentinel.style.cssText = 'position:absolute;top:0;height:1px;width:1px;pointer-events:none;';
-    document.body.prepend(sentinel);
-    observer.observe(sentinel);
+  function syncTheme() {
+    const light = root.dataset.theme === 'light';
+    toggle?.setAttribute('aria-label', light ? 'Switch to dark theme' : 'Switch to light theme');
+    if (themeColor) themeColor.content = light ? '#FAF9F5' : '#0C0B0A';
   }
 
-  // 2. Mobile drawer
-  function openDrawer() {
-    if (!toggle || !drawer) return;
-    toggle.setAttribute('aria-expanded', 'true');
-    toggle.setAttribute('aria-label', 'Close menu');
-    drawer.setAttribute('data-open', '');
-    drawer.setAttribute('aria-hidden', 'false');
-    document.body.style.overflow = 'hidden';
+  syncTheme();
+  // A page restored from the back/forward cache, or a choice made in another tab, skips
+  // the head script: read the saved theme again.
+  function rereadTheme() {
+    if (root.hasAttribute('data-theme-lock')) return;
+    try {
+      const t = localStorage.getItem('wc-theme');
+      if (t === 'light' || t === 'dark') root.dataset.theme = t;
+    } catch {
+      // Storage blocked: keep the current theme.
+    }
+    syncTheme();
   }
-
-  function closeDrawer() {
-    if (!toggle || !drawer) return;
-    toggle.setAttribute('aria-expanded', 'false');
-    toggle.setAttribute('aria-label', 'Open menu');
-    drawer.removeAttribute('data-open');
-    drawer.setAttribute('aria-hidden', 'true');
-    document.body.style.overflow = '';
-  }
-
+  addEventListener('pageshow', (e) => e.persisted && rereadTheme());
+  addEventListener('storage', (e) => e.key === 'wc-theme' && rereadTheme());
   toggle?.addEventListener('click', () => {
-    const isOpen = toggle.getAttribute('aria-expanded') === 'true';
-    isOpen ? closeDrawer() : openDrawer();
+    root.dataset.theme = root.dataset.theme === 'light' ? 'dark' : 'light';
+    try {
+      localStorage.setItem('wc-theme', root.dataset.theme);
+    } catch {
+      // Storage blocked: the choice lasts for this page only.
+    }
+    syncTheme();
   });
 
-  document.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape' || toggle?.getAttribute('aria-expanded') !== 'true') return;
-    closeDrawer();
-    toggle.focus();
-  });
+  const menu = document.querySelector<HTMLDetailsElement>('[data-masthead] details.menu');
+  const summary = menu?.querySelector('summary');
+  if (menu && summary) {
+    let tabbed = false;
+    document.addEventListener('pointerdown', () => (tabbed = false));
+    document.addEventListener('keydown', (e) => {
+      tabbed = e.key === 'Tab';
+      if (e.key !== 'Escape' || !menu.open) return;
+      menu.open = false;
+      summary.focus();
+    });
+    // Tab never lands on the page hidden under the sheet. Read where focus went after
+    // the move (focusout's relatedTarget is sometimes null); a click on the sheet's
+    // blank space leaves focus on <body> and keeps the menu open; Tab past the last item
+    // also lands on <body> (the page behind is inert), and that closes it.
+    menu.addEventListener('focusout', () => {
+      setTimeout(() => {
+        const now = document.activeElement;
+        if (menu.open && now && (tabbed || now !== document.body) && !menu.contains(now))
+          menu.open = false;
+      });
+    });
+    matchMedia('(min-width: 900px)').addEventListener('change', (e) => {
+      if (e.matches) menu.open = false;
+    });
+    // Every close goes through menu.open, so this frees the page on all paths: no
+    // scrolling the page under the sheet, and screen readers stay in the sheet. Lock body,
+    // not <html>: body's overflow-x makes it its own scroller once <html> is not visible,
+    // and the sticky bar would then stick to the unscrolled body, off screen.
+    menu.addEventListener('toggle', () => {
+      const behind = document.querySelectorAll<HTMLElement>('body > :is(.skip-link, main, footer)');
+      for (const el of behind) el.inert = menu.open;
+      document.body.style.overflow = menu.open ? 'hidden' : '';
+    });
+  }
 
-  // Close drawer when a link inside it is clicked
-  drawer?.querySelectorAll('a').forEach((link) => {
-    link.addEventListener('click', () => closeDrawer());
+  // Under 900px the bar's account slot is hidden while signed out, so the sheet's Sign in
+  // stands in for PrivyRoot's live button. account-boot only catches it before Privy has
+  // booted (and then prevents the default); after that, hand the tap to the live button
+  // instead of following the no-JS href.
+  const signin = document.querySelector<HTMLAnchorElement>('[data-masthead] .menu-signin');
+  const slotRoot = document.getElementById('account-slot-root');
+  signin?.addEventListener('click', (e) => {
+    if (e.defaultPrevented) return;
+    const live = slotRoot?.querySelector<HTMLElement>('.account-slot .account-join');
+    if (!live) return;
+    e.preventDefault();
+    if (live.matches('.account-placeholder')) return; // Privy is still loading.
+    if (menu) menu.open = false;
+    live.click();
   });
+  // account-boot relabels the link "Opening sign-in…"; once PrivyRoot has rendered, put it back.
+  if (signin && slotRoot) {
+    new MutationObserver(() => {
+      if (!slotRoot.querySelector('.account-slot') || !signin.hasAttribute('aria-busy')) return;
+      signin.removeAttribute('aria-busy');
+      signin.textContent = 'Sign in';
+    }).observe(slotRoot, { childList: true, subtree: true });
+  }
 </script>

@@ -1,4 +1,4 @@
 ---
-/** Legacy compatibility only: onboarding happens through the sitewide Privy CTA. */
-return Astro.redirect('/', 308);
+/** Legacy compatibility only: /join/ goes to the sign-in gate on /me/. */
+return Astro.redirect('/me/', 308);
 ---

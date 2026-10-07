@@ -28,8 +28,11 @@ export interface Crumb {
  * reader sees.
  */
 export function trail(...crumbs: Crumb[]): Crumb[] {
-  return [{ name: 'Home', href: '/' }, ...crumbs];
+  return [{ name: 'Home', href: '/' }, ...crumbs.map((c) => ({ ...c, href: slashed(c.href) }))];
 }
+
+/** Every route ends in `/` (`trailingSlash`), so a link without one costs a 308 on Vercel. */
+const slashed = (href: string) => href.replace(/\/?$/, '/');
 
 /** `BreadcrumbList`, absolute-URL'd against the canonical domain. */
 export function breadcrumbSchema(crumbs: Crumb[]): Record<string, unknown> {
@@ -83,7 +86,7 @@ export const titles = {
   stories: () => 'From the community | Recaps, photo essays and field reports',
   story: (name: string) => `${name} | ${site.wordmark}`,
   discover: () => 'Search the Claude community in India',
-  about: () => 'How the record works | Verification, sources and corrections',
+  about: () => `About | ${site.wordmark}`,
   record: () => 'The record | Everything that has happened, by month',
   gallery: () => `Photos from Claude Events in India | ${site.wordmark}`,
 } as const;
@@ -215,7 +218,7 @@ export function websiteSchema(): Record<string, unknown> {
       '@type': 'SearchAction',
       target: {
         '@type': 'EntryPoint',
-        urlTemplate: `${site.url}/discover?q={search_term_string}`,
+        urlTemplate: `${site.url}/discover/?q={search_term_string}`,
       },
       'query-input': 'required name=search_term_string',
     },
@@ -240,7 +243,7 @@ export function itemListSchema(
       '@type': 'ListItem',
       position: i + 1,
       name: item.name,
-      url: `${site.url}${item.href}`,
+      url: `${site.url}${slashed(item.href)}`,
     })),
   };
 }

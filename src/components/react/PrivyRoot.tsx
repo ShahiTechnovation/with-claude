@@ -89,7 +89,10 @@ function readCache(userKey: string): Pick<AccountState, 'needsUsername' | 'ambas
   }
 }
 
-function writeCache(userKey: string, value: Pick<AccountState, 'needsUsername' | 'ambassadorSlug'>) {
+function writeCache(
+  userKey: string,
+  value: Pick<AccountState, 'needsUsername' | 'ambassadorSlug'>,
+) {
   storage()?.setItem(accountKey(userKey), JSON.stringify(value));
 }
 
@@ -268,8 +271,16 @@ function useAccountMachine(): AccountApi {
 
 function displayNameOf(user: unknown): string {
   const accounts =
-    (user as { linked_accounts?: Array<{ type: string; username?: string; address?: string; email?: string }> } | null)
-      ?.linked_accounts ?? [];
+    (
+      user as {
+        linked_accounts?: Array<{
+          type: string;
+          username?: string;
+          address?: string;
+          email?: string;
+        }>;
+      } | null
+    )?.linked_accounts ?? [];
   const github = accounts.find((a) => a.type === 'github_oauth');
   if (github?.username) return github.username;
   const google = accounts.find((a) => a.type === 'google_oauth');
@@ -541,17 +552,21 @@ interface IslandMount {
 }
 
 function readIslandMounts(): IslandMount[] {
-  return Array.from(document.querySelectorAll<HTMLElement>('[data-account-island]')).flatMap((node) => {
-    const name = node.dataset.accountIsland ?? '';
-    if (!ISLANDS[name]) return [];
-    const script = node.querySelector('script[type="application/json"]');
-    try {
-      const props = script?.textContent ? (JSON.parse(script.textContent) as Record<string, unknown>) : {};
-      return [{ node, name, props }];
-    } catch {
-      return [];
-    }
-  });
+  return Array.from(document.querySelectorAll<HTMLElement>('[data-account-island]')).flatMap(
+    (node) => {
+      const name = node.dataset.accountIsland ?? '';
+      if (!ISLANDS[name]) return [];
+      const script = node.querySelector('script[type="application/json"]');
+      try {
+        const props = script?.textContent
+          ? (JSON.parse(script.textContent) as Record<string, unknown>)
+          : {};
+        return [{ node, name, props }];
+      } catch {
+        return [];
+      }
+    },
+  );
 }
 
 function AccountIslands() {
@@ -622,7 +637,10 @@ function Inner({ openLogin = false }: { openLogin?: boolean }) {
  * requests go with the cookie alone. A page the SERVER already authorised
  * keeps working; nothing is pretended.
  */
-class ProviderBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, { failed: boolean }> {
+class ProviderBoundary extends Component<
+  { children: ReactNode; fallback: ReactNode },
+  { failed: boolean }
+> {
   state = { failed: false };
 
   static getDerivedStateFromError() {
@@ -631,7 +649,10 @@ class ProviderBoundary extends Component<{ children: ReactNode; fallback: ReactN
 
   componentDidCatch(error: unknown) {
     // A fixed code only; SDK errors are not echoed.
-    console.warn('[account] sign-in provider failed to start', error instanceof Error ? error.name : 'unknown');
+    console.warn(
+      '[account] sign-in provider failed to start',
+      error instanceof Error ? error.name : 'unknown',
+    );
   }
 
   render() {
@@ -647,7 +668,10 @@ function DegradedInner() {
   const account = useMemo<AccountApi>(
     () => ({
       state: { status: 'error', errorKind: 'not-configured' },
-      signIn: () => window.location.assign('/join/'),
+      // The sign-in gate is /me/; already there, a reload would only loop.
+      signIn: () => {
+        if (!window.location.pathname.startsWith('/me/')) window.location.assign('/me/');
+      },
       signOut: async (to = '/') => {
         clearIdentityState();
         window.location.assign(isSafeNext(to) ? to : '/');
@@ -694,7 +718,9 @@ export default function PrivyRoot({ appId, loginMethods, openLogin = false }: Pr
       <PrivyProvider
         appId={appId}
         config={{
-          ...(loginMethods && loginMethods.length > 0 ? { loginMethods: loginMethods as never } : {}),
+          ...(loginMethods && loginMethods.length > 0
+            ? { loginMethods: loginMethods as never }
+            : {}),
           embeddedWallets: {
             ethereum: { createOnLogin: 'off' },
             solana: { createOnLogin: 'off' },

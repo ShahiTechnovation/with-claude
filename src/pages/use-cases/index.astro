@@ -35,18 +35,14 @@ const schema = publicUseCases.length
   breadcrumbs={crumbs}
   schema={schema}
 >
-  <PageIntro
-    eyebrow="Use cases"
-    title="Claude in practice."
-    stamp={`${String(publicUseCases.length).padStart(2, '0')} recorded`}
-  >
-    <p>
-      A library for first-hand accounts of how builders in India actually use Claude to solve problems. Not a generic list of things Claude can do, but a space for named people in this community to share their real workflows.
-    </p>
+  <PageIntro title="Claude in practice." size="lg">
+    <p>First-hand accounts of how builders in India use Claude.</p>
   </PageIntro>
 
-  <Section id="library" tone="sunk" size="lg" labelledby="practice-library-heading">
-    <PracticeLibrary filters />
+  <Section id="library" tone="sunk" labelledby="practice-library-heading">
+    {/* The intro already says "Claude in practice"; the library's own head repeated it. */}
+    <h2 id="practice-library-heading" class="visually-hidden">Published use cases</h2>
+    <PracticeLibrary filters showHead={false} />
   </Section>
 
   <Section id="submit" labelledby="practice-heading">

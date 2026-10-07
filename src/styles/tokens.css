@@ -2,88 +2,196 @@
    WITH CLAUDE — DESIGN TOKENS
    The only place raw values live. Nothing below this file hard-codes a colour,
    a size, or a duration.
+
+   Dark is the default on every public page; cream is the visitor's choice
+   (the toggle in the masthead) and the member area is locked light (Base.astro).
+   The names describe roles, not colours: `--paper` is the page ground and
+   `--ink` the strongest text, in both themes.
+
+   Every colour token has a literal value in each of the three blocks below. A
+   token written as `var(--x)` resolves where it is declared, so an inner
+   `[data-theme='light']` scope would inherit the dark value. `tests/theme.test.ts`
+   checks every block carries every colour, and that print equals light.
    ========================================================================= */
 
-:root {
-  /* --- SURFACES -------------------------------------------------------- */
-  /* Warm paper is the ground. The site is a printed record, not a screen UI. */
-  --paper: #f3efe7;
-  --paper-sunk: #eae4d7; /* recessed bands, table stripes */
-  --paper-raised: #fcfaf5; /* lifted off the ground */
+/* --- DARK (default) ------------------------------------------------------ */
+:root,
+[data-theme='dark'],
+.on-night {
+  --paper: #0c0b0a; /* page ground */
+  --paper-sunk: #131110; /* the alternate band */
+  --paper-raised: #191715; /* cards, fields, panels */
+  --paper-raised-2: #201d1a; /* hover fills, plain avatars */
 
-  --night: #16130e; /* the dark counterpart — atlas, projects, manifesto */
-  --night-raised: #211d16;
-  --night-deep: #0d0b07; /* the darkest ground, used once per page at most */
+  --ink: #faf9f5; /* headings, titles. 18.7:1 */
+  --ink-2: #d8d4ca; /* body copy. 13.3:1 */
+  --ink-3: #a39e93; /* meta. The lightest text allowed: 7.4:1 (6.7 on raised) */
+  --rule: rgb(250 249 245 / 0.09); /* hairlines, decorative */
+  --rule-strong: rgb(250 249 245 / 0.2); /* ghost-button and chip borders */
+  --rule-field: rgb(250 249 245 / 0.36); /* borders of fields and controls, 3.3:1 on raised */
 
-  /* --- INK ------------------------------------------------------------- */
-  --ink: #16140e; /* primary text on paper */
-  --ink-2: #443f38; /* secondary text, long copy */
-  --ink-3: #69635a; /* metadata. AA on --paper (5.0:1) — do not lighten */
-  --rule: #d8d1c4; /* hairlines */
-  --rule-strong: #b9b0a0;
+  --clay: #d97757; /* fills, glow, the full stop, the primary button. Never grey text on it */
+  --clay-deep: #ee9a7b; /* clay text: the name stays, it is the text-safe clay. 8.9:1 */
+  --clay-tint: #2c2018; /* tinted fills */
+  --focus: #d97757; /* the focus ring, 6.3:1 */
+  --btn-ink: #141413; /* text on clay, 5.9:1 */
 
-  --on-night: #f0ebe0; /* primary text on night */
-  --on-night-2: #aaa395;
-  --rule-night: #35301f;
+  /* Theme-only */
+  --glow: 217 119 87; /* rgb triplet: rgb(var(--glow) / 0.4) */
+  --hot: 255 196 162; /* the sun's core */
+  --nav-bg: rgb(12 11 10 / 0.95); /* 0.95: the header's --ink-3 links keep AA over photos */
+  --grain: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'256'%20height%3D'256'%3E%3Cfilter%20id%3D'n'%20x%3D'0'%20y%3D'0'%3E%3CfeTurbulence%20type%3D'fractalNoise'%20baseFrequency%3D'.78'%20numOctaves%3D'3'%20stitchTiles%3D'stitch'%2F%3E%3CfeColorMatrix%20values%3D'0%200%200%200%201%200%200%200%200%201%200%200%200%200%201%202.4%200%200%200%20-1.008'%2F%3E%3C%2Ffilter%3E%3Crect%20width%3D'100%25'%20height%3D'100%25'%20filter%3D'url(%23n)'%2F%3E%3C%2Fsvg%3E");
+  --grain-o: 0.075;
+  --map-land: #1c1916;
+  --map-land-hot: #3b2219;
+  --map-state: rgb(250 249 245 / 0.12);
+  --map-pin: #8f8a80;
+  --map-pin-lead: #ffe1d1;
+  --map-label: #a39e93;
 
-  /* --- ACCENT ---------------------------------------------------------- */
-  /* Claude clay. Reserved for live state, the brand mark, and the meridian. */
+  color-scheme: dark;
+}
+
+/* --- LIGHT (cream) ------------------------------------------------------- */
+:root[data-theme='light'],
+[data-theme='light'] {
+  --paper: #faf9f5;
+  --paper-sunk: #f1efe7;
+  --paper-raised: #ffffff;
+  --paper-raised-2: #f7f5ef;
+
+  --ink: #141413; /* 17.5:1 */
+  --ink-2: #38352f; /* 11.6:1 */
+  --ink-3: #69655c; /* 5.5:1 (5.0 on sunk, 5.8 on white) */
+  --rule: rgb(20 20 19 / 0.1);
+  --rule-strong: rgb(20 20 19 / 0.22);
+  --rule-field: #8a8780; /* 3.6:1 on white */
+
   --clay: #d97757;
-  --clay-deep: #9e4526; /* the text-safe clay — use on paper */
-  --clay-lift: #e58b6c;
+  --clay-deep: #9e4526; /* 6.0:1 */
   --clay-tint: #f7ded2;
+  --focus: #9e4526;
+  --btn-ink: #141413;
 
-  /*  Contrast rule, enforced by review:
-      · --clay on --paper is 2.7:1 — FILL ONLY, never text.
-      · --clay-deep on --paper is 5.6:1 — safe for text.
-      · --clay on --night is 5.9:1 — safe for text.                        */
+  --glow: 217 119 87;
+  --hot: 255 214 190;
+  --nav-bg: rgb(250 249 245 / 0.95);
+  --grain: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'256'%20height%3D'256'%3E%3Cfilter%20id%3D'n'%20x%3D'0'%20y%3D'0'%3E%3CfeTurbulence%20type%3D'fractalNoise'%20baseFrequency%3D'.78'%20numOctaves%3D'3'%20stitchTiles%3D'stitch'%2F%3E%3CfeColorMatrix%20values%3D'0%200%200%200%200%200%200%200%200%200%200%200%200%200%200%202.4%200%200%200%20-1.008'%2F%3E%3C%2Ffilter%3E%3Crect%20width%3D'100%25'%20height%3D'100%25'%20filter%3D'url(%23n)'%2F%3E%3C%2Fsvg%3E");
+  --grain-o: 0.055;
+  --map-land: #e7e1d3;
+  --map-land-hot: #f3d2bd;
+  --map-state: rgb(20 20 19 / 0.16);
+  --map-pin: #6f6a60;
+  --map-pin-lead: #9e4526;
+  --map-label: #38352f;
 
-  /* --- COMMUNITY STATE -------------------------------------------------
-     Four states, distinguished by FORM first and colour second, so the atlas
-     still reads in monochrome and for a colour-blind reader. See
-     `src/lib/city.ts` for what each one is allowed to claim. */
-  --state-led: var(--clay); /* verified Ambassador — filled station */
-  --state-activity: #b8703f; /* events on record — open ring */
-  --state-interest: #5d6b73; /* interest registered — small solid dot */
-  --state-discovery: var(--ink-3); /* plotted only — hairline circle */
+  color-scheme: light;
+}
+
+/* --- PRINT: always light. A dark page would print cream text on white. --- */
+@media print {
+  :root,
+  [data-theme],
+  .on-night {
+    --paper: #faf9f5;
+    --paper-sunk: #f1efe7;
+    --paper-raised: #ffffff;
+    --paper-raised-2: #f7f5ef;
+
+    --ink: #141413;
+    --ink-2: #38352f;
+    --ink-3: #69655c;
+    --rule: rgb(20 20 19 / 0.1);
+    --rule-strong: rgb(20 20 19 / 0.22);
+    --rule-field: #8a8780;
+
+    --clay: #d97757;
+    --clay-deep: #9e4526;
+    --clay-tint: #f7ded2;
+    --focus: #9e4526;
+    --btn-ink: #141413;
+
+    --glow: 217 119 87;
+    --hot: 255 214 190;
+    --nav-bg: rgb(250 249 245 / 0.95);
+    --grain: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'256'%20height%3D'256'%3E%3Cfilter%20id%3D'n'%20x%3D'0'%20y%3D'0'%3E%3CfeTurbulence%20type%3D'fractalNoise'%20baseFrequency%3D'.78'%20numOctaves%3D'3'%20stitchTiles%3D'stitch'%2F%3E%3CfeColorMatrix%20values%3D'0%200%200%200%200%200%200%200%200%200%200%200%200%200%200%202.4%200%200%200%20-1.008'%2F%3E%3C%2Ffilter%3E%3Crect%20width%3D'100%25'%20height%3D'100%25'%20filter%3D'url(%23n)'%2F%3E%3C%2Fsvg%3E");
+    --grain-o: 0.055;
+    --map-land: #e7e1d3;
+    --map-land-hot: #f3d2bd;
+    --map-state: rgb(20 20 19 / 0.16);
+    --map-pin: #6f6a60;
+    --map-pin-lead: #9e4526;
+    --map-label: #38352f;
+
+    color-scheme: light;
+  }
+}
+
+/* Inner scopes re-set the inherited text colour, so a light dialog on a dark
+   page (or the reverse) reads in its own ink. */
+[data-theme],
+.on-night {
+  color: var(--ink-2);
+}
+
+.on-night {
+  background: var(--paper);
+}
+
+/* --- EVERYTHING THAT IS THE SAME IN BOTH THEMES --------------------------- */
+:root {
+  /* The bottom of a photograph, for cream text over it. */
+  --scrim: linear-gradient(
+    to top,
+    rgb(10 9 8 / 0.92) 0%,
+    rgb(10 9 8 / 0.55) 32%,
+    rgb(10 9 8 / 0.08) 62%,
+    rgb(10 9 8 / 0.25) 100%
+  );
 
   /* --- TYPEFACES ------------------------------------------------------- */
-  /* Official display serif for headlines, display sans for smaller titles (fonts.css). */
+  /* Serif Display (Light 300 only) for headlines, Sans Display (600) for titles and
+     controls, Inter for reading (fonts.css). */
   --font-display: 'Anthropic Serif Display', 'Anthropic Serif Display Fallback', Georgia, serif;
-  --font-title: 'Anthropic Sans Display', 'Anthropic Sans Display Fallback', 'Inter Variable', 'Inter', sans-serif;
+  --font-title:
+    'Anthropic Sans Display', 'Anthropic Sans Display Fallback', 'Inter Variable', 'Inter',
+    sans-serif;
   /* The wordmark keeps Fraunces: an independent community, not Anthropic's identity. */
   --font-wordmark: 'Fraunces Variable', 'Fraunces', Georgia, 'Times New Roman', serif;
   --font-body: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', 'Cascadia Mono', monospace;
 
-  /* --- TYPE SCALE ------------------------------------------------------
-     Fluid, and every step is deliberately far from its neighbour. Editorial
-     pages need violent contrast, not a gentle modular ramp.
+  /* --- TYPE SCALE (390 → 1440) ----------------------------------------
+     A serif cream h2 over a sans grey lead, everywhere. Serif never goes below
+     21px; anything smaller is Sans 600 or Inter. 15px is the floor. */
+  --t-poster: clamp(4.25rem, 12.6vw, 12rem); /* 68 → 181: the hero h1 only */
+  /* Interior pages run about 30% under the homepage, which keeps its own scale (.type-home). */
+  --t-display: clamp(2.375rem, 6vw, 5.375rem); /* 38 → 86: short page titles */
+  /* 34 → 67: page, project and event titles */
+  --t-h1: clamp(2.125rem, 1.36rem + 3.14vw, 4.1875rem);
+  --t-h2: clamp(2rem, 1.58rem + 1.71vw, 3.125rem); /* 32 → 50: section headings, group names */
+  /* 21 → 22: card titles, cities, years; clears the 18px row titles */
+  --t-h3: clamp(1.3125rem, 1.29rem + 0.095vw, 1.375rem);
+  /* 17 → 23: the sentence under a heading */
+  --t-lead: clamp(1.0625rem, 0.85rem + 0.85vw, 1.4375rem);
+  --t-title: clamp(1.125rem, 1.05rem + 0.3vw, 1.25rem); /* 18 → 20: row titles, names in lists */
+  --t-body: 1.0625rem; /* 17 */
+  --t-ui: 1rem; /* 16: controls; inputs stay 16 so iOS does not zoom */
+  --t-small: 0.9375rem; /* 15: meta, captions, nav, chips. The floor */
 
-     Desktop scale applies 0.8 zoom for compact editorial density,
-     preserving elegant proportions and breathing room across screens. */
-  /* INDIA IS BUILDING. The slope is set so the cap engages around 1440 rather
-     than around 1050 — the old ramp went flat at 152px across the whole
-     desktop range, which is why 1280, 1440 and 1728 all rendered the same
-     headline at three different composition widths. */
-  --t-poster: clamp(3rem, 15vw, 11rem);
-  --t-display: clamp(2.5rem, 6.4vw, 5.25rem);
-  --t-h2: clamp(1.9rem, 4.2vw, 3.25rem);
-  --t-h3: clamp(1.25rem, 2vw, 1.7rem);
-  --t-lead: clamp(1.05rem, 1.35vw, 1.3rem);
-  --t-body: 1.0625rem;
-  --t-small: 0.9375rem;
-  --t-meta: 0.75rem; /* mono, tracked, uppercase */
-  --t-micro: 0.6875rem;
-
-  --lh-poster: 0.84;
-  --lh-display: 0.94;
+  /* The smaller sizes open up a little: more leading, less negative tracking. */
+  --lh-poster: 0.9;
+  --lh-display: 1;
+  --lh-h1: 1.04;
+  --lh-h2: 1.06;
+  --lh-h3: 1.2;
   --lh-heading: 1.06;
   --lh-body: 1.6;
 
-  --track-poster: -0.038em;
-  --track-display: -0.026em;
-  --track-meta: 0.15em;
+  --track-poster: -0.04em;
+  --track-display: -0.03em;
+  --track-h1: -0.025em;
+  --track-h2: -0.022em;
+  --track-h3: -0.01em;
 
   /* --- SPACE ----------------------------------------------------------- */
   --s-1: 0.25rem;
@@ -99,31 +207,34 @@
   --s-11: 6.5rem;
   --s-12: 8rem;
 
-  /* Vertical rhythm between movements. The page breathes on this, and the
-     three sizes are what stop every section feeling identically weighted. */
-  --section-y-sm: clamp(2.5rem, 4vw, 3.5rem);
-  --section-y: clamp(3.75rem, 7vw, 7rem);
-  --section-y-lg: clamp(5rem, 10vw, 9.5rem);
+  --section-y: clamp(2.5rem, 2.222rem + 1.14vw, 3.25rem); /* 40 → 52, the one rhythm */
+  --head-gap: clamp(0.875rem, 1.3vw, 1.25rem); /* heading to its sentence, 14 → 20 */
+  --head-after: clamp(2rem, 1.5rem + 1.5vw, 3rem); /* sentence to content, 32 → 48 */
 
   /* --- GRID ------------------------------------------------------------ */
-  --measure: 1280px; /* standard content width */
-  --measure-wide: 1520px; /* editorial spreads */
-  --measure-text: 64ch; /* reading column */
-  --gutter: clamp(1.25rem, 4vw, 3rem);
+  --measure: 1296px; /* the one content width */
+  --measure-text: 64ch; /* long copy */
+  --gutter: clamp(1.25rem, 4.4vw, 4rem); /* 20 → 64 */
+  --nav-h: 68px; /* header height and sticky offsets */
 
-  /* --- BORDERS & SURFACES ---------------------------------------------- */
+  /* --- BORDERS, RADII, ELEVATION --------------------------------------- */
   --border-hair: 1px;
   --border-rule: 1.5px;
   --border-heavy: 2px;
-  /* Near-square. Editorial, not SaaS. Nothing on this site is a pill. */
   --radius-none: 0px;
-  --radius-xs: 2px;
-  --radius-sm: 3px;
-  --shadow-lift: 0 20px 44px -30px rgb(22 20 14 / 0.5);
+  --radius-xs: 8px; /* the focus ring */
+  --radius-sm: 12px; /* the 64px icon tile, thumbnails */
+  --radius-md: 18px; /* cards, photos */
+  --radius-lg: 24px; /* plates, panels */
+  --radius-pill: 999px; /* buttons, chips, the search field, icon buttons */
+  --shadow-lift: 0 18px 50px -18px rgb(0 0 0 / 0.6); /* card hover */
+  --glow-btn: 0 0 0 1px rgb(var(--glow) / 0.4), 0 12px 48px -10px rgb(var(--glow) / 0.7);
+  --glow-tile: 0 12px 34px -16px rgb(var(--glow) / 0.75); /* icon tiles, group plates */
 
   /* --- MOTION ---------------------------------------------------------- */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-cine: cubic-bezier(0.19, 1, 0.22, 1);
   --dur-1: 140ms; /* state flicks: hover, focus */
   --dur-2: 320ms; /* element transitions */
   --dur-3: 640ms; /* reveals */
@@ -132,75 +243,28 @@
   /* --- LAYERS ---------------------------------------------------------- */
   --z-grain: 60;
   --z-nav: 50;
-  --z-meridian: 5;
   --z-raised: 2;
-
-  color-scheme: light;
 }
 
-/* Sections that flip to a dark ground remap the semantic tokens rather than
-   overriding colours one by one. Everything inside keeps working. */
-.on-night {
-  --paper: var(--night);
-  --paper-sunk: #100e0a;
-  --paper-raised: var(--night-raised);
-  --ink: var(--on-night);
-  --ink-2: var(--on-night-2);
-  --ink-3: #8d8678;
-  --rule: var(--rule-night);
-  --rule-strong: #4c4535;
-  --clay-deep: var(--clay-lift); /* clay is text-safe here; use the brighter one */
-  --clay-tint: #2c2018;
-  --state-activity: #d18a5c;
-  --state-interest: #8ba0ab;
-  --state-discovery: #6f695c;
-  color-scheme: dark;
-  background: var(--paper);
-  color: var(--ink);
-}
-
-/* The deepest ground. One per page, for the moment that should stop a scroll. */
-.on-deep {
-  --paper: var(--night-deep);
-  --paper-sunk: #060503;
-  --paper-raised: #17140e;
-}
-
-/* --- DIRECTORY SURFACES ------------------------------------------------
-   The Project Directory is a dense, scannable tool, and it is set in the same
-   language as the rest of the record: the paper ground, hairline rules,
-   near-square edges, mono uppercase metadata. These are the directory's names
-   for the site's own values, so its panels cannot drift from them again, plus
-   the box sizes it needs. Used by `src/styles/directory.css`, the project
-   page and `ProjectLogo`. */
-:root {
-  --radius-md: var(--radius-xs);
-  --radius-lg: var(--radius-sm);
-  --radius-chip: var(--radius-none);
-  --panel: var(--paper);
-  --panel-border: var(--rule);
-  --panel-hover: var(--paper-raised);
-  --dir-measure: 1280px;
-  --dir-sidebar: 272px;
-  --logo-row: 76px;
-  --logo-row-sm: 60px;
-  --logo-header: 96px;
-  --logo-lg: 128px;
-  /* Text multiplier for the directory's dense controls. */
-  --dir-text: 1;
-}
-
-/* From 48em the whole site renders at `zoom: 0.8` (base.css). The directory's
-   sizes are specified as RENDERED sizes — a ~76px logo box, a ~1250px column
-   — so its boxes are authored ×1.25 here to land on them, and its small
-   control text ×1.15 so chips and counts stay comfortably legible. */
-@media (min-width: 48em) {
+@media (max-width: 899.98px) {
   :root {
-    --dir-measure: 1560px;
-    --dir-sidebar: 340px;
-    --logo-row: 95px;
-    --logo-header: 120px;
-    --logo-lg: 160px;
-    --dir-text: 1.15;
+    --nav-h: 60px;
   }
+}
+
+/* The homepage keeps the larger scale it was designed at. index.astro puts this on its
+   sections; the hero's poster size is its own and does not change. */
+.type-home {
+  --t-display: clamp(3.375rem, 8.6vw, 8rem); /* 54 → 124 */
+  --t-h1: clamp(3rem, 1.9rem + 4.6vw, 6rem); /* 48 → 96 */
+  --t-h2: clamp(3rem, 2.2rem + 3.2vw, 4.5rem); /* 48 → 72 */
+  --t-h3: clamp(1.625rem, 1.2rem + 1.1vw, 1.875rem); /* 26 → 30 */
+  --lh-display: 0.95;
+  --lh-h1: 0.98;
+  --lh-h2: 1;
+  --lh-h3: 1.12;
+  --track-display: -0.035em;
+  --track-h1: -0.03em;
+  --track-h2: -0.03em;
+  --track-h3: -0.015em;
 }

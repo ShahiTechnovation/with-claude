@@ -2,7 +2,12 @@ import { istInstant } from '@/lib/datetime';
 import { cityState, cityStateRank } from '@/lib/city';
 import { lifecycleOf } from '@/lib/status';
 import { displayEvent } from '@/lib/event-display';
-import { leaderboard, standingOf, type LeaderboardEntry, type LeaderboardWindow } from '@/lib/leaderboard';
+import {
+  leaderboard,
+  standingOf,
+  type LeaderboardEntry,
+  type LeaderboardWindow,
+} from '@/lib/leaderboard';
 import type {
   Ambassador,
   Authorship,
@@ -144,7 +149,9 @@ export class RecordSelectors {
     this.useCases = rs.useCases;
 
     this.publicAmbassadors = publicOnly(rs.ambassadors);
-    this.publicBuilders = this.builders.filter((b) => isPublic(b) && b.profileVisibility !== 'unlisted');
+    this.publicBuilders = this.builders.filter(
+      (b) => isPublic(b) && b.profileVisibility !== 'unlisted',
+    );
     this.publicProjects = publicOnly(rs.projects);
     this.publicStories = publicOnly(rs.stories);
     this.publicEvents = publicOnly(this.events);
@@ -210,7 +217,9 @@ export class RecordSelectors {
   }
 
   hostAmbassador(event: CommunityEvent): Ambassador | undefined {
-    return event.host.ambassadorSlug ? this.ambassadorBySlug.get(event.host.ambassadorSlug) : undefined;
+    return event.host.ambassadorSlug
+      ? this.ambassadorBySlug.get(event.host.ambassadorSlug)
+      : undefined;
   }
 
   isAmbassadorLed(event: CommunityEvent): boolean {
@@ -234,8 +243,9 @@ export class RecordSelectors {
   venueLabel(event: CommunityEvent): string | undefined {
     const { name, address, private: isPrivate } = event.venue;
     if (isPrivate) return undefined;
-    if (name === this.cityName(event.citySlug)) return undefined;
-    return address && !name.includes(address) ? `${name}, ${address}` : name;
+    const city = this.cityName(event.citySlug);
+    if (name === city) return undefined;
+    return address && address !== city && !name.includes(address) ? `${name}, ${address}` : name;
   }
 
   eventsHostedBy(ambassadorSlug: string): CommunityEvent[] {
@@ -244,7 +254,9 @@ export class RecordSelectors {
     );
   }
 
-  activityLeaderboard(options: { window?: LeaderboardWindow; now?: Date } = {}): LeaderboardEntry[] {
+  activityLeaderboard(
+    options: { window?: LeaderboardWindow; now?: Date } = {},
+  ): LeaderboardEntry[] {
     return leaderboard(this.publicAmbassadors, this.publicEvents, options);
   }
 
@@ -258,7 +270,9 @@ export class RecordSelectors {
         const ambassador = this.ambassadorBySlug.get(credit.ambassadorSlug);
         return ambassador ? { credit, ambassador } : undefined;
       })
-      .filter((entry): entry is { credit: EventHostCredit; ambassador: Ambassador } => Boolean(entry));
+      .filter((entry): entry is { credit: EventHostCredit; ambassador: Ambassador } =>
+        Boolean(entry),
+      );
   }
 
   builderForAmbassador(ambassador: Ambassador): Builder | undefined {
@@ -266,7 +280,9 @@ export class RecordSelectors {
   }
 
   ambassadorForBuilder(builder: Builder): Ambassador | undefined {
-    return this.publicAmbassadors.find((a) => a.builderSlug === builder.slug || a.slug === builder.slug);
+    return this.publicAmbassadors.find(
+      (a) => a.builderSlug === builder.slug || a.slug === builder.slug,
+    );
   }
 
   eventsInCity(slug: string): CommunityEvent[] {
@@ -302,13 +318,12 @@ export class RecordSelectors {
   }
 
   builderNamesOf(project: Project): BuilderAttribution[] {
-    return project.builderSlugs
-      .map((slug) => {
-        const builder = this.allBuildersBySlug.get(slug);
-        return builder
-          ? { name: builder.name, slug: builder.slug, isPublic: isPublic(builder) }
-          : { name: slug, slug, isPublic: false };
-      });
+    return project.builderSlugs.map((slug) => {
+      const builder = this.allBuildersBySlug.get(slug);
+      return builder
+        ? { name: builder.name, slug: builder.slug, isPublic: isPublic(builder) }
+        : { name: slug, slug, isPublic: false };
+    });
   }
 
   projectsOf(builder: Builder): Project[] {
@@ -344,7 +359,9 @@ export class RecordSelectors {
   }
 
   authorOf(record: { author: Authorship }): Builder | undefined {
-    return record.author.builderSlug ? this.builderBySlug.get(record.author.builderSlug) : undefined;
+    return record.author.builderSlug
+      ? this.builderBySlug.get(record.author.builderSlug)
+      : undefined;
   }
 
   authorName(record: { author: Authorship }): string {
@@ -477,7 +494,7 @@ export class RecordSelectors {
       subject: event.title,
       action: 'on the calendar',
       citySlug: event.citySlug,
-      href: `/events/${event.slug}`,
+      href: `/events/${event.slug}/`,
     }));
 
     const held: SignalItem[] = this.pastEvents(now).map((event) => ({
@@ -486,7 +503,7 @@ export class RecordSelectors {
       subject: event.title,
       action: 'held',
       citySlug: event.citySlug,
-      href: `/events/${event.slug}`,
+      href: `/events/${event.slug}/`,
     }));
 
     const joined: SignalItem[] = this.publicBuilders
@@ -495,9 +512,9 @@ export class RecordSelectors {
         kind: 'builder-published',
         date: b.createdAt!,
         subject: b.name,
-        action: 'joined the index',
+        action: 'joined',
         citySlug: b.citySlug,
-        href: `/builders/${b.slug}`,
+        href: `/builders/${b.slug}/`,
       }));
 
     const shipped: SignalItem[] = this.publicProjects
@@ -506,9 +523,9 @@ export class RecordSelectors {
         kind: 'project-published',
         date: p.createdAt!,
         subject: p.title,
-        action: 'added to the archive',
+        action: 'new project',
         citySlug: p.citySlug,
-        href: `/projects/${p.slug}`,
+        href: `/projects/${p.slug}/`,
       }));
 
     const written: SignalItem[] = this.publicStories.map((s) => ({
@@ -517,7 +534,7 @@ export class RecordSelectors {
       subject: s.title,
       action: 'published',
       citySlug: s.citySlug,
-      href: `/stories/${s.slug}`,
+      href: `/stories/${s.slug}/`,
     }));
 
     const documented: SignalItem[] = this.publicUseCases.map((u) => ({
@@ -526,7 +543,7 @@ export class RecordSelectors {
       subject: u.title,
       action: 'written up',
       citySlug: u.citySlug,
-      href: `/use-cases/${u.slug}`,
+      href: `/use-cases/${u.slug}/`,
     }));
 
     const explained: SignalItem[] = this.publicGuides.map((g) => ({
@@ -534,7 +551,7 @@ export class RecordSelectors {
       date: g.modified ?? g.published,
       subject: g.title,
       action: g.modified ? 'updated' : 'published',
-      href: `/guides/${g.slug}`,
+      href: `/guides/${g.slug}/`,
     }));
 
     const recent = [...held, ...joined, ...shipped, ...written, ...documented, ...explained].sort(
