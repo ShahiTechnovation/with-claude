@@ -328,9 +328,7 @@ describe('geo', () => {
 // =========================================================================
 
 describe('Impact Lab project archive', () => {
-  const impactLabProjects = projects.filter(
-    (p) => p.builtAtEventSlug === 'claude-code-impact-lab',
-  );
+  const impactLabProjects = projects.filter((p) => p.builtAtEventSlug === 'claude-code-impact-lab');
   // Held back at the first import, then published by the organisers (4c3218c)
   // as submitted: no team on the record, and with the demo video.
   const released = ['bhopal-lake-guardian', 'hospital-management'];
@@ -367,10 +365,7 @@ describe('Impact Lab project archive', () => {
   });
 
   it('contains exactly 69 builder-name mentions across all projects', () => {
-    const totalMentions = impactLabProjects.reduce(
-      (sum, p) => sum + p.builderSlugs.length,
-      0,
-    );
+    const totalMentions = impactLabProjects.reduce((sum, p) => sum + p.builderSlugs.length, 0);
     expect(totalMentions).toBe(69);
   });
 
@@ -425,11 +420,13 @@ describe('Impact Lab project archive', () => {
   });
 
   it('Impact Lab builders are pending (no automatic public profiles)', () => {
-    const impactLabBuilderSlugs = new Set(
-      impactLabProjects.flatMap((p) => p.builderSlugs),
-    );
+    const impactLabBuilderSlugs = new Set(impactLabProjects.flatMap((p) => p.builderSlugs));
     for (const builder of builders) {
-      if (impactLabBuilderSlugs.has(builder.slug) && builder.slug !== 'aniket-sahu' && builder.slug !== 'vishal-kumar') {
+      if (
+        impactLabBuilderSlugs.has(builder.slug) &&
+        builder.slug !== 'aniket-sahu' &&
+        builder.slug !== 'vishal-kumar'
+      ) {
         expect(builder.status, builder.slug).toBe('pending');
       }
     }
@@ -502,15 +499,17 @@ describe('participation paths', () => {
 describe('the event record has one source', () => {
   it('has no second event dataset in the page that used to hold one', () => {
     const page = readFileSync('src/pages/events/claude-community.astro', 'utf8');
+    const record = readFileSync('src/components/EventRecord.astro', 'utf8');
 
     expect(page).not.toMatch(/Event Dataset Hardcoded/);
     // The two shapes the inline copy used, neither of which is in the record.
     expect(page).not.toMatch(/dateShort:\s*'[A-Z]{3} \d\d'/);
     expect(page).not.toMatch(/luma:\s*'https:/);
-    // And it reads the selector layer instead.
-    expect(page).toMatch(/from '@\/data'/);
-    expect(page).toMatch(/upcomingEvents\(\)/);
-    expect(page).toMatch(/pastEvents\(\)/);
+    // The page renders the shared rows, which read the selector layer.
+    expect(page).toMatch(/<EventRecord \/>/);
+    expect(record).toMatch(/from '@\/data'/);
+    expect(record).toMatch(/upcomingEvents\(\)/);
+    expect(record).toMatch(/pastEvents\(\)/);
   });
 
   it('hard-codes no count that the record already knows', () => {
@@ -523,11 +522,18 @@ describe('the event record has one source', () => {
   });
 
   it('renders a venue the same way everywhere', () => {
-    // One rule, in the selector layer, rather than a copy per component.
+    // One rule, in the selector layer, rather than a copy per component. The rows on /events/ and
+    // the history page carry the day and the city only; the venue is on the event page and the
+    // featured event.
+    const page = readFileSync('src/pages/events/[slug].astro', 'utf8');
+    const feature = readFileSync('src/components/EventFeature.astro', 'utf8');
     const record = readFileSync('src/components/EventRecord.astro', 'utf8');
     const history = readFileSync('src/pages/events/claude-community.astro', 'utf8');
-    expect(record).toMatch(/venueLabel/);
-    expect(history).toMatch(/venueLabel/);
+    expect(page).toMatch(/venueLabel/);
+    expect(feature).toMatch(/venueLabel/);
+    for (const source of [record, history]) {
+      expect(source).not.toMatch(/venue\.name/);
+    }
   });
 
   it('omits a venue that is private or is only the city name', () => {
@@ -543,14 +549,20 @@ describe('the event record has one source', () => {
     }
   });
 
+  it('appends an address only when it says more than the city', () => {
+    const bySlug = (slug: string) => events.find((e) => e.slug === slug)!;
+    // "Bhopal" on a Bhopal event repeats the city.
+    expect(venueLabel(bySlug('claude-for-businesses'))).toBe('Farzi Cafe');
+    // A street address is kept.
+    expect(venueLabel(bySlug('claude-code-workshop-september'))).toBe(
+      'AIC-RNTU Foundation (Start-up Incubation Centre), Chiklod Road, Bhopal',
+    );
+  });
+
   it('credits a room from the record rather than from a typed-out string', () => {
     const impactLab = events.find((e) => e.slug === 'claude-code-impact-lab')!;
     // Ambassador first, then co-hosts, then the organisations that lent the room.
-    expect(creditsFor(impactLab)).toEqual([
-      'Aniket Sahu',
-      'The Origin Guild',
-      'Builder Base',
-    ]);
+    expect(creditsFor(impactLab)).toEqual(['Aniket Sahu', 'The Origin Guild', 'Builder Base']);
     expect(listJoin(creditsFor(impactLab))).toBe('Aniket Sahu, The Origin Guild & Builder Base');
   });
 });

@@ -1,0 +1,230 @@
+---
+/**
+ * The community globe held in a hand: the event kit's gridded clay globe with its cream
+ * nodes, resting in a cream hand drawn in thick ink. Decorative.
+ *
+ * It plays once, the first time it is half in view: the hand draws on, a clay dot rises
+ * from the palm, swells into the globe, the grid draws across it, the nodes pop in and the
+ * globe settles into the hand. The markup and the plain CSS are the finished drawing, so
+ * with JS off, with reduced motion, or before the script runs, the drawing simply shows.
+ * The script arms the start state only when it can also play it.
+ */
+---
+
+<figure class="cg" aria-hidden="true">
+  <svg viewBox="0 44 200 156" focusable="false">
+    <g class="cg-globe">
+      <circle class="cg-ball" cx="100" cy="100" r="48"></circle>
+      <g class="cg-grid">
+        <path pathLength="1" d="M100 52v96"></path>
+        <ellipse pathLength="1" cx="100" cy="100" rx="20" ry="48"></ellipse>
+        <ellipse pathLength="1" cx="100" cy="100" rx="36" ry="48"></ellipse>
+        <path pathLength="1" d="M52 100h96"></path>
+        <path pathLength="1" d="M60 74h80"></path>
+        <path pathLength="1" d="M60 126h80"></path>
+      </g>
+      <g class="cg-nodes">
+        <circle cx="130" cy="74" r="5.5"></circle>
+        <circle cx="80" cy="100" r="5.5"></circle>
+        <circle cx="148" cy="100" r="5.5"></circle>
+        <circle cx="52" cy="100" r="5.5"></circle>
+      </g>
+    </g>
+    <path
+      class="cg-hand"
+      pathLength="1"
+      d="M82 198C82 182 78 170 70 158L54 132C50 125 58 119 64 125L84 150C96 160 112 160 124 150L134 126C137 119 147 121 145 129L139 145L149 127C152 120 161 123 159 131L151 150L159 140C162 134 170 137 168 143L159 160L164 155C167 150 174 153 171 159L158 178C152 186 146 190 140 194L138 199"
+    ></path>
+  </svg>
+</figure>
+<script is:inline>
+  (function (f) {
+    if (!('IntersectionObserver' in window)) return;
+    if (!matchMedia('(prefers-reduced-motion: no-preference)').matches) return;
+    f.classList.add('is-armed');
+    var io = new IntersectionObserver(
+      function (entries) {
+        if (!entries[0].isIntersecting) return;
+        f.classList.add('is-playing');
+        io.disconnect();
+      },
+      { threshold: 0.5 },
+    );
+    io.observe(f);
+  })(document.currentScript.previousElementSibling);
+</script>
+
+<style>
+  .cg {
+    width: clamp(180px, 14vw, 210px);
+    margin: 0 auto 20px;
+  }
+
+  /* The viewBox starts just above the resting globe; the rise in the draw-in overshoots
+     that edge and shows through `overflow: visible` into the section's padding. */
+  .cg svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
+
+  /* Kit colours: a clay globe with ink #141413 lines in both themes. The hand is the page's
+     paper with ink lines, so its outline draws on visibly in either theme: cream lines on
+     the dark ground, ink lines on cream in light, as in the kit. */
+  .cg-ball {
+    fill: var(--clay);
+    stroke: var(--btn-ink);
+    stroke-width: 3;
+  }
+
+  .cg-grid {
+    fill: none;
+    stroke: var(--btn-ink);
+    stroke-width: 3;
+    stroke-linecap: round;
+  }
+
+  .cg-nodes {
+    fill: #faf9f5;
+    stroke: var(--btn-ink);
+    stroke-width: 2.5;
+  }
+
+  .cg-hand {
+    fill: var(--paper);
+    stroke: var(--ink);
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .cg-globe,
+  .cg-nodes circle {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  /* 2.4s once. Armed, every part waits on its first frame; playing, it runs. */
+  @media (prefers-reduced-motion: no-preference) {
+    .cg.is-armed .cg-hand {
+      animation:
+        cg-draw 0.8s var(--ease-in-out) both,
+        cg-fill 0.5s 0.3s var(--ease-out) both;
+    }
+
+    .cg.is-armed .cg-globe {
+      animation: cg-globe 2.4s linear both;
+    }
+
+    .cg.is-armed .cg-grid > * {
+      stroke-dasharray: 1 2;
+      animation: cg-draw 0.5s var(--ease-out) both;
+    }
+
+    .cg.is-armed .cg-grid > :nth-child(1) {
+      animation-delay: 1.45s;
+    }
+    .cg.is-armed .cg-grid > :nth-child(2) {
+      animation-delay: 1.5s;
+    }
+    .cg.is-armed .cg-grid > :nth-child(3) {
+      animation-delay: 1.55s;
+    }
+    .cg.is-armed .cg-grid > :nth-child(4) {
+      animation-delay: 1.6s;
+    }
+    .cg.is-armed .cg-grid > :nth-child(5) {
+      animation-delay: 1.65s;
+    }
+    .cg.is-armed .cg-grid > :nth-child(6) {
+      animation-delay: 1.7s;
+    }
+
+    .cg.is-armed .cg-nodes circle {
+      animation: cg-pop 0.35s var(--ease-cine) both;
+    }
+
+    .cg.is-armed .cg-nodes circle:nth-child(1) {
+      animation-delay: 1.85s;
+    }
+    .cg.is-armed .cg-nodes circle:nth-child(2) {
+      animation-delay: 1.92s;
+    }
+    .cg.is-armed .cg-nodes circle:nth-child(3) {
+      animation-delay: 1.99s;
+    }
+    .cg.is-armed .cg-nodes circle:nth-child(4) {
+      animation-delay: 2.05s;
+    }
+
+    .cg.is-armed .cg-hand {
+      stroke-dasharray: 1 2;
+    }
+
+    /* Plain selector lists, not :is(), so each one matches its animated rule's scoped
+       specificity and wins by coming later. */
+    .cg.is-armed .cg-hand,
+    .cg.is-armed .cg-globe,
+    .cg.is-armed .cg-grid > *,
+    .cg.is-armed .cg-nodes circle {
+      animation-play-state: paused;
+    }
+
+    .cg.is-playing .cg-hand,
+    .cg.is-playing .cg-globe,
+    .cg.is-playing .cg-grid > *,
+    .cg.is-playing .cg-nodes circle {
+      animation-play-state: running;
+    }
+  }
+
+  @keyframes cg-draw {
+    from {
+      stroke-dashoffset: 1.05;
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @keyframes cg-fill {
+    from {
+      fill-opacity: 0;
+    }
+  }
+
+  @keyframes cg-pop {
+    from {
+      transform: scale(0);
+    }
+  }
+
+  /* A dot in the palm, up above the hand, swells into the globe, settles into the hand. */
+  @keyframes cg-globe {
+    0% {
+      transform: translateY(40px) scale(0);
+    }
+    14% {
+      transform: translateY(40px) scale(0.13);
+    }
+    30% {
+      transform: translateY(40px) scale(0.13);
+      animation-timing-function: var(--ease-in-out);
+    }
+    46% {
+      transform: translateY(-22px) scale(0.13);
+      animation-timing-function: var(--ease-out);
+    }
+    62% {
+      transform: translateY(-22px) scale(1);
+    }
+    84% {
+      transform: translateY(-22px) scale(1);
+      animation-timing-function: var(--ease-in-out);
+    }
+    100% {
+      transform: none;
+    }
+  }
+</style>

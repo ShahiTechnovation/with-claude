@@ -2,8 +2,10 @@
 import { buildSearchIndex, searchVocabulary } from '@/lib/search';
 import { KIND_LABEL, SEARCH_KINDS, groupByKind } from '@/lib/search-core';
 import { safeJsonLd } from '@/lib/seo';
+import { formatDateCompact } from '@/lib/datetime';
 import type { SearchKind, SearchRecord, SearchVocabulary } from '@/lib/search-core';
 import * as staticData from '@/data';
+import type { IsoDate } from '@/data';
 
 interface Props {
   index?: SearchRecord[];
@@ -56,8 +58,8 @@ const tabs: { kind: SearchKind | 'all'; label: string; count: number }[] = [
     set:html={safeJsonLd(vocabulary)}
   />
 
-  <form class="search-form js-only" data-search-form role="search" action="/discover" method="get">
-    <label class="label search-label" for="q">Search the community</label>
+  <form class="search-form js-only" data-search-form role="search" action="/discover/" method="get">
+    <label class="search-label" for="q">Search the community</label>
     <div class="search-field">
       <span class="search-glyph" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
@@ -74,9 +76,9 @@ const tabs: { kind: SearchKind | 'all'; label: string; count: number }[] = [
         autocomplete="off"
         placeholder="Search people, projects, events, cities or Claude workflows…"
       />
-      <button class="btn btn-solid btn-sm search-go" type="submit">Search</button>
+      <button class="btn btn-primary btn-sm search-go" type="submit">Search</button>
     </div>
-    <p class="search-status" data-search-status role="status">{`${total} records`}</p>
+    <p class="search-status meta" data-search-status role="status">{`${total} records`}</p>
   </form>
 
   <div class="search-tabs js-only" role="group" aria-label="Filter results by type">
@@ -84,7 +86,7 @@ const tabs: { kind: SearchKind | 'all'; label: string; count: number }[] = [
       tabs.map((tab) => (
         <button
           type="button"
-          class:list={['search-tab', { 'is-on': tab.kind === 'all' }]}
+          class:list={['chip', 'search-tab', { 'is-on': tab.kind === 'all' }]}
           data-search-kind={tab.kind}
           aria-pressed={tab.kind === 'all' ? 'true' : 'false'}
         >
@@ -98,21 +100,18 @@ const tabs: { kind: SearchKind | 'all'; label: string; count: number }[] = [
     <button type="button" class="search-clear" data-search-clear hidden>Clear</button>
   </div>
 
-  <p class="search-nojs no-js-only">
-    Search needs JavaScript. The whole index is below, ranked and grouped — every record on the
-    site, in one list.
-  </p>
+  <p class="search-nojs no-js-only">Search needs JavaScript. Everything is listed below.</p>
 
   <div class="search-results">
     {
       present.map((kind) => (
         <section class="search-group" data-search-group={kind} aria-labelledby={`group-${kind}`}>
           <div class="search-group-head">
-            <h2 class="label" id={`group-${kind}`}>
+            <h3 class="t-h3" id={`group-${kind}`}>
               {KIND_LABEL[kind]}
-            </h2>
-            <span class="coords" data-search-group-count>
-              {String(grouped.get(kind)!.length).padStart(2, '0')}
+            </h3>
+            <span class="meta" data-search-group-count>
+              {grouped.get(kind)!.length}
             </span>
           </div>
 
@@ -135,9 +134,14 @@ const tabs: { kind: SearchKind | 'all'; label: string; count: number }[] = [
                 <a class="search-row" href={record.href}>
                   <span class="search-row-main">
                     <span class="search-row-title">{record.title}</span>
-                    <span class="search-row-summary">{record.summary}</span>
+                    {record.summary && <span class="search-row-summary">{record.summary}</span>}
                   </span>
-                  <span class="search-row-meta">{record.subtitle}</span>
+                  <span class="search-row-meta">
+                    {/* Several events share a title, city and format; the date tells them apart. */}
+                    {record.kind === 'event' && record.date
+                      ? `${record.subtitle} · ${formatDateCompact(record.date as IsoDate)}`
+                      : record.subtitle}
+                  </span>
                   <span class="arrow" aria-hidden="true">
                     →
                   </span>
@@ -151,8 +155,7 @@ const tabs: { kind: SearchKind | 'all'; label: string; count: number }[] = [
   </div>
 
   <p class="search-empty" data-search-empty hidden>
-    Nothing in the record matches <strong data-search-empty-term></strong>. The index only holds
-    what has actually been published — if what you are looking for should be here,
+    Nothing matches <strong data-search-empty-term></strong>. If it should be here,
     <a href="/me/profile/edit/">add it</a>.
   </p>
 </div>
@@ -164,13 +167,15 @@ const tabs: { kind: SearchKind | 'all'; label: string; count: number }[] = [
 <style>
   .search {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--s-7);
   }
 
-  /* ---- the field ---- */
+  /* ---- the field: the projects toolbar's 48px pill ---- */
 
   .search-label {
     display: block;
+    font-size: var(--t-small);
     color: var(--ink-3);
   }
 
@@ -178,23 +183,31 @@ const tabs: { kind: SearchKind | 'all'; label: string; count: number }[] = [
     display: flex;
     align-items: center;
     gap: var(--s-3);
+    max-width: 44rem;
+    min-height: 48px;
     margin-top: var(--s-3);
-    padding: var(--s-3) var(--s-3) var(--s-3) var(--s-4);
-    border: var(--border-rule) solid var(--ink);
-    border-radius: var(--radius-sm);
+    padding: 4px 4px 4px 18px;
+    border: var(--border-hair) solid var(--rule-field);
+    border-radius: var(--radius-pill);
     background: var(--paper-raised);
+    transition: border-color var(--dur-1) var(--ease-out);
   }
 
-  .search-field:focus-within {
-    outline: var(--border-heavy) solid var(--clay-deep);
-    outline-offset: 2px;
+  .search-field:hover {
+    border-color: var(--ink-3);
+  }
+
+  .search-field:has(.search-input:focus) {
+    border-color: var(--clay);
+    outline: 2px solid var(--focus);
+    outline-offset: 3px;
   }
 
   .search-glyph {
     display: grid;
     place-items: center;
-    width: 1.25rem;
-    height: 1.25rem;
+    width: 19px;
+    height: 19px;
     color: var(--ink-3);
     flex: none;
   }
@@ -208,18 +221,21 @@ const tabs: { kind: SearchKind | 'all'; label: string; count: number }[] = [
   .search-input {
     flex: 1 1 auto;
     min-width: 0;
+    min-height: 38px;
     border: 0;
     background: none;
     font-family: var(--font-body);
-    font-size: var(--t-lead);
+    font-size: var(--t-body);
     color: var(--ink);
-    padding-block: var(--s-2);
+    /* The placeholder is longer than a phone-width field. */
+    text-overflow: ellipsis;
   }
 
   .search-input::placeholder {
     color: var(--ink-3);
   }
 
+  /* The pill around the input carries the focus ring. */
   .search-input:focus {
     outline: none;
   }
@@ -235,14 +251,9 @@ const tabs: { kind: SearchKind | 'all'; label: string; count: number }[] = [
 
   .search-status {
     margin-top: var(--s-3);
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: var(--track-meta);
-    text-transform: uppercase;
-    color: var(--ink-3);
   }
 
-  /* ---- type tabs ---- */
+  /* ---- type tabs: pills ---- */
 
   .search-tabs {
     display: flex;
@@ -254,46 +265,29 @@ const tabs: { kind: SearchKind | 'all'; label: string; count: number }[] = [
   }
 
   .search-tab {
-    display: inline-flex;
-    align-items: baseline;
-    gap: var(--s-2);
-    padding: var(--s-2) var(--s-3);
-    border: var(--border-hair) solid var(--rule-strong);
-    border-radius: var(--radius-xs);
-    background: none;
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: var(--track-meta);
-    text-transform: uppercase;
-    color: var(--ink-2);
     cursor: pointer;
-    transition: border-color var(--dur-1) var(--ease-out);
-  }
-
-  .search-tab:hover {
-    border-color: var(--ink);
-  }
-
-  .search-tab.is-on {
-    border-color: var(--ink);
-    background: var(--ink);
-    color: var(--paper);
   }
 
   .search-tab-count {
+    color: var(--ink-3);
+    font-weight: 400;
     font-variant-numeric: tabular-nums;
-    opacity: 0.6;
+  }
+
+  .search-tab.is-on .search-tab-count {
+    color: inherit;
+    opacity: 0.7;
   }
 
   .search-clear {
+    min-height: 44px;
     margin-left: auto;
     border: 0;
     background: none;
-    padding: var(--s-2);
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: var(--track-meta);
-    text-transform: uppercase;
+    padding: 0 var(--s-2);
+    font-family: var(--font-title);
+    font-size: var(--t-small);
+    font-weight: 600;
     color: var(--clay-deep);
     cursor: pointer;
     text-decoration: underline;
@@ -313,7 +307,7 @@ const tabs: { kind: SearchKind | 'all'; label: string; count: number }[] = [
     justify-content: space-between;
     gap: var(--s-3);
     padding-bottom: var(--s-3);
-    border-bottom: var(--border-hair) solid var(--rule);
+    border-bottom: var(--border-hair) solid var(--rule-strong);
   }
 
   .search-list {
@@ -326,6 +320,15 @@ const tabs: { kind: SearchKind | 'all'; label: string; count: number }[] = [
 
   .search-item {
     border-bottom: var(--border-hair) solid var(--rule);
+  }
+
+  /* The band's edge closes the last list; its last row keeps its padding as hit area. */
+  .search-group:last-child {
+    margin-bottom: calc(-1 * var(--s-4));
+  }
+
+  .search-group:last-child .search-item:last-child {
+    border-bottom: 0;
   }
 
   .search-row {
@@ -351,19 +354,17 @@ const tabs: { kind: SearchKind | 'all'; label: string; count: number }[] = [
   }
 
   .search-row-title {
+    color: var(--ink);
     font-family: var(--font-title);
-    font-size: 1.2rem;
+    font-size: var(--t-body);
     font-weight: 600;
-    font-variation-settings:
-      'SOFT' 0,
-      'WONK' 1;
-    line-height: var(--lh-heading);
-    letter-spacing: -0.02em;
+    line-height: 1.3;
+    letter-spacing: -0.006em;
   }
 
   .search-row-summary {
     font-size: var(--t-small);
-    color: var(--ink-2);
+    color: var(--ink-3);
     /* Two lines keeps a long project summary from dominating the row. */
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -373,10 +374,7 @@ const tabs: { kind: SearchKind | 'all'; label: string; count: number }[] = [
   }
 
   .search-row-meta {
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: var(--track-meta);
-    text-transform: uppercase;
+    font-size: var(--t-small);
     color: var(--ink-3);
     text-align: right;
   }
@@ -396,26 +394,17 @@ const tabs: { kind: SearchKind | 'all'; label: string; count: number }[] = [
     max-width: 56ch;
     padding-bottom: var(--s-5);
     border-bottom: var(--border-hair) solid var(--rule);
-    color: var(--ink-2);
   }
 
   .search-empty {
     padding: var(--s-7) 0;
     max-width: 52ch;
-    color: var(--ink-2);
   }
 
   @media (max-width: 40rem) {
-    .search-field {
-      flex-wrap: wrap;
-    }
-
-    .search-go {
-      width: 100%;
-    }
-
     .search-row {
       grid-template-columns: 1fr auto;
+      row-gap: var(--s-1);
     }
 
     .search-row-meta {

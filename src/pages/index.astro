@@ -1,35 +1,28 @@
 ---
 /**
- * THE HOMEPAGE — the deployed composition, rendered from live records.
+ * THE HOMEPAGE, rendered from live records.
  *
- * The sections, their order and their components are the ones production
- * shipped at 83a8f41. What changed is only where the numbers come from: this
- * page used to be prerendered from the build-time snapshot, so a takedown
- * stayed on the homepage until the next nightly rebuild and "in 3 days" was
- * whatever was true at build time. Now every section reads one request-local
- * `RecordSelectors`, loaded through the same public predicates as the
- * directory pages, and the CDN keeps it for the bounded `publicCache` window.
+ * The hero and the room, then five sections: the next event, the cities, what
+ * was made, the photographs and the way to bring a room to another city. Every
+ * section reads one request-local `RecordSelectors`, loaded through the same
+ * public predicates as the directory pages, and the CDN keeps it for the
+ * bounded `publicCache` window.
  */
 export const prerender = false;
 
 import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
 import Hero from '@/components/Hero.astro';
-import CommunitySignal from '@/components/CommunitySignal.astro';
-import SearchPrompt from '@/components/SearchPrompt.astro';
-import NextEvent from '@/components/NextEvent.astro';
-import CityAtlas from '@/components/CityAtlas.astro';
-import BuilderIndex from '@/components/BuilderIndex.astro';
-import LatestEventProjects from '@/components/LatestEventProjects.astro';
-import StoryStrip from '@/components/StoryStrip.astro';
-import WithIndex from '@/components/WithIndex.astro';
-import Participation from '@/components/Participation.astro';
-import Manifesto from '@/components/Manifesto.astro';
+import EventFeature from '@/components/EventFeature.astro';
+import CitiesBand from '@/components/home/CitiesBand.astro';
+import MadeWith from '@/components/home/MadeWith.astro';
+import PhotoStrip from '@/components/home/PhotoStrip.astro';
+import JoinBand from '@/components/home/JoinBand.astro';
 import { site } from '@/data';
 import { RecordSelectors } from '@/data/selectors';
 import { formatDate, isoDateTime } from '@/lib/datetime';
+import { asset } from '@/lib/images';
 import { lifecycleOf } from '@/lib/status';
-import { inWordsCap } from '@/lib/words';
 import { titles } from '@/lib/seo';
 import { loadLiveRecords } from '@/server/directory';
 import { privateCache, publicCache } from '@/server/http/cache';
@@ -54,7 +47,16 @@ const devHint = import.meta.env.DEV && failure === 'schema-behind';
 
 const now = new Date();
 const next = selectors?.nextEvent(now);
-const signal = selectors?.nationalSignal(now);
+
+// The room under the hero: the lead photo of the held event with the most
+// projects (a stable sort keeps the newest first on a tie). The strip skips it.
+const room = (selectors?.photoRecordByEvent() ?? [])
+  .map(({ event, plates }) => ({
+    photo: plates.find((p) => asset(p.src)),
+    projects: selectors!.projectsFromEvent(event.slug).length,
+  }))
+  .filter((r) => r.photo)
+  .sort((a, b) => b.projects - a.projects)[0]?.photo;
 
 // The meta description follows the record rather than being rewritten by hand.
 const description =
@@ -118,15 +120,11 @@ const eventSchema = (selectors?.upcomingEvents(now) ?? []).map((event) => ({
   schema={eventSchema}
 >
   {
-    !selectors || !signal ? (
-      <Section id="unavailable" labelledby="unavailable-heading">
+    !selectors ? (
+      <Section id="unavailable" labelledby="unavailable-heading" class="type-home">
         <div class="section-head" role="alert">
-          <p class="eyebrow">{site.wordmark}</p>
-          <h1 id="unavailable-heading">The record could not be loaded</h1>
-          <p class="prose">
-            Something went wrong on our side while reading the community record. Please try again in
-            a moment.
-          </p>
+          <h1 id="unavailable-heading">This page could not be loaded</h1>
+          <p class="prose">Something went wrong on our side. Please try again in a moment.</p>
           {devHint && (
             <p class="prose">
               <strong>Development:</strong> the database behind <code>DATABASE_URL</code> is missing
@@ -144,77 +142,28 @@ const eventSchema = (selectors?.upcomingEvents(now) ?? []).map((event) => ({
       </Section>
     ) : (
       <>
-        {/* 01 — THE COVER ---------------------------------------------------- */}
-        <Hero selectors={selectors} />
+        <Hero selectors={selectors} room={room} />
 
-        {/* 02 — THE INDIA SIGNAL. What is actually happening? ------------------ */}
-        <Section id="signal" tone="sunk" size="sm" labelledby="signal-heading">
-          <CommunitySignal selectors={selectors} />
+        <Section id="next" labelledby="next-heading" class="type-home">
+          <EventFeature event={next} selectors={selectors} headingId="next-heading" />
         </Section>
 
-        {/* 03 — SEARCH. Find something specific. ------------------------------- */}
-        <Section id="search" labelledby="search-heading">
-          <SearchPrompt selectors={selectors} />
+        <Section id="cities" tone="sunk" labelledby="cities-heading" class="type-home">
+          <CitiesBand selectors={selectors} />
         </Section>
 
-        {/* 04 — NEXT EVENT. What can I join? ----------------------------------- */}
-        <Section id="next" tone="raised" labelledby="next-heading">
-          <NextEvent selectors={selectors} />
+        <Section id="projects" labelledby="projects-heading" class="type-home">
+          <MadeWith selectors={selectors} />
         </Section>
 
-        {/* 05 — THE ATLAS. Where is the activity? The first dark movement. ----- */}
-        <Section id="atlas" tone="night" size="lg" labelledby="atlas-heading">
-          <div class="atlas-head">
-            <div class="section-head">
-              <p class="eyebrow">Discover</p>
-              <h2 id="atlas-heading">{`${inWordsCap(signal.citiesPlotted)} cities, plotted.`}</h2>
-              <p class="prose">
-                Every point sits at its true latitude and longitude. What the plate shows is
-                community state — where a verified Ambassador is hosting, where events have
-                happened, where people have registered interest, and where the map is simply a map.
-              </p>
-            </div>
-          </div>
-          <CityAtlas selectors={selectors} />
+        <Section id="photos" tone="sunk" labelledby="photos-heading" bleed class="type-home">
+          <PhotoStrip selectors={selectors} skip={room?.src} />
         </Section>
 
-        {/* 06 — PEOPLE. Who is building? --------------------------------------- */}
-        <Section id="builders" labelledby="builders-heading">
-          <BuilderIndex limit={6} selectors={selectors} />
-        </Section>
-
-        {/* 07 — MADE WITH CLAUDE. What are they making? The deepest ground. ----- */}
-        <Section id="projects" tone="deep" size="lg" labelledby="projects-heading">
-          <LatestEventProjects selectors={selectors} />
-        </Section>
-
-        {/* 09 — FROM THE COMMUNITY (full bleed) -------------------------------- */}
-        <Section id="stories" size="lg" bleed labelledby="stories-heading">
-          <StoryStrip selectors={selectors} />
-        </Section>
-
-        {/* 10 — WITH. The name, stated as a system rather than as a logo. ------ */}
-        <Section id="with" tone="sunk" size="lg" labelledby="with-heading">
-          <WithIndex selectors={selectors} />
-        </Section>
-
-        {/* 11 — CONTRIBUTE ------------------------------------------------------ */}
-        <Section id="join" tone="raised" labelledby="join-heading">
-          <Participation />
-        </Section>
-
-        {/* 12 — THE CLOSE -------------------------------------------------------- */}
-        <Section id="record" tone="night" size="lg" labelledby="manifesto-heading">
-          <Manifesto selectors={selectors} />
+        <Section id="join" labelledby="join-heading" bleed class="join-band type-home">
+          <JoinBand />
         </Section>
       </>
     )
   }
 </Base>
-
-<style>
-  .atlas-head {
-    margin-bottom: var(--s-8);
-    max-width: 64ch;
-  }
-</style>

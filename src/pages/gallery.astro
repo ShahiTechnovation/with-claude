@@ -5,7 +5,7 @@ import { Image } from 'astro:assets';
 import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
 import PageIntro from '@/components/PageIntro.astro';
-import { formatDate, isoDateTime } from '@/lib/datetime';
+import { formatDateCompact, isoDateTime } from '@/lib/datetime';
 import { titles, trail } from '@/lib/seo';
 import { privateCache, publicCache } from '@/server/http/cache';
 import { galleryRooms, type GalleryRoom } from '@/server/public/pages';
@@ -25,8 +25,82 @@ try {
 }
 const devHint = import.meta.env.DEV && failure === 'schema-behind';
 
-const photographs = (rooms ?? []).reduce((sum, room) => sum + room.plates.length, 0);
-const pad = (n: number) => String(n).padStart(2, '0');
+// Grid spans [columns, rows] for a room of three or more photos. The grid packs densely, as
+// the browser does below; `fills` checks that every row of it ends up full.
+type Span = [number, number];
+const fills = (spans: Span[], cols: number) => {
+  const taken: boolean[][] = [];
+  const free = (r: number, c: number, [w, h]: Span) =>
+    c + w <= cols &&
+    Array.from({ length: h }).every((_, y) =>
+      Array.from({ length: w }).every((_, x) => !taken[r + y]?.[c + x]),
+    );
+  for (const span of spans) {
+    let r = 0;
+    let c = 0;
+    while (!free(r, c, span)) [r, c] = c + 1 < cols ? [r, c + 1] : [r + 1, 0];
+    for (let y = 0; y < span[1]; y++)
+      for (let x = 0; x < span[0]; x++) (taken[r + y] ??= [])[c + x] = true;
+  }
+  return taken.every((row) => row.filter(Boolean).length === cols);
+};
+
+// The lead is a block (full width at two columns, 2x2 at three) and a portrait a tall tile.
+// If that leaves a gap, one landscape photo widens to close it, the latest first; failing
+// that, the last portrait drops to a landscape tile. All-landscape rooms always close.
+const pack = (tall: boolean[], cols: number): Span[] => {
+  const t = [...tall];
+  for (;;) {
+    const base = t.map((x, i): Span => (i === 0 ? [2, cols === 3 ? 2 : 1] : x ? [1, 2] : [1, 1]));
+    if (fills(base, cols)) return base;
+    // Widen a photo that was landscape to begin with; a dropped portrait widens only once
+    // every portrait has dropped and no landscape photo closes the room.
+    for (const skip of t.includes(true) ? [tall] : [tall, t])
+      for (let i = base.length - 1; i > 0; i--) {
+        if (skip[i]) continue;
+        for (let w = 2; w <= cols; w++) {
+          const widened = base.map((s, j): Span => (j === i ? [w, 1] : s));
+          if (fills(widened, cols)) return widened;
+        }
+      }
+    const last = t.lastIndexOf(true);
+    if (last < 1) return base;
+    t[last] = false;
+  }
+};
+
+// ponytail: a portrait gets a tall tile only in rooms of three or more, and never as the lead;
+// otherwise it is cropped to the landscape frame. Give those cases their own layout if they appear.
+const layout = (plates: GalleryRoom['plates']) => {
+  const n = plates.length;
+  const tall = plates.map((p, i) => n > 2 && i > 0 && p.image.height > p.image.width);
+  const two = n > 2 ? pack(tall, 2) : [];
+  const three = n > 2 ? pack(tall, 3) : [];
+  return plates.map((plate, i) => {
+    const [w2, h2] = two[i] ?? [1, 1];
+    const [w3, h3] = three[i] ?? [1, 1];
+    return {
+      ...plate,
+      classes: {
+        'is-lead': i === 0,
+        'is-tall': tall[i],
+        'w2-2': w2 === 2,
+        'h2-2': h2 === 2,
+        'w3-2': w3 === 2,
+        'w3-3': w3 === 3,
+        'h3-2': h3 === 2,
+      },
+      sizes:
+        n === 1
+          ? '100vw'
+          : n === 2
+            ? '(max-width: 39.99em) 100vw, (max-width: 68.74em) 50vw, 640px'
+            : `(max-width: 39.99em) 100vw, (max-width: 68.74em) ${w2 === 2 ? '100vw' : '50vw'}, ${
+                w3 === 3 ? '100vw' : w3 === 2 ? '860px' : '420px'
+              }`,
+    };
+  });
+};
 ---
 
 <Base
@@ -40,12 +114,8 @@ const pad = (n: number) => String(n).padStart(2, '0');
     !rooms ? (
       <Section id="unavailable" labelledby="unavailable-heading">
         <div class="section-head" role="alert">
-          <p class="eyebrow">Gallery</p>
           <h1 id="unavailable-heading">The gallery could not be loaded</h1>
-          <p class="prose">
-            Something went wrong on our side while reading the community record. Please try again in
-            a moment.
-          </p>
+          <p class="prose">Something went wrong on our side. Please try again in a moment.</p>
           {devHint && (
             <p class="prose">
               <strong>Development:</strong> the database behind <code>DATABASE_URL</code> is missing
@@ -63,65 +133,60 @@ const pad = (n: number) => String(n).padStart(2, '0');
       </Section>
     ) : (
       <>
-        <PageIntro
-          eyebrow="Gallery"
-          title="Photographs from the rooms."
-          stamp={`${pad(photographs)} plates`}
-          facts={[
-            { label: 'Photographs', value: pad(photographs) },
-            { label: 'Rooms', value: pad(rooms.length) },
-          ]}
-        >
-          <p>
-            Every photograph on the record, filed under the event it was taken at, newest first.
-          </p>
-        </PageIntro>
+        <PageIntro title="Photographs from the rooms." />
 
         <Section id="plates" labelledby="plates-heading">
-          <div class="block-head">
-            <h2 class="label" id="plates-heading">
-              By event, newest first
-            </h2>
-            <span class="coords">{pad(rooms.length)}</span>
-          </div>
+          <h2 class="visually-hidden" id="plates-heading">
+            By event, newest first
+          </h2>
 
-          {rooms.length === 0 && <p class="prose empty">No photographs are on the record yet.</p>}
+          {rooms.length === 0 && <p class="meta">No photographs yet.</p>}
 
           {rooms.map(({ event, city, plates }, r) => (
             <section class="room" aria-labelledby={`room-${event.slug}`}>
               <div class="room-head">
-                <h3 class="label label-strong room-title" id={`room-${event.slug}`}>
-                  <a href={`/events/${event.slug}/`}>{event.title}</a>
-                </h3>
-                <p class="room-meta">
-                  <time class="label" datetime={isoDateTime(event.date, event.startTime)}>
-                    {formatDate(event.date)}
+                <h2 class="t-h3 room-title" id={`room-${event.slug}`}>
+                  {event.title}
+                </h2>
+                <p class="meta room-meta">
+                  <time datetime={isoDateTime(event.date, event.startTime)}>
+                    {formatDateCompact(event.date)}
                   </time>
-                  <span class="label">{city}</span>
+                  {` · ${city}`}
                 </p>
+                <a
+                  class="link room-link"
+                  href={`/events/${event.slug}/`}
+                  aria-describedby={`room-${event.slug}`}
+                >
+                  Event page
+                  <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+                    <path
+                      d="M4 10h11m-4.5-4.5L15 10l-4.5 4.5"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.6"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                </a>
               </div>
 
               <ul class="room-plates">
-                {plates.map((plate, i) => (
-                  <li class:list={{ 'is-lead': i === 0 }}>
+                {layout(plates).map((plate, i) => (
+                  <li class:list={plate.classes}>
                     <figure>
-                      <div class="plate plate-framed" data-reveal="mask">
+                      <div class="frame">
                         <Image
                           src={plate.image}
                           alt={plate.alt}
                           widths={[480, 800, 1200, 1600]}
-                          sizes={
-                            i === 0
-                              ? '(max-width: 61.99em) 92vw, 900px'
-                              : '(max-width: 35.99em) 92vw, (max-width: 61.99em) 46vw, 450px'
-                          }
+                          sizes={plate.sizes}
                           loading={r === 0 && i === 0 ? 'eager' : 'lazy'}
                           decoding="async"
                         />
                       </div>
-                      <figcaption class="plate-caption">
-                        <span>{`Pl. ${plate.plate}`}</span>
-                      </figcaption>
                     </figure>
                   </li>
                 ))}
@@ -135,85 +200,140 @@ const pad = (n: number) => String(n).padStart(2, '0');
 </Base>
 
 <style>
-  .block-head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: var(--s-4);
-    padding-bottom: var(--s-4);
-    border-bottom: var(--border-heavy) solid var(--ink);
-  }
-
-  .block-head .label {
-    color: var(--ink);
-  }
-
-  .empty {
+  /* Rooms split one gap around the hairline, as sections on the same ground do. */
+  .room + .room {
+    margin-top: var(--s-6);
     padding-top: var(--s-6);
+    border-top: var(--border-hair) solid var(--rule);
   }
 
-  .room {
-    display: grid;
-    gap: var(--s-5);
-    padding-block: var(--s-7);
-    border-bottom: var(--border-hair) solid var(--rule);
+  .room-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 20px;
+    margin-bottom: clamp(20px, 2vw, 28px);
   }
 
   .room-title {
-    line-height: 1.5;
+    flex-basis: 100%;
   }
 
-  .room-title a:hover,
-  .room-title a:focus-visible {
-    text-decoration-color: currentColor;
-  }
-
-  .room-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--s-1) var(--s-4);
-    margin-top: var(--s-2);
+  .room-link {
+    margin-left: auto;
   }
 
   .room-plates {
     display: grid;
-    gap: var(--s-5);
+    gap: 20px;
+    align-items: start;
   }
 
-  .room-plates .plate {
-    padding: var(--s-2);
+  /* Width set, so a frame stretched to a definite height never derives a wider box from it. */
+  .frame {
+    width: 100%;
+    aspect-ratio: 3 / 2;
+    overflow: hidden;
+    border-radius: var(--radius-md);
+    background: var(--paper-raised);
   }
 
-  /* The whole frame, never cropped: the record holds portraits as well as landscapes. */
-  .room-plates :global(img) {
-    object-fit: contain;
+  .frame :global(img) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
 
-  @media (min-width: 36em) {
+  /* A portrait fills a tall frame: cropped to it, never shown with bars at the sides. */
+  .is-tall .frame {
+    aspect-ratio: 3 / 4;
+  }
+
+  @media (min-width: 640px) {
+    /* Spans come from the frontmatter; dense packing fills every hole a tall tile leaves. */
     .room-plates {
       grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-auto-flow: dense;
     }
 
-    .room-plates .is-lead,
-    .room-plates li:nth-child(even):last-child {
+    /* One photo fills the row; two sit side by side, so no cell is left empty. */
+    .room-plates > :only-child {
       grid-column: 1 / -1;
     }
 
-    .room-plates .plate {
-      aspect-ratio: 3 / 2;
+    .room-title {
+      flex-basis: auto;
     }
   }
 
-  @media (min-width: 62em) {
-    .room {
-      grid-template-columns: 16rem minmax(0, 1fr);
-      gap: var(--s-8);
+  @media (min-width: 640px) and (max-width: 1099.98px) {
+    .w2-2 {
+      grid-column: span 2;
     }
 
-    .room-head {
-      position: sticky;
-      top: var(--s-9);
-      align-self: start;
+    .h2-2 {
+      grid-row: span 2;
+    }
+
+    /* A landscape photo widened to close the last row is a wide banner, not a full screen. */
+    .w2-2:not(.is-lead) .frame {
+      aspect-ratio: 21 / 9;
+    }
+
+    .is-tall:not(.h2-2, .w2-2) .frame {
+      aspect-ratio: 3 / 2;
+    }
+
+    .h2-2:not(.is-lead) {
+      align-self: stretch;
+    }
+
+    .h2-2:not(.is-lead) :is(figure, .frame) {
+      height: 100%;
+    }
+  }
+
+  @media (min-width: 1100px) {
+    .room-plates {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .room-plates:has(> li:nth-child(2):last-child) {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .w3-2 {
+      grid-column: span 2;
+    }
+
+    .w3-3 {
+      grid-column: 1 / -1;
+    }
+
+    .h3-2 {
+      grid-row: span 2;
+    }
+
+    .w3-3:not(.is-lead) .frame {
+      aspect-ratio: 21 / 9;
+    }
+
+    /* Two columns wide, one row high: a little shorter than a 3:2 photo beside it (3:1 plus the
+       gap would be exact), so the row follows that photo and this tile stretches to it. */
+    .w3-2:not(.is-lead) .frame {
+      aspect-ratio: 16 / 5;
+    }
+
+    .is-tall:not(.h3-2, .w3-2, .w3-3) .frame {
+      aspect-ratio: 3 / 2;
+    }
+
+    :is(.h3-2, .w3-2):not(.is-lead) {
+      align-self: stretch;
+    }
+
+    :is(.h3-2, .w3-2):not(.is-lead) :is(figure, .frame) {
+      height: 100%;
     }
   }
 </style>

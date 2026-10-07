@@ -98,7 +98,7 @@ async function main() {
 
   async function shoot(path, signedIn) {
     for (const [name, width, height] of WIDTHS) {
-      const context = await browser.newContext({ viewport: { width, height } });
+      const context = await browser.newContext({ viewport: { width, height }, reducedMotion: 'reduce' });
       if (signedIn && TOKEN) {
         await context.addCookies([{ name: 'privy-token', value: TOKEN, domain: hostname, path: '/' }]);
       }

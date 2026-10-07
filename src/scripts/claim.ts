@@ -1,9 +1,10 @@
 /**
  * The "Claim this profile" button.
  *
- * Lives in the shared enhancement bundle rather than being a page-level
- * script, because the control appears on 72 prerendered pages and giving each
- * of them its own module would be 72 extra requests to do one thing.
+ * Booted by the `<script>` in `ClaimProfile.astro`, the only caller. Astro
+ * bundles that script once and loads it only on pages that render the
+ * control. `claim()` has no double-binding guard, so nothing else may call it:
+ * two bindings would send two POSTs per click.
  *
  * ── THE ANONYMOUS PATH ───────────────────────────────────────────────────
  *

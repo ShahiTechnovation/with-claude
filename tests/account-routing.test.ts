@@ -95,12 +95,21 @@ describe('account routing', () => {
   it('restores the exact safe /me destination using the AuthRequired target', () => {
     const root = source('src/components/react/PrivyRoot.tsx');
     expect(root).toContain("document.getElementById('join-cta-root')");
-    expect(root).toContain("target?.dataset.next");
-    expect(root).toContain("window.location.assign(");
+    expect(root).toContain('target?.dataset.next');
+    expect(root).toContain('window.location.assign(');
   });
 
   it('/join is a compatibility redirect rather than an onboarding page', () => {
-    expect(source('src/pages/join.astro')).toContain("Astro.redirect('/', 308)");
+    expect(source('src/pages/join.astro')).toContain("Astro.redirect('/me/', 308)");
+  });
+
+  it('the degraded sign-in goes to the /me/ gate, never /join/ or a reload loop', () => {
+    const root = source('src/components/react/PrivyRoot.tsx');
+    const degraded = root.slice(root.indexOf('function DegradedInner()'));
+    expect(degraded).toContain(
+      "if (!window.location.pathname.startsWith('/me/')) window.location.assign('/me/');",
+    );
+    expect(root).not.toContain("assign('/join/')");
   });
 
   it('AuthRequired receives a reason prop from every guarded page', () => {
@@ -111,6 +120,13 @@ describe('account routing', () => {
       const page = source(file);
       expect(page).toContain('reason={guard.reason}');
     }
+  });
+
+  it('AuthRequired keeps its bottom gap small because the footer adds its own padding', () => {
+    // var(--s-10) below plus the footer's top padding left a 113px empty band.
+    expect(source('src/components/AuthRequired.astro')).toContain(
+      'margin: var(--s-10) auto var(--s-8);',
+    );
   });
 
   it('bootstrap failure distinguishes server configuration from a rejected session', () => {
@@ -134,7 +150,9 @@ describe('account routing', () => {
     expect(root).toContain("describeAccountProblem('session-not-visible')");
     // And an account page the server could NOT authorise never trusts the
     // sessionStorage cache in place of a fresh bootstrap.
-    expect(root).toContain("const serverNeedsProof = Boolean(document.getElementById('join-cta-root'))");
+    expect(root).toContain(
+      "const serverNeedsProof = Boolean(document.getElementById('join-cta-root'))",
+    );
   });
 });
 
@@ -171,7 +189,9 @@ describe('the profile save regression', () => {
       // helper and the session state are real — never a default context.
       expect(code, `${file} must use the provider-backed account API`).toContain('useAccount()');
       expect(code, `${file} must not reach for Privy directly`).not.toContain('usePrivy');
-      expect(code, `${file} must not call getAccessToken() itself`).not.toContain('getAccessToken(');
+      expect(code, `${file} must not call getAccessToken() itself`).not.toContain(
+        'getAccessToken(',
+      );
     }
     // No account page mounts an editor as its own React root any more.
     for (const page of [
@@ -271,5 +291,29 @@ describe('the profile save regression', () => {
     const root = source('src/components/react/PrivyRoot.tsx');
     expect(root).toContain('function SignOutSlot()');
     expect(root).toContain("getElementById('signout-slot-root')");
+  });
+
+  it("the project editor's share-image panel never calls the image a cover", () => {
+    const editor = source('src/components/react/ProjectEditor.tsx');
+    for (const text of [
+      'Upload a share image',
+      'Replace share image',
+      'Remove share image',
+      'alt="Current share image"',
+      'Save the draft first, then add a share image.',
+      'Share image uploaded. Save to keep it.',
+    ]) {
+      expect(editor).toContain(text);
+    }
+    for (const text of [
+      'a cover',
+      'Replace cover',
+      'Remove cover',
+      'Current cover',
+      'Cover uploaded',
+      'The cover',
+    ]) {
+      expect(editor).not.toContain(text);
+    }
   });
 });

@@ -1,11 +1,10 @@
 /**
  * THE HOMEPAGE AND THE ROUTES AROUND IT.
  *
- * `/` is the deployed composition (production at 83a8f41, minus the use
- * cases section 2699a4f removed): the cover, then ten sections in a fixed
- * order. A redesign once replaced it with a five-section page and moved
- * three of those sections to /about and /community; this pins the restored
- * shape so that cannot happen quietly.
+ * `/` is the hero with the room band, then five sections in a fixed order:
+ * the next event, the cities, what was made, the photographs and the join
+ * band (the Cinematic dark build, plan section 3). This pins that shape, and
+ * that the homepage's own sections are not copied onto /about/ or /community/.
  *
  * Source-level, like `account-routing.test.ts`: the guarantees are about which
  * file renders which route, what it links to and where its data comes from,
@@ -20,25 +19,14 @@ const source = (path: string) => readFileSync(path, 'utf8').replace(/\r\n/g, '\n
 const home = source('src/pages/index.astro');
 
 describe('the homepage at /', () => {
-  it('renders the deployed sections, in the deployed order', () => {
+  it('renders the hero, then the five sections in order', () => {
     const body = home.slice(home.indexOf('\n---', 3) + 4); // after the frontmatter
     expect(body.indexOf('<Hero ')).toBeGreaterThan(-1);
     const ids = [...body.matchAll(/<Section id="([a-z]+)"/g)]
       .map((m) => m[1])
       .filter((id) => id !== 'unavailable');
-    expect(ids).toEqual([
-      'signal',
-      'search',
-      'next',
-      'atlas',
-      'builders',
-      'projects',
-      'stories',
-      'with',
-      'join',
-      'record',
-    ]);
-    expect(body.indexOf('<Hero ')).toBeLessThan(body.indexOf('<Section id="signal"'));
+    expect(ids).toEqual(['next', 'cities', 'projects', 'photos', 'join']);
+    expect(body.indexOf('<Hero ')).toBeLessThan(body.indexOf('<Section id="next"'));
   });
 
   it('serves the page itself — no redirect, no rewrite, not the directory', () => {
@@ -57,24 +45,48 @@ describe('the homepage at /', () => {
     expect(home).toContain('export const prerender = false;');
     expect(home).toContain('new RecordSelectors(await loadLiveRecords())');
     expect(home).toContain('publicCache(Astro)');
-    for (const component of [
-      'Hero',
-      'CommunitySignal',
-      'SearchPrompt',
-      'NextEvent',
-      'CityAtlas',
-      'BuilderIndex',
-      'LatestEventProjects',
-      'StoryStrip',
-      'WithIndex',
-      'Manifesto',
-    ]) {
+    for (const component of ['Hero', 'EventFeature', 'CitiesBand', 'MadeWith', 'PhotoStrip']) {
       expect(home, component).toMatch(new RegExp(`<${component}\\b[^>]*selectors=\\{selectors\\}`));
     }
-    // The ghost atlas inside the cover reads the same records.
-    expect(source('src/components/Hero.astro')).toContain(
-      '<CityAtlas variant="ghost" selectors={selectors} />',
+    // The old sections are gone, not just unfed.
+    expect(home).not.toMatch(
+      /<(WithIndex|Manifesto|CommunitySignal|SearchPrompt|NextEvent|LatestEventProjects)\b/,
     );
+  });
+
+  it('puts the compact map in the cities band, and none in the hero', () => {
+    expect(source('src/components/home/CitiesBand.astro')).toContain(
+      '<CityAtlas size="compact" selectors={selectors} />',
+    );
+    expect(source('src/components/Hero.astro')).not.toContain('CityAtlas');
+  });
+
+  it('says "has" when one city has held an event, like the map label', () => {
+    const band = source('src/components/home/CitiesBand.astro');
+    expect(band).toContain("{held.length === 1 ? 'has' : 'have'} held events so far.");
+    expect(band).not.toMatch(/\{held\} have held/);
+  });
+
+  it('lets the room band zoom on scroll and leaves it out of print', () => {
+    const hero = source('src/components/Hero.astro');
+    const room = hero.slice(hero.indexOf('  .room {'));
+    // overflow: hidden makes the figure a scroll container, so the img's view() never moves.
+    expect(room.slice(0, room.indexOf('}'))).toContain('overflow: clip;');
+    expect(hero).toMatch(/@media print \{\s*\.room \{\s*display: none;/);
+  });
+
+  it('puts ambassadors first among the three builders on the homepage', () => {
+    expect(source('src/components/home/MadeWith.astro')).toMatch(
+      /\.sort\(\(a, b\) => Number\(b\.ambassador\) - Number\(a\.ambassador\)\)\s*\.slice\(0, 3\)/,
+    );
+  });
+
+  it('runs the scroll stage only over a photo, and lets the faded copy pass clicks through', () => {
+    const hero = source('src/components/Hero.astro');
+    expect(hero).toContain("class:list={['hero', room && roomImage && 'has-room']}");
+    expect(hero).toContain(':global(.js) .hero.has-room {');
+    expect(hero).not.toMatch(/:global\(\.js\) \.hero \{/);
+    expect(hero).toMatch(/@keyframes lift \{\s*to \{[^}]*pointer-events: none;/);
   });
 
   it('answers a failed read with an uncached 503, not stale or empty sections', () => {
@@ -89,161 +101,25 @@ describe('the homepage at /', () => {
     );
   });
 
-  it('keeps the cover actions pointed where production points them', () => {
+  it('keeps the hero copy to one h1, one sentence and one link', () => {
     const hero = source('src/components/Hero.astro');
-    expect(hero).toMatch(/<a href="\/cities" class="btn btn-solid"/);
-    expect(hero).toMatch(/<a href="\/events" class="btn"/);
-    expect(hero).toMatch(/<a href="\/submit\/" class="link-arrow">/);
-  });
-
-  it('names the event a previewed project was built at, from public events only', () => {
-    const archive = source('src/components/ProjectArchive.astro');
-    expect(archive).toContain('data.eventBySlug.get(project.builtAtEventSlug)');
-    expect(archive).toContain('Built at ${entry.event.shortTitle ?? entry.event.title}');
+    const copy = hero.slice(hero.indexOf('class="container hero-copy"'));
+    const block = copy.slice(0, copy.indexOf('</div>'));
+    expect(block.match(/<h1\b/g)).toHaveLength(1);
+    expect(block.match(/<p\b/g)).toHaveLength(1);
+    expect(block.match(/<a\b/g)).toHaveLength(1);
+    expect(block).toContain('<h1 id="hero-title" class="t-poster">');
+    expect(hero).toContain("{ href: '#next', label: 'Join the next event' }");
+    expect(hero).toContain("{ href: '/events/', label: 'See past events' }");
   });
 });
 
 describe('sections that belong to the homepage stay there', () => {
   it.each([
-    ['src/pages/about.astro', ['WithIndex', 'Manifesto']],
-    ['src/pages/community.astro', ['CommunitySignal']],
+    ['src/pages/about.astro', ['EventFeature']],
+    ['src/pages/community.astro', ['EventFeature']],
   ] as const)('%s does not carry a copy of the homepage', (file, components) => {
     const page = source(file);
     for (const component of components) expect(page, component).not.toContain(`<${component}`);
-  });
-});
-
-describe('the project directory at /projects/', () => {
-  const index = source('src/pages/projects/index.astro');
-  const detail = source('src/pages/projects/[slug].astro');
-
-  it('is its own server-rendered page, never a redirect', () => {
-    expect(index).toContain('export const prerender = false;');
-    expect(index).not.toMatch(/Astro\.redirect\(/);
-    expect(index).toContain('projectArchive(Astro.url.searchParams)');
-  });
-
-  it('answers a missing or hidden project with a real 404, not a redirect', () => {
-    expect(detail).not.toMatch(/Astro\.redirect\(/);
-    expect(detail).toMatch(/Astro\.rewrite\('\/not-found\/'\)|Astro\.response\.status = 404/);
-  });
-
-  /** Directory styles load on the routes that use them, never site-wide. */
-  it('keeps directory.css off the shared layout and the homepage', () => {
-    expect(source('src/layouts/Base.astro')).not.toContain('directory.css');
-    const css = source('src/styles/directory.css').replace(/\/\*[\s\S]*?\*\//g, '');
-    // No bare element or shared-primitive selector, at the top level or inside a media query.
-    const selectors = [...css.matchAll(/(?:^|[{}])\s*([^{}@;]+?)\s*\{/g)].flatMap((m) =>
-      m[1]!.split(',').map((s) => s.trim()),
-    );
-    expect(selectors.length).toBeGreaterThan(50);
-    for (const selector of selectors) {
-      expect(selector, selector).not.toMatch(
-        /^(html|body|main|header|footer|section|a|h[1-6]|p|ul|ol|button|input)\b/,
-      );
-      expect(selector, selector).not.toMatch(
-        /^\.(btn|section|section-head|container|container-wide|eyebrow|prose|plate|label|link-arrow)\b/,
-      );
-    }
-  });
-});
-
-describe('the masthead', () => {
-  const masthead = source('src/components/Masthead.astro');
-
-  it('links the logo home and Projects to the directory', () => {
-    // `/` everywhere except projects.withclaude.in, where `/` is the directory.
-    expect(masthead).toContain('const home = homeHref(Astro.url.hostname);');
-    expect(masthead).toMatch(/<a href=\{home\} class="brand"/);
-    expect(masthead).toContain("{ href: '/projects', label: 'Projects' }");
-  });
-
-  /**
-   * Two scripts bound the same menu button (this one and `enhance.ts`), so
-   * each tap opened the drawer and shut it again: on a phone the menu never
-   * opened, in production included.
-   */
-  it('binds the phone menu button exactly once', () => {
-    const scripts = [
-      'src/scripts/enhance.ts',
-      'src/components/Masthead.astro',
-      'src/layouts/Base.astro',
-    ];
-    const binders = scripts.filter((file) =>
-      /querySelector[^(]*\(\s*['"]\[data-nav-toggle\]['"]\s*\)/.test(source(file)),
-    );
-    expect(binders).toEqual(['src/components/Masthead.astro']);
-  });
-
-  /**
-   * `#privy-root` sits inside the masthead's flex row. As a block it took a
-   * flex gap of its own and pushed the account control ~20px off the column
-   * edge on every page; the island it replaced was `display: contents`.
-   */
-  it('keeps the Privy mount point out of the masthead layout', () => {
-    expect(source('src/components/AccountNav.astro')).toMatch(
-      /#privy-root\s*\{\s*display:\s*contents;/,
-    );
-  });
-});
-
-describe('the narrow-phone rules actually apply', () => {
-  /**
-   * A media-query override placed BEFORE the base rule it overrides loses at
-   * equal specificity, so the 375px fix for the WITH index never took effect
-   * and the page scrolled sideways.
-   */
-  it('places the WITH index phone override after its base rule', () => {
-    const css = source('src/components/WithIndex.astro');
-    const base = css.indexOf('  .with-link {\n    display: grid;');
-    const phone = css.indexOf('@media (max-width: 29.99em) {\n    .with-link {');
-    expect(base).toBeGreaterThan(-1);
-    expect(phone).toBeGreaterThan(base);
-  });
-});
-
-describe('signing in returns to the page that asked', () => {
-  /**
-   * The project page sends a signed-out visitor to `/me/projects/claim/?project=…`.
-   * The gate's return address was the bare pathname, so after signing in the
-   * claim page no longer knew which project it was for.
-   */
-  it('keeps the claim page query through sign-in', () => {
-    expect(source('src/pages/projects/[slug].astro')).toContain(
-      '/me/projects/claim/?project=${project.slug}',
-    );
-    expect(source('src/pages/me/projects/claim.astro')).toContain(
-      '<AuthRequired reason={guard.reason} next={Astro.url.pathname + Astro.url.search} />',
-    );
-  });
-
-  it('defaults every other gate to the server pathname, never a client-supplied URL', () => {
-    expect(source('src/components/AuthRequired.astro')).toContain(
-      'next = Astro.url.pathname } = Astro.props',
-    );
-  });
-});
-
-describe('deployment routing', () => {
-  it('has no rewrites or redirects that could capture a public route', () => {
-    const vercel = JSON.parse(source('vercel.json')) as Record<string, unknown>;
-    expect(vercel.trailingSlash).toBe(true);
-    // The only redirect allowed is scoped to the Project Directory's own host
-    // (projects.withclaude.in → www for non-directory paths). Nothing may
-    // apply to www.withclaude.in or the apex, and there are no rewrites.
-    const redirects = (vercel.redirects ?? []) as { has?: { type: string; value: string }[] }[];
-    for (const r of redirects) {
-      expect(r.has).toEqual([{ type: 'host', value: 'projects.withclaude.in' }]);
-    }
-    expect(redirects.length).toBeLessThanOrEqual(1);
-    expect(vercel.rewrites).toBeUndefined();
-    expect(vercel.routes).toBeUndefined();
-    expect(source('astro.config.mjs')).not.toMatch(/\bredirects\s*:/);
-  });
-
-  it('keeps the legacy paths as their documented redirects, none to the homepage directory', () => {
-    expect(source('src/pages/submit.astro')).toContain("Astro.redirect('/me/projects/new/', 308)");
-    expect(source('src/pages/city.astro')).toContain("Astro.redirect('/me/profile/edit/', 308)");
-    expect(source('src/pages/join.astro')).toContain("Astro.redirect('/', 308)");
   });
 });

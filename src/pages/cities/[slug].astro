@@ -14,24 +14,26 @@ import Section from '@/components/Section.astro';
 import PageIntro from '@/components/PageIntro.astro';
 import EventArchive from '@/components/EventArchive.astro';
 import BuilderIndex from '@/components/BuilderIndex.astro';
-import ProjectArchive from '@/components/ProjectArchive.astro';
+import ProjectGroup from '@/components/ProjectGroup.astro';
 import PracticeLibrary from '@/components/PracticeLibrary.astro';
 import SubmitPanel from '@/components/SubmitPanel.astro';
 import { official, site } from '@/data';
-import { CITY_STATE_LABEL, CITY_STATE_NOTE, isLive } from '@/lib/city';
-import { dateParts, formatDate } from '@/lib/datetime';
-import { distanceKm, formatCoords } from '@/lib/geo';
+import { isLive } from '@/lib/city';
+import { dateParts, formatDate, formatDateLong } from '@/lib/datetime';
+import { eventLabel } from '@/lib/event-display';
+import { eventPlate } from '@/lib/event-plate';
+import { distanceKm } from '@/lib/geo';
 import { asset } from '@/lib/images';
-import { lifecycleLabel, lifecycleOf, lifecycleTone } from '@/lib/status';
+import { cardProps } from '@/lib/project-display';
 import { isCityIndexable } from '@/lib/indexable';
 import { titles, trail } from '@/lib/seo';
+import { plural } from '@/lib/words';
 
 const { slug } = Astro.params;
 if (!slug) return Astro.rewrite('/not-found/');
 
 const city = selectors.getCity(slug);
 if (!city) return Astro.rewrite('/not-found/');
-
 
 const signal = selectors.citySignal(city);
 const live = isLive(signal.state);
@@ -40,50 +42,85 @@ const nationalNext = selectors.nextEvent();
 
 // The nearest city with activity — a real, useful fact for a quiet city.
 const elsewhere = selectors.publicCities
-  .map((other) => ({ other, s: selectors.citySignal(other) }))
-  .filter(({ other, s }) => other.slug !== city.slug && isLive(s.state))
-  .map(({ other, s }) => ({ other, s, km: distanceKm(city, other) }))
+  .filter((other) => other.slug !== city.slug && isLive(selectors.citySignal(other).state))
+  .map((other) => ({ other, km: distanceKm(city, other) }))
   .sort((a, b) => a.km - b.km)[0];
 
 // Rendered only when it exists. A "Practice" heading with an empty state
 // under it on all fourteen city pages would be fourteen promises.
 const practice = selectors.useCasesInCity(city.slug);
 
+// Made in {city}: one group per public event the projects were built at, newest first. Only a public
+// event resolves (eventBySlug), so a header never names a hidden one; the rest close the list.
+const byEvent = new Map<string | undefined, ReturnType<typeof selectors.projectsInCity>>();
+for (const p of selectors.projectsInCity(city.slug)) {
+  const key =
+    p.builtAtEventSlug && selectors.eventBySlug.has(p.builtAtEventSlug)
+      ? p.builtAtEventSlug
+      : undefined;
+  byEvent.set(key, [...(byEvent.get(key) ?? []), p]);
+}
+const madeHere = [...byEvent]
+  .map(([eventSlug, projects]) => ({
+    event: eventSlug ? selectors.eventBySlug.get(eventSlug) : undefined,
+    items: projects.sort((a, b) => a.title.localeCompare(b.title)).map((p) => cardProps(p)),
+  }))
+  .sort((a, b) => (!a.event ? 1 : !b.event ? -1 : b.event.date.localeCompare(a.event.date)));
+
 const crumbs = trail(
   { name: 'Cities', href: '/cities' },
   { name: city.name, href: `/cities/${city.slug}` },
 );
 
+// "Delhi, Delhi" would say the name twice.
+const place = city.state === city.name ? city.name : `${city.name}, ${city.state}`;
+
 const description = live
-  ? `The Claude community in ${city.name}, ${city.state}. ${signal.heldCount} events held${signal.next ? `, next on ${formatDate(signal.next.date)}` : ''}.`
-  : `There is no verified Claude community activity in ${city.name} yet. Here is what is true, and what you can do about it.`;
+  ? `The Claude community in ${place}. ${plural(signal.heldCount, 'event')} held${signal.next ? `, next on ${formatDate(signal.next.date)}` : ''}.`
+  : `No Claude community events in ${city.name} yet. Register your city or find the nearest event.`;
+
+// A quiet city's tab does not claim a community its H1 deliberately doesn't.
+const pageTitle = live ? titles.city(city.name) : `${place} | ${site.wordmark}`;
 
 const schema = [
   {
     '@type': 'CollectionPage',
-    name: titles.city(city.name),
+    name: pageTitle,
     description,
-    url: `${site.url}/cities/${city.slug}`,
+    url: `${site.url}/cities/${city.slug}/`,
     contentLocation: {
       '@type': 'Place',
       name: city.name,
       geo: {
         '@type': 'GeoCoordinates',
         latitude: city.lat,
-        longitude: city.lon
-      }
-    }
-  }
+        longitude: city.lon,
+      },
+    },
+  },
 ];
 
 // Navigable always, indexable only once there is something in it. The rule
 // itself lives in `src/lib/indexable.ts` because the sitemap reads it too.
 const indexable = isCityIndexable(city, _rs);
+
+// Grounds alternate over the sections that actually render, so two bands of the same tone never meet.
+let ground: 'paper' | 'sunk' = 'paper'; // the page head
+const next = (shown: boolean) =>
+  shown ? (ground = ground === 'paper' ? 'sunk' : 'paper') : ground;
+const tone = {
+  status: next(!live || !!image || !!city.links?.length),
+  events: next(signal.eventCount > 0),
+  builders: next(signal.builderCount > 0),
+  projects: next(signal.projectCount > 0),
+  practice: next(practice.length > 0),
+  register: next(true),
+};
 ---
 
 <Base
-  title={`${city.name}, ${city.state}`}
-  seoTitle={titles.city(city.name)}
+  title={place}
+  seoTitle={pageTitle}
   description={description}
   active="/cities"
   breadcrumbs={crumbs}
@@ -91,228 +128,124 @@ const indexable = isCityIndexable(city, _rs);
   schema={schema}
 >
   <PageIntro
-    eyebrow={`${city.state} · ${CITY_STATE_LABEL[signal.state]}`}
     title={live ? `Claude Community in ${city.name}` : city.name}
-    stamp={formatCoords(city.lat, city.lon)}
-    size="lg"
-  >
-    {live ? (
-      <>
-        <p><strong>{city.name}</strong></p>
-        <p>The Claude community in {city.name}. {city.blurb}</p>
-        <p class="city-summary">
-          Tracking <a href="#events">{signal.heldCount} events</a>, <a href="#builders">{signal.builderCount} builders</a>, and <a href="#projects">{signal.projectCount} projects</a> on the record.
-        </p>
-      </>
-    ) : (
-      <p>{city.blurb}</p>
-    )}
-  </PageIntro>
+    size={live ? 'md' : 'lg'}
+  />
 
-  <Section id="status" tone="sunk" labelledby="status-heading">
-    <div class="status">
-      <div class="status-main">
-        <span class:list={['chip', `chip-${signal.state}`]}>{CITY_STATE_LABEL[signal.state]}</span>
-        <h2 id="status-heading" class="status-title">{CITY_STATE_NOTE[signal.state]}</h2>
-
-        {/*
-          §28 — a city page lists its ambassadors, and each one leads to their
-          own page rather than straight to a builder profile. `signal.ambassadors`
-          is every verified ambassador in this city, so a city with two is
-          rendered as a city with two instead of silently showing the first.
-        */}
-        {
-          signal.ambassadors.length > 0 && (
-            <div class="status-amb">
-              <span class="chip chip-verified">Verified</span>
-              {signal.ambassadors.map((person) => (
-                <>
-                  <p class="status-amb-line">
-                    <a href={`/ambassadors/${person.slug}`}>{person.name}</a>{' '}
-                    is a {person.title} here.
-                  </p>
-                  <p class="status-note">{person.verifiedVia}.</p>
-                </>
-              ))}
-            </div>
-          )
-        }
-
-        {
-          city.organiser && (
-            <p class="status-organiser">
-              Community activity is organised locally by{' '}
-              {city.organiser.url ? (
-                <a href={city.organiser.url} target="_blank" rel="noopener">
-                  {city.organiser.name}
-                </a>
-              ) : (
-                city.organiser.name
-              )}
-              .
-            </p>
-          )
-        }
-
-        {
-          city.reported && (
-            <p class="status-reported">
-              The organisers report {city.reported.members}+ people in the community
-              {city.reported.prototypes
-                ? ` and ${city.reported.prototypes}+ prototypes shipped`
-                : ''}
-              .
-              <span class="status-note">{`Self-reported and not independently verified — ${city.reported.source}.`}</span>
-            </p>
-          )
-        }
-
-        {
-          !live && (
-            <div class="quiet">
-              <p class="quiet-copy">
-                No events, no Ambassador, and no waiting list. That is the whole status, and this
-                page will not pretend otherwise.
-              </p>
-              <p class="quiet-copy">
-                If you are building with Claude in {city.name}, registering your city is the useful
-                thing to do. It is a signal about where people are — not an application, and it does
-                not create a chapter.
-              </p>
-              <div class="quiet-actions">
-                <a class="btn btn-solid" href="#register">
-                  <span>Register {city.name}</span>
-                  <span class="arrow" aria-hidden="true">
-                    →
-                  </span>
-                </a>
-                {nationalNext && (
-                  <a class="link-arrow" href={`/events/${nationalNext.slug}`}>
-                    <span>{`Next anywhere: ${dateParts(nationalNext.date).dayPadded} ${dateParts(nationalNext.date).monthDisplay}`}</span>
-                    <span class="arrow" aria-hidden="true">
-                      →
-                    </span>
+  {
+    (!live || image || (city.links && city.links.length > 0)) && (
+      <Section id="status" tone={tone.status} labelledby="status-heading">
+        <div class="status">
+          {/* A live city's h2 is out of flow, so the photo takes the first column. */}
+          {live ? (
+            <h2 id="status-heading" class="visually-hidden">
+              About {city.name}
+            </h2>
+          ) : (
+            <div class="status-main">
+              <h2 id="status-heading" class="status-title">
+                No Claude community events in {city.name} yet.
+              </h2>
+              <div class="quiet">
+                <div class="quiet-actions">
+                  <a class="btn btn-primary" href="#register">
+                    Register {city.name}
+                    <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+                      <path
+                        d="M4 10h11m-4.5-4.5L15 10l-4.5 4.5"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.6"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
                   </a>
-                )}
+                  {nationalNext && (
+                    <a class="link" href={`/events/${nationalNext.slug}/`}>
+                      {`Next event: ${nationalNext.title}, ${dateParts(nationalNext.date).day} ${dateParts(nationalNext.date).monthShort}`}
+                      <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+                        <path
+                          d="M4 10h11m-4.5-4.5L15 10l-4.5 4.5"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="1.6"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        />
+                      </svg>
+                    </a>
+                  )}
+                </div>
+                <p class="meta quiet-note">
+                  Want to host events in {city.name}?{' '}
+                  <a href={official.ambassadorProgramUrl} target="_blank" rel="noopener">
+                    Apply to Anthropic’s Ambassador programme
+                  </a>
+                </p>
               </div>
-              <p class="quiet-note">
-                {site.ambassadorNote}{' '}
-                <a href={official.ambassadorProgramUrl} target="_blank" rel="noopener">
-                  Their programme
-                </a>{' '}
-                is the route if you want to host Claude Community events here.
-              </p>
             </div>
-          )
-        }
+          )}
 
-        {
-          signal.next && (
-            <a class="status-next" href={`/events/${signal.next.slug}`}>
-              <span class:list={['pip', `pip-${lifecycleTone(lifecycleOf(signal.next))}`]}>
-                {lifecycleLabel(lifecycleOf(signal.next))}
-              </span>
-              <span class="status-next-date">
-                {`${dateParts(signal.next.date).dayPadded} ${dateParts(signal.next.date).monthDisplay}`}
-              </span>
-              <span class="status-next-title">{signal.next.title}</span>
-              <span class="arrow" aria-hidden="true">
-                →
-              </span>
-            </a>
-          )
-        }
-      </div>
-
-      <div class="status-side">
-        <dl class="facts">
-          <div>
-            <dt>Coordinates</dt>
-            <dd class="coords">{formatCoords(city.lat, city.lon)}</dd>
-          </div>
-          <div>
-            <dt>State</dt>
-            <dd>{city.state}</dd>
-          </div>
-          <div>
-            <dt>Events held</dt>
-            <dd>{String(signal.heldCount).padStart(2, '0')}</dd>
-          </div>
-          <div>
-            <dt>On the calendar</dt>
-            <dd>{String(signal.eventCount - signal.heldCount).padStart(2, '0')}</dd>
-          </div>
-          <div>
-            <dt>Builders indexed</dt>
-            <dd>{String(signal.builderCount).padStart(2, '0')}</dd>
-          </div>
-          <div>
-            <dt>Projects archived</dt>
-            <dd>{String(signal.projectCount).padStart(2, '0')}</dd>
-          </div>
-        </dl>
-
-        {
-          image && (
-            <figure class="status-image">
-              <div class="plate plate-framed">
+          <div class="status-side">
+            {image && (
+              <figure class="status-image">
                 <Image
                   src={image}
                   alt={`${city.name}, ${city.state}`}
                   widths={[420, 800]}
-                  sizes="(max-width: 61.99em) 90vw, 340px"
-                  loading="lazy"
+                  sizes="(max-width: 61.99em) 90vw, 620px"
+                  loading="eager"
+                  fetchpriority="high"
                   decoding="async"
                 />
+              </figure>
+            )}
+
+            {!live && elsewhere && (
+              <p>
+                <a class="link" href={`/cities/${elsewhere.other.slug}/`}>
+                  {`Nearest community: ${elsewhere.other.name}, ${elsewhere.km} km`}
+                  <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+                    <path
+                      d="M4 10h11m-4.5-4.5L15 10l-4.5 4.5"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.6"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                </a>
+              </p>
+            )}
+
+            {city.links && city.links.length > 0 && (
+              <div class="city-links">
+                <h3 class="channels-head">Local channels</h3>
+                <ul>
+                  {city.links.map((link) => (
+                    <li>
+                      <a class="btn btn-sm" href={link.url} target="_blank" rel="noopener">
+                        {link.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <figcaption class="plate-caption">
-                <span>{city.name}</span>
-                <span>{formatCoords(city.lat, city.lon, 1)}</span>
-              </figcaption>
-            </figure>
-          )
-        }
-
-        {
-          !live && elsewhere && (
-            <div class="nearest">
-              <h3 class="label nearest-head">Nearest activity</h3>
-              <a class="nearest-link" href={`/cities/${elsewhere.other.slug}`}>
-                <span class="nearest-name">{elsewhere.other.name}</span>
-                <span class="nearest-km">{`${elsewhere.km} km away`}</span>
-                <span class="nearest-state">{CITY_STATE_LABEL[elsewhere.s.state]}</span>
-              </a>
-            </div>
-          )
-        }
-
-        {
-          city.links && city.links.length > 0 && (
-            <div class="city-links">
-              <h3 class="label nearest-head">Local channels</h3>
-              <ul>
-                {city.links.map((link) => (
-                  <li>
-                    <a href={link.url} target="_blank" rel="noopener">
-                      {link.label}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )
-        }
-      </div>
-    </div>
-  </Section>
+            )}
+          </div>
+        </div>
+      </Section>
+    )
+  }
 
   {
     signal.eventCount > 0 && (
-      <Section id="events" labelledby="events-heading">
+      <Section id="events" tone={tone.events} labelledby="events-heading">
         <EventArchive
           citySlug={city.slug}
           heading={`Events in ${city.name}`}
-          eyebrow="Events"
           order="chronological"
           selectors={selectors}
         />
@@ -322,11 +255,10 @@ const indexable = isCityIndexable(city, _rs);
 
   {
     signal.builderCount > 0 && (
-      <Section id="builders" tone="sunk" labelledby="builders-heading">
+      <Section id="builders" tone={tone.builders} labelledby="builders-heading">
         <BuilderIndex
           citySlug={city.slug}
           heading={`Building in ${city.name}`}
-          eyebrow="Builders"
           selectors={selectors}
         />
       </Section>
@@ -334,270 +266,126 @@ const indexable = isCityIndexable(city, _rs);
   }
 
   {
-    live && (
-      <Section id="projects" tone="deep" size="lg" labelledby="projects-heading">
-        <ProjectArchive citySlug={city.slug} heading={`Made in ${city.name}`} eyebrow="Projects" selectors={selectors} />
+    signal.projectCount > 0 && (
+      <Section id="projects" tone={tone.projects} labelledby="projects-heading">
+        <div class="section-head">
+          <h2 id="projects-heading">Made in {city.name}</h2>
+        </div>
+        {madeHere.map(({ event, items }) =>
+          event ? (
+            <ProjectGroup
+              id={`g-${event.slug}`}
+              title={eventLabel(event.title, event.shortTitle ?? null, city.name)}
+              meta={`${formatDateLong(event.date)} · ${plural(items.length, 'project')}`}
+              href={`/events/${event.slug}/`}
+              plate={eventPlate(event)}
+              items={items}
+              level="h3"
+            />
+          ) : (
+            <ProjectGroup
+              id="g-independent"
+              title="Independent projects"
+              meta={plural(items.length, 'project')}
+              items={items}
+              level="h3"
+            />
+          ),
+        )}
       </Section>
     )
   }
 
   {
     practice.length > 0 && (
-      <Section id="practice" labelledby="practice-library-heading">
+      <Section id="practice" tone={tone.practice} labelledby="practice-library-heading">
         <PracticeLibrary
           citySlug={city.slug}
           heading={`How ${city.name} works with Claude`}
-          eyebrow="Practice"
           selectors={selectors}
         />
       </Section>
     )
   }
 
-  <Section id="register" tone={live ? 'sunk' : 'paper'} labelledby="city-heading">
+  <Section id="register" tone={tone.register} labelledby="city-heading">
     <SubmitPanel formId="city" />
   </Section>
 </Base>
 
 <style>
-  .city-summary {
-    margin-top: var(--s-4);
-    font-size: var(--t-small);
-    color: var(--ink-2);
-  }
-
-  .city-summary a {
-    color: inherit;
-    text-decoration: underline;
-    text-underline-offset: 2px;
-  }
-
   .status {
     display: grid;
-    gap: var(--s-8);
+    gap: var(--head-after);
   }
 
   .status-title {
-    margin-top: var(--s-4);
-    font-size: var(--t-h2);
     max-width: 18ch;
-  }
-
-  /* --- Ambassador ---------------------------------------------------------- */
-  .status-amb {
-    display: grid;
-    gap: var(--s-3);
-    justify-items: start;
-    margin-top: var(--s-6);
-    padding: var(--s-5);
-    border: var(--border-hair) solid var(--rule-strong);
-    border-left: 2px solid var(--clay);
-    background: var(--paper-raised);
-  }
-
-  .status-amb-line {
-    font-size: var(--t-small);
-  }
-
-  .status-organiser {
-    margin-top: var(--s-5);
-    font-size: var(--t-small);
-    color: var(--ink-2);
-  }
-
-  .status-reported {
-    margin-top: var(--s-5);
-    max-width: 56ch;
-    font-size: var(--t-small);
-    color: var(--ink-2);
-  }
-
-  .status-note {
-    display: block;
-    margin-top: var(--s-2);
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    line-height: 1.7;
-    color: var(--ink-3);
+    font-size: var(--t-h2);
   }
 
   /* --- Quiet cities --------------------------------------------------------- */
-  .quiet {
-    margin-top: var(--s-6);
-  }
-
-  .quiet-copy {
-    max-width: 56ch;
-    color: var(--ink-2);
-  }
-
-  .quiet-copy + .quiet-copy {
-    margin-top: var(--s-4);
-  }
-
   .quiet-actions {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: var(--s-5);
-    margin-top: var(--s-6);
+    gap: 16px 28px;
+    margin-top: var(--head-after);
   }
 
   .quiet-note {
-    margin-top: var(--s-6);
-    padding-top: var(--s-5);
-    border-top: var(--border-hair) solid var(--rule);
     max-width: 60ch;
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    line-height: 1.8;
-    color: var(--ink-3);
+    margin-top: var(--head-after);
+    padding-top: 20px;
+    border-top: 1px solid var(--rule);
   }
 
-  /* --- Next ----------------------------------------------------------------- */
-  .status-next {
-    display: flex;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: var(--s-3) var(--s-5);
-    margin-top: var(--s-7);
-    padding: var(--s-4) var(--s-5);
-    border: var(--border-hair) solid var(--clay);
-    background: var(--clay-tint);
-    text-decoration: none;
+  .quiet-note a {
+    color: var(--ink-2);
+  }
+
+  .quiet-note a:hover {
     color: var(--ink);
-  }
-
-  .status-next-date {
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: var(--track-meta);
-    color: var(--clay-deep);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .status-next-title {
-    font-family: var(--font-title);
-    font-size: 1.1rem;
-    font-weight: 500;
-    font-variation-settings:
-      'SOFT' 0,
-      'WONK' 1;
-  }
-
-  .status-next .arrow {
-    margin-left: auto;
   }
 
   /* --- Side ------------------------------------------------------------------ */
   .status-side {
     display: grid;
-    gap: var(--s-6);
+    gap: 28px;
     align-content: start;
   }
 
-  .facts {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--s-5);
-    padding-top: var(--s-4);
-    border-top: var(--border-heavy) solid var(--ink);
-  }
-
-  .facts dt {
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: var(--track-meta);
-    text-transform: uppercase;
-    color: var(--ink-3);
-  }
-
-  .facts dd {
-    margin-top: var(--s-2);
-    font-family: var(--font-title);
-    font-size: 1.5rem;
-    font-weight: 600;
-    font-variation-settings:
-      'SOFT' 0,
-      'WONK' 1;
-    line-height: 1;
-    letter-spacing: -0.03em;
-    font-variant-numeric: lining-nums tabular-nums;
-  }
-
-  .facts .coords {
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    font-weight: 400;
-    letter-spacing: 0.05em;
-    color: var(--ink-2);
-  }
-
-  .status-image .plate {
+  .status-image img {
+    display: block;
+    width: 100%;
+    height: auto;
     aspect-ratio: 4 / 3;
+    object-fit: cover;
+    border-radius: var(--radius-md);
   }
 
-  .nearest-head {
-    padding-bottom: var(--s-3);
-    border-bottom: var(--border-hair) solid var(--rule-strong);
-    color: var(--ink-3);
-  }
-
-  .nearest-link {
-    display: grid;
-    gap: var(--s-1);
-    padding-block: var(--s-4);
-    text-decoration: none;
-    color: var(--ink);
-  }
-
-  .nearest-name {
-    font-family: var(--font-title);
-    font-size: var(--t-h3);
-    font-weight: 600;
-    font-variation-settings:
-      'SOFT' 0,
-      'WONK' 1;
-    letter-spacing: -0.02em;
-  }
-
-  .nearest-link:hover .nearest-name {
-    color: var(--clay-deep);
-  }
-
-  .nearest-km,
-  .nearest-state {
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+  .channels-head {
+    font-size: var(--t-small);
     color: var(--ink-3);
   }
 
   .city-links ul {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--s-3) var(--s-5);
-    padding-top: var(--s-4);
+    gap: 10px;
+    padding-top: 12px;
   }
 
-  .city-links a {
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: var(--track-meta);
-    text-transform: uppercase;
-    color: var(--ink-2);
-    text-decoration: none;
-  }
-
-  .city-links a:hover {
-    color: var(--clay-deep);
+  /* Grounds alternate here, so the events list always ends against a ground change, even on
+     paper. Count the band's padding from the last plate, as EventRecord does for sunk bands. */
+  :global(#events > .section-body > .archive:last-child > .erecord:last-child) {
+    margin-bottom: -12px;
   }
 
   @media (min-width: 62em) {
     .status {
       grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
-      gap: var(--s-9);
+      gap: clamp(40px, 4vw, 72px);
       align-items: start;
     }
   }

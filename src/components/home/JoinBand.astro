@@ -1,0 +1,113 @@
+---
+/**
+ * The way to bring the community to another city. Hosting is Anthropic's programme, so the
+ * first action goes to Anthropic; the second is the community's own channel.
+ */
+import CommunityGlobe from '@/components/CommunityGlobe.astro';
+import { communityChannel, official, participationPaths } from '@/data';
+
+const host = participationPaths.find((p) => p.id === 'host');
+const arrowOut = 'M7 13l6.5-6.5M8 6.5h5.5V12';
+---
+
+<i class="sunrise" aria-hidden="true"></i>
+<div class="container join">
+  <CommunityGlobe />
+  <div class="section-head">
+    <h2 id="join-heading">Want a room in your city?</h2>
+    {host && <p class="lead">{host.description}</p>}
+  </div>
+  <div class="join-actions">
+    <a class="btn btn-primary" href={official.ambassadorProgramUrl} target="_blank" rel="noopener">
+      Become an Ambassador
+      <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+        <path
+          d={arrowOut}
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"></path>
+      </svg>
+    </a>
+    <a class="btn" href={communityChannel.url} target="_blank" rel="noopener">
+      Join the Telegram
+    </a>
+  </div>
+</div>
+
+<style>
+  /* The band: the page passes class="join-band" and bleed to Section, so the sun sits in
+     the section itself, under the content. Section's own padding-block wins over a global
+     rule, so the extra room for the sun goes on the container. */
+  :global(.join-band) {
+    overflow: hidden;
+    isolation: isolate;
+  }
+
+  :global(.join-band)::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgb(var(--hot) / 0.9) 50%, transparent);
+  }
+
+  /* The bottom padding stops growing at 1417px, so the sun stops too (its 1440 size):
+     wider, it rises into the buttons and their focus ring drops under 3:1. */
+  .sunrise {
+    width: min(max(1400px, 140vw), 2016px);
+    /* The band's bottom edge sits at 54% of the sun (translate 46%). Fade the sun out over
+       the band's bottom padding, under the buttons, so it never meets the footer in a seam. */
+    --sun-fade: linear-gradient(
+      to bottom,
+      #000 calc(54% - clamp(120px, 12vw, 170px)),
+      rgb(0 0 0 / 0.55) calc(54% - clamp(60px, 6vw, 85px)),
+      transparent 54%
+    );
+    -webkit-mask-image: var(--sun-fade);
+    mask-image: var(--sun-fade);
+  }
+
+  .join {
+    display: grid;
+    padding-bottom: calc(clamp(120px, 12vw, 170px) - var(--section-y));
+    justify-items: center;
+    text-align: center;
+  }
+
+  .join .section-head {
+    justify-items: center;
+    margin-bottom: 36px;
+  }
+
+  .join .lead {
+    max-width: 48ch;
+    color: var(--ink-2);
+  }
+
+  /* The buttons sit near the sun, where the clay ring measures under 3:1. Ink holds it in
+     both themes. */
+  .join-actions :focus-visible {
+    outline-color: var(--ink);
+  }
+
+  .join-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+  }
+
+  @media (max-width: 640px) {
+    .join-actions {
+      width: 100%;
+    }
+
+    .join-actions .btn {
+      flex: 1 1 100%;
+    }
+  }
+</style>

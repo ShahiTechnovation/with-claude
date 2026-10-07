@@ -3,9 +3,9 @@
  * HOMEPAGE AND NAVIGATION JOURNEY — against a loopback dev server on an
  * isolated database. Checks what a screenshot cannot:
  *
- *   · `/` is the deployed composition, at 375 / 768 / 1440, with no sideways
- *     scroll, no broken images, no console errors and no error overlay;
- *   · the logo, the masthead (desktop row and phone drawer), the cover actions,
+ *   · `/` is the hero and its five sections, at 375 / 768 / 1440, with no
+ *     sideways scroll, no broken images, no console errors and no error overlay;
+ *   · the logo, the masthead (desktop row and phone menu), the hero action,
  *     a project card and the footer go where production sends them, and the
  *     browser's back/forward return to the right page;
  *   · deep links with query strings load directly;
@@ -40,19 +40,7 @@ const IMPORTED = {
   impact: process.env.IMPACT_PROJECT ?? 'bhasha-hire',
   fable: process.env.FABLE_PROJECT ?? 'aftershock',
 };
-const SECTIONS = [
-  'signal',
-  'search',
-  'next',
-  'atlas',
-  'builders',
-  'projects',
-  'practice',
-  'stories',
-  'with',
-  'join',
-  'record',
-];
+const SECTIONS = ['next', 'cities', 'projects', 'photos', 'join'];
 await mkdir(OUT, { recursive: true });
 
 const browser = await chromium.launch(
@@ -65,6 +53,8 @@ const check = (label, ok, detail = '') => {
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}${ok ? '' : `  — ${detail}`}`);
   if (!ok) failures += 1;
 };
+// keepDash renders a no-break space before a spaced dash; the database title has a plain one.
+const nbsp = (text) => text.replace(/\u00a0/g, ' ');
 
 /** Vercel's `trailingSlash: true`, for page navigations only. */
 async function vercelSlash(context) {
@@ -100,7 +90,7 @@ async function newPage(width, { cookie } = {}) {
 const path = (page) => new URL(page.url()).pathname + new URL(page.url()).search;
 const h1 = (page) =>
   page
-    .locator('main h1, body > h1, header.hero h1')
+    .locator('main h1, body > h1')
     .first()
     .innerText()
     .catch(() => '');
@@ -129,18 +119,17 @@ for (const width of [375, 768, 1440]) {
   );
   const ids = await page.$$eval('main > section[id]', (els) => els.map((e) => e.id));
   check(
-    `/ (${width}): the eleven deployed sections, in order`,
+    `/ (${width}): the five sections, in order`,
     JSON.stringify(ids) === JSON.stringify(SECTIONS),
     ids.join(','),
   );
-  const actions = await page.$$eval('header.hero a.btn, header.hero a.link-arrow', (as) =>
+  const actions = await page.$$eval('.hero-copy a', (as) =>
     as.map((a) => `${a.textContent.replace(/\s+/g, ' ').trim()} ${a.getAttribute('href')}`),
   );
   check(
-    `/ (${width}): cover actions keep their destinations`,
-    actions.some((a) => /^Explore the community .* \/cities$/.test(a)) &&
-      actions.some((a) => /^See what.s happening .* \/events$/.test(a)) &&
-      actions.some((a) => /^Add your build .* \/submit\/$/.test(a)),
+    `/ (${width}): the hero has one action, to the next event or the past ones`,
+    actions.length === 1 &&
+      /^(Join the next event #next|See past events \/events\/)$/.test(actions[0]),
     actions.join(' | '),
   );
   await page.evaluate(async () => {
@@ -150,8 +139,7 @@ for (const width of [375, 768, 1440]) {
     }
   });
   await page.waitForLoadState('networkidle');
-  // Only rendered images: the cover photograph is `display: none` below the
-  // desktop split, and an image that is never rendered is never decoded.
+  // Only rendered images: an image that is never rendered is never decoded.
   const broken = await page.$$eval('img', (imgs) =>
     imgs
       .filter((i) => i.getClientRects().length > 0 && i.complete && i.naturalWidth === 0)
@@ -167,9 +155,9 @@ for (const width of [375, 768, 1440]) {
     (await page.locator('vite-error-overlay, astro-dev-overlay').count()) === 0,
   );
   check(
-    `/ (${width}): every preview card names its event`,
-    (await page.locator('#projects .card-event').count()) ===
-      (await page.locator('#projects .card').count()),
+    `/ (${width}): the rail shows up to six project cards`,
+    (await page.locator('#projects .rail .pcard').count()) > 0 &&
+      (await page.locator('#projects .rail .pcard').count()) <= 6,
   );
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: `${OUT}/home-${width}.png`, fullPage: true });
@@ -187,19 +175,19 @@ for (const width of [375, 768, 1440]) {
   );
   await clickTo(
     page,
-    page.locator('.nav-desktop a', { hasText: 'Projects' }),
+    page.locator('.nav-links a', { hasText: 'Projects' }),
     '/projects/',
     'masthead Projects → /projects/',
   );
   check(
     'the directory opens on its own heading',
-    (await h1(page)) === 'Project Directory',
+    /^Made with Claude\.$/.test(await h1(page)),
     await h1(page),
   );
   await page.goBack({ waitUntil: 'load' });
   check(
     'back returns to the homepage',
-    path(page) === '/' && (await page.locator('#signal').count()) === 1,
+    path(page) === '/' && (await page.locator('#next').count()) === 1,
     path(page),
   );
   await page.goForward({ waitUntil: 'load' });
@@ -213,7 +201,7 @@ for (const width of [375, 768, 1440]) {
   ]) {
     await clickTo(
       page,
-      page.locator('.nav-desktop a', { hasText: text }),
+      page.locator('.nav-links a', { hasText: text }),
       to,
       `masthead ${text} → ${to}`,
     );
@@ -227,47 +215,30 @@ for (const width of [375, 768, 1440]) {
   );
   await clickTo(page, page.locator('header.masthead a.brand'), '/', 'logo → /');
 
-  await clickTo(
-    page,
-    page.locator('header.hero a', { hasText: 'Explore the community' }),
-    '/cities/',
-    'Explore the community → /cities/',
-  );
-  await page.goBack({ waitUntil: 'load' });
-  await clickTo(
-    page,
-    page.locator('header.hero a', { hasText: 'See what' }),
-    '/events/',
-    'See what’s happening → /events/',
-  );
-  await page.goBack({ waitUntil: 'load' });
-  // /submit/ is the legacy address of the project form: 308 in dev, meta refresh in a static build.
-  await clickTo(
-    page,
-    page.locator('header.hero a', { hasText: 'Add your build' }),
-    '/me/projects/new/',
-    'Add your build → /submit/ → /me/projects/new/',
-  );
-  check(
-    'signed out, the project form shows its sign-in gate in place',
-    (await page.locator('#join-cta-root').count()) === 1,
-  );
-  await page.goBack({ waitUntil: 'load' });
-  check('back from the gate returns home', path(page) === '/', path(page));
+  const heroAction = page.locator('.hero-copy a');
+  const heroHref = await heroAction.getAttribute('href');
+  if (heroHref === '#next') {
+    await heroAction.click();
+    check('hero Join the next event → #next', new URL(page.url()).hash === '#next', page.url());
+    await page.evaluate(() => window.scrollTo(0, 0));
+  } else {
+    await clickTo(page, heroAction, '/events/', 'hero See past events → /events/');
+    await page.goBack({ waitUntil: 'load' });
+  }
 
-  const card = page.locator('#projects .card a').first();
+  const card = page.locator('#projects .pcard-title a').first();
   const href = await card.getAttribute('href');
   await clickTo(page, card, `${href}/`.replace(/\/\/$/, '/'), `homepage project card → ${href}/`);
   check(
     'the project page names its event',
-    /Built at .+ · \d{1,2} \w{3} \d{4}/.test(await page.locator('main').innerText()),
+    /From .+, \d{1,2} \w+ \d{4}\./.test(await page.locator('main').innerText()),
   );
   await page.goBack({ waitUntil: 'load' });
 
   for (const [text, to] of [
     ['Projects', '/projects/'],
-    ['Search the community', '/discover/'],
-    ['The record', '/record/'],
+    ['Gallery', '/gallery/'],
+    ['About', '/about/'],
   ]) {
     await clickTo(
       page,
@@ -285,23 +256,23 @@ for (const width of [375, 768, 1440]) {
   await context.close();
 }
 
-// ── 3. the phone drawer ──────────────────────────────────────────────────
+// ── 3. the phone menu ────────────────────────────────────────────────────
 for (const width of [375, 768]) {
   const { page, context, errors } = await newPage(width);
   await page.goto(`${BASE}/`, { waitUntil: 'load' });
-  await page.locator('.nav-toggle').click();
-  const drawerLink = page.locator('.nav-drawer a', { hasText: 'Projects' });
-  await drawerLink.waitFor({ state: 'visible', timeout: 10_000 }).catch(() => {});
+  await page.locator('details.menu > summary').click();
+  const menuLink = page.locator('.menu-sheet a', { hasText: 'Projects' });
+  await menuLink.waitFor({ state: 'visible', timeout: 10_000 }).catch(() => {});
   check(
-    `drawer (${width}): opens with the five destinations`,
-    (await page.locator('.nav-drawer a:visible').count()) >= 5,
+    `menu (${width}): opens with the five destinations`,
+    (await page.locator('.menu-sheet a:visible').count()) >= 5,
   );
-  await page.screenshot({ path: `${OUT}/drawer-${width}.png` });
-  await clickTo(page, drawerLink, '/projects/', `drawer (${width}): Projects → /projects/`);
+  await page.screenshot({ path: `${OUT}/menu-${width}.png` });
+  await clickTo(page, menuLink, '/projects/', `menu (${width}): Projects → /projects/`);
   await page.goBack({ waitUntil: 'load' });
-  check(`drawer (${width}): back returns home`, path(page) === '/', path(page));
+  check(`menu (${width}): back returns home`, path(page) === '/', path(page));
   check(
-    `drawer (${width}): no console errors`,
+    `menu (${width}): no console errors`,
     errors.length === 0,
     errors.join(' | ').slice(0, 300),
   );
@@ -320,20 +291,25 @@ for (const width of [375, 768]) {
       path(page) === '/projects/?event=claude-impact-lab-september&sort=name',
     `${res?.status()} ${path(page)}`,
   );
-  const badges = await page.locator('.dir-list .badge-event').allInnerTexts();
+  const cards = await page.locator('.pcard').count();
+  const groups = await page.locator('h2[id^="g-"]').evaluateAll((els) => els.map((e) => e.id));
+  const checked = await page.locator('input[name="event"]:checked').getAttribute('value');
   check(
-    'deep link: the filter is applied (every row is Impact Lab 2 · 15 Sep 2026)',
-    badges.length > 0 && badges.every((b) => /Impact Lab 2 · 15 Sep 2026/.test(b)),
-    badges.slice(0, 3).join(' | '),
+    'deep link: the filter is applied (Impact Lab 2 is checked and is the only group)',
+    cards > 0 &&
+      checked === 'claude-impact-lab-september' &&
+      groups.length === 1 &&
+      groups[0] === 'g-claude-impact-lab-september',
+    `${cards} cards, checked ${checked}, groups ${groups.join(' ')}`,
   );
   for (const [slug, expected] of [
-    [IMPORTED.impact, /Built at Impact Lab 2 · 15 Sep 2026/],
-    [IMPORTED.fable, /Built at Fable 5\.1 Build Day · 20 Sep 2026/],
+    [IMPORTED.impact, /From Claude Code Impact Lab 2, Bhopal, 15 September 2026\./],
+    [IMPORTED.fable, /From Claude Code Build Day - Fable 5\.1, Bhopal, 20 September 2026\./],
   ]) {
     res = await page.goto(`${BASE}/projects/${slug}/`, { waitUntil: 'load' });
     check(
       `deep link: /projects/${slug}/ answers 200 and names its event`,
-      res?.status() === 200 && expected.test(await page.locator('main').innerText()),
+      res?.status() === 200 && expected.test(nbsp(await page.locator('main').innerText())),
       String(res?.status()),
     );
   }

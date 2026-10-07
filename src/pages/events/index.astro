@@ -13,27 +13,19 @@ import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
 import PageIntro from '@/components/PageIntro.astro';
 import EventRecord from '@/components/EventRecord.astro';
-import EventArchive from '@/components/EventArchive.astro';
+import EventFeature from '@/components/EventFeature.astro';
 import { formatDate } from '@/lib/datetime';
 
 /**
  * THE EVENT RECORD.
  *
- * The page runs editorial-first: the fact block, then what is coming, then the
- * archive by year. The filterable table stays at the bottom as the working
- * index — it is the fastest way to find one specific room out of fourteen, and
- * it is the same component the homepage and the city pages use, so there is no
- * second implementation of the table to keep in step.
+ * What is coming next, the Luma calendar, then every other event by year, newest first.
  */
 const next = selectors.nextEvent();
-const upcoming = selectors.upcomingEvents();
-const past = selectors.pastEvents();
-const publicEvents = selectors.publicEvents;
-const cities = new Set(publicEvents.map((event) => event.citySlug));
 
 const description = next
-  ? `Every Claude community event in India, past and upcoming — ${publicEvents.length} rooms across ${cities.size} cities. Next: ${next.title} in ${selectors.cityName(next.citySlug)}, ${formatDate(next.date)}.`
-  : `Every Claude community event in India, past and upcoming — ${publicEvents.length} rooms across ${cities.size} cities.`;
+  ? `Every Claude community event in India, past and upcoming. Next: ${next.title} in ${selectors.cityName(next.citySlug)}, ${formatDate(next.date)}.`
+  : 'Every Claude community event in India, past and upcoming.';
 ---
 
 <Base
@@ -43,40 +35,51 @@ const description = next
   active="/events"
   breadcrumbs={trail({ name: 'Events', href: '/events' })}
 >
-  <PageIntro
-    eyebrow="Events"
-    title="Claude Events in India"
-    stamp={`${String(publicEvents.length).padStart(2, '0')} events`}
-    facts={[
-      { label: 'Held', value: String(past.length).padStart(2, '0') },
-      { label: 'Ahead', value: String(upcoming.length).padStart(2, '0') },
-      { label: 'Cities', value: String(cities.size).padStart(2, '0') },
-    ]}
-  >
-    <p><strong>Every room, on the record.</strong></p>
+  <PageIntro title="Claude Events in India" size="lg">
     <p>
-      An archive of Claude community events, meetups, and workshops across India. Free, open, and run by volunteers. Status below is computed from the calendar every time this site builds — never from a badge someone forgot to change.
+      Claude community events, meetups and workshops across India. Free, open and run by volunteers.
     </p>
   </PageIntro>
 
-  <Section id="calendar" size="lg" labelledby="calendar-heading">
-    <div style="display: flex; flex-direction: column; align-items: center; width: 100%; gap: 2rem;">
-      <h2 id="calendar-heading" class="h2">Upcoming Events Calendar</h2>
+  {
+    next && (
+      <Section id="next" labelledby="next-heading">
+        <EventFeature event={next} selectors={selectors} allEvents={false} priority />
+      </Section>
+    )
+  }
+
+  <Section id="calendar" tone="sunk" labelledby="calendar-heading">
+    <h2 id="calendar-heading" class="visually-hidden">Event calendar</h2>
+    <div class="calendar" data-theme="light">
       <iframe
         src="https://luma.com/embed/calendar/cal-Rmfu84P0S7JWiHl/events?tag=Claude"
         width="100%"
         height="450"
-        frameborder="0"
-        style="border: 1px solid #bfcbda88; border-radius: 4px; max-width: 800px;"
-        allowfullscreen=""
-        aria-hidden="false"
-        tabindex="0"
-      ></iframe>
+        title="Upcoming Claude events on Luma"
+        allowfullscreen=""></iframe>
     </div>
   </Section>
 
-  <Section id="record" size="lg" labelledby="ahead-heading">
-    <EventRecord selectors={selectors} />
+  <Section id="record">
+    <EventRecord selectors={selectors} exclude={next?.slug} />
   </Section>
-
 </Base>
+
+<style>
+  /* The Luma embed is light; it sits in a light panel rather than on the dark ground. */
+  .calendar {
+    max-width: 800px;
+    margin-inline: auto;
+    padding: 16px;
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-lg);
+  }
+
+  .calendar iframe {
+    display: block;
+    border: 0;
+    border-radius: var(--radius-md);
+  }
+</style>

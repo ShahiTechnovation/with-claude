@@ -9,34 +9,39 @@ import { chromium } from 'playwright';
 const BASE = process.env.BASE ?? 'http://localhost:4321';
 const PAGES = [
   '/',
-  '/events',
-  '/events/claude-conversation-september',
-  '/events/claude-code-impact-lab',
-  '/cities',
-  '/cities/bhopal',
-  '/cities/kochi',
-  '/builders',
-  '/builders/aniket-sahu',
-  '/projects',
-  '/stories',
-  '/discover',
-  '/use-cases',
-  '/guides',
-  '/record',
-  '/about',
-  '/community',
-  '/join',
-  '/404',
+  '/events/',
+  '/events/claude-conversation-september/',
+  '/events/claude-code-impact-lab/',
+  '/cities/',
+  '/cities/bhopal/',
+  '/cities/kochi/',
+  '/builders/',
+  '/builders/aniket-sahu/',
+  '/projects/',
+  '/stories/',
+  '/discover/',
+  '/use-cases/',
+  '/guides/',
+  '/record/',
+  '/about/',
+  '/community/',
+  '/join/',
+  '/404/',
 ];
 
 const problems = [];
 const note = (page, msg) => problems.push(`${page}: ${msg}`);
 
-const browser = await chromium.launch();
+// System Chrome: this machine has no Playwright browser cache.
+const browser = await chromium.launch({ channel: 'chrome' });
 
 // --- With JavaScript -------------------------------------------------------
 for (const path of PAGES) {
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  // Reduced motion, so CSS scroll reveals are never counted as hidden.
+  const context = await browser.newContext({
+    viewport: { width: 1440, height: 900 },
+    reducedMotion: 'reduce',
+  });
   const page = await context.newPage();
   await page.goto(BASE + path, { waitUntil: 'networkidle' });
 
@@ -133,9 +138,10 @@ for (const path of PAGES) {
     viewport: { width: 390, height: 844 },
     hasTouch: true,
     isMobile: true,
+    reducedMotion: 'reduce',
   });
   const page = await context.newPage();
-  for (const path of ['/', '/events', '/cities', '/community', '/builders']) {
+  for (const path of ['/', '/events/', '/cities/', '/community/', '/builders/']) {
     await page.goto(BASE + path, { waitUntil: 'networkidle' });
     const small = await page.evaluate(() => {
       const bad = [];
@@ -146,7 +152,6 @@ for (const path of PAGES) {
       };
 
       document.querySelectorAll('a, button, summary').forEach((el) => {
-        // The plate's SVG nodes are non-interactive at this width by design.
         if (el.closest('svg')) return;
         const r = el.getBoundingClientRect();
         if (r.width === 0 || r.height === 0) return;
@@ -178,18 +183,34 @@ for (const path of PAGES) {
   const context = await browser.newContext({
     javaScriptEnabled: false,
     viewport: { width: 1440, height: 900 },
+    reducedMotion: 'reduce',
   });
   const page = await context.newPage();
-  for (const path of ['/', '/cities', '/events']) {
+  for (const path of ['/', '/cities/', '/events/', '/about/']) {
     await page.goto(BASE + path, { waitUntil: 'load' });
     const state = await page.evaluate(() => {
-      const readout = document.querySelector('[data-readout-name]');
+      // The India map is a picture with a name. Its CC BY 2.5 IN credit lives on /about/ and links both sources.
+      const map = () => {
+        const figure = document.querySelector('.map-figure');
+        if (figure) {
+          const img = figure.querySelector('.map');
+          if (img?.getAttribute('role') !== 'img') return 'the map has no role="img"';
+          if (!img.getAttribute('aria-label')?.trim()) return 'the map has no aria-label';
+        }
+        if (location.pathname !== '/about/') return null;
+        const links = [...document.querySelectorAll('.map-credit a')].map((a) => a.href);
+        if (!links.some((h) => h.includes('projects.datameet.org/maps')))
+          return 'the map credit does not link DataMeet';
+        if (!links.some((h) => h.includes('creativecommons.org/licenses/by/2.5/in')))
+          return 'the map credit does not link the licence';
+        return null;
+      };
       const hidden = [...document.querySelectorAll('[data-reveal]')].filter((el) => {
         const s = getComputedStyle(el);
         return Number(s.opacity) < 0.9;
       }).length;
       return {
-        readout: readout ? readout.textContent.trim() : 'n/a',
+        map: map(),
         hiddenReveals: hidden,
         bodyText: document.body.innerText.length,
       };
@@ -198,7 +219,7 @@ for (const path of PAGES) {
       note(`${path} (no JS)`, `${state.hiddenReveals} elements still hidden`);
     if (state.bodyText < 800)
       note(`${path} (no JS)`, `only ${state.bodyText} chars of text rendered`);
-    if (state.readout !== 'n/a' && !state.readout) note(`${path} (no JS)`, 'map readout is empty');
+    if (state.map) note(`${path} (no JS)`, state.map);
   }
   await context.close();
 }

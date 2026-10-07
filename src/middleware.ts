@@ -14,7 +14,8 @@ import { routeDirectoryHost } from './lib/directory-host';
 export const onRequest = defineMiddleware(async (context, next) => {
   // @astrojs/vercel <10.0.2 trusts this client header to pick the route (GHSA-mr6q-rp88-fx84).
   // The function entry refuses it first (src/server/vercel-entrypoint.ts); this is the second line.
-  if (context.request.headers.has('x-astro-path')) {
+  // Prerendered pages have no request headers (reading them only warns), and never reach the function.
+  if (!context.isPrerendered && context.request.headers.has('x-astro-path')) {
     return new Response(null, { status: 400, headers: { 'Cache-Control': 'no-store' } });
   }
   const route = routeDirectoryHost(context.url.hostname, context.url.pathname, context.url.search);

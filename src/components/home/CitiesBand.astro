@@ -1,0 +1,150 @@
+---
+/**
+ * Where the community meets: the cities that have had an event, as links, beside the map.
+ * No counts or dates here: /cities/ keeps the per-city numbers, and the next event is one
+ * section up.
+ */
+import CityAtlas from '@/components/CityAtlas.astro';
+import type { RecordSelectors } from '@/data/selectors';
+import { listJoin } from '@/lib/words';
+
+interface Props {
+  selectors: RecordSelectors;
+}
+
+const { selectors } = Astro.props;
+const ranked = selectors.citySignalsRanked();
+const held = ranked.filter((s) => s.heldCount > 0).map((s) => s.city.name);
+const rows = ranked
+  .filter((s) => s.eventCount > 0)
+  .map((s) => ({ slug: s.city.slug, name: s.city.name }));
+const arrow = 'M4 10h11m-4.5-4.5L15 10l-4.5 4.5';
+---
+
+<div class="cities-band">
+  <div class="section-head cities-head">
+    <h2 id="cities-heading">Find your city.</h2>
+    {
+      held.length > 0 && (
+        <p class="lead">
+          {listJoin(held)} {held.length === 1 ? 'has' : 'have'} held events so far.
+        </p>
+      )
+    }
+  </div>
+
+  <div class="cities-plot">
+    <CityAtlas size="compact" selectors={selectors} />
+  </div>
+
+  <div class="cities-list">
+    {
+      rows.length > 0 && (
+        <ul class="cities spotlight">
+          {rows.map((row) => (
+            <li>
+              <h3 class="t-h3">
+                <a href={`/cities/${row.slug}/`}>{row.name}</a>
+              </h3>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+    <a class="link" href="/cities/">
+      All cities
+      <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+        <path
+          d={arrow}
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"></path>
+      </svg>
+    </a>
+  </div>
+</div>
+
+<style>
+  .cities-band {
+    display: grid;
+    grid-template-areas: 'head' 'plot' 'list';
+  }
+
+  .cities-head {
+    grid-area: head;
+  }
+
+  .cities-plot {
+    grid-area: plot;
+    margin-bottom: 28px;
+  }
+
+  .cities-list {
+    grid-area: list;
+    display: grid;
+    justify-items: start;
+    gap: 28px;
+  }
+
+  @media (min-width: 900px) {
+    .cities-band {
+      grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+      grid-template-areas: 'head plot' 'list plot';
+      column-gap: clamp(40px, 6vw, 96px);
+      align-items: center;
+    }
+
+    .cities-head {
+      align-self: end;
+    }
+
+    .cities-list {
+      align-self: start;
+    }
+
+    /* Pull the map's empty frame into the section padding, top and bottom alike so it stays centred on the list. */
+    .cities-plot {
+      margin-block: calc(-1 * var(--s-2));
+    }
+  }
+
+  .cities {
+    display: grid;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--rule);
+  }
+
+  .cities li {
+    position: relative;
+    padding-block: 22px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .cities h3 {
+    margin: 0;
+  }
+
+  .cities a {
+    color: var(--ink);
+    text-decoration: none;
+  }
+
+  /* The name link covers the whole row, so the lit row is all clickable. */
+  .cities a::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+  }
+
+  .cities a:hover {
+    text-decoration: underline;
+    text-decoration-color: var(--clay);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.18em;
+  }
+</style>

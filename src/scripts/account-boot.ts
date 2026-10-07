@@ -11,7 +11,8 @@
  *   load on click  for everyone else, when they press "Sign in"; the login
  *                  opens as soon as the SDK is ready
  *
- * With JavaScript off the static "Sign in" link still goes to `/join/`.
+ * With JavaScript off the static "Sign in" link still goes to `/me/`
+ * (`signInHref`), the sign-in gate.
  * Session detection reads only whether Privy's own keys EXIST; it never reads
  * or copies a token.
  */
@@ -22,7 +23,8 @@ function hasPrivySession(): boolean {
   try {
     for (let i = 0; i < localStorage.length; i += 1) {
       const key = localStorage.key(i) ?? '';
-      if (key === 'privy:token' || (key.startsWith('privy:') && key.endsWith(':token'))) return true;
+      if (key === 'privy:token' || (key.startsWith('privy:') && key.endsWith(':token')))
+        return true;
     }
   } catch {
     // Storage blocked: fall back to loading on demand.
@@ -33,8 +35,8 @@ function hasPrivySession(): boolean {
 function needsAccountNow(): boolean {
   return Boolean(
     document.getElementById('join-cta-root') ||
-      document.getElementById('signout-slot-root') ||
-      document.querySelector('[data-account-island]'),
+    document.getElementById('signout-slot-root') ||
+    document.querySelector('[data-account-island]'),
   );
 }
 
@@ -52,11 +54,13 @@ function boot(openLogin: boolean): Promise<void> {
     w.$RefreshReg$ ??= () => {};
     w.$RefreshSig$ ??= () => (type: unknown) => type;
   }
-  booted = Promise.all([import('react'), import('react-dom/client'), import('@/components/react/PrivyRoot')]).then(
-    ([React, { createRoot }, { default: PrivyRoot }]) => {
-      createRoot(mount).render(React.createElement(PrivyRoot, { appId, loginMethods, openLogin }));
-    },
-  );
+  booted = Promise.all([
+    import('react'),
+    import('react-dom/client'),
+    import('@/components/react/PrivyRoot'),
+  ]).then(([React, { createRoot }, { default: PrivyRoot }]) => {
+    createRoot(mount).render(React.createElement(PrivyRoot, { appId, loginMethods, openLogin }));
+  });
   return booted;
 }
 

@@ -31,18 +31,26 @@ export const isDirectoryHost = (hostname: string) => hostname.toLowerCase() === 
 export const homeHref = (hostname: string) => (isDirectoryHost(hostname) ? `${MAIN_ORIGIN}/` : '/');
 
 /**
- * Where "Sign in" points. Auth lives on the main site only (Privy's allowed
- * origins, the session cookie, /api/member/*), so on the directory host the
- * link goes to the account page there instead of opening sign-in in place.
+ * Where "Sign in" points without JS (with JS, account-boot opens sign-in in
+ * place): the account page, which shows the sign-in gate to a visitor. Auth
+ * lives on the main site only (Privy's allowed origins, the session cookie,
+ * /api/member/*), so on the directory host that is the main site's /me/.
  */
-export const signInHref = (hostname: string) => (isDirectoryHost(hostname) ? `${MAIN_ORIGIN}/me/` : '/join/');
+export const signInHref = (hostname: string) =>
+  isDirectoryHost(hostname) ? `${MAIN_ORIGIN}/me/` : '/me/';
 
-const SERVED_HERE = /^\/(projects\/|_astro\/|_image\/?|_server-islands\/|api\/reports\/|favicon[^/]*$|apple-touch-icon[^/]*$|robots\.txt$|site\.webmanifest$|fonts\/|_vercel\/)/;
+const SERVED_HERE =
+  /^\/(projects\/|_astro\/|_image\/?|_server-islands\/|api\/reports\/|favicon[^/]*$|apple-touch-icon[^/]*$|robots\.txt$|site\.webmanifest$|fonts\/|_vercel\/)/;
 
-export type DirectoryHostRoute = { kind: 'pass' } | { kind: 'rewrite'; to: string } | { kind: 'redirect'; to: string };
+export type DirectoryHostRoute =
+  { kind: 'pass' } | { kind: 'rewrite'; to: string } | { kind: 'redirect'; to: string };
 
 /** What the directory host does with one request. Pure, so it is tested directly. */
-export function routeDirectoryHost(hostname: string, pathname: string, search: string): DirectoryHostRoute {
+export function routeDirectoryHost(
+  hostname: string,
+  pathname: string,
+  search: string,
+): DirectoryHostRoute {
   if (!isDirectoryHost(hostname)) return { kind: 'pass' };
   if (pathname === '/' || pathname === '') return { kind: 'rewrite', to: `/projects/${search}` };
   if (SERVED_HERE.test(pathname)) return { kind: 'pass' };

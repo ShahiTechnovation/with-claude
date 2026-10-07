@@ -1,0 +1,145 @@
+---
+/**
+ * One event's projects: the event's plate, its name and a meta line, a link to the day, then the cards
+ * (six visible, the rest behind "Show N more from {title}"). Used by /projects/ and the city pages.
+ * The caller decides what `meta` holds.
+ */
+import type { ImageMetadata } from 'astro';
+import { Image } from 'astro:assets';
+import ProjectGrid from '@/components/ProjectGrid.astro';
+import type { CardProps } from '@/lib/project-display';
+
+interface Props {
+  /** Heading id: `g-${event.slug}`, or 'g-independent'. */
+  id: string;
+  /** The event label, or the INDEPENDENT label. */
+  title: string;
+  meta?: string;
+  /** '/events/<slug>/', shown as the "About the day" link. */
+  href?: string;
+  /** eventPlate(event); none for independent projects. */
+  plate?: ImageMetadata;
+  items: CardProps[];
+  visible?: number;
+  /** The group heading; cards take the next level down. */
+  level?: 'h2' | 'h3';
+}
+
+const { id, title, meta, href, plate, items, visible = 6, level = 'h2' } = Astro.props;
+const Heading = level;
+const cardLevel = level === 'h2' ? 'h3' : 'h4';
+---
+
+<section class="group" aria-labelledby={id}>
+  <header class:list={['group-head', !plate && 'no-plate']}>
+    {
+      plate && (
+        <Image
+          class="group-plate"
+          src={plate}
+          alt=""
+          widths={[88, 176]}
+          sizes="88px"
+          loading="lazy"
+        />
+      )
+    }
+    <div class="group-title">
+      <Heading class="t-h2" id={id}>{title}</Heading>
+      {meta && <p class="meta">{meta}</p>}
+    </div>
+    {
+      href && (
+        <a class="link group-link" href={href}>
+          About the day
+          <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+            <path
+              d="M4 10h11m-4.5-4.5L15 10l-4.5 4.5"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </a>
+      )
+    }
+  </header>
+  <ProjectGrid
+    items={items}
+    visible={visible}
+    more={`Show ${items.length - visible} more`}
+    moreTail={` from ${title}`}
+    level={cardLevel}
+  />
+</section>
+
+<style>
+  /* Groups that follow each other are parted by a hairline. */
+  .group + .group {
+    margin-top: clamp(32px, 2.8vw, 40px);
+    padding-top: clamp(32px, 2.8vw, 40px);
+    border-top: 1px solid var(--rule);
+  }
+
+  .group-head {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr);
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .group-head.no-plate {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .group-plate {
+    width: 64px;
+    height: 64px;
+    border-radius: 12px;
+    object-fit: cover;
+    box-shadow: var(--glow-tile);
+  }
+
+  .group-title {
+    display: grid;
+    gap: 10px;
+  }
+
+  .group-title :is(h2, h3) {
+    margin: 0;
+  }
+
+  .group-title .meta {
+    margin: 0;
+  }
+
+  .group-link {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  @media (min-width: 700px) {
+    .group-head {
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 24px;
+      margin-bottom: 36px;
+    }
+
+    .group-head.no-plate {
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .group-plate {
+      width: 88px;
+      height: 88px;
+      border-radius: 16px;
+    }
+
+    .group-link {
+      grid-column: auto;
+    }
+  }
+</style>

@@ -283,11 +283,11 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Proj
         });
         set('coverMediaId', mediaId);
         setCoverUrl(url);
-        setNotice({ tone: 'info', text: 'Cover uploaded. Save to keep it.' });
+        setNotice({ tone: 'info', text: 'Share image uploaded. Save to keep it.' });
       } catch (error) {
         setNotice({
           tone: 'error',
-          text: error instanceof UploadProblem ? error.message : 'The cover could not be uploaded.',
+          text: error instanceof UploadProblem ? error.message : 'The share image could not be uploaded.',
         });
       } finally {
         if (fileRef.current) fileRef.current.value = '';
@@ -459,19 +459,19 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Proj
 
       <fieldset className="panel" disabled={!editable}>
         <div className="panel-head">
-          <h2>Cover image</h2>
-          <span className="panel-hint">Optional · a real screenshot · JPEG, PNG, WebP · up to 5 MB</span>
+          <h2>Share image</h2>
+          <span className="panel-hint">Optional · shown when someone shares your project page · JPEG, PNG, WebP · up to 5 MB</span>
         </div>
         <div className="image-picker">
           {coverUrl && form.coverMediaId ? (
-            <img src={coverUrl} alt="Current cover" width={448} height={280} />
+            <img src={coverUrl} alt="Current share image" width={448} height={280} />
           ) : (
-            <p className="panel-hint">No cover. Cards show a labelled placeholder instead.</p>
+            <p className="panel-hint">No share image. Links to this project show the site card.</p>
           )}
           {id ? (
             <>
               <label className="field-label" htmlFor="pj-cover">
-                {form.coverMediaId ? 'Replace cover' : 'Upload a cover'}
+                {form.coverMediaId ? 'Replace share image' : 'Upload a share image'}
               </label>
               <input
                 id="pj-cover"
@@ -483,11 +483,11 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Proj
               />
             </>
           ) : (
-            <p className="panel-hint">Save the draft first, then add a cover.</p>
+            <p className="panel-hint">Save the draft first, then add a share image.</p>
           )}
           {form.coverMediaId && (
             <button type="button" className="button button--quiet" onClick={() => set('coverMediaId', null)}>
-              Remove cover
+              Remove share image
             </button>
           )}
           {busy === 'upload' && <p className="panel-hint" aria-live="polite">Uploading…</p>}

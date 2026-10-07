@@ -1,111 +1,173 @@
 ---
 /**
- * One project in a grid: cover, name, tagline, credits, and where it came from.
+ * One project: its icon tile, its name, one line in the team's words, and its links. Nothing else, so
+ * no card ever repeats the team, event, city, category, status or date the list around it already says.
  *
- * Takes the public DTO from `src/server/public/projects.ts` and nothing else,
- * so every list on the site — archive, homepage, event, builder, related —
- * renders the same card from the same eligible data.
+ * Takes `CardProps` (built by `cardProps()` from the directory DTO or a record-set project), so every
+ * list on the site renders the same card from the same fields. The whole card is one link for a
+ * pointer and for a keyboard (the stretched title link); Live, Code and Video sit above it.
  */
-import ProjectCover from '@/components/ProjectCover.astro';
-import type { PublicProjectCard } from '@/server/public/projects';
-import { formatName } from '@/lib/status';
-import { formatDateCompact } from '@/lib/datetime';
+import Icon from '@/components/directory/Icon.astro';
+import { artifactAction, type ArtifactAction, type CardProps } from '@/lib/project-display';
+import { projectIcon } from '@/lib/project-icon';
 
-interface Props {
-  project: PublicProjectCard;
-  /** Heading level for the title, so the card fits the page outline. */
-  level?: 'h2' | 'h3';
-  eager?: boolean;
-}
+type Props = CardProps;
 
-const { project, level = 'h3', eager = false } = Astro.props;
+const { slug, title, text, links = {}, size = 'md', level = 'h3' } = Astro.props;
 const Heading = level;
-const shownCredits = project.credits.slice(0, 4);
-const moreCredits = project.credits.length - shownCredits.length;
-const place = project.event?.city?.name ?? project.city?.name;
+const svg = projectIcon(slug);
+const VISIBLE: Record<'live' | 'repo', string> = { live: 'Live', repo: 'Code' };
+const actions = [
+  artifactAction('live', links.live),
+  artifactAction('repo', links.repo),
+  artifactAction('video', links.video),
+]
+  .filter((a): a is ArtifactAction => Boolean(a))
+  .map((a) => ({
+    ...a,
+    shown: a.kind === 'live' || a.kind === 'repo' ? VISIBLE[a.kind] : a.short,
+  }));
 ---
 
-<article class="pcard">
-  <a class="pcard-cover" href={`/projects/${project.slug}/`} tabindex="-1" aria-hidden="true">
-    <ProjectCover image={project.image} title={project.title} category={project.category} eager={eager} zoom />
-  </a>
-  <div class="pcard-body">
-    <p class="pcard-meta">
-      <span class="pcard-category">{formatName(project.category)}</span>
-      {place && <span>{place}</span>}
-    </p>
-    <Heading class="pcard-title">
-      <a href={`/projects/${project.slug}/`}>{project.title}</a>
-    </Heading>
-    {project.summary && <p class="pcard-summary">{project.summary}</p>}
+<article class:list={['pcard', `is-${size}`]}>
+  <div class="pcard-head">
     {
-      shownCredits.length === 0 && project.team && <p class="pcard-credits">{project.team}</p>
-    }
-    {
-      shownCredits.length > 0 && (
-        <p class="pcard-credits">
-          <span class="visually-hidden">Made by </span>
-          {shownCredits.map((c) => c.name).join(' · ')}
-          {moreCredits > 0 && ` + ${moreCredits}`}
-        </p>
+      svg ? (
+        <span class="pcard-icon" aria-hidden="true" set:html={svg} />
+      ) : (
+        <span class="pcard-icon is-empty" aria-hidden="true" />
       )
     }
-    {
-      project.event && (
-        <p class="pcard-event">
-          Built at {project.event.label}
-          <span aria-hidden="true"> · </span>
-          <time datetime={project.event.date}>{formatDateCompact(project.event.date)}</time>
-        </p>
-      )
-    }
+    <Heading class="pcard-title t-h3"><a href={`/projects/${slug}/`}>{title}</a></Heading>
+    <svg class="pcard-go" viewBox="0 0 20 20" aria-hidden="true" focusable="false"
+      ><path
+        d="M6 14L14 6M7.5 6H14v6.5"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.6"
+        stroke-linecap="round"
+        stroke-linejoin="round"></path></svg
+    >
   </div>
+  {text && <p class="pcard-text">{text}</p>}
+  {
+    actions.length > 0 && (
+      <p class="pcard-links">
+        {actions.map((a) => (
+          <a
+            href={a.href}
+            target="_blank"
+            rel="noopener noreferrer nofollow ugc"
+            aria-label={`${a.shown}: ${a.label} for ${title}, opens in a new tab`}
+          >
+            <Icon name={a.kind === 'live' || a.kind === 'repo' ? a.kind : 'video'} size={17} />
+            {a.shown}
+          </a>
+        ))}
+      </p>
+    )
+  }
 </article>
+
+<script>
+  // The spotlight follows the pointer: one delegated listener for every card on the page.
+  // Without JS it sits top centre (the CSS fallbacks below).
+  document.addEventListener(
+    'pointermove',
+    (e) => {
+      const card = (e.target as Element | null)?.closest?.<HTMLElement>('.pcard');
+      if (!card) return;
+      const r = card.getBoundingClientRect();
+      card.style.setProperty('--mx', `${e.clientX - r.left}px`);
+      card.style.setProperty('--my', `${e.clientY - r.top}px`);
+    },
+    { passive: true },
+  );
+</script>
 
 <style>
   .pcard {
-    display: grid;
-    gap: var(--s-3);
-    align-content: start;
-  }
-
-  .pcard-body {
-    display: grid;
-    gap: var(--s-2);
-  }
-
-  .pcard-meta {
+    position: relative;
+    isolation: isolate;
     display: flex;
-    justify-content: space-between;
-    gap: var(--s-3);
-    padding-bottom: var(--s-2);
-    border-bottom: var(--border-rule) solid var(--ink);
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: var(--track-meta);
-    text-transform: uppercase;
-    color: var(--ink-3);
+    flex-direction: column;
+    gap: 10px;
+    padding: 22px 24px 20px;
+    background: var(--paper-raised);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    transition:
+      border-color 0.35s,
+      transform 0.6s var(--ease-cine);
   }
 
-  .pcard-category {
-    color: var(--clay-deep);
+  .pcard::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.4s;
+    background: radial-gradient(
+      360px circle at var(--mx, 50%) var(--my, 0%),
+      rgb(var(--glow) / 0.16),
+      transparent 62%
+    );
+  }
+
+  .pcard:hover {
+    border-color: var(--rule-strong);
+  }
+
+  .pcard:hover::before {
+    opacity: 1;
+  }
+
+  /* A title whose longest word will not fit beside the tile drops below it instead of breaking. */
+  .pcard-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 18px;
+  }
+
+  .pcard-icon {
+    flex: none;
+    width: 64px;
+    height: 64px;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: var(--clay);
+    box-shadow: var(--glow-tile);
+    transition:
+      transform 0.6s var(--ease-cine),
+      box-shadow 0.6s var(--ease-cine);
+  }
+
+  .pcard-icon :global(svg) {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .pcard:hover .pcard-icon {
+    box-shadow: 0 18px 44px -14px rgb(var(--glow) / 0.95);
   }
 
   .pcard-title {
-    margin-top: var(--s-1);
-    font-family: var(--font-title);
-    font-size: var(--t-h3);
-    font-weight: 600;
-    line-height: var(--lh-heading);
-    letter-spacing: -0.02em;
-    font-variation-settings:
-      'SOFT' 0,
-      'WONK' 1;
+    flex: 1 1 0;
+    min-width: min-content;
+    margin: 0;
+    overflow-wrap: break-word;
   }
 
   .pcard-title a {
     color: var(--ink);
     text-decoration: none;
+    /* Focus lands on the title; the card's top sits about 35px above it, under the sticky bars
+       (and the directory's toolbar on /projects/). */
+    scroll-margin-top: calc(40px + var(--dir-stuck, 0px));
   }
 
   /* The whole card is one target for a pointer, one link for a keyboard. */
@@ -113,36 +175,128 @@ const place = project.event?.city?.name ?? project.city?.name;
     content: '';
     position: absolute;
     inset: 0;
+    z-index: 1;
+    border-radius: var(--radius-md);
   }
 
-  .pcard {
-    position: relative;
-  }
-
-  .pcard:hover .pcard-title a,
   .pcard-title a:focus-visible {
+    outline: none;
+  }
+
+  .pcard-title a:focus-visible::after {
+    outline: 2px solid var(--focus);
+    outline-offset: -3px;
+  }
+
+  .pcard-go {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 20px;
+    height: 20px;
     color: var(--clay-deep);
+    opacity: 0;
+    transition: opacity 0.35s;
   }
 
-  .pcard-title a:focus-visible {
-    outline: 2px solid var(--clay);
-    outline-offset: 4px;
+  .pcard:hover .pcard-go,
+  .pcard:focus-within .pcard-go {
+    opacity: 1;
   }
 
-  .pcard-summary {
-    font-size: var(--t-small);
-    color: var(--ink-2);
+  .pcard-text {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: var(--t-ui);
+    line-height: 1.55;
+    color: var(--ink-3);
     display: -webkit-box;
     -webkit-line-clamp: 3;
+    line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
 
-  .pcard-credits,
-  .pcard-event {
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: 0.04em;
+  .pcard-links {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    margin: 0;
+    margin-top: auto;
+    padding-top: 14px;
+  }
+
+  .pcard-links a {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 0;
+    font-family: var(--font-title);
+    font-size: var(--t-small);
+    font-weight: 600;
+    line-height: 1;
     color: var(--ink-3);
+    text-decoration: none;
+    transition: color 0.25s;
+  }
+
+  .pcard-links a:hover {
+    color: var(--ink);
+  }
+
+  /* A taller target on touch; the negative margin keeps the card the same height. */
+  @media (pointer: coarse) {
+    .pcard-links a {
+      padding-block: 8px;
+      margin-block: -2px;
+    }
+  }
+
+  /* Rails: the big tile and two lines of text. */
+  .is-lg .pcard-head {
+    gap: 22px;
+  }
+
+  .is-lg .pcard-icon {
+    width: 88px;
+    height: 88px;
+    border-radius: 16px;
+    box-shadow: 0 18px 50px -18px rgb(var(--glow) / 0.8);
+  }
+
+  .is-lg .pcard-text {
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+
+  @media (max-width: 700px) {
+    .pcard-head {
+      gap: 16px;
+    }
+
+    .pcard-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 11px;
+    }
+
+    .is-lg .pcard-icon {
+      width: 72px;
+      height: 72px;
+      border-radius: 14px;
+    }
+  }
+
+  /* Movement only for visitors who have not asked for less. */
+  @media (prefers-reduced-motion: no-preference) {
+    .pcard:hover {
+      transform: translateY(-3px);
+    }
+
+    .pcard:hover .pcard-icon {
+      transform: translateY(-2px) scale(1.04);
+    }
   }
 </style>

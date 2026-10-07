@@ -12,10 +12,6 @@ import { itemListSchema, titles, trail } from '@/lib/seo';
  * Empty, and the empty state says why rather than apologising: a guide gets
  * written because somebody asked a question, and commissioning one against a
  * keyword instead is exactly the failure mode this section exists to avoid.
- *
- * What the page does render is the standard — author, credential, dates,
- * sources — because that standard is the only reason to read a guide here
- * rather than one of the ten thousand that already exist.
  */
 const guides = guidesChronological();
 const crumbs = trail({ name: 'Guides', href: '/guides' });
@@ -31,26 +27,6 @@ const schema = guides.length
       ),
     ]
   : [];
-
-/** What every guide on this site carries. Rendered as the standard, not a promise. */
-const standard = [
-  {
-    label: 'A named author',
-    detail: 'With a reason they would know — something you could check, not a job title.',
-  },
-  {
-    label: 'A real question',
-    detail: 'One somebody actually asked, in a room, out loud. Not one a keyword tool produced.',
-  },
-  {
-    label: 'A date it was checked',
-    detail: 'Tooling moves. A guide that does not say when it was last true is not useful.',
-  },
-  {
-    label: 'Its sources',
-    detail: 'Where it leans on something external, it says so and links it.',
-  },
-];
 ---
 
 <Base
@@ -61,50 +37,25 @@ const standard = [
   breadcrumbs={crumbs}
   schema={schema}
 >
-  <PageIntro
-    eyebrow="Guides"
-    title="Written by people who did it."
-    stamp={`${String(guides.length).padStart(2, '0')} published`}
-  >
-    <p>
-      Practical writing from the community. A guide gets written here because someone asked the
-      question — never because the phrase gets searched.
-    </p>
+  <PageIntro title="Written by people who did it.">
+    <p>Practical writing from the community.</p>
   </PageIntro>
 
-  <Section id="guides" tone="sunk" size="lg" labelledby="guides-heading">
+  <Section id="guides" tone="sunk" labelledby="guides-heading">
     {
       guides.length === 0 ? (
-        <div class="empty">
-          <div>
-            <p class="eyebrow">Guides</p>
-            <h2 id="guides-heading" class="empty-status">
-              Nothing published yet.
-            </h2>
-            <p class="empty-lede">
-              The two questions this community actually asks in the room — what to bring to a build
-              day, and how to get from a Claude Code prototype to something you can show — both
-              deserve a guide. Both need someone who has done it to write them.
-            </p>
-            <a class="btn btn-clay empty-cta" href="/me/profile/edit/">
-              <span>Offer to write one</span>
-              <span class="arrow" aria-hidden="true">
-                →
-              </span>
-            </a>
-          </div>
-
-          <div>
-            <h3 class="label standard-head">What every guide here carries</h3>
-            <dl class="standard">
-              {standard.map((item) => (
-                <div class="standard-row">
-                  <dt>{item.label}</dt>
-                  <dd>{item.detail}</dd>
-                </div>
-              ))}
-            </dl>
-          </div>
+        <div>
+          <h2 id="guides-heading">No guides yet.</h2>
+          <p class="lead empty-lede">
+            Two guides people have asked for: what to bring to a build day, and how to turn a Claude
+            Code prototype into something you can show.
+          </p>
+          <a class="btn btn-primary empty-cta" href="/me/profile/edit/">
+            <span>Offer to write one</span>
+            <span class="arrow" aria-hidden="true">
+              →
+            </span>
+          </a>
         </div>
       ) : (
         <>
@@ -116,8 +67,8 @@ const standard = [
               const author = authorOf(guide);
               return (
                 <li class="guide-item">
-                  <a class="guide-row" href={`/guides/${guide.slug}`}>
-                    <h3 class="guide-title">{guide.title}</h3>
+                  <a class="guide-row" href={`/guides/${guide.slug}/`}>
+                    <h3 class="guide-title t-h3">{guide.title}</h3>
                     <p class="guide-question">{guide.question}</p>
                     <p class="guide-standfirst">{guide.standfirst}</p>
                     <p class="guide-meta">
@@ -142,68 +93,20 @@ const standard = [
 </Base>
 
 <style>
-  .empty {
-    display: grid;
-    gap: var(--s-9);
-  }
-
-  .empty-status {
-    margin-top: var(--s-3);
-    font-size: var(--t-h2);
-    font-weight: 600;
-    line-height: var(--lh-heading);
-    letter-spacing: var(--track-display);
-  }
-
   .empty-lede {
-    margin-top: var(--s-5);
+    margin-top: var(--head-gap);
     max-width: 50ch;
-    font-size: var(--t-lead);
-    color: var(--ink-2);
   }
 
   .empty-cta {
     margin-top: var(--s-6);
   }
 
-  .standard-head {
-    display: block;
-    color: var(--ink-3);
-    padding-bottom: var(--s-3);
-    border-bottom: var(--border-hair) solid var(--rule);
-  }
-
-  .standard {
-    margin-top: var(--s-4);
-  }
-
-  .standard-row {
-    padding: var(--s-4) 0;
-    border-bottom: var(--border-hair) solid var(--rule);
-  }
-
-  .standard-row dt {
-    font-family: var(--font-title);
-    font-size: 1.05rem;
-    font-weight: 600;
-    font-variation-settings:
-      'SOFT' 0,
-      'WONK' 1;
-    letter-spacing: -0.015em;
-  }
-
-  .standard-row dd {
-    margin-top: var(--s-2);
-    font-size: var(--t-small);
-    color: var(--ink-3);
-    max-width: 46ch;
-  }
-
   .guide-list {
     list-style: none;
     padding: 0;
     margin: 0;
-    border-top: var(--border-heavy) solid var(--ink);
+    border-top: var(--border-hair) solid var(--rule-strong);
   }
 
   .guide-item {
@@ -224,17 +127,12 @@ const standard = [
   }
 
   .guide-title {
-    font-size: var(--t-h3);
-    font-weight: 600;
-    line-height: var(--lh-heading);
-    letter-spacing: -0.022em;
     max-width: 32ch;
   }
 
   .guide-question {
     margin-top: var(--s-3);
-    font-family: var(--font-display);
-    font-style: italic;
+    font-family: var(--font-body);
     color: var(--clay-deep);
     max-width: 52ch;
   }
@@ -250,22 +148,11 @@ const standard = [
     flex-wrap: wrap;
     gap: var(--s-3);
     margin-top: var(--s-4);
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: var(--track-meta);
-    text-transform: uppercase;
+    font-size: var(--t-small);
     color: var(--ink-3);
   }
 
   .guide-by {
     color: var(--ink);
-  }
-
-  @media (min-width: 60rem) {
-    .empty {
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-      gap: var(--s-10);
-      align-items: start;
-    }
   }
 </style>

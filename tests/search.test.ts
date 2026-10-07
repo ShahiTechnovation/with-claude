@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   groupByKind,
@@ -7,6 +8,9 @@ import {
   scoreRecord,
 } from '../src/lib/search-core';
 import type { SearchRecord, SearchVocabulary } from '../src/lib/search-core';
+import { buildSearchIndex } from '../src/lib/search';
+import { RecordSelectors } from '../src/data/selectors';
+import { tsRecordSet } from '../src/data/source-ts';
 
 /**
  * The search matcher.
@@ -182,6 +186,36 @@ describe('runSearch', () => {
     expect(ids('quantum tunnelling')).toEqual([]);
   });
 
+  it('matches a short term only where a word starts', () => {
+    // "ai" used to return Chennai, Jaipur and Mumbai.
+    const local = [
+      record({ id: 'city:chennai', kind: 'city', title: 'Chennai', terms: 'chennai tamil nadu' }),
+      record({
+        id: 'project:crowd',
+        kind: 'project',
+        title: 'Crowd Sense AI',
+        terms: 'crowd sense ai',
+      }),
+    ];
+    const hits = (text: string) =>
+      runSearch(local, parseQuery(text, vocabulary)).map((result) => result.record.id);
+    expect(hits('ai')).toEqual(['project:crowd']);
+    // Typing the start of a word still finds it.
+    expect(hits('che')).toEqual(['city:chennai']);
+  });
+
+  it('reads a hyphen as the start of a word', () => {
+    // "synapse os" used to miss Synapse-OS, and "legal aid" a "legal-aid" description.
+    const local = [
+      record({ id: 'project:synapse', kind: 'project', title: 'Synapse-OS', terms: 'synapse-os' }),
+      record({ id: 'project:nyaya', kind: 'project', title: 'nyaya', terms: 'nyaya legal-aid' }),
+    ];
+    const hits = (text: string) =>
+      runSearch(local, parseQuery(text, vocabulary)).map((result) => result.record.id);
+    expect(hits('synapse os')).toEqual(['project:synapse']);
+    expect(hits('legal aid')).toEqual(['project:nyaya']);
+  });
+
   it('only ever returns records that were in the index', () => {
     const known = new Set(index.map((entry) => entry.id));
     for (const result of query('claude')) {
@@ -216,5 +250,46 @@ describe('groupByKind', () => {
     const results = query('bhopal');
     const total = [...groupByKind(results).values()].reduce((sum, list) => sum + list.length, 0);
     expect(total).toBe(results.length);
+  });
+});
+
+describe('buildSearchIndex', () => {
+  it('leaves a builder with nothing written up without a summary, not their role twice', () => {
+    // The meta line beside the summary already prints the role.
+    const builder = {
+      status: 'published',
+      slug: 'x',
+      name: 'X',
+      citySlug: 'bhopal',
+      role: 'Designer',
+      roles: [],
+    };
+    const rs = { ...tsRecordSet(), builders: [builder] };
+    const person = buildSearchIndex(new RecordSelectors(rs as never)).find(
+      (r) => r.id === 'person:x',
+    )!;
+    expect(person.subtitle).toContain('Designer');
+    expect(person.summary).toBe('');
+  });
+});
+
+describe('the search page look', () => {
+  const page = readFileSync('src/components/CommunitySearch.astro', 'utf8');
+  const island = readFileSync('src/scripts/search.ts', 'utf8');
+
+  // Counts are plain numbers: "3", not "03". The server and the island both write them.
+  it('never zero-pads a count', () => {
+    expect(page).not.toMatch(/padStart/);
+    expect(island).not.toMatch(/padStart/);
+  });
+
+  it('sets nothing in mono or tracked capitals', () => {
+    expect(page).not.toMatch(/font-mono|text-transform:\s*uppercase/);
+  });
+
+  it('keeps the tabs as pressed pills the island can toggle', () => {
+    expect(page).toMatch(/'chip', 'search-tab'/);
+    expect(page).toMatch(/aria-pressed=/);
+    expect(island).toMatch(/setAttribute\('aria-pressed'/);
   });
 });

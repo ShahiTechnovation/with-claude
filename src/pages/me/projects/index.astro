@@ -15,11 +15,19 @@ if (guard.ok) privateHeaders(Astro);
 const groups = [
   { status: 'draft', title: 'Drafts', note: 'Only you and your collaborators can see these.' },
   { status: 'published', title: 'Published', note: 'On the projects archive now.' },
-  { status: 'archived', title: 'Archived', note: 'Off the website. Restore one to bring it back as a draft.' },
+  {
+    status: 'archived',
+    title: 'Archived',
+    note: 'Off the website. Restore one to bring it back as a draft.',
+  },
 ]
   .map((g) => ({ ...g, items: projects.filter((p) => p.publicationStatus === g.status) }))
   .filter((g) => g.items.length > 0);
-const ROLE: Record<string, string> = { owner: 'Owner', collaborator: 'Collaborator', contributor: 'Credited' };
+const ROLE: Record<string, string> = {
+  owner: 'Owner',
+  collaborator: 'Collaborator',
+  contributor: 'Credited',
+};
 const held = (state: string) => ['restricted', 'removed', 'archived'].includes(state);
 ---
 
@@ -44,7 +52,8 @@ const held = (state: string) => ['restricted', 'removed', 'archived'].includes(s
         {projects.length === 0 ? (
           <div class="panel">
             <p class="panel-hint">
-              You have no projects yet. Start one with just a name, then publish it when it is complete.
+              You have no projects yet. Start one with just a name, then publish it when it is
+              complete.
             </p>
           </div>
         ) : (
@@ -109,8 +118,7 @@ const held = (state: string) => ['restricted', 'removed', 'archived'].includes(s
 
   .plist-role,
   .plist-public {
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
+    font-size: var(--t-small);
     color: var(--ink-3);
   }
 </style>

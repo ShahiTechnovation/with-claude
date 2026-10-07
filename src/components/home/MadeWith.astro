@@ -1,0 +1,222 @@
+---
+/**
+ * What the rooms made: a rail of the newest event's projects, then the open builder index.
+ * The counts come from the request-local record: public projects with a public event, those
+ * events, and their cities.
+ */
+import ProjectRail from '@/components/ProjectRail.astro';
+import type { RecordSelectors } from '@/data/selectors';
+import { eventLabel } from '@/lib/event-display';
+import { cardProps } from '@/lib/project-display';
+import { listJoin, plural } from '@/lib/words';
+
+interface Props {
+  selectors: RecordSelectors;
+}
+
+const { selectors } = Astro.props;
+// Only projects whose event is public: an independent project was not "built at" an event.
+const projects = selectors.publicProjects.filter(
+  (p) => p.builtAtEventSlug && selectors.eventBySlug.has(p.builtAtEventSlug),
+);
+const events = [...new Set(projects.map((p) => p.builtAtEventSlug!))].map((slug) =>
+  selectors.eventBySlug.get(slug)!,
+);
+const cities = [...new Set(events.map((e) => selectors.cityName(e.citySlug)))];
+const lead =
+  projects.length > 0 && events.length > 0
+    ? `${plural(projects.length, 'project')} built at ${plural(events.length, 'event')} in ${listJoin(cities)}.`
+    : undefined;
+
+// The newest past event with projects (walk the past events, newest first).
+const source = selectors
+  .pastEvents()
+  .map((event) => ({ event, items: selectors.projectsFromEvent(event.slug) }))
+  .find((s) => s.items.length > 0);
+const label = source
+  ? eventLabel(
+      source.event.title,
+      source.event.shortTitle ?? null,
+      selectors.cityName(source.event.citySlug),
+    )
+  : '';
+
+// Ambassadors first, the way /builders/ orders them, so the three shown are not left to row order.
+const builders = selectors.publicBuilders
+  .map((b) => ({
+    slug: b.slug,
+    name: b.name,
+    role: b.role,
+    city: selectors.cityName(b.citySlug),
+    ambassador: Boolean(selectors.ambassadorForBuilder(b)),
+    initials: b.name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((w) => w[0]!.toUpperCase())
+      .join(''),
+  }))
+  .sort((a, b) => Number(b.ambassador) - Number(a.ambassador))
+  .slice(0, 3);
+---
+
+<div class="section-head">
+  <h2 id="projects-heading">Made with Claude.</h2>
+  {lead && <p class="lead">{lead}</p>}
+</div>
+
+{
+  source && (
+    <ProjectRail
+      label={`Projects from ${label}`}
+      items={source.items.slice(0, 6).map((p) => cardProps(p))}
+      more={{ href: '/projects/', label: 'See all projects' }}
+    />
+  )
+}
+
+{
+  builders.length > 0 && (
+    <div class="index-panel">
+      <div class="index-copy">
+        <h3 class="t-h3">Building with Claude in India?</h3>
+        <p class="meta">Anyone can add themselves.</p>
+        <a class="btn btn-sm" href="/me/profile/edit/">
+          Add yourself
+        </a>
+      </div>
+      <ul class="people spotlight">
+        {builders.map((b) => (
+          <li>
+            <span class:list={['av', !b.ambassador && 'is-plain']} aria-hidden="true">
+              {b.initials}
+            </span>
+            <span class="who">
+              <a class="t-title" href={`/builders/${b.slug}/`}>
+                {b.name}
+              </a>
+              {b.role && <span>{b.role}</span>}
+            </span>
+            <span class="where">{b.city}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+<style>
+  .index-panel {
+    display: grid;
+    gap: clamp(32px, 5vw, 80px);
+    margin-top: clamp(48px, 5vw, 72px);
+    padding: clamp(28px, 3.4vw, 48px);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-lg);
+    background:
+      linear-gradient(135deg, rgb(var(--glow) / 0.1), transparent 55%), var(--paper-raised);
+  }
+
+  @media (min-width: 900px) {
+    .index-panel {
+      grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    }
+  }
+
+  .index-copy {
+    display: grid;
+    align-content: center;
+    justify-items: start;
+    gap: 16px;
+  }
+
+  .index-copy h3 {
+    margin: 0;
+  }
+
+  .people {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .people li {
+    display: grid;
+    grid-template-columns: 48px 1fr auto;
+    align-items: center;
+    gap: 16px;
+    position: relative;
+    padding-block: 16px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .people li:first-child {
+    padding-top: 0;
+  }
+
+  .people li:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  .av {
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, #f0a080, #c6613f);
+    color: var(--btn-ink);
+    font-family: var(--font-title);
+    font-size: var(--t-small);
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .av.is-plain {
+    border: 1px solid var(--rule-strong);
+    background: var(--paper-raised-2);
+    color: var(--ink);
+  }
+
+  .who {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .who a {
+    justify-self: start;
+    text-decoration: none;
+  }
+
+  /* The name link covers the whole row, so the lit row is all clickable. */
+  .who a::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+  }
+
+  .who a:hover {
+    text-decoration: underline;
+    text-decoration-color: var(--clay);
+    text-underline-offset: 0.2em;
+  }
+
+  .who span,
+  .where {
+    color: var(--ink-3);
+    font-size: var(--t-small);
+    line-height: 1.4;
+  }
+
+  @media (max-width: 640px) {
+    .people li {
+      grid-template-columns: 48px 1fr;
+    }
+
+    .where {
+      display: none;
+    }
+  }
+</style>

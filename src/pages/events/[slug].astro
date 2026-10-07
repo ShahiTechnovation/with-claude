@@ -2,9 +2,7 @@
 import { privateCache, publicCache } from '@/server/http/cache';
 import { eventProjects } from '@/server/public/pages';
 import { logReadFailure } from '@/server/public/read-failure';
-import ProjectRow from '@/components/directory/ProjectRow.astro';
 import { directoryHref } from '@/server/public/projects';
-import '@/styles/directory.css';
 import { loadLiveRecords } from '@/server/directory';
 import { RecordSelectors } from '@/data/selectors';
 export const prerender = false;
@@ -16,25 +14,27 @@ publicCache(Astro);
 import { Image } from 'astro:assets';
 import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
-import PageIntro from '@/components/PageIntro.astro';
+import ProjectGrid from '@/components/ProjectGrid.astro';
 import { site } from '@/data';
 import {
-  dateParts,
   formatDate,
+  formatDayLong,
+  formatHours,
   formatTime,
-  formatTimeRange,
   isoDateTime,
   relativeDay,
   istInstant,
   formatDateLong,
 } from '@/lib/datetime';
+import { eventPlate } from '@/lib/event-plate';
+import { cardProps } from '@/lib/project-display';
+import { listJoin } from '@/lib/words';
 import { registrationLink } from '@/lib/attribution';
 import { CREDIT_ROLE_LABEL } from '@/lib/credits';
-import { formatCoords } from '@/lib/geo';
-import { asset, requireAsset } from '@/lib/images';
+import { requireAsset } from '@/lib/images';
 import { titles, trail } from '@/lib/seo';
 import {
-  formatName,
+  isForthcoming,
   isRegistrationOpen,
   lifecycleLabel,
   lifecycleOf,
@@ -48,11 +48,11 @@ const event = selectors.eventBySlug.get(slug);
 if (!event) return Astro.rewrite('/not-found/');
 
 const lifecycle = lifecycleOf(event);
-const parts = dateParts(event.date);
-const city = selectors.cityBySlug.get(event.citySlug);
 const speakers = selectors.speakersOf(event);
 const coHosts = selectors.coHostsOf(event);
 const ambassador = selectors.hostAmbassador(event);
+// The one venue rule (README rule 2): no private address, no venue that is only the city.
+const venue = selectors.venueLabel(event);
 
 /**
  * The credited ambassadors other than the headline host.
@@ -63,9 +63,9 @@ const ambassador = selectors.hostAmbassador(event);
  * archive's record of who talked — and listing the same person under both
  * would imply two separate contributions.
  */
-const otherCredits = selectors.eventCredits(event).filter(
-  (entry) => entry.credit.role !== 'primary_host' && entry.credit.role !== 'speaker',
-);
+const otherCredits = selectors
+  .eventCredits(event)
+  .filter((entry) => entry.credit.role !== 'primary_host' && entry.credit.role !== 'speaker');
 const canRegister = isRegistrationOpen(event);
 /**
  * The registration href, with WITH CLAUDE attribution merged in. §26.
@@ -75,7 +75,9 @@ const canRegister = isRegistrationOpen(event);
  * stay canonical.
  */
 const registerHref = registrationLink(event.registrationUrl);
-const cover = asset(event.coverImage);
+// Its cover, else the official Claude Community plate for this event (src/assets/plates/<slug>.jpg).
+// The head draws it and the share card declares it, through the one helper, so they never disagree.
+const plate = eventPlate(event);
 /**
  * The URL to publish as this page's `og:image`.
  *
@@ -87,7 +89,7 @@ const cover = asset(event.coverImage);
  * cover advertised a 404 to every link unfurler while the nine without one
  * fell back to `/og-card.jpg` and worked.
  *
- * `cover.src` is the URL the image pipeline actually emits, so this declares
+ * `plate.src` is the URL the image pipeline actually emits, so this declares
  * the same picture the page draws rather than a second, invented path. The
  * alternative was to `git mv` the covers into `public/` and declare a
  * root-relative path; the asset route is taken because it keeps content
@@ -98,7 +100,7 @@ const cover = asset(event.coverImage);
  * `undefined` for an event with no cover, which lets `Base`'s own
  * `/og-card.jpg` default apply — a generic card, never a broken one.
  */
-const shareImage = cover?.src;
+const shareImage = plate?.src;
 /**
  * Projects built here: the SAME query and visibility predicate as the
  * Project Directory (`publicProjectsForEvent`), joined on this event's UUID —
@@ -123,24 +125,21 @@ const outputs = built.items;
 const recaps = selectors.storiesForEvent(event.slug);
 const isPast = lifecycle === 'past';
 
-// An event with neither a cover nor photographs should not leave half the page
-// empty — the record simply runs full width.
-const hasAside = Boolean(cover || event.photos?.length);
-
 const position = selectors.eventsChronological.findIndex((e) => e.slug === event.slug);
 const previous = selectors.eventsChronological[position - 1];
 const upNext = selectors.eventsChronological[position + 1];
 
-const metaDescription = lifecycle === 'upcoming' && canRegister && event.registrationUrl
-  ? `Register for ${event.title}: ${event.description ?? event.summary}`
-  : (event.description ?? event.summary);
+const metaDescription =
+  lifecycle === 'upcoming' && canRegister && event.registrationUrl
+    ? `Register for ${event.title}: ${event.description ?? event.summary}`
+    : (event.description ?? event.summary);
 
 const schema = [
   {
     '@type': 'Event',
     name: `${event.title} · ${selectors.cityName(event.citySlug)}`,
     description: event.description ?? event.summary,
-    url: `${site.url}/events/${event.slug}`,
+    url: `${site.url}/events/${event.slug}/`,
     startDate: isoDateTime(event.date, event.startTime),
     ...(event.endTime ? { endDate: isoDateTime(event.date, event.endTime) } : {}),
     eventStatus:
@@ -198,742 +197,691 @@ const crumbs = trail(
   { name: selectors.cityName(event.citySlug), href: `/cities/${event.citySlug}` },
   { name: event.title, href: `/events/${event.slug}` },
 );
+// The head's one sentence. Short names keep the template line short, so prettier never breaks it
+// and Astro never renders that break as a space before a comma.
+const city = selectors.cityName(event.citySlug);
+const cityHref = `/cities/${event.citySlug}/`;
+const startsAt = isoDateTime(event.date, event.startTime);
+const day = formatDayLong(event.date, true);
+const hours = formatHours(event.startTime, event.endTime);
+// Free entry needs approval: the same words as EventFeature ("free, with approval").
+// Entry terms are for people still deciding to come: a room that is over keeps only where it was.
+const entry = isForthcoming(event)
+  ? `${event.free ? 'Free, with approval' : 'Ticketed'}${
+      event.venue.private
+        ? '; the venue is shared with confirmed registrants'
+        : venue
+          ? `, at ${venue}`
+          : ''
+    }.`
+  : venue
+    ? `At ${venue}.`
+    : '';
+// Only a room still ahead can go stale; a cancelled one must never flip to "Past".
+const endsAt = !isForthcoming(event)
+  ? undefined
+  : event.endTime
+    ? isoDateTime(event.date, event.endTime)
+    : new Date(istInstant(event.date, event.startTime).getTime() + 2 * 3600000).toISOString();
+// A regex, not a URL parse that can throw: registrationLink() passes a non-URL through unchanged.
+const onLuma = /^https?:\/\/([^/?#]+\.)?(luma\.com|lu\.ma)([/?#:]|$)/i.test(registerHref ?? '');
+const organisations = listJoin(event.host.organisations ?? []);
+const hostHref = ambassador ? `/ambassadors/${ambassador.slug}/` : '';
+const hostTail = organisations ? `, with ${organisations}.` : '.';
+const hasHosts = Boolean(ambassador || organisations || coHosts.length || speakers.length);
+const shown = outputs.slice(0, 6);
+// The first photo spans both columns (a pair stays side by side); with an even count the last one
+// does too, so none sits alone.
+const wide = (i: number, n: number) => (i === 0 ? n !== 2 : n > 2 && n % 2 === 0 && i === n - 1);
+const written = [
+  ...recaps.map((story) => ({
+    href: `/stories/${story.slug}/`,
+    title: story.title,
+    sub: story.standfirst,
+  })),
+  ...practice.map((useCase) => ({
+    href: `/use-cases/${useCase.slug}/`,
+    title: useCase.title,
+    sub: useCase.summary,
+  })),
+  ...eventGuides.map((guide) => ({
+    href: `/guides/${guide.slug}/`,
+    title: guide.title,
+    sub: guide.standfirst,
+  })),
+];
 ---
 
 <Base
-  title={`${event.title} · ${selectors.cityName(event.citySlug)}`}
-  seoTitle={titles.event(event.title, selectors.cityName(event.citySlug))}
+  title={`${event.title} · ${city}`}
+  seoTitle={titles.event(event.title, city)}
   description={metaDescription}
   active="/events"
   breadcrumbs={crumbs}
   schema={schema}
   image={shareImage}
-  ogImageAlt={`Poster for ${event.title} in ${selectors.cityName(event.citySlug)}`}
+  ogImageAlt={`Poster for ${event.title} in ${city}`}
 >
-  <PageIntro
-    eyebrow={`${selectors.cityName(event.citySlug)} · ${formatName(event.format)}${event.volume ? ` · vol. ${String(event.volume).padStart(2, '0')}` : ''}`}
-    title={event.title}
-    stamp={city ? formatCoords(city.lat, city.lon) : undefined}
-  >
-    <p>{event.description ?? event.summary}</p>
-    
-    <div class="intro-facts">
-      <p>
-        <strong>Date:</strong> <time datetime={isoDateTime(event.date, event.startTime)}>{formatDate(event.date)}</time>
-        {event.rescheduledFrom && <span class="rescheduled"> · rescheduled from {formatDateLong(event.rescheduledFrom).replace(/ \d{4}$/, '')}</span>}
-      </p>
-      <p><strong>Location:</strong> <a href={`/cities/${event.citySlug}`}>{selectors.cityName(event.citySlug)}</a></p>
-      {ambassador && (
-        <p><strong>Host:</strong> <a href={`/builders/${ambassador.builderSlug ?? ambassador.slug}`}>{ambassador.name}</a></p>
-      )}
-    </div>
-  </PageIntro>
-
-  <Section id="detail" tone="sunk" labelledby="detail-heading">
-    <h2 id="detail-heading" class="visually-hidden">Details</h2>
-    <div class:list={['detail', { 'has-aside': hasAside }]}>
-      <div class="detail-main">
-        <div 
-          class="detail-status" 
-          data-event-end={
-            event.endTime 
-              ? isoDateTime(event.date, event.endTime) 
-              : new Date(istInstant(event.date, event.startTime).getTime() + 2 * 3600000).toISOString()
-          }
-        >
-          <span class:list={['pip', `pip-${lifecycleTone(lifecycle)}`]}>
-            {lifecycleLabel(lifecycle)}
-          </span>
-          <span class="detail-when">{relativeDay(event.date)}</span>
-        </div>
-
-        <p class="detail-date">
-          <time datetime={isoDateTime(event.date, event.startTime)}>{formatDate(event.date)}</time>
+  <header class:list={['event-head', { 'has-plate': plate }]}>
+    <i class="sunrise is-corner" aria-hidden="true"></i>
+    <div class="container event-head-inner">
+      {
+        plate && (
+          <Image
+            class="event-plate"
+            src={plate}
+            alt={`Poster for ${event.title} in ${city}`}
+            widths={[360, 720]}
+            sizes="(min-width: 900px) 360px, min(360px, 100vw)"
+            loading="eager"
+            decoding="async"
+          />
+        )
+      }
+      <div class="event-copy">
+        {
+          lifecycle !== 'past' && (
+            <p class="event-status" data-event-end={endsAt}>
+              <span class:list={['pip', `pip-${lifecycleTone(lifecycle)}`]}>
+                {lifecycleLabel(lifecycle)}
+              </span>
+              {lifecycle !== 'cancelled' && (
+                <span class="event-when">{relativeDay(event.date)}</span>
+              )}
+            </p>
+          )
+        }
+        <h1 class="t-h1 event-title">{event.title}</h1>
+        <p class="lead event-lead">
+          <time datetime={startsAt}>{day}</time>, {hours}, in <a href={cityHref}>{city}</a>. {entry}
         </p>
-        <p class="detail-time">{formatTimeRange(event.startTime, event.endTime)}</p>
         {
           event.rescheduledFrom && (
-            <p class="detail-rescheduled">
+            <p class="event-note">
               {lifecycle === 'cancelled'
                 ? `Moved to ${formatDateLong(event.date)} from ${formatDateLong(event.rescheduledFrom).replace(/ \d{4}$/, '')}.`
                 : `${isPast ? 'Held on' : 'Now on'} ${formatDateLong(event.date)}, rescheduled from ${formatDateLong(event.rescheduledFrom).replace(/ \d{4}$/, '')}.`}
             </p>
           )
         }
-
         {
-          ambassador && (
-            <div class="detail-host">
-              <span class="chip chip-verified">Ambassador-led</span>
-              <p class="detail-host-line">
-                {/*
-                  §29 — the host credit leads to the AMBASSADOR page, not
-                  straight to the builder profile.
-                
-                  It used to link to `/builders/…`, which skipped the one page
-                  that answers the question a reader of an event page actually
-                  has: what else does this person run. The ambassador page
-                  carries the upcoming and past rooms and cross-links the
-                  builder profile from there (§24), so nothing is lost and the
-                  graph runs the way §29 and §30 describe.
-                */}
-                Hosted by{' '}
-                <a href={`/ambassadors/${ambassador.slug}`}>{ambassador.name}</a>, {ambassador.title}.
-              </p>
-
-              {/*
-                Everyone else credited on this room, if anyone is. Reads
-                `event_hosts` through the selector, so a co-host or organiser
-                credit added in the admin appears here without this page
-                learning anything new about roles.
-              */}
-              {otherCredits.length > 0 && (
-                <p class="detail-host-line">
-                  With{' '}
-                  {otherCredits.map((entry, index) => (
-                    <>
-                      {index > 0 && (index === otherCredits.length - 1 ? ' & ' : ', ')}
-                      <a href={`/ambassadors/${entry.ambassador.slug}`}>{entry.ambassador.name}</a>
-                      {` (${CREDIT_ROLE_LABEL[entry.credit.role]})`}
-                    </>
-                  ))}
-                  .
-                </p>
-              )}
-              <p class="detail-host-note">
-                Claude Community Ambassadors are appointed by Anthropic. This site records the
-                status, it does not grant it.
-              </p>
-            </div>
+          canRegister && registerHref && (
+            <p class="event-actions">
+              <a
+                class="btn btn-primary event-register"
+                href={registerHref}
+                target="_blank"
+                rel="noopener"
+              >
+                {onLuma ? 'Register on Luma' : 'Register'}
+                <svg viewBox="0 0 20 20" aria-hidden="true">
+                  <path
+                    d="M7 13l6.5-6.5M8 6.5h5.5V12"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </a>
+            </p>
           )
         }
+      </div>
+    </div>
+  </header>
 
-        <dl class="detail-meta">
-          <div>
-            <dt class="label">Venue</dt>
-            <dd>
-              {event.venue.name}
-              {event.venue.address && <span class="detail-sub">{event.venue.address}</span>}
-              {
-                event.venue.private && (
-                  <span class="detail-sub">Shared with confirmed registrants</span>
-                )
-              }
-            </dd>
-          </div>
-          <div>
-            <dt class="label">City</dt>
-            <dd><a href={`/cities/${event.citySlug}`}>{selectors.cityName(event.citySlug)}</a></dd>
-          </div>
-          <div>
-            <dt class="label">Entry</dt>
-            <dd>{event.free ? 'Free · approval required' : 'Ticketed'}</dd>
-          </div>
-          {
-            coHosts.length > 0 && (
-              <div>
-                <dt class="label">Co-hosted by</dt>
-                <dd>
-                  {coHosts.map((person, i) => (
-                    <>
-                      {i > 0 && ', '}
-                      <a href={`/builders/${person.slug}`}>{person.name}</a>
-                    </>
-                  ))}
-                </dd>
-              </div>
-            )
-          }
-          {
-            event.host.organisations && event.host.organisations.length > 0 && (
-              <div>
-                <dt class="label">With</dt>
-                <dd>{event.host.organisations.join(', ')}</dd>
-              </div>
-            )
-          }
-        </dl>
-
+  {/* One paper ground for About and Hosted by: one Section, each block a part under a hairline. */}
+  <Section id="details">
+    <section id="about" class="part" aria-labelledby="about-heading">
+      <div class="event-body">
+        <h2 id="about-heading" class="event-h2">About</h2>
+        <p class="event-text">{event.description ?? event.summary}</p>
         {
           event.agenda && event.agenda.length > 0 && (
-            <div class="detail-block">
-              <h3 class="label detail-block-head">What happens</h3>
-              <ol class="detail-agenda">
+            <>
+              <h3 class="event-h3">What happens</h3>
+              <ol class="event-list">
                 {event.agenda.map((item) => (
                   <li>
-                    {item.time && <span class="agenda-time">{formatTime(item.time)}</span>}
-                    <span class="agenda-title">{item.title}</span>
-                    {item.detail && <span class="detail-sub">{item.detail}</span>}
+                    {item.time && <span class="event-sub">{formatTime(item.time)}</span>}
+                    <span class="event-item">{item.title}</span>
+                    {item.detail && <span class="event-sub">{item.detail}</span>}
                   </li>
                 ))}
               </ol>
-            </div>
+            </>
           )
         }
-
         {
-          speakers.length > 0 && (
-            <div class="detail-block">
-              <h3 class="label detail-block-head">Led by</h3>
-              <ul class="detail-people">
-                {speakers.map((person) => (
-                  <li>
-                    <a href={`/builders/${person.slug}`}>{person.name}</a>
-                    <span class="detail-sub">{person.role}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )
-        }
-
-        {
-          event.outcomes && (
-            <div class="detail-block">
-              <h3 class="label detail-block-head">What happened</h3>
-              <ul class="detail-outcomes">
+          event.outcomes && event.outcomes.length > 0 && (
+            <>
+              <h3 class="event-h3">What happened</h3>
+              <ul class="event-list">
                 {event.outcomes.map((outcome) => (
-                  <li>{outcome}</li>
+                  <li class="event-text">{outcome}</li>
                 ))}
               </ul>
-            </div>
+            </>
           )
         }
-
-
-        {
-          recaps.length > 0 && (
-            <div class="detail-block">
-              <h3 class="label detail-block-head">Written up</h3>
-              <ul class="detail-people">
-                {recaps.map((story) => (
-                  <li>
-                    <a href={`/stories/${story.slug}`}>{story.title}</a>
-                    <span class="detail-sub">{story.standfirst}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )
-        }
-
-        {
-          (practice.length > 0 || eventGuides.length > 0) && (
-            <div class="detail-block">
-              <h3 class="label detail-block-head">Practice from this room</h3>
-              <ul class="detail-people">
-                {practice.map((useCase) => (
-                  <li>
-                    <a href={`/use-cases/${useCase.slug}`}>{useCase.title}</a>
-                    <span class="detail-sub">{useCase.summary}</span>
-                  </li>
-                ))}
-                {eventGuides.map((guide) => (
-                  <li>
-                    <a href={`/guides/${guide.slug}`}>{guide.title}</a>
-                    <span class="detail-sub">{guide.standfirst}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )
-        }
-
-        {
-          isPast && outputs.length === 0 && !projectsFailed && (
-            <div class="detail-block detail-open">
-              <h3 class="label detail-block-head">Build something here?</h3>
-              <p class="detail-open-copy">
-                Nothing from this room is in the archive yet. If you made something, it belongs on
-                the record.
-              </p>
-              <a class="link-arrow" href="/submit/">
-                <span>Submit your build</span>
-                <span class="arrow" aria-hidden="true">
-                  →
-                </span>
-              </a>
-            </div>
-          )
-        }
-
-        <div class="detail-actions">
-          {
-            canRegister && registerHref ? (
-              <a class="btn btn-clay" href={registerHref} target="_blank" rel="noopener">
-                <span>Register</span>
-                <span class="arrow" aria-hidden="true">
-                  ↗
-                </span>
-              </a>
-            ) : (
-              <span class="btn btn-quiet" aria-disabled="true">
-                {lifecycleLabel(lifecycle)}
-              </span>
-            )
-          }
-          <a class="link-arrow" href="/events">
-            <span>All events</span>
-            <span class="arrow" aria-hidden="true">→</span>
-          </a>
-        </div>
       </div>
+    </section>
 
-      {
-        hasAside && (
-          <aside class="detail-aside">
-            {cover && (
-              <figure class="detail-cover">
-                <div class="plate plate-framed">
-                  <Image
-                    src={cover}
-                    alt={`Poster for ${event.title} in ${selectors.cityName(event.citySlug)}`}
-                    widths={[360, 640]}
-                    sizes="(max-width: 61.99em) 90vw, 340px"
-                    loading="eager"
-                    decoding="async"
-                  />
-                </div>
-                <figcaption class="plate-caption">
-                  <span>{`vol. ${String(event.volume ?? 0).padStart(2, '0')}`}</span>
-                  <span>{`${parts.monthShort} ${parts.year}`}</span>
-                </figcaption>
-              </figure>
+    {
+      hasHosts && (
+        <section id="hosts" class="part" aria-labelledby="hosts-heading">
+          <div class="event-body">
+            <h2 id="hosts-heading" class="event-h2">
+              Hosted by
+            </h2>
+            {ambassador ? (
+              <p class="event-text">
+                {/* One expression: a line break between </a> and the tail would render as a space. */}
+                {['Hosted by ', <a href={hostHref}>{ambassador.name}</a>, hostTail]}
+              </p>
+            ) : (
+              organisations && <p class="event-text">{`With ${organisations}.`}</p>
             )}
-
-            {event.photos && event.photos.length > 0 && (
-              <div class="detail-photos">
-                <h3 class="label detail-block-head">From the room</h3>
-                <ul>
-                  {event.photos.map((photo, i) => (
+            {/*
+            Everyone else credited on this room, if anyone is. Reads `event_hosts` through the
+            selector, so a co-host or organiser credit added in the admin appears here without this
+            page learning anything new about roles.
+          */}
+            {ambassador && otherCredits.length > 0 && (
+              <p class="event-text">
+                {[
+                  'With ',
+                  ...otherCredits.flatMap((credit, i) => [
+                    i === 0 ? '' : i === otherCredits.length - 1 ? ' & ' : ', ',
+                    <a href={`/ambassadors/${credit.ambassador.slug}/`}>
+                      {credit.ambassador.name}
+                    </a>,
+                    ` (${CREDIT_ROLE_LABEL[credit.credit.role]})`,
+                  ]),
+                  '.',
+                ]}
+              </p>
+            )}
+            {coHosts.length > 0 && (
+              <p class="event-text">
+                {[
+                  'Co-hosted by ',
+                  ...coHosts.flatMap((person, i) => [
+                    i === 0 ? '' : ', ',
+                    <a href={`/builders/${person.slug}/`}>{person.name}</a>,
+                  ]),
+                  '.',
+                ]}
+              </p>
+            )}
+            {speakers.length > 0 && (
+              <>
+                <h3 class="event-h3">Led by</h3>
+                <ul class="event-list">
+                  {speakers.map((person) => (
                     <li>
-                      <figure>
-                        <div class="plate plate-framed plate-zoom">
-                          <Image
-                            src={requireAsset(photo.src)}
-                            alt={photo.alt}
-                            widths={[400, 700]}
-                            sizes="(max-width: 61.99em) 90vw, 340px"
-                            loading="lazy"
-                            decoding="async"
-                          />
-                        </div>
-                        <figcaption class="plate-caption">
-                          <span>
-                            {`Pl. ${String(event.volume ?? 0).padStart(2, '0')}/${String(i + 1).padStart(2, '0')}`}
-                          </span>
-                        </figcaption>
-                      </figure>
+                      <a class="event-item" href={`/builders/${person.slug}/`}>
+                        {person.name}
+                      </a>
+                      <span class="event-sub">{person.role}</span>
                     </li>
                   ))}
                 </ul>
-              </div>
+              </>
             )}
-          </aside>
-        )
-      }
-    </div>
+          </div>
+        </section>
+      )
+    }
   </Section>
 
   {
     built.total > 0 && (
-      <Section id="projects" labelledby="projects-heading">
-        <div class="dir event-projects">
-          <div class="event-projects-head">
-            <h2 id="projects-heading">
-              Projects built here <span class="event-projects-count">{built.total}</span>
-            </h2>
-            <a class="dir-clear" href={directoryHref({ events: [event.slug] })}>
-              {built.total > outputs.length ? `See all ${built.total} in the Project Directory →` : 'Open in the Project Directory →'}
+      <Section id="projects" tone="sunk" labelledby="projects-heading">
+        <div class="section-head">
+          <h2 id="projects-heading">Projects built here</h2>
+          {built.total > shown.length && (
+            <a class="link section-more" href={directoryHref({ events: [event.slug] })}>
+              {`All ${built.total} projects`}
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <path
+                  d="M4 10h11m-4.5-4.5L15 10l-4.5 4.5"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
             </a>
-          </div>
-          <ul class="dir-list">
-            {outputs.map((project) => (
-              <li>
-                <ProjectRow project={project} />
-              </li>
-            ))}
-          </ul>
+          )}
         </div>
+        <ProjectGrid items={shown.map((project) => cardProps(project))} />
       </Section>
     )
   }
 
   {
     projectsFailed && (
-      <Section id="projects" labelledby="projects-heading">
-        <div class="dir event-projects">
+      <Section id="projects" tone="sunk" labelledby="projects-heading">
+        <div class="section-head">
           <h2 id="projects-heading">Projects built here</h2>
-          <p class="dir-status" data-state="error" role="status">
-            The projects from this event could not be loaded right now.{' '}
-            <a href={directoryHref({ events: [event.slug] })}>Try the Project Directory</a>
-          </p>
+        </div>
+        <p class="event-text" role="status">
+          The projects from this event could not be loaded right now.{' '}
+          <a href="/projects/">See all projects</a>
+        </p>
+      </Section>
+    )
+  }
+
+  {
+    isPast && built.total === 0 && !projectsFailed && (
+      <Section id="projects" tone="sunk" labelledby="projects-heading">
+        <div class="event-body">
+          <h2 id="projects-heading" class="event-h2">
+            Build something here?
+          </h2>
+          <a class="link" href="/me/projects/new/">
+            Submit your build
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path
+                d="M4 10h11m-4.5-4.5L15 10l-4.5 4.5"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </a>
         </div>
       </Section>
     )
   }
 
-  <Section id="around" size="sm">
-    <nav class="around" aria-label="Other events">
-      {
-        previous ? (
-          <a class="around-link" href={`/events/${previous.slug}`}>
-            <span class="around-dir">← Before</span>
-            <span class="around-title">{previous.title}</span>
-            <span class="around-meta">{formatDate(previous.date)}</span>
-          </a>
-        ) : (
-          <span />
-        )
-      }
-      {
-        upNext && (
-          <a class="around-link is-next" href={`/events/${upNext.slug}`}>
-            <span class="around-dir">After →</span>
-            <span class="around-title">{upNext.title}</span>
-            <span class="around-meta">{formatDate(upNext.date)}</span>
-          </a>
-        )
-      }
-    </nav>
-  </Section>
+  {/* Photos, Written up and the neighbours share the paper ground too: one Section. */}
+  {
+    Boolean(event.photos?.length || written.length || previous || upNext) && (
+      <Section id="more">
+        {event.photos && event.photos.length > 0 && (
+          <section id="photos" class="part" aria-labelledby="photos-heading">
+            <div class="section-head">
+              <h2 id="photos-heading">Photos</h2>
+            </div>
+            <ul class="event-photos">
+              {event.photos.map((photo, i) => (
+                <li class:list={{ 'is-wide': wide(i, event.photos!.length) }}>
+                  <figure>
+                    <Image
+                      src={requireAsset(photo.src)}
+                      alt={photo.alt}
+                      widths={wide(i, event.photos!.length) ? [640, 1280, 1600] : [400, 800, 1280]}
+                      sizes={
+                        wide(i, event.photos!.length)
+                          ? '(min-width: 1421px) 1296px, 92vw'
+                          : '(min-width: 1421px) 638px, (min-width: 700px) 46vw, 92vw'
+                      }
+                      loading="lazy"
+                      decoding="async"
+                    />
+                    {/* The caption is the alt text, shown; hidden from screen readers so it is not read twice. */}
+                    <figcaption class="meta" aria-hidden="true">
+                      {photo.alt}
+                    </figcaption>
+                  </figure>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {written.length > 0 && (
+          <section id="written" class="part" aria-labelledby="written-heading">
+            <div class="event-body">
+              <h2 id="written-heading" class="event-h2">
+                Written up
+              </h2>
+              <ul class="event-list">
+                {written.map((item) => (
+                  <li>
+                    <a class="event-item" href={item.href}>
+                      {item.title}
+                    </a>
+                    {item.sub && <span class="event-sub">{item.sub}</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        )}
+
+        {(previous || upNext) && (
+          <div id="around" class="part">
+            <nav class="around" aria-label="Other events">
+              {previous ? (
+                <a class="around-link" href={`/events/${previous.slug}/`}>
+                  <span class="around-dir">← Before</span>
+                  <span class="around-title">{previous.title}</span>
+                  <span class="around-meta">{formatDate(previous.date)}</span>
+                </a>
+              ) : (
+                <span />
+              )}
+              {upNext && (
+                <a class="around-link is-next" href={`/events/${upNext.slug}/`}>
+                  <span class="around-dir">After →</span>
+                  <span class="around-title">{upNext.title}</span>
+                  <span class="around-meta">{formatDate(upNext.date)}</span>
+                </a>
+              )}
+            </nav>
+          </div>
+        )}
+      </Section>
+    )
+  }
 
   <script>
-    // Progressive enhancement to handle stale CDN cache between event end and nightly cron
-    const statusEl = document.querySelector('.detail-status[data-event-end]');
-    const actionsEl = document.querySelector('.detail-actions');
-    
-    if (statusEl) {
-      const endStr = statusEl.getAttribute('data-event-end');
-      if (endStr && Date.now() >= new Date(endStr).getTime()) {
-        const pip = statusEl.querySelector('.pip');
-        if (pip && !pip.classList.contains('pip-archive')) {
-          pip.className = 'pip pip-archive';
-          pip.textContent = 'Past';
-          
-          if (actionsEl) {
-            const btn = actionsEl.querySelector('.btn');
-            if (btn && btn.tagName === 'A') {
-              const span = document.createElement('span');
-              span.className = 'btn btn-quiet';
-              span.setAttribute('aria-disabled', 'true');
-              span.textContent = 'Past';
-              btn.replaceWith(span);
-            }
-          }
-        }
+    // A stale CDN copy can outlive the event: once it has ended, say so and drop the Register button.
+    const status = document.querySelector('.event-status[data-event-end]');
+    const end = status?.getAttribute('data-event-end');
+    if (status && end && Date.now() >= new Date(end).getTime()) {
+      const pip = status.querySelector('.pip');
+      if (pip) {
+        pip.className = 'pip pip-archive';
+        pip.textContent = 'Past';
       }
+      status.querySelector('.event-when')?.remove();
+      document.querySelector('.event-actions')?.remove();
     }
   </script>
 </Base>
 
 <style>
-  .event-projects {
-    display: grid;
-    gap: 1rem;
-    padding-inline: 0;
+  .event-head {
+    position: relative;
+    /* clip, as in PageIntro: the corner sun must not be pannable on iOS. */
+    overflow: hidden;
+    overflow: clip;
+    isolation: isolate;
+    padding-block: clamp(40px, 5vw, 72px) clamp(20px, 2.2vw, 32px); /* PageIntro's */
   }
 
-  .event-projects-head {
+  .event-head-inner {
+    display: grid;
+    gap: clamp(1.5rem, 3vw, 3rem);
+    align-items: center;
+  }
+
+  .event-plate {
+    display: block;
+    width: 100%;
+    max-width: 360px;
+    height: auto;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--glow-tile);
+  }
+
+  .event-copy {
+    display: grid;
+    gap: var(--head-gap);
+    justify-items: start;
+    min-width: 0;
+  }
+
+  .event-status {
     display: flex;
     flex-wrap: wrap;
-    justify-content: space-between;
     align-items: baseline;
-    gap: 0.5rem 1rem;
+    gap: 0.75rem;
   }
 
-  .event-projects-head h2 {
-    margin: 0;
-    font-family: var(--font-body);
-    font-size: 1.375rem;
-    font-weight: 650;
-  }
-
-  .event-projects-count {
-    margin-left: 0.35rem;
-    font-family: var(--font-mono);
-    font-size: 0.875rem;
-    font-weight: 500;
-    font-variant-numeric: tabular-nums;
-    letter-spacing: 0.06em;
-    color: var(--ink-3);
-    vertical-align: middle;
-  }
-
-  .detail-rescheduled,
-  .rescheduled {
+  .event-when {
+    font-size: var(--t-small);
     color: var(--ink-3);
   }
 
-  .detail-rescheduled {
-    margin: 0;
-    font-size: var(--t-small);
+  .event-title {
+    color: var(--ink);
+    text-wrap: balance;
+    overflow-wrap: break-word;
   }
-  .intro-facts {
-    margin-top: var(--s-6);
-    padding-top: var(--s-4);
-    border-top: var(--border-hair) solid var(--rule);
-    font-family: var(--font-mono);
-    font-size: var(--t-small);
+
+  .event-lead {
+    max-width: 48ch;
     color: var(--ink-2);
   }
 
-  .intro-facts p + p {
-    margin-top: var(--s-2);
-  }
-
-  .intro-facts a {
-    color: inherit;
+  .event-lead a,
+  .event-text a {
+    color: var(--ink);
     text-decoration: underline;
-    text-underline-offset: 2px;
+    text-decoration-color: var(--rule-strong);
+    text-underline-offset: 3px;
   }
 
-  .detail {
-    display: grid;
-    gap: var(--s-8);
+  .event-lead a:hover,
+  .event-text a:hover {
+    text-decoration-color: var(--clay);
   }
 
-  .detail-status {
-    display: flex;
-    align-items: baseline;
-    gap: var(--s-4);
-    padding-bottom: var(--s-4);
-    border-bottom: var(--border-heavy) solid var(--ink);
-  }
-
-  .detail-when {
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: var(--track-meta);
-    text-transform: uppercase;
+  .event-note {
+    font-size: var(--t-small);
     color: var(--ink-3);
   }
 
-  .detail-date {
-    margin-top: var(--s-6);
-    font-family: var(--font-display);
-    font-size: clamp(1.8rem, 4.5vw, 3rem);
-    font-weight: 300;
-    font-variation-settings:
-      'SOFT' 0,
-      'WONK' 1;
-    line-height: 1;
-    letter-spacing: -0.035em;
-  }
-
-  .detail-time {
+  .event-actions {
     margin-top: var(--s-3);
-    font-family: var(--font-mono);
-    font-size: var(--t-small);
-    letter-spacing: 0.05em;
-    color: var(--clay-deep);
   }
 
-  /* --- Host ---------------------------------------------------------------- */
-  .detail-host {
+  @media (min-width: 900px) {
+    .event-head.has-plate .event-head-inner {
+      grid-template-columns: minmax(0, 1fr) 360px;
+    }
+
+    .event-plate {
+      grid-column: 2;
+      grid-row: 1;
+    }
+  }
+
+  /* As after a PageIntro: the head's own padding already opens the gap. */
+  .event-head + :global(#details) {
+    padding-top: calc(var(--section-y) / 2);
+  }
+
+  /* --- Parts: blocks that share a ground, one Section with a hairline between. */
+  .part + .part {
+    margin-top: calc(var(--section-y) * 0.4);
+    padding-top: calc(var(--section-y) * 0.4);
+    border-top: 1px solid var(--rule);
+  }
+
+  /* With no projects band between them the two paper Sections meet like parts. */
+  :global(#details:has(+ #more)) {
+    padding-bottom: calc(var(--section-y) * 0.4);
+  }
+
+  :global(#details + #more) {
+    padding-top: calc(var(--section-y) * 0.4);
+  }
+
+  /* The projects band ends on cards whose own bottom padding already opens the joint,
+     so both sides of it give up a quarter of theirs. */
+  :global(#projects:has(.pgrid):has(+ #more)) {
+    padding-bottom: calc(var(--section-y) * 0.75);
+  }
+
+  :global(#projects:has(.pgrid) + #more) {
+    padding-top: calc(var(--section-y) * 0.75);
+  }
+
+  /* A heading that opens a part after a hairline sits nearer its content than the joint
+     above it: --s-6, the value --head-after already has on small screens. */
+  .part + .part > .section-head,
+  :global(#details + #more) .section-head {
+    margin-bottom: var(--s-6);
+  }
+
+  .part + .part .event-h2:not(:has(+ .event-text)),
+  :global(#details + #more) .event-h2:not(:has(+ .event-text)) {
+    margin-bottom: calc(var(--s-6) - var(--head-gap));
+  }
+
+  /* --- Plain sections: an h2 and its copy, nothing above it. ---------------- */
+  .event-body {
     display: grid;
-    gap: var(--s-3);
-    justify-items: start;
+    gap: var(--head-gap);
+    max-width: var(--measure-text);
+  }
+
+  .event-body > .link {
+    justify-self: start;
+  }
+
+  .event-h2 {
+    font-size: var(--t-h2);
+    margin-bottom: calc(var(--head-after) - var(--head-gap));
+  }
+
+  /* A heading and its one sentence are a pair: --head-gap, as in .section-head. */
+  .event-h2:has(+ .event-text) {
+    margin-bottom: 0;
+  }
+
+  .event-h3 {
     margin-top: var(--s-6);
-    padding: var(--s-5);
-    border: var(--border-hair) solid var(--rule-strong);
-    border-left: 2px solid var(--clay);
-    background: var(--paper-raised);
-  }
-
-  .detail-host-line {
-    font-size: var(--t-small);
-  }
-
-  .detail-host-note {
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    line-height: 1.7;
-    color: var(--ink-3);
-    max-width: 52ch;
-  }
-
-  /* --- Meta ---------------------------------------------------------------- */
-  .detail-meta {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: var(--s-5);
-    margin-top: var(--s-7);
-    padding-top: var(--s-5);
-    border-top: var(--border-hair) solid var(--rule);
-  }
-
-  .detail-meta dt {
-    color: var(--ink-3);
-    margin-bottom: var(--s-2);
-  }
-
-  .detail-meta dd {
-    font-size: var(--t-small);
-    line-height: 1.45;
-  }
-
-  .detail-sub {
-    display: block;
-    margin-top: 2px;
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    line-height: 1.6;
-    color: var(--ink-3);
-  }
-
-  /* --- Blocks --------------------------------------------------------------- */
-  .detail-block {
-    margin-top: var(--s-7);
-    padding-top: var(--s-5);
-    border-top: var(--border-hair) solid var(--rule);
-  }
-
-  .detail-block-head {
-    color: var(--ink-3);
-    margin-bottom: var(--s-4);
-  }
-
-  .detail-agenda li,
-  .detail-people li {
-    padding-block: var(--s-3);
-    border-bottom: var(--border-hair) solid var(--rule);
-  }
-
-  .detail-agenda li:last-child,
-  .detail-people li:last-child {
-    border-bottom: 0;
-  }
-
-  .agenda-time {
-    display: inline-block;
-    min-width: 6ch;
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: 0.05em;
-    color: var(--clay-deep);
-  }
-
-  .agenda-title,
-  .detail-people a {
     font-family: var(--font-title);
-    font-size: 1.08rem;
-    font-weight: 500;
-    font-variation-settings:
-      'SOFT' 0,
-      'WONK' 1;
+    font-size: var(--t-title);
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .event-text {
+    font-size: var(--t-body);
+    color: var(--ink-2);
+  }
+
+  .event-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid var(--rule);
+  }
+
+  .event-list li {
+    display: grid;
+    gap: 2px;
+    padding-block: 12px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .event-item {
+    font-family: var(--font-title);
+    font-size: var(--t-title);
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--ink);
     text-decoration: none;
   }
 
-  .detail-people a:hover {
-    color: var(--clay-deep);
+  a.event-item:hover {
+    text-decoration: underline;
+    text-underline-offset: 0.18em;
   }
 
-  .detail-outcomes li {
-    display: flex;
-    gap: var(--s-3);
-    padding-block: var(--s-2);
+  .event-sub {
     font-size: var(--t-small);
-    color: var(--ink-2);
+    color: var(--ink-3);
   }
 
-  .detail-outcomes li::before {
-    content: '·';
-    color: var(--clay-deep);
-  }
-
-  .detail-open-copy {
-    max-width: 52ch;
-    font-size: var(--t-small);
-    color: var(--ink-2);
-    margin-bottom: var(--s-4);
-  }
-
-  .detail-actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--s-5);
-    margin-top: var(--s-8);
-  }
-
-  /* --- Aside ---------------------------------------------------------------- */
-  .detail-aside {
+  /* --- Photos ---------------------------------------------------------------- */
+  .event-photos {
+    list-style: none;
+    margin: 0;
+    padding: 0;
     display: grid;
-    gap: var(--s-6);
-    align-content: start;
+    gap: 14px;
   }
 
-  .detail-cover .plate {
-    aspect-ratio: 4 / 5;
-  }
-
-  .detail-photos ul {
+  .event-photos figure {
+    margin: 0;
     display: grid;
-    gap: var(--s-5);
+    gap: 8px;
   }
 
-  .detail-photos .plate {
+  .event-photos img {
+    display: block;
+    width: 100%;
     aspect-ratio: 3 / 2;
+    object-fit: cover;
+    border-radius: var(--radius-md);
   }
 
-  /* --- Around ---------------------------------------------------------------- */
+  @media (min-width: 700px) {
+    .event-photos {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 20px;
+    }
+
+    .event-photos .is-wide {
+      grid-column: 1 / -1;
+    }
+
+    .event-photos .is-wide img {
+      aspect-ratio: 2 / 1;
+    }
+  }
+
+  /* --- Before and after ------------------------------------------------------ */
   .around {
     display: flex;
     flex-wrap: wrap;
     justify-content: space-between;
-    gap: var(--s-5);
-    padding-top: var(--s-5);
-    border-top: var(--border-hair) solid var(--rule);
+    gap: var(--s-6);
   }
 
   .around-link {
     display: grid;
-    gap: var(--s-1);
+    gap: 4px;
+    max-width: 24rem;
+    color: inherit;
     text-decoration: none;
-    color: var(--ink);
-    max-width: 22rem;
   }
 
   .is-next {
+    margin-left: auto; /* stays on the right when it wraps under "Before" */
     text-align: right;
     justify-items: end;
   }
 
   .around-dir {
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: var(--track-meta);
-    text-transform: uppercase;
+    font-family: var(--font-title);
+    font-size: var(--t-small);
+    font-weight: 600;
     color: var(--clay-deep);
   }
 
   .around-title {
-    font-family: var(--font-title);
+    font-family: var(--font-display);
     font-size: var(--t-h3);
-    font-weight: 500;
-    font-variation-settings:
-      'SOFT' 0,
-      'WONK' 1;
-    letter-spacing: -0.02em;
+    font-weight: 300;
+    line-height: var(--lh-h3);
+    letter-spacing: var(--track-h3);
+    color: var(--ink);
   }
 
   .around-link:hover .around-title {
-    color: var(--clay-deep);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.15em;
   }
 
   .around-meta {
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: 0.06em;
+    font-size: var(--t-small);
     color: var(--ink-3);
-  }
-
-  @media (min-width: 62em) {
-    .detail.has-aside {
-      grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
-      gap: var(--s-9);
-      align-items: start;
-    }
   }
 </style>

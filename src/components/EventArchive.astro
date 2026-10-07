@@ -1,20 +1,16 @@
 ---
 import * as staticData from '@/data';
 import type { RecordSelectors } from '@/data/selectors';
-import { dateParts, isoDateTime } from '@/lib/datetime';
-import { formatName, lifecycleLabel, lifecycleOf, lifecycleTone } from '@/lib/status';
+import EventRecord from '@/components/EventRecord.astro';
+import { lifecycleOf } from '@/lib/status';
+import { plural } from '@/lib/words';
 import type { CommunityEvent } from '@/data/types';
 
 /**
- * The event archive.
+ * The event archive for city and ambassador pages: an optional heading, then the same rows as
+ * /events/ (`EventRecord`), flat, in the order chosen here.
  *
- * A table, because a table is the right shape for eleven dated records and
- * will still be the right shape for two hundred. What it is not is a grid of
- * identical cards.
- *
- * Status is computed per row at build time and never authored. Filtering is an
- * enhancement: every row is in the markup, so with scripts blocked the archive
- * is complete and merely unfiltered.
+ * Status is computed per row at render time and never authored.
  */
 interface Props {
   /**
@@ -26,7 +22,7 @@ interface Props {
    *
    * An override rather than a second component: §65 says extend what exists,
    * and a bespoke event list on the ambassador page would be a second place
-   * where a room's status, date and verified treatment are decided. The
+   * where a room's status and date are decided. The
    * default path is untouched — omit this and the archive selects exactly as
    * it always has.
    */
@@ -35,10 +31,8 @@ interface Props {
   limit?: number;
   order?: 'chronological' | 'upcoming-first';
   heading?: string;
-  eyebrow?: string;
   showHead?: boolean;
   showLink?: boolean;
-  filters?: boolean;
   selectors?: RecordSelectors;
 }
 
@@ -48,10 +42,8 @@ const {
   limit,
   order = 'upcoming-first',
   heading = 'Events across India',
-  eyebrow = 'Events',
   showHead = true,
   showLink = true,
-  filters = false,
   selectors,
 } = Astro.props;
 
@@ -60,10 +52,14 @@ const data = selectors ?? staticData;
 const now = new Date();
 
 function sortEvents(list: CommunityEvent[]): CommunityEvent[] {
-  if (order === 'chronological') return [...list].reverse();
+  // Sorted by date, never by input order: callers pass lists in either direction.
+  const newestFirst = (a: CommunityEvent, b: CommunityEvent) => b.date.localeCompare(a.date);
+  if (order === 'chronological') return [...list].sort(newestFirst);
   // Upcoming ascending, then past descending — the useful order.
-  const upcoming = list.filter((e) => lifecycleOf(e, now) !== 'past');
-  const past = list.filter((e) => lifecycleOf(e, now) === 'past').reverse();
+  const upcoming = list
+    .filter((e) => lifecycleOf(e, now) !== 'past')
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const past = list.filter((e) => lifecycleOf(e, now) === 'past').sort(newestFirst);
   return [...upcoming, ...past];
 }
 
@@ -72,362 +68,59 @@ const scoped = citySlug ? source.filter((e) => e.citySlug === citySlug) : source
 const all = sortEvents(scoped);
 const rows = limit ? all.slice(0, limit) : all;
 const remaining = all.length - rows.length;
-
-const entries = rows.map((event) => {
-  const lifecycle = lifecycleOf(event, now);
-  return {
-    event,
-    lifecycle,
-    parts: dateParts(event.date),
-    verified: data.isAmbassadorLed(event),
-    mode: lifecycle === 'past' ? 'past' : 'upcoming',
-  };
-});
-
-// Facets built from what is actually here.
-const formats = [...new Set(rows.map((e) => e.format))].sort();
-const cityList = [...new Set(rows.map((e) => e.citySlug))].sort();
-const years = [...new Set(rows.map((e) => e.date.slice(0, 4)))].sort().reverse();
-const hasUpcoming = entries.some((e) => e.mode === 'upcoming');
-const hasPast = entries.some((e) => e.mode === 'past');
+// On a city's own page every row would repeat that city.
+const showCity = !citySlug;
 ---
 
 <div class="archive">
   {
     showHead && (
-      <div class="archive-head">
-        <div class="section-head">
-          <p class="eyebrow">{eyebrow}</p>
-          <h2 id="events-heading">{heading}</h2>
-        </div>
+      <div class="section-head">
+        <h2 id="events-heading">{heading}</h2>
         {showLink && (
-          <a class="link-arrow archive-link" href="/events">
-            <span>Full record</span>
-            <span class="arrow" aria-hidden="true">
-              →
-            </span>
+          <a class="link section-more" href="/events/">
+            All events
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path
+                d="M4 10h11m-4.5-4.5L15 10l-4.5 4.5"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
           </a>
         )}
       </div>
     )
   }
 
-  {
-    filters && (
-      <div class="filters" data-filter-root>
-        {hasUpcoming && hasPast && (
-          <div class="filter-group" role="group" aria-label="Filter by when">
-            <span class="label filter-label">When</span>
-            <button class="filter is-on" type="button" data-filter="mode" data-value="all">
-              All
-            </button>
-            <button class="filter" type="button" data-filter="mode" data-value="upcoming">
-              Upcoming
-            </button>
-            <button class="filter" type="button" data-filter="mode" data-value="past">
-              Past
-            </button>
-          </div>
-        )}
-
-        {formats.length > 1 && (
-          <div class="filter-group" role="group" aria-label="Filter by format">
-            <span class="label filter-label">Format</span>
-            <button class="filter is-on" type="button" data-filter="format" data-value="all">
-              All
-            </button>
-            {formats.map((format) => (
-              <button class="filter" type="button" data-filter="format" data-value={format}>
-                {formatName(format)}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {cityList.length > 1 && (
-          <div class="filter-group" role="group" aria-label="Filter by city">
-            <span class="label filter-label">City</span>
-            <button class="filter is-on" type="button" data-filter="city" data-value="all">
-              All
-            </button>
-            {cityList.map((slug) => (
-              <button class="filter" type="button" data-filter="city" data-value={slug}>
-                {data.cityName(slug)}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {years.length > 1 && (
-          <div class="filter-group" role="group" aria-label="Filter by year">
-            <span class="label filter-label">Year</span>
-            <button class="filter is-on" type="button" data-filter="year" data-value="all">
-              All
-            </button>
-            {years.map((year) => (
-              <button class="filter" type="button" data-filter="year" data-value={year}>
-                {year}
-              </button>
-            ))}
-          </div>
-        )}
-
-        <p class="filter-count" data-filter-count aria-live="polite" />
-      </div>
-    )
-  }
-
-  <div class="table">
-    <div class="row row-head" aria-hidden="true">
-      <span>Vol.</span>
-      <span>Date</span>
-      <span>Event</span>
-      <span>Format</span>
-      <span>City</span>
-      <span>Status</span>
-    </div>
-
-    <ul>
-      {
-        entries.map((entry) => (
-          <li
-            data-filter-item
-            data-mode={entry.mode}
-            data-format={entry.event.format}
-            data-city={entry.event.citySlug}
-            data-year={entry.event.date.slice(0, 4)}
-          >
-            <a class="row" href={`/events/${entry.event.slug}`}>
-              <span class="cell-vol">
-                {entry.event.volume ? String(entry.event.volume).padStart(2, '0') : '—'}
-              </span>
-              <time
-                class="cell-date"
-                datetime={isoDateTime(entry.event.date, entry.event.startTime)}
-              >
-                <span class="cell-date-day">{`${entry.parts.dayPadded} ${entry.parts.monthShort}`}</span>
-                <span class="cell-date-year">{entry.parts.year}</span>
-              </time>
-              <span class="cell-title">
-                {entry.event.title}
-                {entry.verified && (
-                  <span class="cell-verified" title="Hosted by a Claude Community Ambassador">
-                    <span class="visually-hidden">Hosted by a Claude Community Ambassador</span>
-                    <span aria-hidden="true">✳</span>
-                  </span>
-                )}
-              </span>
-              <span class="cell-format">{formatName(entry.event.format)}</span>
-              <span class="cell-city">{data.cityName(entry.event.citySlug)}</span>
-              <span class:list={['pip', `pip-${lifecycleTone(entry.lifecycle)}`, 'cell-status']}>
-                {lifecycleLabel(entry.lifecycle)}
-              </span>
-            </a>
-          </li>
-        ))
-      }
-    </ul>
-  </div>
+  <EventRecord events={rows} showCity={showCity} selectors={selectors} />
 
   {
     remaining > 0 && (
-      <a class="index-more" href="/events">
-        <span>{`${remaining} more in the record`}</span>
-        <span class="arrow" aria-hidden="true">
-          →
-        </span>
-      </a>
-    )
-  }
-
-  {
-    filters && (
-      <p class="archive-note">
-        <span aria-hidden="true">✳</span> Hosted by a Claude Community Ambassador — a programme
-        Anthropic runs. Events without the mark are community activity on the record.
+      <p class="archive-more">
+        <a class="link" href="/events/">
+          {plural(remaining, 'more event')}
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path
+              d="M4 10h11m-4.5-4.5L15 10l-4.5 4.5"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </a>
       </p>
     )
   }
 </div>
 
-{filters && <script>import '@/scripts/filters';</script>}
-
 <style>
-  .archive-head {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: var(--s-4);
-  }
-
-  .archive-head .section-head {
-    margin-bottom: var(--s-6);
-  }
-
-  .archive-link {
-    margin-bottom: var(--s-7);
-  }
-
-  /* --- Table --------------------------------------------------------------- */
-  .table {
-    border-top: var(--border-heavy) solid var(--ink);
-  }
-
-  .row {
-    display: grid;
-    grid-template-columns:
-      4ch minmax(84px, 0.5fr) minmax(0, 2fr)
-      minmax(0, 0.8fr) minmax(0, 0.7fr) minmax(0, 0.95fr);
-    align-items: baseline;
-    gap: var(--s-4);
-    padding-block: var(--s-4);
-    border-bottom: var(--border-hair) solid var(--rule);
-    text-decoration: none;
-    color: var(--ink);
-    transition: background var(--dur-1) var(--ease-out);
-  }
-
-  a.row:hover,
-  a.row:focus-visible {
-    background: color-mix(in srgb, var(--clay) 7%, transparent);
-  }
-
-  .row-head {
-    padding-block: var(--s-3);
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: var(--track-meta);
-    text-transform: uppercase;
-    color: var(--ink-3);
-  }
-
-  .cell-vol,
-  .cell-date,
-  .cell-format,
-  .cell-city {
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--ink-3);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .cell-date {
-    display: flex;
-    gap: var(--s-2);
-    white-space: nowrap;
-  }
-
-  .cell-date-day {
-    color: var(--ink-2);
-  }
-
-  .cell-title {
-    font-family: var(--font-title);
-    font-size: clamp(1.02rem, 1.9vw, 1.28rem);
-    font-weight: 500;
-    font-variation-settings:
-      'SOFT' 0,
-      'WONK' 1;
-    letter-spacing: -0.015em;
-    transition: color var(--dur-1) var(--ease-out);
-  }
-
-  a.row:hover .cell-title {
-    color: var(--clay-deep);
-  }
-
-  .cell-verified {
-    margin-left: 0.4em;
-    color: var(--clay-deep);
-    font-size: 0.7em;
-    vertical-align: 0.2em;
-  }
-
-  .cell-status {
-    font-size: var(--t-micro);
-    letter-spacing: 0.08em;
-    justify-self: start;
-  }
-
-  li[hidden] {
-    display: none;
-  }
-
-  .index-more {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--s-3);
-    margin-top: var(--s-5);
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: var(--track-meta);
-    text-transform: uppercase;
-    color: var(--ink-3);
-    text-decoration: none;
-  }
-
-  .index-more:hover {
-    color: var(--clay-deep);
-  }
-
-  .archive-note {
+  .archive-more {
     margin-top: var(--s-6);
-    max-width: 64ch;
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    line-height: 1.75;
-    color: var(--ink-3);
-  }
-
-  .archive-note span[aria-hidden] {
-    color: var(--clay-deep);
-  }
-
-  /* --- Mobile: rows become records ----------------------------------------- */
-  @media (max-width: 61.99em) {
-    .row-head {
-      display: none;
-    }
-
-    .row {
-      grid-template-columns: 4ch minmax(0, 1fr) auto;
-      gap: var(--s-1) var(--s-4);
-      padding-block: var(--s-5);
-    }
-
-    .cell-date {
-      grid-column: 2;
-      grid-row: 1;
-    }
-
-    .cell-status {
-      grid-column: 3;
-      grid-row: 1;
-      justify-self: end;
-    }
-
-    .cell-title {
-      grid-column: 2 / -1;
-      grid-row: 2;
-      margin-block: var(--s-1);
-    }
-
-    .cell-format {
-      grid-column: 2;
-      grid-row: 3;
-    }
-
-    .cell-city {
-      grid-column: 3;
-      grid-row: 3;
-      justify-self: end;
-    }
-
-    .cell-vol {
-      grid-row: 1 / 4;
-    }
   }
 </style>

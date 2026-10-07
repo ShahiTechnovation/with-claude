@@ -61,6 +61,7 @@ function init(scope: HTMLElement): void {
       weight: Number(data.weight ?? '1'),
     });
   }
+  const nodeOf = new Map([...records].map(([node, record]) => [record, node]));
 
   /** Kind narrowing from the tabs, which is a filter rather than a query. */
   let pinned: SearchKind | 'all' = 'all';
@@ -74,19 +75,21 @@ function init(scope: HTMLElement): void {
       ? [...records.values()]
       : runSearch([...records.values()], intent).map((result) => result.record);
 
-    const rank = new Map(ranked.map((record, i) => [record.id, i]));
+    const hits = new Set(ranked);
     const perKind = new Map<SearchKind, number>();
 
     for (const [node, record] of records) {
-      const place = rank.get(record.id);
-      const hit = place !== undefined;
+      const hit = hits.has(record);
       node.hidden = !hit;
-      // Reordering by `order` keeps the DOM still — no nodes move, so nothing
-      // loses focus and the browser is not asked to reflow the whole list.
-      if (hit) {
-        node.style.order = String(place);
-        perKind.set(record.kind, (perKind.get(record.kind) ?? 0) + 1);
-      }
+      if (hit) perKind.set(record.kind, (perKind.get(record.kind) ?? 0) + 1);
+    }
+
+    // Rank order goes into the DOM itself, not a CSS `order`: Tab and screen
+    // readers follow the DOM, so `order` showed one ranking and read out
+    // another. Focus is in the field or on a tab while this runs, never in a list.
+    for (const record of ranked) {
+      const node = nodeOf.get(record)!;
+      node.parentElement!.append(node);
     }
 
     for (const group of groups) {
@@ -94,7 +97,7 @@ function init(scope: HTMLElement): void {
       const count = perKind.get(kind) ?? 0;
       group.hidden = count === 0;
       const counter = group.querySelector<HTMLElement>('[data-search-group-count]');
-      if (counter) counter.textContent = String(count).padStart(2, '0');
+      if (counter) counter.textContent = String(count);
     }
 
     for (const tab of tabs) {
@@ -137,9 +140,22 @@ function init(scope: HTMLElement): void {
   // there is nothing to debounce and the results keep up with the keyboard.
   input.addEventListener('input', apply);
 
+  // A committed query (Enter, or leaving the field — which clicking a result
+  // does) goes into the URL, so Back from a result or a reload returns to the
+  // same results. Not on every keystroke: Safari caps replaceState calls.
+  const remember = (): void => {
+    const url = new URL(window.location.href);
+    const q = input.value.trim();
+    if (q) url.searchParams.set('q', q);
+    else url.searchParams.delete('q');
+    history.replaceState(history.state, '', url);
+  };
+  input.addEventListener('change', remember);
+
   form?.addEventListener('submit', (event) => {
     event.preventDefault();
     apply();
+    remember();
   });
 
   for (const tab of tabs) {
@@ -154,6 +170,7 @@ function init(scope: HTMLElement): void {
     input.value = '';
     pinned = 'all';
     apply();
+    remember();
     input.focus();
   });
 

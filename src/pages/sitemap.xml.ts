@@ -12,12 +12,18 @@ const ORIGIN = 'https://www.withclaude.in';
 function escapeXml(unsafe: string) {
   return unsafe.replace(/[<>&'"]/g, function (c) {
     switch (c) {
-      case '<': return '&lt;';
-      case '>': return '&gt;';
-      case '&': return '&amp;';
-      case "'": return '&apos;';
-      case '"': return '&quot;';
-      default: return c;
+      case '<':
+        return '&lt;';
+      case '>':
+        return '&gt;';
+      case '&':
+        return '&amp;';
+      case "'":
+        return '&apos;';
+      case '"':
+        return '&quot;';
+      default:
+        return c;
     }
   });
 }
@@ -75,7 +81,10 @@ export const GET: APIRoute = async () => {
     const builders = await db
       .select({ slug: schema.builders.slug, updatedAt: schema.builders.updatedAt })
       .from(schema.builders)
-      .leftJoin(schema.memberProfiles, eq(schema.builders.ownerMemberId, schema.memberProfiles.memberId))
+      .leftJoin(
+        schema.memberProfiles,
+        eq(schema.builders.ownerMemberId, schema.memberProfiles.memberId),
+      )
       .where(
         and(
           eq(schema.builders.status, 'published'),
@@ -83,9 +92,9 @@ export const GET: APIRoute = async () => {
           isNull(schema.builders.deletedAt),
           or(
             isNull(schema.memberProfiles.visibility),
-            eq(schema.memberProfiles.visibility, 'public')
-          )
-        )
+            eq(schema.memberProfiles.visibility, 'public'),
+          ),
+        ),
       );
 
     // 3. Events — asked of the same reader `/events/[slug]` resolves through,
@@ -124,8 +133,8 @@ export const GET: APIRoute = async () => {
                          and p.publication_status = 'published' and p.moderation_state = 'clean'
                          and p.deleted_at is null)
             or exists (select 1 from stories s where s.city_id = ${schema.cities.id} and s.status = 'published')
-          )`
-        )
+          )`,
+        ),
       );
 
     const staticPaths = [
@@ -136,7 +145,10 @@ export const GET: APIRoute = async () => {
       '/gallery/',
       '/cities/',
       '/ambassadors/',
-      '/record/'
+      '/record/',
+      '/stories/',
+      '/about/',
+      '/community/',
     ];
 
     const urls: { url: string; lastmod?: string }[] = [
@@ -185,7 +197,7 @@ ${urls
     <loc>${escapeXml(item.url)}</loc>${
       item.lastmod ? `\n    <lastmod>${escapeXml(item.lastmod)}</lastmod>` : ''
     }
-  </url>`
+  </url>`,
   )
   .join('\n')}
 </urlset>`;

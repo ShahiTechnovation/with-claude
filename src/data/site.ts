@@ -90,7 +90,7 @@ export const stewardship = {
   maintainers: [
     {
       name: 'The Origin Guild',
-      role: 'Organises the community events in Bhopal and supplies the event record and photography',
+      role: 'Organises the community events in Bhopal',
       url: 'https://t.me/tog_guild',
     },
   ],
@@ -102,8 +102,6 @@ export const stewardship = {
    */
   correctionSteps: [
     'Tell us what is wrong and, where you can, how you know. A link, a photograph or a name is enough.',
-    'Anything factual that cannot be checked comes down while it is being checked, rather than staying up with a note on it.',
-    'A record that turns out to be wrong is corrected or removed. It is not quietly edited into something else.',
     'Anyone listed here can ask to have their entry changed or taken down, and it comes down.',
   ],
 } as const;
@@ -131,7 +129,7 @@ export const partners: Partner[] = [
     slug: 'aic-rntu-foundation',
     status: 'published',
     name: 'AIC-RNTU Foundation',
-    role: 'Venue, Claude Code Workshop (vol. 09)',
+    role: 'Venue, Claude Code Workshop (2 Sep 2026)',
     citySlug: 'bhopal',
   },
 ];
@@ -159,7 +157,7 @@ export const participationPaths: ParticipationPath[] = [
       'Every event so far has been free and open, with registration by approval. Start with whatever is next on the calendar.',
     ctaLabel: 'See what is on',
     kind: 'internal',
-    url: '/events',
+    url: '/events/',
   },
   {
     id: 'build',
@@ -175,8 +173,7 @@ export const participationPaths: ParticipationPath[] = [
     id: 'contribute',
     label: 'Contribute',
     title: 'Add yourself to the builder index',
-    description:
-      'Say who you are, where you are, and what you are building. This is an open index, not an appointment — anyone building with Claude can be in it.',
+    description: 'Say who you are, where you are, and what you are building.',
     ctaLabel: 'Add yourself',
     kind: 'submission',
     formId: 'contribute',
@@ -219,10 +216,9 @@ export const participationPaths: ParticipationPath[] = [
     label: 'Host',
     title: 'Lead Claude Community events',
     description:
-      'Claude Community events are hosted by Claude Community Ambassadors. It is a programme Anthropic runs, and the application goes to them.',
+      'Hosting Claude Community events is an Anthropic programme. You apply through Anthropic.',
     ctaLabel: 'Become an Ambassador',
     kind: 'official',
-    note: site.ambassadorNote,
   },
 ];
 
@@ -233,7 +229,7 @@ export const faq: FaqItem[] = [
   },
   {
     q: 'Is it free?',
-    a: 'Every event on the record so far has been free. Registration is usually by approval, so put your name down early.',
+    a: 'Every event so far has been free. Registration is usually by approval, so put your name down early.',
   },
   {
     q: 'Do I need to know how to code?',

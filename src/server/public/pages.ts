@@ -12,6 +12,7 @@ import { RecordSelectors } from '../../data/selectors';
 import { requireAsset } from '../../lib/images';
 import { loadLiveRecords } from '../directory';
 import {
+  allPublicProjectCards,
   getProjectDetail,
   listPublicProjects,
   normaliseDirectoryQuery,
@@ -20,31 +21,70 @@ import {
   publicProjectsForEvent,
   relatedPublicProjects,
   type ProjectListResult,
+  type PublicEventRef,
   type PublicProjectCard,
   type PublicProjectDetail,
 } from './projects';
 
-export type { ProjectListResult, PublicProjectCard, PublicProjectDetail };
+export type { ProjectListResult, PublicEventRef, PublicProjectCard, PublicProjectDetail };
 
 export function projectArchive(params: URLSearchParams): Promise<ProjectListResult> {
   return listPublicProjects(pooledDb(), normaliseDirectoryQuery(params));
 }
 
-export async function projectPage(
-  slug: string,
-): Promise<{ project: PublicProjectDetail; related: PublicProjectCard[] } | null> {
+/** A project, three neighbours, and how many public projects its event has ("All 76 projects from …"). */
+export async function projectPage(slug: string): Promise<{
+  project: PublicProjectDetail;
+  related: PublicProjectCard[];
+  eventTotal: number;
+} | null> {
   const db = pooledDb();
   const project = await getProjectDetail(db, slug);
   if (!project) return null;
-  const related = project.isPublic ? await relatedPublicProjects(db, project) : [];
-  return { project, related };
+  const [related, eventTotal] = project.isPublic
+    ? await Promise.all([
+        relatedPublicProjects(db, project, 3),
+        project.event ? publicProjectCountForEvent(db, project.event.id) : 0,
+      ])
+    : [[], 0];
+  return { project, related, eventTotal };
 }
 
 /** An event's public projects and their true count — the same predicate as the directory. */
-export async function eventProjects(eventId: string, limit = 60): Promise<{ items: PublicProjectCard[]; total: number }> {
+export async function eventProjects(
+  eventId: string,
+  limit = 60,
+): Promise<{ items: PublicProjectCard[]; total: number }> {
   const db = pooledDb();
-  const [items, total] = await Promise.all([publicProjectsForEvent(db, eventId, limit), publicProjectCountForEvent(db, eventId)]);
+  const [items, total] = await Promise.all([
+    publicProjectsForEvent(db, eventId, limit),
+    publicProjectCountForEvent(db, eventId),
+  ]);
   return { items, total };
+}
+
+/**
+ * Every public project, one group per event in arrival order: newest event first, projects with no
+ * public event last (`event: null`). Pills, counts and the lead come from the toolbar's
+ * `projectArchive()` call, which the page makes anyway.
+ *
+ * ponytail: reads every public card per uncached render (the CDN keeps it ~60 s); past ~500 projects,
+ * show six per group and link to the filtered view.
+ */
+export async function projectGroups(
+  db: Parameters<typeof allPublicProjectCards>[0] = pooledDb(),
+): Promise<{ event: PublicEventRef | null; items: PublicProjectCard[] }[]> {
+  const groups = new Map<
+    string | null,
+    { event: PublicEventRef | null; items: PublicProjectCard[] }
+  >();
+  for (const card of await allPublicProjectCards(db)) {
+    const key = card.event?.id ?? null;
+    let group = groups.get(key);
+    if (!group) groups.set(key, (group = { event: card.event, items: [] }));
+    group.items.push(card);
+  }
+  return [...groups.values()];
 }
 
 export function builderProjects(builder: {

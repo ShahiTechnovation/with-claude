@@ -231,6 +231,17 @@ export interface SearchResult {
 }
 
 /**
+ * A term of three characters or fewer only counts where a word starts, so
+ * "ai" finds AI and not the end of Chennai. A hyphen starts a word too, so
+ * "os" finds Synapse-OS. Longer terms match anywhere.
+ */
+const contains = (hay: string, term: string): boolean => {
+  if (term.length > 3) return hay.includes(term);
+  const text = ` ${normalise(hay)}`;
+  return text.includes(` ${term}`) || text.includes(`-${term}`);
+};
+
+/**
  * Score one record against an intent.
  *
  * A title match is worth far more than a body match, and a whole-phrase match
@@ -254,13 +265,13 @@ export function scoreRecord(record: SearchRecord, intent: SearchIntent): number 
   const title = record.title.toLowerCase();
   let score = 0;
 
-  if (intent.text && title.includes(intent.text)) score += 12;
+  if (intent.text && contains(title, intent.text)) score += 12;
 
   for (const term of intent.terms) {
     if (title.startsWith(term)) score += 8;
-    else if (title.includes(term)) score += 6;
-    else if (record.subtitle.toLowerCase().includes(term)) score += 3;
-    else if (record.terms.includes(term)) score += 2;
+    else if (contains(title, term)) score += 6;
+    else if (contains(record.subtitle.toLowerCase(), term)) score += 3;
+    else if (contains(record.terms, term)) score += 2;
     else return 0; // every term must land somewhere — this is an AND search
   }
 

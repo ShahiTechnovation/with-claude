@@ -39,14 +39,15 @@ const configured = Boolean(import.meta.env.PUBLIC_PRIVY_APP_ID);
     )
   }
   <noscript>
-    <p class="island-loading">The editor needs JavaScript. Your saved details are shown on your profile page.</p>
+    <p class="island-loading">
+      The editor needs JavaScript. Your saved details are shown on your profile page.
+    </p>
   </noscript>
 </div>
 
 <style is:global>
   .island-loading {
     padding: var(--s-6) 0;
-    font-family: var(--font-mono);
     font-size: var(--t-small);
     color: var(--ink-3);
   }

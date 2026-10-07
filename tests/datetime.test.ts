@@ -4,6 +4,10 @@ import {
   dateParts,
   daysUntil,
   formatDate,
+  formatDayLong,
+  formatDayShort,
+  formatHours,
+  formatMonthYear,
   formatTime,
   formatTimePadded,
   formatTimeRange,
@@ -119,5 +123,31 @@ describe('formatTimePadded', () => {
       const value = formatTimePadded(`${String(h).padStart(2, '0')}:00` as ClockTime);
       expect(value, `hour ${h}`).toMatch(/^\d{2}:\d{2} (AM|PM)$/);
     }
+  });
+});
+
+describe('the long, short and month forms', () => {
+  it('formatDayLong: weekday, day and month, with the year only when asked', () => {
+    expect(formatDayLong('2026-10-10')).toBe('Saturday 10 October');
+    expect(formatDayLong('2026-10-10', true)).toBe('Saturday 10 October 2026');
+    expect(formatDayLong('2026-03-01')).toBe('Sunday 1 March');
+  });
+
+  it('formatDayShort and formatMonthYear', () => {
+    expect(formatDayShort('2026-09-20')).toBe('Sun 20 Sep');
+    expect(formatMonthYear('2026-09-20')).toBe('Sep 2026');
+    expect(formatMonthYear('2027-01-01')).toBe('Jan 2027');
+  });
+});
+
+describe('formatHours', () => {
+  it('joins the range with "to" and says a shared AM/PM once', () => {
+    expect(formatHours('09:00' as ClockTime, '18:00' as ClockTime)).toBe('9 AM to 6 PM');
+    expect(formatHours('18:00' as ClockTime, '20:30' as ClockTime)).toBe('6 to 8:30 PM');
+    expect(formatHours('10:30' as ClockTime, '11:45' as ClockTime)).toBe('10:30 to 11:45 AM');
+  });
+
+  it('a start alone is just the time', () => {
+    expect(formatHours('18:00' as ClockTime)).toBe('6 PM');
   });
 });

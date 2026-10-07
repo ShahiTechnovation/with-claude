@@ -57,218 +57,216 @@ const loginMethods = (import.meta.env.PUBLIC_PRIVY_LOGIN_METHODS as string | und
     display: contents;
   }
 
+  /*
+   * `#account-slot-root` keeps `data-account-state="anonymous"` for good; PrivyRoot
+   * portals a second `.account-slot` carrying the live state inside it.
+   */
   .account-slot {
+    position: relative;
     display: flex;
     align-items: center;
-    min-height: 2rem;
   }
 
   /*
-   * The join link and the authenticated account trigger share base styles so
-   * swapping between them during Privy hydration produces no layout shift.
+   * Sign in, the hydration placeholder and the signed-in trigger share one box
+   * (the ghost `.btn.btn-sm`), so nothing shifts while Privy hydrates.
    */
   .account-join,
   .account-link,
   .account-placeholder {
     display: inline-flex;
     align-items: center;
-    gap: 0.5ch;
-    font-family: var(--font-mono);
-    font-size: 0.7rem;
-    font-weight: 500;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    text-decoration: none;
+    gap: 10px;
+    min-height: 40px;
+    padding: 0 18px;
+    font-family: var(--font-title);
+    font-size: var(--t-small);
+    font-weight: 600;
+    line-height: 1;
     white-space: nowrap;
-    color: var(--paper);
-    background: var(--ink);
-    border: 1px solid var(--ink);
-    border-radius: 2px;
-    padding: 0.4rem 0.85rem;
+    text-decoration: none;
+    color: var(--ink);
+    background: transparent;
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--radius-pill);
     cursor: pointer;
     transition:
-      background var(--dur-1) var(--ease-out),
       border-color var(--dur-1) var(--ease-out),
-      color var(--dur-1) var(--ease-out);
+      background-color var(--dur-1) var(--ease-out);
   }
 
   .account-join:hover,
-  .account-join:focus-visible {
-    background: var(--clay-deep, #92400e);
-    border-color: var(--clay-deep, #92400e);
-    outline: none;
-  }
-
-  .account-join:focus-visible,
-  .account-link:focus-visible {
-    outline: 2px solid var(--clay);
-    outline-offset: 2px;
-  }
-
-  /* Authenticated trigger: inverted colours */
-  .account-link {
-    color: var(--ink);
-    background: transparent;
-    border-color: var(--rule-strong);
-  }
-
   .account-link:hover,
-  .account-link:focus-visible,
   .account-link[aria-expanded='true'] {
     border-color: var(--ink);
-    background: var(--paper-2, rgba(0, 0, 0, 0.04));
-    color: var(--ink);
   }
 
-  /* Placeholder during Privy hydration — visually identical to join but non-interactive */
+  /* The signed-in trigger: badge, then name. */
+  .account-link {
+    padding-left: 4px;
+  }
+
+  /* Placeholder during Privy hydration: same box as Sign in, not interactive. */
   .account-placeholder {
     opacity: 0;
     pointer-events: none;
     user-select: none;
-    /* Takes up the right space so nothing jumps when Privy hydrates */
   }
 
   .account-nudge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4ch;
-    margin-right: 0.5rem;
-    font-family: var(--font-mono);
-    font-size: 0.65rem;
-    font-weight: 500;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    margin-right: 6px;
+    font-family: var(--font-title);
+    font-size: var(--t-small);
+    font-weight: 600;
     white-space: nowrap;
-    color: var(--clay-deep, #92400e);
-  }
-
-  a.account-nudge:hover,
-  a.account-nudge:focus-visible {
-    text-decoration: underline;
-  }
-
-  .account-slot[data-account-state] {
-    position: relative;
-    display: flex;
-    align-items: center;
-  }
-
-  @media (max-width: 40em) {
-    .account-nudge,
-    .account-name {
-      display: none;
-    }
-  }
-
-  .account-nudge a {
-    color: var(--clay-deep, #92400e);
+    color: var(--clay-deep);
     text-decoration: underline;
     text-decoration-color: transparent;
+    text-underline-offset: 3px;
     transition: text-decoration-color var(--dur-1) var(--ease-out);
   }
 
-  .account-nudge a:hover,
-  .account-nudge a:focus-visible {
+  .account-nudge:hover,
+  .account-nudge:focus-visible {
     text-decoration-color: currentColor;
   }
 
-  .account-nudge button {
-    background: none;
-    border: none;
-    color: var(--ink-3);
-    cursor: pointer;
-    font-size: 0.9rem;
-    line-height: 1;
-    padding: 0.1rem;
-  }
-
-  .account-nudge button:hover,
-  .account-nudge button:focus-visible {
-    color: var(--ink);
-  }
-
-  /* Hide the nudge label on very narrow mastheads; keep the account control usable */
-  @media (max-width: 26rem) {
-    .account-nudge {
-      display: none;
-    }
-  }
-
   .account-badge {
+    position: relative;
     display: inline-grid;
     place-items: center;
-    width: 1.3rem;
-    height: 1.3rem;
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
     border-radius: 50%;
     background: var(--ink);
     color: var(--paper);
-    font-size: 0.6rem;
-    font-weight: 700;
-    letter-spacing: 0;
-    flex-shrink: 0;
+    font-family: var(--font-title);
+    font-size: var(--t-small);
+    font-weight: 600;
   }
 
   .account-name {
     max-width: 14ch;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   /* Dropdown */
   .account-menu-dropdown {
     position: absolute;
-    top: calc(100% + 0.5rem);
+    top: calc(100% + 10px);
     right: 0;
-    min-width: 11rem;
-    background: var(--paper);
-    border: 1px solid var(--rule);
-    border-radius: 2px;
-    box-shadow:
-      0 4px 16px rgba(0, 0, 0, 0.08),
-      0 1px 3px rgba(0, 0, 0, 0.06);
+    z-index: 200;
     display: flex;
     flex-direction: column;
-    padding: 0.4rem 0;
-    z-index: 200;
+    min-width: 12rem;
+    padding: 6px;
+    background: var(--paper-raised);
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lift);
   }
 
   .account-menu-dropdown a,
   .account-menu-dropdown button {
     display: block;
     width: 100%;
+    padding: 10px 14px;
     text-align: left;
-    padding: 0.45rem 1rem;
-    font-family: var(--font-mono);
-    font-size: 0.72rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    font-family: var(--font-body);
+    font-size: var(--t-ui);
     color: var(--ink);
     text-decoration: none;
     background: transparent;
     border: none;
+    border-radius: var(--radius-xs);
     cursor: pointer;
-    transition: background var(--dur-1) var(--ease-out);
+    transition: background-color var(--dur-1) var(--ease-out);
   }
 
   .account-menu-dropdown a:hover,
   .account-menu-dropdown a:focus-visible,
   .account-menu-dropdown button:hover,
   .account-menu-dropdown button:focus-visible {
-    background: var(--paper-2, #f5f5f5);
-    outline: none;
+    background: var(--paper-raised-2);
   }
 
-  .account-menu-dropdown a:focus-visible,
-  .account-menu-dropdown button:focus-visible {
-    outline: 2px solid var(--clay);
+  .account-menu-dropdown :focus-visible {
     outline-offset: -2px;
   }
 
-  /* On narrow mastheads, hide the label; keep the badge */
-  @media (max-width: 40rem) {
+  /*
+   * Under 900px the bar holds the account only once someone is signed in, and then as
+   * the 40px badge alone. Signed out (and when Privy could not start) the menu sheet
+   * carries Sign in instead.
+   */
+  @media (max-width: 899.98px) {
+    #account-slot-root:not(
+      :has(
+        .account-slot:not(
+          [data-account-state='anonymous'],
+          [data-account-state='loading'],
+          [data-account-state='unavailable']
+        )
+      )
+    ) {
+      display: none;
+    }
+  }
+
+  /*
+   * Under 1200px a signed-in member gets the 40px badge alone, so the bar never
+   * outgrows the screen beside the nav links.
+   */
+  @media (max-width: 1199.98px) {
+    .account-link {
+      padding: 0;
+      border: 0;
+    }
+
+    .account-link .account-badge {
+      width: 40px;
+      height: 40px;
+    }
+
     .account-name {
       display: none;
+    }
+
+    /* A clay dot on the badge while the profile is unfinished. */
+    .account-slot:has(.account-nudge) .account-badge::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--clay);
+      box-shadow: 0 0 0 2px var(--paper);
+    }
+
+    /* Out of the bar, still focusable; shows as a pill under the bar while focused. */
+    .account-nudge:not(:focus) {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+
+    .account-nudge:focus {
+      position: absolute;
+      top: calc(100% + 12px);
+      right: 0;
+      margin: 0;
+      padding: 10px 16px;
+      background: var(--paper-raised);
+      border: 1px solid var(--rule-strong);
+      border-radius: var(--radius-pill);
+      text-decoration: none;
     }
   }
 </style>

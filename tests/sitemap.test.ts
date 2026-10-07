@@ -4,7 +4,7 @@ import * as schema from '../db/schema';
 
 let db: TestDatabase;
 vi.mock('../db/pool', () => ({
-  pooledDb: () => db
+  pooledDb: () => db,
 }));
 
 import { GET } from '../src/pages/sitemap.xml';
@@ -23,7 +23,7 @@ describe('dynamic sitemap', () => {
         lat: 0,
         lon: 0,
         blurb: 'A test city',
-        status: 'published'
+        status: 'published',
       },
       {
         id: '00000000-0000-0000-0001-000000000002',
@@ -33,7 +33,7 @@ describe('dynamic sitemap', () => {
         lat: 0,
         lon: 0,
         blurb: 'No public activity here',
-        status: 'published'
+        status: 'published',
       },
     ]);
 
@@ -146,7 +146,7 @@ describe('dynamic sitemap', () => {
         name: 'Published Ambassador',
         cityId,
         verifiedVia: 'Confirmed for the test',
-        status: 'published'
+        status: 'published',
       },
       {
         id: '00000000-0000-0000-0005-000000000002',
@@ -154,8 +154,8 @@ describe('dynamic sitemap', () => {
         name: 'Draft Ambassador',
         cityId,
         verifiedVia: 'Confirmed for the test',
-        status: 'draft'
-      }
+        status: 'draft',
+      },
     ]);
   });
 
@@ -186,6 +186,8 @@ describe('dynamic sitemap', () => {
     expect(xml).toContain('<loc>https://www.withclaude.in/projects/</loc>');
     expect(xml).toContain('<loc>https://www.withclaude.in/ambassadors/</loc>');
     expect(xml).toContain('<loc>https://www.withclaude.in/gallery/</loc>');
+    for (const path of ['stories', 'about', 'community'])
+      expect(xml).toContain(`<loc>https://www.withclaude.in/${path}/</loc>`);
   });
 
   // ── 4. Public builder present ────────────────────────────────────────────

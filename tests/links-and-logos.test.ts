@@ -11,7 +11,7 @@ import { artifactKey } from '../scripts/import/lib/normalise';
 import { assertSafeUrl, safeFetch, UnsafeTarget, type SafeFetchOptions } from '../scripts/import/lib/safe-fetch';
 import { decodeIcon, iconCandidates, isPlatformIconHost, readIco } from '../scripts/media/logos';
 import { resolveLogoSource, PLACEHOLDER_VARIANTS } from '../src/lib/project-logo';
-import { artifactAction, artifactActions, buildStatusLabel, excerpt, narrativeBlocks } from '../src/lib/project-display';
+import { artifactAction, artifactActions, buildStatusLabel, excerpt, narrativeBlocks, ownSummary } from '../src/lib/project-display';
 
 describe('link classification', () => {
   it('rejects credential-bearing and admin URLs whole', () => {
@@ -254,7 +254,23 @@ describe('display helpers', () => {
       { type: 'p', content: [{ text: '5 * 3 * 4 and <script>x</script>' }] },
     ]);
   });
+  it('strips zero-width characters and the BOM', () => {
+    expect(narrativeBlocks('\uFEFFA\u200Bb\u200Cc\u200Dd')).toEqual([
+      { type: 'p', content: [{ text: 'Abcd' }] },
+    ]);
+  });
   it('excerpts on a word boundary', () => {
     expect(excerpt('a '.repeat(200), 20).length).toBeLessThanOrEqual(21);
+  });
+  it('drops import-generated summaries that only repeat the event badge, never a real one', () => {
+    expect(ownSummary('Built at Fable 5.1 Build Day · 20 Sep 2026')).toBeUndefined();
+    expect(ownSummary('Submitted at Bhopal Impact Lab · 23 Aug 2026')).toBeUndefined();
+    const real = 'A ward-level pothole tracker for Bhopal.';
+    expect(ownSummary(real)).toBe(real);
+    // Only the whole generated line is dropped: a sentence that merely starts like one stays.
+    const longer = 'Built at Fable 5.1 Build Day · 20 Sep 2026, now used by two schools.';
+    expect(ownSummary(longer)).toBe(longer);
+    expect(ownSummary('')).toBeUndefined();
+    expect(ownSummary(null)).toBeUndefined();
   });
 });

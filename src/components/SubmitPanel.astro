@@ -6,26 +6,102 @@
  * these public SEO pages keep a useful, honest next step but no longer present
  * duplicate forms that cannot create an owned profile or project.
  */
-interface Props { formId: string; showHead?: boolean; }
+interface Props {
+  formId: string;
+  showHead?: boolean;
+}
 const { formId, showHead = true } = Astro.props;
 const panels = {
-  contribute: { eyebrow: 'Contribute', title: 'Add yourself to the builder index', text: 'Create your Builder Passport to add your profile and publish it when it is ready.', href: '/me/profile/edit/', action: 'Create your profile' },
-  build: { eyebrow: 'Build', title: 'Publish a project', text: 'Projects are tied to your Builder Passport, so you stay in control of the work you share.', href: '/submit/', action: 'Add a project' },
-  practice: { eyebrow: 'Practice', title: 'Share a practice', text: 'Practice publishing is being prepared. Your Builder Passport will be ready when it opens.', href: '/me/profile/edit/', action: 'Edit your profile' },
-  city: { eyebrow: 'Your city', title: 'Update your city', text: 'Your city is part of your Builder Passport and can be updated any time.', href: '/city/', action: 'Update your city' },
+  contribute: {
+    title: 'Add yourself to the builder index',
+    text: 'Create your Builder Passport to add your profile and publish it when it is ready.',
+    href: '/me/profile/edit/',
+    action: 'Create your profile',
+  },
+  build: {
+    title: 'Publish a project',
+    text: 'Projects are tied to your Builder Passport, so you stay in control of the work you share.',
+    href: '/me/projects/new/',
+    action: 'Add a project',
+  },
+  practice: {
+    title: 'Share a practice',
+    text: 'Practice publishing is being prepared. Your Builder Passport will be ready when it opens.',
+    href: '/me/profile/edit/',
+    action: 'Edit your profile',
+  },
+  city: {
+    title: 'Register your city',
+    href: '/me/profile/edit/',
+    action: 'Add your city to your profile',
+  },
 } as const;
 const panel = panels[formId as keyof typeof panels];
 if (!panel) throw new Error(`Unknown contribution panel: ${formId}`);
 ---
 
-<section class="submit" id={formId} aria-labelledby={`${formId}-heading`}>
-  {showHead && <><p class="eyebrow">{panel.eyebrow}</p><h2 id={`${formId}-heading`}>{panel.title}</h2></>}
-  <p>{panel.text}</p>
-  <p><a href={panel.href}>{panel.action}</a></p>
+<section class="submit" id={formId} aria-labelledby={showHead ? `${formId}-heading` : undefined}>
+  <div class="submit-copy">
+    {
+      showHead && (
+        <h2 id={`${formId}-heading`} class="submit-title">
+          {panel.title}
+        </h2>
+      )
+    }
+    {'text' in panel && <p class="submit-text">{panel.text}</p>}
+  </div>
+  <a class="btn btn-primary" href={panel.href}>
+    {panel.action}
+    <svg viewBox="0 0 20 20" aria-hidden="true">
+      <path
+        d="M4 10h11m-4.5-4.5L15 10l-4.5 4.5"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.6"
+        stroke-linecap="round"
+        stroke-linejoin="round"></path>
+    </svg>
+  </a>
 </section>
 
 <style>
-  .submit { max-width: 56ch; padding-top: var(--s-5); border-top: 1px solid var(--rule); }
-  .submit h2 { margin-top: var(--s-3); }
-  .submit p:last-child { margin-top: var(--s-5); }
+  /* The projects mockup's submit band. */
+  .submit {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px 48px;
+    padding: clamp(28px, 3.4vw, 48px);
+    background:
+      linear-gradient(135deg, rgb(var(--glow) / 0.12), transparent 60%), var(--paper-raised);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius-lg);
+  }
+
+  .submit-copy {
+    display: grid;
+    gap: 12px;
+  }
+
+  .submit-title {
+    font-size: var(--t-h2);
+    line-height: var(--lh-h2);
+    letter-spacing: var(--track-h2);
+    color: var(--ink);
+    text-wrap: balance;
+  }
+
+  .submit-text {
+    max-width: 52ch;
+    font-size: var(--t-ui);
+    color: var(--ink-3);
+  }
+
+  /* A long action label wraps on a narrow phone instead of widening the page. */
+  .submit .btn {
+    white-space: normal;
+    text-align: center;
+  }
 </style>

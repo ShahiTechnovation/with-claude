@@ -1,19 +1,16 @@
 /* =========================================================================
-   PRIMITIVES — containers, the meridian, labels, status, buttons, plates,
-   form controls
+   PRIMITIVES — containers, type, the heading pair, buttons, links, chips,
+   status, plates, the sunrise, form controls
+
+   The class names here are a contract (build plan 6.3): every page uses them
+   and nobody redefines them. Components own their own scoped classes.
    ========================================================================= */
 
 /* --- Containers --------------------------------------------------------- */
-.container {
-  width: 100%;
-  max-width: var(--measure);
-  margin-inline: auto;
-  padding-inline: var(--gutter);
-}
-
+.container,
 .container-wide {
   width: 100%;
-  max-width: var(--measure-wide);
+  max-width: calc(var(--measure) + 2 * var(--gutter));
   margin-inline: auto;
   padding-inline: var(--gutter);
 }
@@ -34,99 +31,156 @@
 }
 
 /* =========================================================================
-   THE MERIDIAN
-   One clay thread runs the whole document, filling as you travel down it. It
-   is a scroll position indicator and the only ornament that persists between
-   sections.
-
-   It deliberately no longer carries numbered section ticks. Numbering every
-   movement turned each one into an entry in the same scientific report, which
-   is exactly the sameness the page needed to lose.
+   TYPE — four serif levels over a sans grey sentence
+   Serif never goes below 21px (the interior .t-h3); smaller is Sans 600 or Inter.
    ========================================================================= */
-.rail-anchor {
-  position: absolute;
-  left: 0;
-  right: 0;
-  max-width: var(--measure-wide);
-  margin-inline: auto;
-  pointer-events: none;
-  z-index: var(--z-meridian);
+
+.t-poster,
+.t-display,
+.t-h1,
+.t-h2,
+.t-h3 {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-weight: 300;
+  text-wrap: balance;
 }
 
-.meridian {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: calc(var(--gutter) - 20px);
-  width: 1px;
-  background: var(--rule);
-  pointer-events: none;
+.t-poster {
+  font-size: var(--t-poster);
+  line-height: 0.9;
+  letter-spacing: -0.04em;
 }
 
-/* The travelled portion, in clay. `--meridian-progress` is 0→1. */
-.meridian::after {
-  content: '';
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 1px;
-  height: 100%;
-  background: linear-gradient(to bottom, var(--clay), var(--clay-deep));
-  transform-origin: top;
-  transform: scaleY(var(--meridian-progress, 0));
-  transition: transform 120ms linear;
+.t-display {
+  font-size: var(--t-display);
+  line-height: var(--lh-display);
+  letter-spacing: var(--track-display);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .meridian::after {
-    transform: scaleY(1);
-    opacity: 0.45;
+.t-h1 {
+  font-size: var(--t-h1);
+  line-height: var(--lh-h1);
+  letter-spacing: var(--track-h1);
+}
+
+.t-h2 {
+  font-size: var(--t-h2);
+  line-height: var(--lh-h2);
+  letter-spacing: var(--track-h2);
+}
+
+.t-h3 {
+  font-size: var(--t-h3);
+  line-height: var(--lh-h3);
+  letter-spacing: var(--track-h3);
+}
+
+.t-title {
+  color: var(--ink);
+  font-family: var(--font-title);
+  font-size: var(--t-title);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.006em;
+}
+
+/* The one sentence under a heading. */
+.lead {
+  color: var(--ink-3);
+  font-family: var(--font-body);
+  font-size: var(--t-lead);
+  font-weight: 400;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.meta,
+.small {
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  line-height: 1.5;
+}
+
+/* The clay full stop. */
+.dot {
+  color: var(--clay);
+  text-shadow: 0 0 40px rgb(var(--glow) / 0.9);
+}
+
+/* Clay on cream is 2.96:1, under 3:1; the deeper clay is 6:1. Print is light too. */
+[data-theme='light'] .dot {
+  color: var(--clay-deep);
+}
+
+@media print {
+  .dot {
+    color: var(--clay-deep);
   }
 }
 
-/* Below this the meridian would crowd the text, so it goes. */
-@media (max-width: 74.99em) {
-  .rail-anchor {
-    display: none;
+/* --- The heading pair ---------------------------------------------------
+   A serif cream h2 over a sans grey .lead. Nothing above the h2, ever. An
+   optional .section-more link sits on the heading row from 720px. */
+.section-head {
+  display: grid;
+  gap: var(--head-gap);
+  margin-bottom: var(--head-after);
+}
+
+.section-head h2 {
+  max-width: 20ch;
+  font-size: var(--t-h2);
+  line-height: var(--lh-h2);
+  letter-spacing: var(--track-h2);
+}
+
+.section-head .lead,
+.section-head .prose {
+  max-width: 44ch;
+}
+
+@media (min-width: 720px) {
+  .section-head:has(> .section-more) {
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: var(--s-6);
   }
+
+  .section-head > * {
+    grid-column: 1;
+  }
+
+  .section-head > .section-more {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: end;
+    justify-self: end;
+  }
+}
+
+.section-more {
+  justify-self: start;
 }
 
 /* =========================================================================
-   LABELS & METADATA — the machine-readable layer
+   LABELS & METADATA — 15px, sentence case, no tracking
    ========================================================================= */
 
 .label {
   display: inline-flex;
   align-items: center;
   gap: var(--s-2);
-  font-family: var(--font-mono);
-  font-size: var(--t-meta);
-  font-weight: 500;
-  letter-spacing: var(--track-meta);
-  text-transform: uppercase;
+  font-size: var(--t-small);
   color: var(--ink-3);
 }
 
-.label-strong {
-  color: var(--ink);
-}
-
-.label-accent {
-  color: var(--clay-deep);
-}
-
-/* Coordinate stamp — real lat/lon, used wherever a place is named. */
-.coords {
-  font-family: var(--font-mono);
-  font-size: var(--t-micro);
-  letter-spacing: 0.06em;
-  color: var(--ink-3);
-  font-variant-numeric: tabular-nums;
-}
-
-.rule-line {
-  border: 0;
-  border-top: var(--border-hair) solid var(--rule);
-  margin: 0;
+/* A heading set as a label reads like the h3 labels: Sans 600, never the
+   display serif at 15px. */
+:is(h2, h3, h4).label {
+  font-family: var(--font-title);
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.3;
 }
 
 /* The WITH device. Used sparingly — it is an identity mark, not a motif. */
@@ -145,11 +199,9 @@
   display: inline-flex;
   align-items: center;
   gap: var(--s-2);
-  font-family: var(--font-mono);
-  font-size: var(--t-meta);
-  font-weight: 500;
-  letter-spacing: var(--track-meta);
-  text-transform: uppercase;
+  font-family: var(--font-title);
+  font-size: var(--t-small);
+  font-weight: 600;
 }
 
 .pip::before {
@@ -167,22 +219,23 @@
 
 .pip-live::before {
   background: var(--clay);
-  box-shadow: 0 0 0 0 color-mix(in srgb, var(--clay) 70%, transparent);
+  box-shadow: 0 0 0 0 rgb(var(--glow) / 0.7);
 }
 
+/* Twice, then still. */
 @media (prefers-reduced-motion: no-preference) {
   .pip-live::before {
-    animation: pulse 2.4s var(--ease-in-out) infinite;
+    animation: pulse 2.2s var(--ease-in-out);
+    animation-iteration-count: 2;
   }
 }
 
 @keyframes pulse {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--clay) 60%, transparent);
+  70% {
+    box-shadow: 0 0 0 10px rgb(var(--glow) / 0);
   }
-  55% {
-    box-shadow: 0 0 0 7px color-mix(in srgb, var(--clay) 0%, transparent);
+  100% {
+    box-shadow: 0 0 0 0 rgb(var(--glow) / 0);
   }
 }
 
@@ -209,27 +262,32 @@
 }
 
 /* =========================================================================
-   STATE CHIPS — the governance layer, made visible
-
+   CHIPS — 44px pills, sentence case
    A city's state and a person's role are the two things this site must never
-   overstate, so both get one shared, deliberately quiet vocabulary. The
-   Ambassador chip is the only one that fills; everything else is an outline.
-   That difference is the whole point.
+   overstate. The verified chip is the only one that fills.
    ========================================================================= */
 
-.chip {
+.chip,
+.filter {
   display: inline-flex;
   align-items: center;
   gap: var(--s-2);
-  padding: 0.28em 0.62em;
+  min-height: 44px;
+  padding: 0 18px;
   border: var(--border-hair) solid var(--rule-strong);
-  font-family: var(--font-mono);
-  font-size: var(--t-micro);
-  font-weight: 500;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: var(--ink-3);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--ink-2);
+  font-family: var(--font-title);
+  font-size: var(--t-small);
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
   white-space: nowrap;
+  transition:
+    background-color var(--dur-1) var(--ease-out),
+    border-color var(--dur-1) var(--ease-out),
+    color var(--dur-1) var(--ease-out);
 }
 
 .chip::before {
@@ -241,7 +299,33 @@
   background: currentColor;
 }
 
-/* Verified Ambassador. The only filled chip on the site. */
+/* Pills you press carry no state dot: the dot belongs to the status chips. */
+a.chip::before,
+button.chip::before,
+label.chip::before {
+  display: none;
+}
+
+a.chip:not(.is-on):hover,
+button.chip:not(.is-on, [aria-pressed='true']):hover,
+label.chip:hover,
+.filter:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.chip[aria-pressed='true'],
+.chip.is-on,
+.chip:has(> input:checked),
+input:checked + .chip,
+.filter[aria-pressed='true'],
+.filter.is-on {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+}
+
+/* Verified Ambassador. The only filled chip on the site: 8.9:1 / 6.0:1. */
 .chip-verified {
   border-color: transparent;
   background: var(--clay-deep);
@@ -252,38 +336,8 @@
   background: var(--paper);
 }
 
-.chip-ambassador-led {
-  border-color: var(--clay);
-  color: var(--clay-deep);
-}
-.chip-ambassador-led::before {
-  background: var(--clay);
-}
-
-.chip-event-activity {
-  color: var(--ink-2);
-}
-.chip-event-activity::before {
-  background: transparent;
-  box-shadow: inset 0 0 0 1.5px var(--state-activity);
-}
-
-.chip-community-interest::before {
-  background: var(--state-interest);
-}
-
-.chip-discovery {
-  border-style: dashed;
-}
-.chip-discovery::before {
-  background: transparent;
-  box-shadow: inset 0 0 0 1px currentColor;
-}
-
-/* Roles in the builder index. Same vocabulary, so the hierarchy is obvious. */
 .chip-role {
   border-color: var(--rule);
-  padding: 0.22em 0.5em;
 }
 
 .chip-role::before {
@@ -291,155 +345,152 @@
 }
 
 /* =========================================================================
-   BUTTONS — rectangular, editorial. Nothing on this site is a pill.
+   BUTTONS — pills. The primary is clay with a glow; the rest are ghosts.
    ========================================================================= */
 
 .btn {
   position: relative;
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
-  gap: var(--s-3);
-  padding: 0.85rem 1.35rem;
-  font-family: var(--font-mono);
-  font-size: var(--t-meta);
-  font-weight: 500;
-  letter-spacing: var(--track-meta);
-  text-transform: uppercase;
-  text-decoration: none;
-  border: var(--border-rule) solid var(--ink);
-  border-radius: var(--radius-none);
-  color: var(--ink);
+  justify-content: center;
+  gap: 10px;
+  max-width: 100%;
+  min-height: 52px;
+  padding: 12px 26px;
+  border: var(--border-hair) solid var(--rule-strong);
+  border-radius: var(--radius-pill);
   background: transparent;
-  overflow: hidden;
-  isolation: isolate;
+  color: var(--ink);
+  font-family: var(--font-title);
+  font-size: var(--t-ui);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.005em;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
   transition:
-    color var(--dur-2) var(--ease-out),
-    transform var(--dur-1) var(--ease-out);
+    transform 0.6s var(--ease-cine),
+    box-shadow 0.6s var(--ease-cine),
+    border-color var(--dur-2) var(--ease-out),
+    background-color var(--dur-2) var(--ease-out),
+    color var(--dur-2) var(--ease-out);
 }
 
-/* The fill wipes up from the baseline — a press, not a bounce. */
-.btn::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: var(--ink);
-  transform: scaleY(0);
-  transform-origin: bottom;
-  transition: transform var(--dur-2) var(--ease-out);
+.btn:hover {
+  border-color: var(--ink);
 }
 
-.btn:hover::before,
-.btn:focus-visible::before {
-  transform: scaleY(1);
+.btn svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
 }
 
-.btn:hover,
-.btn:focus-visible {
-  color: var(--paper);
-}
-
-/* A small physical response on press. */
-.btn:active {
-  transform: translateY(1px);
-}
-
+.btn svg,
 .btn .arrow {
-  transition: transform var(--dur-2) var(--ease-out);
+  transition: transform 0.4s var(--ease-cine);
 }
 
-.btn:hover .arrow,
-.btn:focus-visible .arrow {
-  transform: translateX(4px);
+.btn:hover svg:last-child,
+.btn:hover .arrow {
+  transform: translateX(3px);
 }
 
-.btn-solid {
-  color: var(--paper);
-  background: var(--ink);
-}
-
-.btn-solid::before {
-  background: var(--clay);
-  transform: scaleY(0);
-}
-
-.btn-solid:hover,
-.btn-solid:focus-visible {
-  color: var(--night);
-}
-
-.btn-clay {
-  border-color: var(--clay-deep);
-  color: var(--paper);
-  background: var(--clay-deep);
-}
-
-.btn-clay::before {
-  background: var(--ink);
-}
-
-.btn-clay:hover,
-.btn-clay:focus-visible {
-  color: var(--paper);
-}
-
-.btn-quiet {
+.btn-ghost {
   border-color: var(--rule-strong);
-  color: var(--ink-2);
+  background: transparent;
+  color: var(--ink);
+}
+
+.btn-primary {
+  border-color: transparent;
+  background: var(--clay);
+  color: var(--btn-ink);
+  box-shadow: var(--glow-btn);
+}
+
+.btn-primary:hover {
+  border-color: transparent;
+  transform: translateY(-2px);
+  box-shadow:
+    0 0 0 1px rgb(var(--glow) / 0.7),
+    0 18px 70px -8px rgb(var(--glow) / 0.9);
 }
 
 .btn-sm {
-  padding: 0.55rem 0.9rem;
-  font-size: var(--t-micro);
+  min-height: 40px;
+  padding: 0 18px;
+  font-size: var(--t-small);
 }
 
 .btn[aria-disabled='true'] {
   cursor: default;
-  color: var(--ink-3);
   border-color: var(--rule-strong);
+  background: transparent;
+  color: var(--ink-3);
+  box-shadow: none;
+  transform: none;
 }
 
-.btn[aria-disabled='true']::before {
-  display: none;
-}
-
-/* An inline text link that behaves like a button target. */
-.link-arrow {
+/* --- The text link with an arrow --------------------------------------- */
+.link {
   display: inline-flex;
   align-items: center;
-  gap: var(--s-2);
-  font-family: var(--font-mono);
-  font-size: var(--t-meta);
-  letter-spacing: var(--track-meta);
-  text-transform: uppercase;
-  color: var(--ink);
-  text-decoration: none;
-  border-bottom: 1px solid var(--rule-strong);
+  gap: 8px;
   padding-bottom: 3px;
+  border-bottom: var(--border-hair) solid var(--rule-strong);
+  color: var(--ink);
+  font-family: var(--font-title);
+  font-size: var(--t-ui);
+  font-weight: 600;
+  line-height: 1.3;
+  text-decoration: none;
   transition:
     border-color var(--dur-2) var(--ease-out),
-    color var(--dur-2) var(--ease-out);
+    gap 0.4s var(--ease-cine);
 }
 
-.link-arrow:hover,
-.link-arrow:focus-visible {
-  color: var(--clay-deep);
+.link svg {
+  width: 17px;
+  height: 17px;
+  flex: none;
+}
+
+.link:hover {
   border-color: var(--clay);
+  gap: 12px;
 }
 
-.link-arrow .arrow {
-  transition: transform var(--dur-2) var(--ease-out);
+/* --- The round icon button --------------------------------------------- */
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border: var(--border-hair) solid var(--rule-strong);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-2) var(--ease-out),
+    background-color var(--dur-2) var(--ease-out);
 }
 
-.link-arrow:hover .arrow {
-  transform: translateX(3px);
+.icon-btn:hover {
+  border-color: var(--ink);
+}
+
+.icon-btn svg {
+  width: 19px;
+  height: 19px;
 }
 
 /* =========================================================================
    PLATES — the photographic treatment
-
-   Photographs are objects, not thumbnails in cards. Four treatments so a
-   page can vary its rhythm instead of tiling one shape.
    ========================================================================= */
 
 .plate {
@@ -458,137 +509,57 @@
   transition: transform var(--dur-4) var(--ease-out);
 }
 
-/* Hairline frame — the archival treatment. */
-.plate-framed {
-  border: var(--border-hair) solid var(--rule);
-}
-
-/* Mounted on board, with a margin — the print treatment. */
-.plate-mounted {
-  padding: 10px;
-  background: var(--paper-raised);
-  border: var(--border-hair) solid var(--rule-strong);
-  box-shadow: var(--shadow-lift);
-}
-
-.plate-zoom:hover img,
-.plate-zoom:focus-visible img {
-  transform: scale(1.035);
-}
-
-.plate-caption {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--s-4);
-  margin-top: var(--s-3);
-  font-family: var(--font-mono);
-  font-size: var(--t-micro);
-  line-height: 1.5;
-  letter-spacing: 0.04em;
-  color: var(--ink-3);
-}
-
-/* --- Archival: a print you can pick up ----------------------------------
-   The photograph is treated as a physical object on a board. Under a cursor
-   it answers with what a held print actually does — it shifts a couple of
-   millimetres, catches the light at a slightly different angle, and drops its
-   shadow the other way. The numbers are deliberately small: 1.6 degrees, not
-   twelve. This is weight, not a card flip.
-
-   `--tilt-x` and `--tilt-y` run -1 to 1 and are set by the enhancement
-   bundle. Both default to zero, so with scripts off the plate is a plate. */
-.plate-archival {
-  --tilt-x: 0;
-  --tilt-y: 0;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .plate-archival .plate {
-    transform: perspective(1200px) rotateY(calc(var(--tilt-x) * 1.6deg))
-      rotateX(calc(var(--tilt-y) * -1.2deg))
-      translate3d(calc(var(--tilt-x) * 3px), calc(var(--tilt-y) * 2px), 0);
-    transition:
-      transform 520ms var(--ease-out),
-      box-shadow 520ms var(--ease-out);
-  }
-
-  /* Under the pointer it tracks; released, it takes its time settling back. */
-  .plate-archival.is-held .plate {
-    transition-duration: 110ms;
-    box-shadow:
-      calc(var(--tilt-x) * -9px) calc(20px - var(--tilt-y) * 5px) 40px -26px rgb(22 20 14 / 0.55),
-      0 2px 5px -3px rgb(22 20 14 / 0.35);
-  }
-}
-
-/* The rest of the caption — the part a reader only wants once they have
-   stopped on the picture. Present in the DOM in every case, so a screen reader
-   always reads it; only hidden where a hover exists to bring it back, and the
-   reveal is wanted. With motion reduced, nothing is coming to uncover it, so
-   it simply stands. */
-@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
-  .plate-aside {
-    opacity: 0;
-    transform: translateY(-2px);
-    transition:
-      opacity var(--dur-2) var(--ease-out),
-      transform var(--dur-2) var(--ease-out);
-  }
-
-  .plate-archival.is-held .plate-aside {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-.plate-aside {
-  margin-top: var(--s-2);
-  font-family: var(--font-mono);
-  font-size: var(--t-micro);
-  line-height: 1.6;
-  letter-spacing: 0.03em;
-  color: var(--ink-3);
-}
-
 /* =========================================================================
-   SECTION HEADS
-   The eyebrow is free text set by each section rather than a serial number,
-   so the page stops reading as a numbered report.
+   THE SUNRISE — a static glow
+   `<i class="sunrise" aria-hidden="true">` inside a parent with
+   `position: relative; overflow: hidden; isolation: isolate`.
    ========================================================================= */
 
-.section-head {
-  display: grid;
-  gap: var(--s-4);
-  margin-bottom: var(--s-8);
+.sunrise {
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  bottom: 0;
+  width: max(1400px, 140vw);
+  aspect-ratio: 2 / 1;
+  transform: translate(-50%, 46%);
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    rgb(var(--hot) / 1) 0%,
+    rgb(var(--glow) / 0.95) 18%,
+    rgb(var(--glow) / 0.5) 40%,
+    rgb(var(--glow) / 0.14) 64%,
+    transparent 82%
+  );
+  pointer-events: none;
 }
 
-.section-head h2 {
-  max-width: 20ch;
+/* The page-head variant: a weaker sun off the top-right corner. */
+.sunrise.is-corner {
+  left: auto;
+  bottom: auto;
+  right: -18vw;
+  top: -62vw;
+  width: max(900px, 78vw);
+  aspect-ratio: 1;
+  transform: none;
+  background: radial-gradient(
+    closest-side,
+    rgb(var(--hot) / 0.55) 0%,
+    rgb(var(--glow) / 0.5) 18%,
+    rgb(var(--glow) / 0.2) 42%,
+    rgb(var(--glow) / 0.05) 66%,
+    transparent 80%
+  );
 }
 
-.section-head .prose {
-  max-width: 54ch;
-  font-size: var(--t-body);
-}
-
-.eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--s-3);
-  font-family: var(--font-mono);
-  font-size: var(--t-meta);
-  font-weight: 500;
-  letter-spacing: var(--track-meta);
-  text-transform: uppercase;
-  color: var(--clay-deep);
-}
-
-.eyebrow::before {
-  content: '';
-  width: 16px;
-  height: 1px;
-  flex: none;
-  background: var(--clay);
+/* On phones the 900px sun would sit behind the page lead: push its core off the corner. */
+@media (max-width: 699px) {
+  .sunrise.is-corner {
+    right: -450px;
+    top: -550px;
+  }
 }
 
 /* =========================================================================
@@ -601,52 +572,77 @@
 }
 
 .field > label {
-  font-family: var(--font-mono);
-  font-size: var(--t-micro);
-  font-weight: 500;
-  letter-spacing: var(--track-meta);
-  text-transform: uppercase;
+  font-size: var(--t-small);
   color: var(--ink-3);
 }
 
 .field .hint {
-  font-family: var(--font-mono);
-  font-size: var(--t-micro);
+  font-size: var(--t-small);
   color: var(--ink-3);
-  text-transform: none;
-  letter-spacing: 0.03em;
 }
 
 .field input,
 .field textarea,
 .field select {
   width: 100%;
-  padding: 0.7rem 0.8rem;
+  min-height: 48px;
+  padding: 0 18px;
   background: var(--paper-raised);
-  border: var(--border-hair) solid var(--rule-strong);
-  border-radius: var(--radius-none);
+  border: var(--border-hair) solid var(--rule-field);
+  border-radius: var(--radius-pill);
   color: var(--ink);
-  font-size: var(--t-small);
+  font-size: var(--t-ui);
   transition: border-color var(--dur-1) var(--ease-out);
 }
 
 .field textarea {
   min-height: 5.5rem;
+  padding-block: 12px;
+  border-radius: var(--radius-sm);
   resize: vertical;
   line-height: 1.5;
 }
 
-.field input:focus,
-.field textarea:focus,
-.field select:focus {
-  outline: none;
-  border-color: var(--clay);
-  box-shadow: inset 0 0 0 1px var(--clay);
+.field input:hover,
+.field textarea:hover,
+.field select:hover {
+  border-color: var(--ink-3);
 }
 
 .field input::placeholder,
 .field textarea::placeholder {
-  color: color-mix(in srgb, var(--ink-3) 72%, transparent);
+  color: var(--ink-3);
+}
+
+/* =========================================================================
+   ROW SPOTLIGHT
+   `.spotlight` on a list: while the pointer is on one row, the other rows'
+   contents fade, so the hairlines on the rows stay put. The gaps between rows
+   dim nothing. Each row should be one link (stretch it if needed). Fine
+   pointers only, so a tap never leaves a list dimmed; a row holding keyboard
+   focus never dims. A component whose row content has its
+   own `transition` adds `opacity` to it.
+   ========================================================================= */
+
+@media (hover: hover) and (pointer: fine) {
+  /* 0.35 keeps the dimmed rows legible (about 3:1 on both grounds); the recording's
+     claude.com list dims harder, to about 0.1. */
+  .spotlight:has(> :hover) > :not(:hover, :has(:focus-visible)) > * {
+    opacity: 0.35;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .spotlight > * > * {
+      transition: opacity var(--dur-2) var(--ease-out);
+    }
+
+    /* Crossing a gap between cards hovers no row for a few frames; holding
+       the un-dim back 80ms stops the other rows flashing up. Doubled class
+       outranks a component's own scoped `transition` shorthand. */
+    .spotlight.spotlight:not(:has(> :hover)) > * > * {
+      transition-delay: 80ms;
+    }
+  }
 }
 
 /* =========================================================================
@@ -658,16 +654,14 @@
    ========================================================================= */
 
 @media (pointer: coarse) {
-  .link-arrow,
+  .link,
   .index-more,
-  .signal-fn,
   .partner-name a {
     position: relative;
   }
 
-  .link-arrow::before,
+  .link::before,
   .index-more::before,
-  .signal-fn::before,
   .partner-name a::before {
     content: '';
     position: absolute;
@@ -685,19 +679,13 @@
     display: block;
     padding-block: 9px;
   }
-
-  .socials {
-    gap: var(--s-3) var(--s-6);
-  }
 }
 
 /* =========================================================================
    FILTER BAR
-   The archive filter island (`scripts/filters.ts`) is shared by the event,
-   project and use-case archives, and so is its class contract: `.filters`
-   wraps groups of `.filter` buttons and an optional `[data-filter-count]`.
-   The styles lived in two components and were about to live in a third, so
-   they belong here with the rest of the primitives.
+   The filter island (`scripts/filters.ts`) is used only by PracticeLibrary on
+   /use-cases/: `.filters` wraps groups of `.filter` buttons (styled with the
+   chips above) and an optional `[data-filter-count]`.
    ========================================================================= */
 
 .filters {
@@ -720,38 +708,4 @@
 .filter-label {
   color: var(--ink-3);
   margin-right: var(--s-2);
-}
-
-.filter {
-  padding: 0.42rem 0.7rem;
-  border: var(--border-hair) solid var(--rule-strong);
-  font-family: var(--font-mono);
-  font-size: var(--t-micro);
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--ink-2);
-  transition:
-    background var(--dur-1) var(--ease-out),
-    border-color var(--dur-1) var(--ease-out),
-    color var(--dur-1) var(--ease-out);
-}
-
-.filter:hover {
-  border-color: var(--ink);
-  color: var(--ink);
-}
-
-.filter.is-on {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: var(--paper);
-}
-
-.filter-count {
-  margin-left: auto;
-  font-family: var(--font-mono);
-  font-size: var(--t-micro);
-  letter-spacing: var(--track-meta);
-  text-transform: uppercase;
-  color: var(--ink-3);
 }

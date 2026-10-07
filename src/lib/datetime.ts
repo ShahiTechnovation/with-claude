@@ -153,3 +153,43 @@ export function formatDateLong(date: IsoDate): string {
   const month = MONTHS_LONG[MONTHS_SHORT.indexOf(p.monthShort as (typeof MONTHS_SHORT)[number])];
   return `${p.day} ${month} ${p.year}`;
 }
+
+const DAYS_LONG = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+] as const;
+
+const monthLong = (p: DateParts) =>
+  MONTHS_LONG[MONTHS_SHORT.indexOf(p.monthShort as (typeof MONTHS_SHORT)[number])];
+
+/** `Saturday 10 October`, or `Saturday 10 October 2026` with the year. */
+export function formatDayLong(date: IsoDate, withYear = false): string {
+  const p = dateParts(date);
+  const weekday = DAYS_LONG[DAYS_SHORT.indexOf(p.weekdayShort as (typeof DAYS_SHORT)[number])];
+  return `${weekday} ${p.day} ${monthLong(p)}${withYear ? ` ${p.year}` : ''}`;
+}
+
+/** `Sat 20 Sep` */
+export function formatDayShort(date: IsoDate): string {
+  const p = dateParts(date);
+  return `${p.weekdayShort} ${p.day} ${p.monthShort}`;
+}
+
+/** `Sep 2026` */
+export function formatMonthYear(date: IsoDate): string {
+  const p = dateParts(date);
+  return `${p.monthShort} ${p.year}`;
+}
+
+/** `9 AM to 6 PM`, `6 to 8:30 PM` (a shared AM/PM said once), or `6 PM` with no end. Words, not a dash. */
+export function formatHours(start: ClockTime, end?: ClockTime): string {
+  const a = formatTime(start);
+  if (!end) return a;
+  const b = formatTime(end);
+  return `${a.slice(-2) === b.slice(-2) ? a.slice(0, -3) : a} to ${b}`;
+}

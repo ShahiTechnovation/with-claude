@@ -1,0 +1,111 @@
+---
+/**
+ * The newest photographs, in one row that scrolls sideways with snap. Captions are always
+ * visible. Skips the photograph the room band above already shows.
+ */
+import { Image } from 'astro:assets';
+import type { RecordSelectors } from '@/data/selectors';
+import { formatMonthYear } from '@/lib/datetime';
+import { eventLabel } from '@/lib/event-display';
+import { asset } from '@/lib/images';
+
+interface Props {
+  selectors: RecordSelectors;
+  /** The room band's photo (its `src`), left out here. */
+  skip?: string;
+}
+
+const { selectors, skip } = Astro.props;
+const frames = selectors
+  .photoRecord()
+  .filter((p) => p.src !== skip)
+  .map((p) => ({ ...p, image: asset(p.src) }))
+  .filter((p) => p.image)
+  .slice(0, 8)
+  .map((p) => ({
+    image: p.image!,
+    alt: p.alt,
+    caption: `${eventLabel(p.event.title, p.event.shortTitle ?? null, selectors.cityName(p.event.citySlug))} · ${formatMonthYear(p.event.date)}`,
+  }));
+const arrow = 'M4 10h11m-4.5-4.5L15 10l-4.5 4.5';
+---
+
+<div class="container">
+  <div class="section-head">
+    <h2 id="photos-heading">Rooms full of builders.</h2>
+  </div>
+</div>
+
+{
+  frames.length > 0 && (
+    <div class="strip" role="region" tabindex="0" aria-label="Photos from recent events">
+      {frames.map((f) => (
+        <figure class="frame">
+          <Image src={f.image} alt={f.alt} widths={[400, 800]} sizes="400px" loading="lazy" />
+          <figcaption>{f.caption}</figcaption>
+        </figure>
+      ))}
+    </div>
+  )
+}
+
+<div class="container strip-foot">
+  <a class="link" href="/gallery/">
+    Open the gallery
+    <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+      <path
+        d={arrow}
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.6"
+        stroke-linecap="round"
+        stroke-linejoin="round"></path>
+    </svg>
+  </a>
+</div>
+
+<style>
+  .strip {
+    --edge: max(var(--gutter), calc((100vw - var(--measure)) / 2));
+    display: flex;
+    gap: 16px;
+    padding: 4px var(--edge) 8px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: var(--edge);
+    overscroll-behavior-x: contain;
+  }
+
+  /* Inset, so the ring is not clipped at the viewport edge the strip bleeds to. */
+  .strip:focus-visible {
+    outline-offset: -2px;
+  }
+
+  .frame {
+    flex: none;
+    width: clamp(260px, 27vw, 400px);
+    margin: 0;
+    scroll-snap-align: start;
+  }
+
+  .frame img {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 3 / 2;
+    object-fit: cover;
+    border-radius: 14px;
+    background: var(--paper-raised);
+  }
+
+  .frame figcaption {
+    margin-top: 12px;
+    color: var(--ink-3);
+    font-size: var(--t-small);
+    line-height: 1.4;
+  }
+
+  .strip-foot {
+    margin-top: 32px;
+  }
+</style>

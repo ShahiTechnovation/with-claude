@@ -2,8 +2,6 @@
 import '@fontsource-variable/fraunces/wonk.css';
 import '@fontsource-variable/fraunces/wonk-italic.css';
 import '@fontsource-variable/inter/wght.css';
-import '@fontsource/ibm-plex-mono/400.css';
-import '@fontsource/ibm-plex-mono/500.css';
 import '@/styles/fonts.css';
 
 import '@/styles/tokens.css';
@@ -11,11 +9,11 @@ import '@/styles/base.css';
 import '@/styles/primitives.css';
 import '@/styles/forms.css';
 
-// Preload the faces that paint the first screen: the headline serif, body text, and the
-// wordmark's Fraunces. Importing the file gives us the hashed build URL, so the preload can
-// never point at a stale name.
+// Preload the faces that paint the first screen: the headline serif, the title sans and body
+// text. Fraunces is only the wordmark, so it loads without a preload. Importing the file gives
+// us the hashed build URL, so the preload can never point at a stale name.
 import serifUrl from '@/assets/fonts/anthropic-serif-display-light.woff2?url';
-import frauncesUrl from '@fontsource-variable/fraunces/files/fraunces-latin-wonk-normal.woff2?url';
+import sansUrl from '@/assets/fonts/anthropic-sans-display-semibold.woff2?url';
 import interUrl from '@fontsource-variable/inter/files/inter-latin-wght-normal.woff2?url';
 
 import Masthead from '@/components/Masthead.astro';
@@ -33,7 +31,7 @@ interface Props {
    * express. Everything else keeps `Name · With Claude`.
    */
   seoTitle?: string;
-  /** Rendered as a real trail AND emitted as `BreadcrumbList`. */
+  /** Rendered as a real trail AND emitted as `BreadcrumbList`, both from three crumbs. */
   breadcrumbs?: Crumb[];
   /** Route prefix for nav highlighting. */
   active?: string;
@@ -65,6 +63,10 @@ const {
 const pathname = Astro.url.pathname.replace(/\/?$/, '/');
 const canonical = new URL(pathname, site.url).href;
 const ogImage = new URL(image, site.url).href;
+// Dark is the default on every public page. The member area is locked light: its editors
+// and the sign-in gate are built for the cream ground, and the theme toggle is hidden there.
+const lockLight = Astro.url.pathname.startsWith('/me/');
+
 const fullTitle =
   seoTitle ?? (title === site.wordmark ? `${site.wordmark} · India` : `${title} · With Claude`);
 
@@ -94,13 +96,17 @@ const organization = {
 const graph = [
   organization,
   websiteSchema(),
-  ...(breadcrumbs.length > 1 ? [breadcrumbSchema(breadcrumbs)] : []),
+  ...(breadcrumbs.length > 2 ? [breadcrumbSchema(breadcrumbs)] : []),
   ...schema,
 ];
 ---
 
 <!doctype html>
-<html lang="en-IN">
+<html
+  lang="en-IN"
+  data-theme={lockLight ? 'light' : 'dark'}
+  data-theme-lock={lockLight ? '' : undefined}
+>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -110,12 +116,27 @@ const graph = [
     {noindex && <meta name="robots" content="noindex, follow" />}
 
     <link rel="preload" as="font" type="font/woff2" href={serifUrl} crossorigin />
-    <link rel="preload" as="font" type="font/woff2" href={frauncesUrl} crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href={sansUrl} crossorigin />
     <link rel="preload" as="font" type="font/woff2" href={interUrl} crossorigin />
 
     <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <meta name="theme-color" content="#F3EFE7" />
+    <meta name="theme-color" content={lockLight ? '#FAF9F5' : '#0C0B0A'} />
+    <!-- Before first paint: mark the document as scripted (`.js-only`, `.no-js-only`) and
+         apply the visitor's saved theme. Only the masthead toggle writes `wc-theme`. A
+         visitor whose storage is blocked gets the dark default. -->
+    <script is:inline>
+      (function (d) {
+        d.classList.add('js');
+        if (d.hasAttribute('data-theme-lock')) return;
+        try {
+          var t = localStorage.getItem('wc-theme');
+          if (t === 'light' || t === 'dark') d.dataset.theme = t;
+        } catch (e) {}
+        if (d.dataset.theme === 'light')
+          document.querySelector('meta[name="theme-color"]').content = '#FAF9F5';
+      })(document.documentElement);
+    </script>
 
     <meta property="og:type" content={ogType} />
     <meta property="og:site_name" content={site.wordmark} />
@@ -137,57 +158,23 @@ const graph = [
       type="application/ld+json"
       set:html={safeJsonLd({ '@context': 'https://schema.org', '@graph': graph })}
     />
-
-    <!-- Marks the document as scripted before first paint, so the reveal
-         system only ever displaces content it can also restore.
-
-         The timer is the safety net. `html.js` is what lets the reveal system
-         hide content, and the only thing that brings it back is the
-         enhancement bundle booting. If that bundle ever fails to load, the
-         page would sit there blank — so if nothing has claimed the document
-         after a couple of seconds, we drop back to the unscripted branch and
-         everything is simply visible. -->
-    <script is:inline>
-      document.documentElement.classList.add('js');
-      setTimeout(function () {
-        var html = document.documentElement;
-        if (!html.classList.contains('enhanced')) html.classList.remove('js');
-      }, 2500);
-    </script>
   </head>
 
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
     <Masthead active={active} />
 
-    <div class="page">
-      <span class="rail-anchor meridian-anchor" aria-hidden="true">
-        <span class="meridian"></span>
-      </span>
-      <main id="main">
-        <Breadcrumbs crumbs={breadcrumbs} />
-        <slot />
-      </main>
-    </div>
+    <main id="main">
+      <Breadcrumbs crumbs={breadcrumbs} />
+      <slot />
+    </main>
 
     <SiteFooter />
 
     <script>
       import { inject } from '@vercel/analytics';
-      import '@/scripts/enhance';
 
       inject();
     </script>
   </body>
 </html>
-
-<style>
-  .page {
-    position: relative;
-  }
-
-  .meridian-anchor {
-    top: 0;
-    bottom: 0;
-  }
-</style>

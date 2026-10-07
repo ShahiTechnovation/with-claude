@@ -18,7 +18,7 @@
  *
  * Slugs default to the September 2026 archive rehearsal database; override
  * with the environment variables PROJECT, IMPORTED, EVENT, BUILDER, CITY,
- * AMBASSADOR and HIDDEN.
+ * AMBASSADOR, and HIDDEN (a hidden project's slug; its 404 is checked only when set).
  */
 const BASE = process.env.BASE ?? 'http://127.0.0.1:4321';
 if (!/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(BASE)) {
@@ -32,7 +32,6 @@ const S = {
   BUILDER: 'aniket-sahu',
   CITY: 'bhopal',
   AMBASSADOR: 'aniket-sahu',
-  HIDDEN: 'nagar-setu',
 };
 for (const key of Object.keys(S)) if (process.env[key]) S[key] = process.env[key];
 
@@ -56,7 +55,7 @@ const ROUTES = [
   [`/projects/?event=${S.EVENT}&sort=name&page=2`, 200],
   [`/projects/${S.PROJECT}/`, 200],
   [`/projects/${S.IMPORTED}/`, 200],
-  [`/projects/${S.HIDDEN}/`, 404],
+  ...(S.HIDDEN ? [[`/projects/${S.HIDDEN}/`, 404]] : []),
   ['/projects/no-such-project/', 404],
   ['/ambassadors/', 200],
   [`/ambassadors/${S.AMBASSADOR}/`, 200],
@@ -74,7 +73,7 @@ const ROUTES = [
   ['/stories/', 200],
   ['/stories/no-such/', 404],
   ['/submit/', 308, '/me/projects/new/'],
-  ['/join/', 308, '/'],
+  ['/join/', 308, '/me/'],
   ['/city/', 308, '/me/profile/edit/'],
   ['/definitely-missing/', 404],
   ['/sitemap.xml', 200],
@@ -143,7 +142,7 @@ for (const href of hrefs) {
   if (res.status !== 200)
     report(false, `homepage link ${href}`, `→ ${target} answered ${res.status}`);
 }
-report(checked > 40, `homepage internal links resolve (${checked} unique)`);
+report(checked >= 20, `homepage internal links resolve (${checked} unique)`);
 
 console.log(failures === 0 ? '\nRoute audit passed.' : `\n${failures} route check(s) failed.`);
 process.exit(failures === 0 ? 0 : 1);

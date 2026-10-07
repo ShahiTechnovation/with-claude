@@ -10,22 +10,21 @@ import { homeHref } from '@/lib/directory-host';
  * hierarchy that the page does not actually offer. The last crumb is the
  * current page, so it is plain text and carries `aria-current`.
  *
- * Set in mono at metadata size, which puts it in the same family as the
- * coordinate stamps and volume numbers rather than making it a second nav.
+ * Shown only from three crumbs (Projects / an event / a project): one or two
+ * crumbs repeat the nav and the page title. `Base.astro` emits the
+ * `BreadcrumbList` JSON-LD under the same rule.
  */
 interface Props {
   crumbs: Crumb[];
-  /** Sits on a dark ground. */
-  dark?: boolean;
 }
 
-const { crumbs, dark = false } = Astro.props;
+const { crumbs } = Astro.props;
 ---
 
 {
-  crumbs.length > 1 && (
-    <nav class:list={['crumbs', { 'is-dark': dark }]} aria-label="Breadcrumb">
-      <ol class="container-wide crumbs-list">
+  crumbs.length > 2 && (
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <ol class="container crumbs-list">
         {crumbs.map((crumb, i) => {
           const last = i === crumbs.length - 1;
           return (
@@ -33,7 +32,9 @@ const { crumbs, dark = false } = Astro.props;
               {last ? (
                 <span aria-current="page">{crumb.name}</span>
               ) : (
-                <a href={crumb.href === '/' ? homeHref(Astro.url.hostname) : crumb.href}>{crumb.name}</a>
+                <a href={crumb.href === '/' ? homeHref(Astro.url.hostname) : crumb.href}>
+                  {crumb.name}
+                </a>
               )}
               {!last && (
                 <span class="crumb-sep" aria-hidden="true">
@@ -59,13 +60,9 @@ const { crumbs, dark = false } = Astro.props;
     align-items: baseline;
     gap: var(--s-2);
     list-style: none;
-    padding-left: var(--gutter);
-    padding-right: var(--gutter);
-    margin: 0;
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: var(--track-meta);
-    text-transform: uppercase;
+    margin-block: 0;
+    font-size: var(--t-small);
+    line-height: 1.4;
     color: var(--ink-3);
   }
 
@@ -78,43 +75,27 @@ const { crumbs, dark = false } = Astro.props;
   }
 
   .crumb a {
-    color: var(--ink-3);
-    text-decoration: none;
-    /* Mono at micro size gives a 19px line box, which is under the 30px
-       touch target this site holds itself to. The padding is what makes the
-       trail tappable; it is not decoration. */
+    /* The padding makes the trail tappable; it is not decoration. */
     padding-block: var(--s-2);
-    border-bottom: var(--border-hair) solid transparent;
+    color: var(--ink-3);
+    text-decoration: underline;
+    text-decoration-color: transparent;
+    text-underline-offset: 4px;
     transition:
       color var(--dur-1) var(--ease-out),
-      border-color var(--dur-1) var(--ease-out);
+      text-decoration-color var(--dur-1) var(--ease-out);
   }
 
-  .crumb a:hover,
-  .crumb a:focus-visible {
+  .crumb a:hover {
     color: var(--ink);
-    border-bottom-color: var(--rule-strong);
+    text-decoration-color: var(--rule-strong);
   }
 
   .crumb [aria-current='page'] {
-    color: var(--ink-2);
+    color: var(--ink);
   }
 
   .crumb-sep {
-    color: var(--rule-strong);
-  }
-
-  .is-dark .crumbs-list,
-  .is-dark .crumb a {
-    color: var(--on-night-2);
-  }
-
-  .is-dark .crumb a:hover,
-  .is-dark .crumb a:focus-visible {
-    color: var(--on-night);
-  }
-
-  .is-dark .crumb [aria-current='page'] {
-    color: var(--on-night);
+    color: var(--ink-3);
   }
 </style>

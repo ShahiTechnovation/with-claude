@@ -35,10 +35,8 @@ export type LogoSource =
   | { kind: 'placeholder'; variant: number };
 
 /** Retained for callers that only need a stable bucket number (none left in
- * this codebase as of the category-motif redesign — `ProjectLogo.astro` now
- * derives its look from `resolveMotif()` using the project's category and
- * slug instead of this fixed count). Kept so `variant` on `LogoSource`
- * still means something if a caller re-introduces a fixed-variant use. */
+ * this codebase). Kept so `variant` on `LogoSource` still means something if
+ * a caller re-introduces a fixed-variant use. */
 export const PLACEHOLDER_VARIANTS = 6;
 
 /** A stable small hash, so the same slug always gets the same placeholder. */
@@ -52,22 +50,42 @@ export function stableHash(text: string): number {
 }
 
 const ASSET_KEY = /^[a-z0-9][a-z0-9/_.-]{0,199}$/i;
-const isAssetKey = (v: string | null | undefined): v is string => Boolean(v && ASSET_KEY.test(v) && !v.includes('..'));
+const isAssetKey = (v: string | null | undefined): v is string =>
+  Boolean(v && ASSET_KEY.test(v) && !v.includes('..'));
 const isHttps = (v: string | null | undefined): v is string => Boolean(v && /^https:\/\//i.test(v));
 
 export function resolveLogoSource(input: {
   slug: string;
   logoPath: string | null;
   /** Only a PUBLISHED, untombstoned media row; the caller has checked. */
-  logoMedia: { url: string; provenance: string | null; width?: number | null; height?: number | null } | null;
+  logoMedia: {
+    url: string;
+    provenance: string | null;
+    width?: number | null;
+    height?: number | null;
+  } | null;
   cover: string | null;
 }): LogoSource {
   const media = input.logoMedia && isHttps(input.logoMedia.url) ? input.logoMedia : null;
   if (media && media.provenance !== 'favicon') {
-    return { kind: 'logo', src: media.url, origin: media.provenance === 'organiser' ? 'organiser' : 'upload', width: media.width, height: media.height };
+    return {
+      kind: 'logo',
+      src: media.url,
+      origin: media.provenance === 'organiser' ? 'organiser' : 'upload',
+      width: media.width,
+      height: media.height,
+    };
   }
   if (isAssetKey(input.logoPath)) return { kind: 'logo', src: input.logoPath, origin: 'organiser' };
-  if (input.cover && (isHttps(input.cover) || isAssetKey(input.cover))) return { kind: 'cover', src: input.cover };
-  if (media) return { kind: 'logo', src: media.url, origin: 'favicon', width: media.width, height: media.height };
+  if (input.cover && (isHttps(input.cover) || isAssetKey(input.cover)))
+    return { kind: 'cover', src: input.cover };
+  if (media)
+    return {
+      kind: 'logo',
+      src: media.url,
+      origin: 'favicon',
+      width: media.width,
+      height: media.height,
+    };
   return { kind: 'placeholder', variant: stableHash(input.slug) % PLACEHOLDER_VARIANTS };
 }

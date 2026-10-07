@@ -47,47 +47,50 @@ const { reason = 'unauthenticated', next = Astro.url.pathname } = Astro.props;
  * exposing configuration state or token details.
  */
 const headings: Record<PageGuardFailureReason, string> = {
-  unauthenticated:       'Sign in to continue',
+  unauthenticated: 'Sign in to continue',
   'server-not-configured': 'Sign-in temporarily unavailable',
-  'no-member':           'Setting up your account',
-  'member-unavailable':  'Account not available',
-  'profile-required':    'Setting up your account',
+  'no-member': 'Setting up your account',
+  'member-unavailable': 'Account not available',
+  'profile-required': 'Setting up your account',
 };
 
 const subtext: Record<PageGuardFailureReason, string | null> = {
-  unauthenticated:       null,
+  unauthenticated: null,
   'server-not-configured': 'Sign-in is temporarily unavailable. Please try again shortly.',
-  'no-member':           'Your account is being set up. This should only take a moment.',
-  'member-unavailable':  'This account is not available. Contact support if you think this is an error.',
-  'profile-required':    'Your account is being set up. This should only take a moment.',
+  'no-member': 'Your account is being set up. This should only take a moment.',
+  'member-unavailable':
+    'This account is not available. Contact support if you think this is an error.',
+  'profile-required': 'Your account is being set up. This should only take a moment.',
 };
 
-const showCta = reason === 'unauthenticated' || reason === 'no-member' || reason === 'profile-required';
+const showCta =
+  reason === 'unauthenticated' || reason === 'no-member' || reason === 'profile-required';
 ---
 
 <div class="auth-required">
   <h1>{headings[reason]}</h1>
 
-  {subtext[reason] && (
-    <p class="auth-subtext">{subtext[reason]}</p>
-  )}
+  {subtext[reason] && <p class="auth-subtext">{subtext[reason]}</p>}
 
-  {showCta && (
-    <div id="join-cta-root" data-next={next} aria-live="polite">
-      <p class="signin-status js-hydrate-hide">Preparing secure sign-in…</p>
-    </div>
-  )}
+  {
+    showCta && (
+      <div id="join-cta-root" data-next={next} aria-live="polite">
+        <p class="signin-status js-hydrate-hide">Preparing secure sign-in…</p>
+      </div>
+    )
+  }
 
   <noscript><p>Please enable JavaScript to sign in to your account.</p></noscript>
 </div>
 
 <style>
   .auth-required {
-    width: min(100% - 2rem, 32rem);
-    margin: 6rem auto;
-    padding: 3rem 2rem;
-    background: var(--paper);
-    border: 1px solid var(--rule);
+    width: min(100% - 2 * var(--gutter), 32rem);
+    /* Bottom stays small: the footer's own top padding adds to it. */
+    margin: var(--s-10) auto var(--s-8);
+    padding: var(--s-8) var(--s-6);
+    background: var(--paper-raised);
+    border: var(--border-hair) solid var(--rule);
     text-align: center;
   }
 
@@ -95,75 +98,68 @@ const showCta = reason === 'unauthenticated' || reason === 'no-member' || reason
     font-family: var(--font-display);
     font-size: clamp(2rem, 4vw, 2.5rem);
     font-weight: 300;
-    margin-bottom: 1.5rem;
+    margin-bottom: var(--s-5);
     color: var(--ink);
   }
 
   .auth-subtext {
-    font-size: 1rem;
     color: var(--ink-2);
-    margin-bottom: 2rem;
-    line-height: 1.6;
+    margin-bottom: var(--s-6);
   }
 
-  .auth-required :global(.signin-button) {
+  /* The buttons PrivyRoot portals into #join-cta-root. They match `.button` in forms.css. */
+  .auth-required :global(.signin-button),
+  .auth-required :global(.signin-secondary) {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 0.8rem 1.5rem;
-    font-family: var(--font-mono);
-    font-size: 0.85rem;
-    font-weight: 500;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
+    min-height: 2.75rem;
+    padding: 0.6rem 1.15rem;
+    font-family: var(--font-title);
+    font-size: var(--t-ui);
+    font-weight: 600;
     text-decoration: none;
-    color: var(--paper);
-    background: var(--ink);
-    border: 1px solid var(--ink);
-    border-radius: 2px;
+    color: var(--ink);
+    background: var(--paper);
+    border: var(--border-hair) solid var(--ink);
+    border-radius: var(--radius-xs);
     cursor: pointer;
     transition: background var(--dur-1) var(--ease-out);
   }
 
+  .auth-required :global(.signin-button) {
+    color: var(--paper-raised);
+    background: var(--ink);
+  }
+
   .auth-required :global(.signin-button:hover),
   .auth-required :global(.signin-button:focus-visible) {
-    background: var(--clay-deep, #92400e);
-    border-color: var(--clay-deep, #92400e);
-  }
-
-  .auth-required :global(.signin-status) {
-    font-family: var(--font-mono);
-    font-size: 0.85rem;
-    color: var(--ink-2);
-    margin-top: 1rem;
-  }
-
-  .auth-required :global(.signin-secondary) {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.5rem 1rem;
-    margin-top: 1rem;
-    font-family: var(--font-mono);
-    font-size: 0.8rem;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    background: none;
-    border: 1px solid var(--rule);
-    border-radius: 2px;
-    cursor: pointer;
-    color: var(--ink-2);
-    transition: border-color var(--dur-1) var(--ease-out);
+    background: var(--clay-deep);
+    border-color: var(--clay-deep);
   }
 
   .auth-required :global(.signin-secondary:hover) {
-    border-color: var(--ink);
-    color: var(--ink);
+    background: var(--paper-sunk);
+  }
+
+  .auth-required :global(.signin-status) {
+    font-size: var(--t-small);
+    color: var(--ink-2);
+    margin-top: var(--s-4);
+  }
+
+  .auth-required :global(.signin-actions) {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--s-3);
+    margin-top: var(--s-3);
   }
 
   .auth-required :global(.signin-failed) {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.5rem;
+    gap: var(--s-2);
   }
 </style>
