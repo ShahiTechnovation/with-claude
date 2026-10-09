@@ -388,6 +388,12 @@ input:checked + .chip,
   flex: none;
 }
 
+/* A trailing arrow's box is wider than its ink: give the empty right edge back to the padding,
+   so the label and arrow sit optically centred. */
+.btn svg:last-child {
+  margin-inline-end: -3px;
+}
+
 .btn svg,
 .btn .arrow {
   transition: transform 0.4s var(--ease-cine);
