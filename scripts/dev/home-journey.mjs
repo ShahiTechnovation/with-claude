@@ -16,7 +16,9 @@
  * The signed-in half uses a locally minted token (`scripts/dev/test-auth.mjs`)
  * verified by the server's real `verifyAccessToken()` path with a dev key. It
  * proves the server's guards and permissions; it does NOT prove Privy's own
- * login UI or production cookies.
+ * login UI or production cookies. Start the server with the test app id for
+ * the client too (PUBLIC_PRIVY_APP_ID=wc-local-test), as browser-journey.mjs
+ * describes; the real one from .env loads the SDK signed out.
  *
  * Production answers a no-slash path with Vercel's edge 308 (`trailingSlash:
  * true`); `astro dev` answers 404. The journey emulates the Vercel rule for
@@ -44,7 +46,7 @@ const SECTIONS = ['next', 'cities', 'projects', 'photos', 'join'];
 await mkdir(OUT, { recursive: true });
 
 const browser = await chromium.launch(
-  process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {},
+  process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : { channel: 'chrome' },
 );
 const results = [];
 let failures = 0;

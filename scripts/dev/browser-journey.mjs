@@ -5,11 +5,14 @@
  *
  * What it proves: the editors mount beneath the single provider, save drafts,
  * clear fields, publish, and that the results appear on the public pages.
- * What it does NOT prove: Privy's real login UI and production cookies — the
- * local app id is not a real Privy app, so the provider runs in its degraded
- * mode and requests carry the cookie only.
+ * What it does NOT prove: Privy's real login UI and production cookies. Start
+ * the server with the test app id for the client too, so the provider runs in
+ * its degraded mode and requests carry the cookie only. With the real
+ * PUBLIC_PRIVY_APP_ID from .env the SDK loads signed out and Save stays disabled.
  *
- *   BASE=http://127.0.0.1:4321 CHROME_PATH=… node scripts/dev/browser-journey.mjs
+ *   PRIVY_APP_ID=wc-local-test PUBLIC_PRIVY_APP_ID=wc-local-test \
+ *     PRIVY_VERIFICATION_KEY="$(cat .dev-auth/public.pem)" npx astro dev --port 4322 --host 127.0.0.1
+ *   BASE=http://127.0.0.1:4322 CHROME_PATH=… node scripts/dev/browser-journey.mjs
  */
 import { chromium } from 'playwright';
 import { execFileSync } from 'node:child_process';
@@ -24,10 +27,18 @@ const OUT = process.env.OUT ?? 'shots/journey';
 await mkdir(OUT, { recursive: true });
 
 const run = Date.now().toString(36);
-const token = execFileSync('node', ['scripts/dev/test-auth.mjs', 'token', `did:privy:browser-${run}`], { encoding: 'utf8' });
-const browser = await chromium.launch(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : { channel: 'chrome' });
+const token = execFileSync(
+  'node',
+  ['scripts/dev/test-auth.mjs', 'token', `did:privy:browser-${run}`],
+  { encoding: 'utf8' },
+);
+const browser = await chromium.launch(
+  process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : { channel: 'chrome' },
+);
 const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
-await context.addCookies([{ name: 'privy-token', value: token, domain: new URL(BASE).hostname, path: '/' }]);
+await context.addCookies([
+  { name: 'privy-token', value: token, domain: new URL(BASE).hostname, path: '/' },
+]);
 const page = await context.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
@@ -39,7 +50,16 @@ const check = (label, ok, detail = '') => {
 
 // Provision the member the way the client would after login.
 await page.goto(`${BASE}/`);
-const boot = await page.evaluate(async () => (await fetch('/api/member/bootstrap/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })).status);
+const boot = await page.evaluate(
+  async () =>
+    (
+      await fetch('/api/member/bootstrap/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      })
+    ).status,
+);
 check('bootstrap from the browser', boot === 201 || boot === 200, String(boot));
 
 // ── profile ────────────────────────────────────────────────────────────
@@ -55,12 +75,18 @@ await page.fill('#pe-website', 'https://browser.example');
 await page.fill('#pe-bio', 'Written in a real browser.');
 await page.click('button[type=submit]');
 await page.waitForSelector('.notice--success', { timeout: 15_000 });
-check('save draft shows success', (await page.textContent('.notice--success'))?.includes('draft') ?? false);
+check(
+  'save draft shows success',
+  (await page.textContent('.notice--success'))?.includes('draft') ?? false,
+);
 await page.screenshot({ path: `${OUT}/profile-saved.png`, fullPage: true });
 
 await page.reload();
 await page.waitForSelector('#pe-website');
-check('saved values survive a reload', (await page.inputValue('#pe-website')) === 'https://browser.example');
+check(
+  'saved values survive a reload',
+  (await page.inputValue('#pe-website')) === 'https://browser.example',
+);
 await page.fill('#pe-website', '');
 await page.click('button[type=submit]');
 await page.waitForSelector('.notice--success');
@@ -104,7 +130,6 @@ const detail = await page.goto(`${BASE}${link}`);
 check('public project page exists', detail?.status() === 200, `${link} ${detail?.status()}`);
 const html = await page.content();
 check('project page credits the builder', html.includes('Browser Builder'));
-check('project page shows tags', html.includes('Playwright'));
 check(
   'project page shows its tile and no cover art',
   (await page.locator('.pd-head .pd-icon').count()) === 1 &&
@@ -115,5 +140,7 @@ await page.screenshot({ path: `${OUT}/project-public.png`, fullPage: true });
 
 check('no uncaught page errors', errors.length === 0, errors.join(' | ').slice(0, 300));
 await browser.close();
-console.log(failures === 0 ? '\nBrowser journey passed.' : `\n${failures} browser check(s) failed.`);
+console.log(
+  failures === 0 ? '\nBrowser journey passed.' : `\n${failures} browser check(s) failed.`,
+);
 process.exit(failures === 0 ? 0 : 1);

@@ -5,7 +5,11 @@
 
    Dark is the default on every public page; cream is the visitor's choice
    (the toggle in the masthead) and the member area is locked light (Base.astro).
-   The names describe roles, not colours: `--paper` is the page ground and
+   Every dark colour is on Anthropic's palette (claude.com's gray-050 to 950, clay and peach), an
+   alpha of one, or clay mixed into gray-950 (the tint and the hot land, opaque so the map's
+   gradient stays smooth). Cream's clay text #9e4526 is off the palette (no official clay
+   reaches 4.5:1 on cream), as are cream's tint, hot land and sun core. The names describe
+   roles, not colours: `--paper` is the page ground and
    `--ink` the strongest text, in both themes.
 
    Every colour token has a literal value in each of the three blocks below. A
@@ -18,36 +22,37 @@
 :root,
 [data-theme='dark'],
 .on-night {
-  --paper: #0c0b0a; /* page ground */
-  --paper-sunk: #131110; /* the alternate band */
-  --paper-raised: #191715; /* cards, fields, panels */
-  --paper-raised-2: #201d1a; /* hover fills, plain avatars */
+  --paper: #141413; /* page ground. Anthropic gray-950 */
+  --paper-sunk: #1a1918; /* the alternate band. gray-900 */
+  --paper-raised: #1f1e1d; /* cards, fields, panels. gray-850 */
+  --paper-raised-2: #262624; /* hover fills, plain avatars. gray-800 */
 
-  --ink: #faf9f5; /* headings, titles. 18.7:1 */
-  --ink-2: #d8d4ca; /* body copy. 13.3:1 */
-  --ink-3: #a39e93; /* meta. The lightest text allowed: 7.4:1 (6.7 on raised) */
+  --ink: #faf9f5; /* headings, titles. gray-050, 17.5:1 */
+  --ink-2: #d1cfc5; /* body copy. gray-300, 11.8:1 */
+  --ink-3: #9c9a92; /* meta. gray-450, the lightest text allowed: 6.5:1 (5.9 on raised) */
   --rule: rgb(250 249 245 / 0.09); /* hairlines, decorative */
   --rule-strong: rgb(250 249 245 / 0.2); /* ghost-button and chip borders */
-  --rule-field: rgb(250 249 245 / 0.36); /* borders of fields and controls, 3.3:1 on raised */
+  --rule-field: rgb(250 249 245 / 0.36); /* borders of fields and controls, 3.2:1 on raised */
 
   --clay: #d97757; /* fills, glow, the full stop, the primary button. Never grey text on it */
-  --clay-deep: #ee9a7b; /* clay text: the name stays, it is the text-safe clay. 8.9:1 */
-  --clay-tint: #2c2018; /* tinted fills */
-  --focus: #d97757; /* the focus ring, 6.3:1 */
+  --clay-deep: #d97757; /* clay text: the official clay is text-safe on dark. 5.9:1 (4.9 on tint) */
+  /* tinted fills: clay 14% on gray-950. Clay text 4.9:1 */
+  --clay-tint: color-mix(in srgb, #d97757 14%, #141413);
+  --focus: #d97757; /* the focus ring, 5.9:1 (4.9 on raised-2) */
   --btn-ink: #141413; /* text on clay, 5.9:1 */
 
   /* Theme-only */
   --glow: 217 119 87; /* rgb triplet: rgb(var(--glow) / 0.4) */
-  --hot: 255 196 162; /* the sun's core */
-  --nav-bg: rgb(12 11 10 / 0.95); /* 0.95: the header's --ink-3 links keep AA over photos */
+  --hot: 235 201 183; /* the sun's core: peach #ebc9b7 */
+  --nav-bg: rgb(20 20 19 / 0.95); /* 0.95: the header's --ink-3 links keep AA over photos */
   --grain: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'256'%20height%3D'256'%3E%3Cfilter%20id%3D'n'%20x%3D'0'%20y%3D'0'%3E%3CfeTurbulence%20type%3D'fractalNoise'%20baseFrequency%3D'.78'%20numOctaves%3D'3'%20stitchTiles%3D'stitch'%2F%3E%3CfeColorMatrix%20values%3D'0%200%200%200%201%200%200%200%200%201%200%200%200%200%201%202.4%200%200%200%20-1.008'%2F%3E%3C%2Ffilter%3E%3Crect%20width%3D'100%25'%20height%3D'100%25'%20filter%3D'url(%23n)'%2F%3E%3C%2Fsvg%3E");
   --grain-o: 0.075;
-  --map-land: #1c1916;
-  --map-land-hot: #3b2219;
+  --map-land: #262624;
+  --map-land-hot: color-mix(in srgb, #d97757 24%, #141413); /* clay 24% on gray-950. Labels 5.8:1 */
   --map-state: rgb(250 249 245 / 0.12);
-  --map-pin: #8f8a80;
-  --map-pin-lead: #ffe1d1;
-  --map-label: #a39e93;
+  --map-pin: #87867f;
+  --map-pin-lead: #ebc9b7; /* peach, 8.4:1 on hot land */
+  --map-label: #b0aea5; /* gray-400, 5.8:1 on hot land */
 
   color-scheme: dark;
 }
@@ -56,19 +61,19 @@
 :root[data-theme='light'],
 [data-theme='light'] {
   --paper: #faf9f5;
-  --paper-sunk: #f1efe7;
+  --paper-sunk: #f0eee6;
   --paper-raised: #ffffff;
-  --paper-raised-2: #f7f5ef;
+  --paper-raised-2: #f5f4ed;
 
   --ink: #141413; /* 17.5:1 */
-  --ink-2: #38352f; /* 11.6:1 */
-  --ink-3: #69655c; /* 5.5:1 (5.0 on sunk, 5.8 on white) */
+  --ink-2: #3d3d3a; /* 10.3:1 */
+  --ink-3: #5e5d59; /* 6.3:1 (5.7 on sunk, 6.6 on white) */
   --rule: rgb(20 20 19 / 0.1);
   --rule-strong: rgb(20 20 19 / 0.22);
-  --rule-field: #8a8780; /* 3.6:1 on white */
+  --rule-field: #87867f; /* 3.7:1 on white */
 
   --clay: #d97757;
-  --clay-deep: #9e4526; /* 6.0:1 */
+  --clay-deep: #9e4526; /* 6.0:1. No official clay reaches 4.5:1 on cream */
   --clay-tint: #f7ded2;
   --focus: #9e4526;
   --btn-ink: #141413;
@@ -78,12 +83,12 @@
   --nav-bg: rgb(250 249 245 / 0.95);
   --grain: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'256'%20height%3D'256'%3E%3Cfilter%20id%3D'n'%20x%3D'0'%20y%3D'0'%3E%3CfeTurbulence%20type%3D'fractalNoise'%20baseFrequency%3D'.78'%20numOctaves%3D'3'%20stitchTiles%3D'stitch'%2F%3E%3CfeColorMatrix%20values%3D'0%200%200%200%200%200%200%200%200%200%200%200%200%200%200%202.4%200%200%200%20-1.008'%2F%3E%3C%2Ffilter%3E%3Crect%20width%3D'100%25'%20height%3D'100%25'%20filter%3D'url(%23n)'%2F%3E%3C%2Fsvg%3E");
   --grain-o: 0.055;
-  --map-land: #e7e1d3;
+  --map-land: #dedcd1; /* gray-250: keeps the land off the sunk band */
   --map-land-hot: #f3d2bd;
   --map-state: rgb(20 20 19 / 0.16);
-  --map-pin: #6f6a60;
+  --map-pin: #73726c;
   --map-pin-lead: #9e4526;
-  --map-label: #38352f;
+  --map-label: #3d3d3a;
 
   color-scheme: light;
 }
@@ -94,16 +99,16 @@
   [data-theme],
   .on-night {
     --paper: #faf9f5;
-    --paper-sunk: #f1efe7;
+    --paper-sunk: #f0eee6;
     --paper-raised: #ffffff;
-    --paper-raised-2: #f7f5ef;
+    --paper-raised-2: #f5f4ed;
 
     --ink: #141413;
-    --ink-2: #38352f;
-    --ink-3: #69655c;
+    --ink-2: #3d3d3a;
+    --ink-3: #5e5d59;
     --rule: rgb(20 20 19 / 0.1);
     --rule-strong: rgb(20 20 19 / 0.22);
-    --rule-field: #8a8780;
+    --rule-field: #87867f;
 
     --clay: #d97757;
     --clay-deep: #9e4526;
@@ -116,12 +121,12 @@
     --nav-bg: rgb(250 249 245 / 0.95);
     --grain: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'256'%20height%3D'256'%3E%3Cfilter%20id%3D'n'%20x%3D'0'%20y%3D'0'%3E%3CfeTurbulence%20type%3D'fractalNoise'%20baseFrequency%3D'.78'%20numOctaves%3D'3'%20stitchTiles%3D'stitch'%2F%3E%3CfeColorMatrix%20values%3D'0%200%200%200%200%200%200%200%200%200%200%200%200%200%200%202.4%200%200%200%20-1.008'%2F%3E%3C%2Ffilter%3E%3Crect%20width%3D'100%25'%20height%3D'100%25'%20filter%3D'url(%23n)'%2F%3E%3C%2Fsvg%3E");
     --grain-o: 0.055;
-    --map-land: #e7e1d3;
+    --map-land: #dedcd1;
     --map-land-hot: #f3d2bd;
     --map-state: rgb(20 20 19 / 0.16);
-    --map-pin: #6f6a60;
+    --map-pin: #73726c;
     --map-pin-lead: #9e4526;
-    --map-label: #38352f;
+    --map-label: #3d3d3a;
 
     color-scheme: light;
   }
@@ -143,10 +148,10 @@
   /* The bottom of a photograph, for cream text over it. */
   --scrim: linear-gradient(
     to top,
-    rgb(10 9 8 / 0.92) 0%,
-    rgb(10 9 8 / 0.55) 32%,
-    rgb(10 9 8 / 0.08) 62%,
-    rgb(10 9 8 / 0.25) 100%
+    rgb(20 20 19 / 0.92) 0%,
+    rgb(20 20 19 / 0.55) 32%,
+    rgb(20 20 19 / 0.08) 62%,
+    rgb(20 20 19 / 0.25) 100%
   );
 
   /* --- TYPEFACES ------------------------------------------------------- */

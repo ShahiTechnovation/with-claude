@@ -51,14 +51,37 @@ const description = next
 
   <Section id="calendar" tone="sunk" labelledby="calendar-heading">
     <h2 id="calendar-heading" class="visually-hidden">Event calendar</h2>
-    <div class="calendar" data-theme="light">
+    <div class="calendar">
       <iframe
-        src="https://luma.com/embed/calendar/cal-Rmfu84P0S7JWiHl/events?tag=Claude"
+        id="luma-calendar"
+        src="https://luma.com/embed/calendar/cal-Rmfu84P0S7JWiHl/events?lt=dark&tag=Claude"
         width="100%"
         height="450"
         title="Upcoming Claude events on Luma"
         allowfullscreen=""></iframe>
     </div>
+    <!-- Luma's `lt` follows the page theme: the saved theme is already applied by the time
+         this runs, and the masthead toggle flips `data-theme` on <html>. -->
+    <script is:inline>
+      (function (frame, root) {
+        function wanted() {
+          var lt = 'lt=' + (root.dataset.theme === 'light' ? 'light' : 'dark');
+          return frame.src.replace(/lt=(light|dark)/, lt);
+        }
+        // Always set it once: a page rebuilt by Back restores the frame's last URL whatever
+        // the attribute says. The frame is still loading, so this adds no history entry.
+        frame.src = wanted();
+        // A theme flip swaps in a fresh frame: re-pointing a loaded one adds a Back entry.
+        new MutationObserver(function () {
+          var src = wanted();
+          if (src === frame.src) return;
+          var next = frame.cloneNode();
+          next.src = src;
+          frame.replaceWith(next);
+          frame = next;
+        }).observe(root, { attributeFilter: ['data-theme'] });
+      })(document.getElementById('luma-calendar'), document.documentElement);
+    </script>
   </Section>
 
   <Section id="record">
@@ -67,19 +90,31 @@ const description = next
 </Base>
 
 <style>
-  /* The Luma embed is light; it sits in a light panel rather than on the dark ground. */
+  /* The panel's grey is the official one closest to the embed's own ground in either theme. */
   .calendar {
     max-width: 800px;
     margin-inline: auto;
     padding: 16px;
-    background: var(--paper);
+    background: var(--paper-raised-2);
     border: 1px solid var(--rule);
     border-radius: var(--radius-lg);
+  }
+
+  :global([data-theme='light']) .calendar {
+    background: var(--paper);
   }
 
   .calendar iframe {
     display: block;
     border: 0;
     border-radius: var(--radius-md);
+  }
+
+  /* Print is light and drops backgrounds: a dark-theme embed would print white on white.
+     The event record below still prints. */
+  @media print {
+    :global(#calendar) {
+      display: none;
+    }
   }
 </style>

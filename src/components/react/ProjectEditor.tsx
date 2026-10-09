@@ -89,10 +89,22 @@ function fieldsFrom(d: ProjectEditorData): Fields {
 }
 
 function tagList(text: string): string[] {
-  return [...new Set(text.split(',').map((t) => t.trim()).filter(Boolean))].slice(0, 12);
+  return [
+    ...new Set(
+      text
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean),
+    ),
+  ].slice(0, 12);
 }
 
-type Notice = { tone: 'success' | 'error' | 'info'; text: string; signIn?: boolean; link?: string } | null;
+type Notice = {
+  tone: 'success' | 'error' | 'info';
+  text: string;
+  signIn?: boolean;
+  link?: string;
+} | null;
 
 const STATUS_LABEL: Record<string, string> = {
   draft: 'Draft — not public',
@@ -103,7 +115,8 @@ const STATUS_LABEL: Record<string, string> = {
 export default function ProjectEditor({ initialData = {} }: { initialData?: ProjectEditorData }) {
   const account = useAccount();
   const role: Role = initialData.role ?? 'owner';
-  const editable = role !== 'contributor' && (initialData.contentAuthority ?? 'member') === 'member';
+  const editable =
+    role !== 'contributor' && (initialData.contentAuthority ?? 'member') === 'member';
   const isOwner = role === 'owner';
 
   const [id, setId] = useState(initialData.id);
@@ -113,13 +126,26 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Proj
   const [form, setForm] = useState<Fields>(() => fieldsFrom(initialData));
   const [coverUrl, setCoverUrl] = useState(initialData.coverUrl ?? null);
   const [cities, setCities] = useState<CityOption[] | null>(null);
-  const [busy, setBusy] = useState<'save' | 'publish' | 'archive' | 'restore' | 'upload' | null>(null);
+  const [busy, setBusy] = useState<'save' | 'publish' | 'archive' | 'restore' | 'upload' | null>(
+    null,
+  );
   const [notice, setNotice] = useState<Notice>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const fileRef = useRef<HTMLInputElement>(null);
+  const focusId = useRef<string | null>(null);
+
+  // Move to the field the server rejected once its error is rendered, so it is read with it.
+  useEffect(() => {
+    const control = focusId.current ? document.getElementById(focusId.current) : null;
+    focusId.current = null;
+    control?.scrollIntoView({ block: 'center' });
+    control?.focus({ preventScroll: true });
+  }, [fieldErrors]);
 
   const dirty = useMemo(() => JSON.stringify(form) !== JSON.stringify(saved), [form, saved]);
-  const held = ['restricted', 'removed', 'archived'].includes(initialData.moderationState ?? 'clean');
+  const held = ['restricted', 'removed', 'archived'].includes(
+    initialData.moderationState ?? 'clean',
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -148,7 +174,10 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Proj
   }, []);
 
   const call = (path: string, init: RequestInit) =>
-    account.fetch(path, { ...init, headers: { 'Content-Type': 'application/json', ...init.headers } });
+    account.fetch(path, {
+      ...init,
+      headers: { 'Content-Type': 'application/json', ...init.headers },
+    });
 
   const failure = async (response: Response): Promise<Notice> => {
     const body = (await response.json().catch(() => ({}))) as {
@@ -158,11 +187,26 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Proj
     };
     if (body.blockers?.length) {
       setFieldErrors(Object.fromEntries(body.blockers.map((b) => [b.field, b.message])));
-      return { tone: 'error', text: 'A few things are needed before this can be published — see the marked fields.' };
+      return {
+        tone: 'error',
+        text: 'A few things are needed before this can be published — see the marked fields.',
+      };
     }
     if (body.field) setFieldErrors({ [body.field]: body.error ?? 'Check this field.' });
     if (response.status === 401) {
-      return { tone: 'error', text: 'Your session has expired. Sign in again — your edits are still here.', signIn: true };
+      return {
+        tone: 'error',
+        text: 'Your session has expired. Sign in again — your edits are still here.',
+        signIn: true,
+      };
+    }
+    // The error shows under its field: focus that instead of repeating it below the buttons.
+    // The server's one field name that differs from its control's id.
+    const controlId = body.field === 'coverMediaId' ? 'pj-cover' : `pj-${body.field}`;
+    const control = body.field ? document.getElementById(controlId) : null;
+    if (control) {
+      focusId.current = control.id;
+      return null;
     }
     return { tone: 'error', text: body.error ?? 'That did not work. Try again.' };
   };
@@ -222,7 +266,10 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Proj
     try {
       await work();
     } catch {
-      setNotice({ tone: 'error', text: 'We could not reach the server. Your edits are still here — try again.' });
+      setNotice({
+        tone: 'error',
+        text: 'We could not reach the server. Your edits are still here — try again.',
+      });
     } finally {
       setBusy(null);
     }
@@ -233,7 +280,10 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Proj
       if (await save()) {
         setNotice({
           tone: 'success',
-          text: status === 'published' ? 'Saved. The public page shows these changes now.' : 'Draft saved. Nothing is public yet.',
+          text:
+            status === 'published'
+              ? 'Saved. The public page shows these changes now.'
+              : 'Draft saved. Nothing is public yet.',
         });
       }
     });
@@ -242,7 +292,10 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Proj
     run('publish', async () => {
       const projectId = await save();
       if (!projectId) return;
-      const response = await call(`/api/projects/${projectId}/publish/`, { method: 'POST', body: '{}' });
+      const response = await call(`/api/projects/${projectId}/publish/`, {
+        method: 'POST',
+        body: '{}',
+      });
       if (!response.ok) {
         setNotice(await failure(response));
         return;
@@ -250,13 +303,22 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Proj
       const body = (await response.json()) as { slug: string; url: string };
       setSlug(body.slug);
       setStatus('published');
-      setNotice({ tone: 'success', text: 'Published. It is on the projects archive now.', link: body.url });
+      setNotice({
+        tone: 'success',
+        text: 'Published. It is on the projects archive now.',
+        link: body.url,
+      });
     });
 
   const onTransition = (action: 'archive' | 'restore') =>
     run(action, async () => {
       if (!id) return;
-      if (action === 'archive' && !window.confirm('Archive this project? It will be taken off the website. You can restore it later.')) {
+      if (
+        action === 'archive' &&
+        !window.confirm(
+          'Archive this project? It will be taken off the website. You can restore it later.',
+        )
+      ) {
         return;
       }
       const response = await call(`/api/projects/${id}/${action}/`, { method: 'POST', body: '{}' });
@@ -268,7 +330,10 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Proj
       setStatus(body.status);
       setNotice({
         tone: 'success',
-        text: action === 'archive' ? 'Archived. It is no longer on the website.' : 'Restored as a draft. Publish it again when ready.',
+        text:
+          action === 'archive'
+            ? 'Archived. It is no longer on the website.'
+            : 'Restored as a draft. Publish it again when ready.',
       });
     });
 
@@ -287,7 +352,10 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Proj
       } catch (error) {
         setNotice({
           tone: 'error',
-          text: error instanceof UploadProblem ? error.message : 'The share image could not be uploaded.',
+          text:
+            error instanceof UploadProblem
+              ? error.message
+              : 'The share image could not be uploaded.',
         });
       } finally {
         if (fileRef.current) fileRef.current.value = '';
@@ -298,8 +366,16 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Proj
   const disabled = busy !== null || !editable || sessionGone;
   const publicUrl = status === 'published' && slug ? `/projects/${slug}/` : null;
 
-  const field = (key: keyof Fields | 'cityId', label: string, tag: string, input: React.ReactNode, hint?: string) => (
-    <div className={`form-field${fieldErrors[key] ? ' form-field--error' : ''}${['description', 'claudeUsage', 'summary'].includes(key) ? ' form-field--wide' : ''}`}>
+  const field = (
+    key: keyof Fields | 'cityId',
+    label: string,
+    tag: string,
+    input: React.ReactNode,
+    hint?: string,
+  ) => (
+    <div
+      className={`form-field${fieldErrors[key] ? ' form-field--error' : ''}${['description', 'claudeUsage', 'summary'].includes(key) ? ' form-field--wide' : ''}`}
+    >
       <label className="field-label" htmlFor={`pj-${key}`}>
         {label} <span className="field-tag">{tag}</span>
       </label>
@@ -319,7 +395,9 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Proj
   const aria = (key: string, hint = false) => ({
     'aria-invalid': Boolean(fieldErrors[key]),
     'aria-describedby':
-      [fieldErrors[key] ? `pj-${key}-error` : '', hint ? `pj-${key}-hint` : ''].filter(Boolean).join(' ') || undefined,
+      [fieldErrors[key] ? `pj-${key}-error` : '', hint ? `pj-${key}-hint` : '']
+        .filter(Boolean)
+        .join(' ') || undefined,
   });
 
   return (
@@ -358,7 +436,8 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Proj
         )}
         {held && (
           <div className="notice notice--error" style={{ marginTop: 'var(--s-4)' }}>
-            Moderators have taken this project off the website. You can still edit it; publishing is paused until they review it.
+            Moderators have taken this project off the website. You can still edit it; publishing is
+            paused until they review it.
           </div>
         )}
         {sessionGone && (
@@ -380,13 +459,26 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Proj
             'title',
             'Project name',
             'required',
-            <input id="pj-title" className="input" value={form.title} maxLength={100} onChange={(e) => set('title', e.target.value)} {...aria('title')} />,
+            <input
+              id="pj-title"
+              className="input"
+              value={form.title}
+              maxLength={100}
+              onChange={(e) => set('title', e.target.value)}
+              {...aria('title')}
+            />,
           )}
           {field(
             'category',
             'Category',
             'required',
-            <select id="pj-category" className="input" value={form.category} onChange={(e) => set('category', e.target.value)} {...aria('category')}>
+            <select
+              id="pj-category"
+              className="input"
+              value={form.category}
+              onChange={(e) => set('category', e.target.value)}
+              {...aria('category')}
+            >
               {CATEGORIES.map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
@@ -398,14 +490,28 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Proj
             'summary',
             'Tagline',
             'needed to publish',
-            <input id="pj-summary" className="input" value={form.summary} maxLength={300} placeholder="One sentence: what it does and who it is for." onChange={(e) => set('summary', e.target.value)} {...aria('summary', true)} />,
+            <input
+              id="pj-summary"
+              className="input"
+              value={form.summary}
+              maxLength={300}
+              placeholder="One sentence: what it does and who it is for."
+              onChange={(e) => set('summary', e.target.value)}
+              {...aria('summary', true)}
+            />,
             'Shown on project cards and in search. At least five characters.',
           )}
           {field(
             'cityId',
             'City',
             'needed to publish',
-            <select id="pj-cityId" className="input" value={form.cityId} onChange={(e) => set('cityId', e.target.value)} {...aria('cityId')}>
+            <select
+              id="pj-cityId"
+              className="input"
+              value={form.cityId}
+              onChange={(e) => set('cityId', e.target.value)}
+              {...aria('cityId')}
+            >
               <option value="">{cities === null ? 'Loading cities…' : 'Choose a city'}</option>
               {(cities ?? []).map((c) => (
                 <option key={c.id} value={c.id}>
@@ -418,7 +524,14 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Proj
             'tags',
             'Tools and tags',
             'optional',
-            <input id="pj-tags" className="input" value={form.tags} placeholder="Claude Code, MCP, Next.js" onChange={(e) => set('tags', e.target.value)} {...aria('tags', true)} />,
+            <input
+              id="pj-tags"
+              className="input"
+              value={form.tags}
+              placeholder="Claude Code, MCP, Next.js"
+              onChange={(e) => set('tags', e.target.value)}
+              {...aria('tags', true)}
+            />,
             'Comma-separated, up to 12.',
           )}
         </div>
@@ -433,13 +546,31 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Proj
             'description',
             'What it does',
             'needed to publish',
-            <textarea id="pj-description" className="input" rows={6} value={form.description} maxLength={10000} placeholder="The problem, who it is for, and how it works." onChange={(e) => set('description', e.target.value)} {...aria('description')} />,
+            <textarea
+              id="pj-description"
+              className="input"
+              rows={6}
+              value={form.description}
+              maxLength={10000}
+              placeholder="The problem, who it is for, and how it works."
+              onChange={(e) => set('description', e.target.value)}
+              {...aria('description')}
+            />,
           )}
           {field(
             'claudeUsage',
             'How Claude was used',
             'needed to publish',
-            <textarea id="pj-claudeUsage" className="input" rows={4} value={form.claudeUsage} maxLength={1000} placeholder="What Claude actually did, and what you did." onChange={(e) => set('claudeUsage', e.target.value)} {...aria('claudeUsage', true)} />,
+            <textarea
+              id="pj-claudeUsage"
+              className="input"
+              rows={4}
+              value={form.claudeUsage}
+              maxLength={1000}
+              placeholder="What Claude actually did, and what you did."
+              onChange={(e) => set('claudeUsage', e.target.value)}
+              {...aria('claudeUsage', true)}
+            />,
             `${form.claudeUsage.length}/1000`,
           )}
         </div>
@@ -451,16 +582,60 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Proj
           <span className="panel-hint">Optional. Full http(s) links. Leave empty to remove.</span>
         </div>
         <div className="form-grid form-grid--two">
-          {field('url', 'Live project', 'optional', <input id="pj-url" className="input" type="url" inputMode="url" value={form.url} placeholder="https://" onChange={(e) => set('url', e.target.value)} {...aria('url')} />)}
-          {field('repoUrl', 'Source code', 'optional', <input id="pj-repoUrl" className="input" type="url" inputMode="url" value={form.repoUrl} placeholder="https://github.com/…" onChange={(e) => set('repoUrl', e.target.value)} {...aria('repoUrl')} />)}
-          {field('videoUrl', 'Demo video', 'optional', <input id="pj-videoUrl" className="input" type="url" inputMode="url" value={form.videoUrl} placeholder="https://" onChange={(e) => set('videoUrl', e.target.value)} {...aria('videoUrl')} />)}
+          {field(
+            'url',
+            'Live project',
+            'optional',
+            <input
+              id="pj-url"
+              className="input"
+              type="url"
+              inputMode="url"
+              value={form.url}
+              placeholder="https://"
+              onChange={(e) => set('url', e.target.value)}
+              {...aria('url')}
+            />,
+          )}
+          {field(
+            'repoUrl',
+            'Source code',
+            'optional',
+            <input
+              id="pj-repoUrl"
+              className="input"
+              type="url"
+              inputMode="url"
+              value={form.repoUrl}
+              placeholder="https://github.com/…"
+              onChange={(e) => set('repoUrl', e.target.value)}
+              {...aria('repoUrl')}
+            />,
+          )}
+          {field(
+            'videoUrl',
+            'Demo video',
+            'optional',
+            <input
+              id="pj-videoUrl"
+              className="input"
+              type="url"
+              inputMode="url"
+              value={form.videoUrl}
+              placeholder="https://"
+              onChange={(e) => set('videoUrl', e.target.value)}
+              {...aria('videoUrl')}
+            />,
+          )}
         </div>
       </fieldset>
 
       <fieldset className="panel" disabled={!editable}>
         <div className="panel-head">
           <h2>Share image</h2>
-          <span className="panel-hint">Optional · shown when someone shares your project page · JPEG, PNG, WebP · up to 5 MB</span>
+          <span className="panel-hint">
+            Optional · shown when someone shares your project page · JPEG, PNG, WebP · up to 5 MB
+          </span>
         </div>
         <div className="image-picker">
           {coverUrl && form.coverMediaId ? (
@@ -477,6 +652,7 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Proj
                 id="pj-cover"
                 ref={fileRef}
                 type="file"
+                {...aria('coverMediaId')}
                 accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
                 disabled={disabled}
                 onChange={(e) => void onCover(e.target.files?.[0])}
@@ -486,23 +662,44 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Proj
             <p className="panel-hint">Save the draft first, then add a share image.</p>
           )}
           {form.coverMediaId && (
-            <button type="button" className="button button--quiet" onClick={() => set('coverMediaId', null)}>
+            <button
+              type="button"
+              className="button button--quiet"
+              onClick={() => set('coverMediaId', null)}
+            >
               Remove share image
             </button>
           )}
-          {busy === 'upload' && <p className="panel-hint" aria-live="polite">Uploading…</p>}
-          {fieldErrors.coverMediaId && <p className="field-error">{fieldErrors.coverMediaId}</p>}
+          {busy === 'upload' && (
+            <p className="panel-hint" aria-live="polite">
+              Uploading…
+            </p>
+          )}
+          {fieldErrors.coverMediaId && (
+            <p className="field-error" id="pj-coverMediaId-error">
+              {fieldErrors.coverMediaId}
+            </p>
+          )}
         </div>
       </fieldset>
 
       {editable && (
         <div className="form-actions form-actions--sticky">
           {isOwner && status !== 'published' && status !== 'archived' && (
-            <button type="button" className="button button--primary" disabled={disabled || held} onClick={() => void onPublish()}>
+            <button
+              type="button"
+              className="button button--primary"
+              disabled={disabled || held}
+              onClick={() => void onPublish()}
+            >
               {busy === 'publish' ? 'Publishing…' : 'Publish'}
             </button>
           )}
-          <button type="submit" className={`button${!isOwner || status === 'published' ? ' button--primary' : ''}`} disabled={disabled || (Boolean(id) && !dirty)}>
+          <button
+            type="submit"
+            className={`button${!isOwner || status === 'published' ? ' button--primary' : ''}`}
+            disabled={disabled || (Boolean(id) && !dirty)}
+          >
             {busy === 'save' ? 'Saving…' : !id ? 'Save draft' : dirty ? 'Save changes' : 'Saved'}
           </button>
           {publicUrl && (
@@ -511,12 +708,22 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Proj
             </a>
           )}
           {isOwner && id && status !== 'archived' && (
-            <button type="button" className="button button--danger" disabled={disabled} onClick={() => void onTransition('archive')}>
+            <button
+              type="button"
+              className="button button--danger"
+              disabled={disabled}
+              onClick={() => void onTransition('archive')}
+            >
               {busy === 'archive' ? 'Archiving…' : 'Archive'}
             </button>
           )}
           {isOwner && id && status === 'archived' && (
-            <button type="button" className="button" disabled={disabled} onClick={() => void onTransition('restore')}>
+            <button
+              type="button"
+              className="button"
+              disabled={disabled}
+              onClick={() => void onTransition('restore')}
+            >
               {busy === 'restore' ? 'Restoring…' : 'Restore as draft'}
             </button>
           )}
@@ -525,9 +732,11 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Proj
 
       <div aria-live="polite">
         {notice && (
-          <div className={`notice notice--${notice.tone}`} role={notice.tone === 'error' ? 'alert' : 'status'}>
-            {notice.text}{' '}
-            {notice.link && <a href={notice.link}>View it</a>}
+          <div
+            className={`notice notice--${notice.tone}`}
+            role={notice.tone === 'error' ? 'alert' : 'status'}
+          >
+            {notice.text} {notice.link && <a href={notice.link}>View it</a>}
             {notice.signIn && (
               <button type="button" className="button button--quiet" onClick={account.signIn}>
                 Sign in

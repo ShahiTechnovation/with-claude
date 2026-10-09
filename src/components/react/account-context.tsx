@@ -27,12 +27,7 @@ import { createContext, useContext } from 'react';
  *   error          a specific, recoverable failure (see `kind`)
  */
 export type AccountStatus =
-  | 'initialising'
-  | 'slow'
-  | 'signed-out'
-  | 'bootstrapping'
-  | 'signed-in'
-  | 'error';
+  'initialising' | 'slow' | 'signed-out' | 'bootstrapping' | 'signed-in' | 'error';
 
 export type AccountErrorKind =
   /** 503 — the deployment has no server-side Privy configuration. */
@@ -73,6 +68,12 @@ export interface AccountApi {
   /** Headers for third-party clients that make their own request (Blob upload). */
   authHeaders: () => Promise<Record<string, string>>;
 }
+
+/**
+ * Fired on `window` by an editor once the server has saved a username. PrivyRoot
+ * drops the "Finish your profile" nudge and its cached flag for the tab.
+ */
+export const USERNAME_SAVED_EVENT = 'wc:username-saved';
 
 const AccountContext = createContext<AccountApi | null>(null);
 

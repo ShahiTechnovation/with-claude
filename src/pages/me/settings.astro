@@ -3,11 +3,16 @@ import { guardPage, privateHeaders } from '@/server/http/page-guard';
 import AuthRequired from '@/components/AuthRequired.astro';
 import AccountNavTabs from '@/components/AccountNavTabs.astro';
 import Base from '@/layouts/Base.astro';
+import { isPlaceholderUsername } from '@/server/members/username';
 
 export const prerender = false;
 
 const guard = await guardPage(Astro);
 if (guard.ok) privateHeaders(Astro);
+/** A new member's `m-<hex>` shell handle is not a name to show. */
+const hasUsername = guard.ok && !isPlaceholderUsername(guard.profile.username);
+// The profile editor's words for the setting (ProfileEditor.tsx, Visibility).
+const visibilityLabel = guard.ok && guard.profile.visibility === 'unlisted' ? 'Unlisted' : 'Listed';
 ---
 
 {
@@ -23,15 +28,17 @@ if (guard.ok) privateHeaders(Astro);
           <h1>Settings</h1>
         </header>
 
-        <section class="account-section">
-          <h2>Account</h2>
-          <p class="summary">@{guard.profile.username}</p>
-        </section>
+        {hasUsername && (
+          <section class="account-section">
+            <h2>Account</h2>
+            <p class="summary">@{guard.profile.username}</p>
+          </section>
+        )}
 
         <section class="account-section">
           <h2>Profile</h2>
           <p class="summary">
-            Visibility: <strong>{guard.profile.visibility}</strong>
+            Visibility: <strong>{visibilityLabel}</strong>
           </p>
           <div class="actions">
             <a href="/me/profile/edit/" class="btn-secondary">

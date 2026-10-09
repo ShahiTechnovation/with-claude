@@ -16,6 +16,8 @@
  * Session detection reads only whether Privy's own keys EXIST; it never reads
  * or copies a token.
  */
+import { enabledLoginMethods } from '@/components/react/privy-methods';
+
 const mount = document.getElementById('privy-root');
 
 function hasPrivySession(): boolean {
@@ -54,12 +56,21 @@ function boot(openLogin: boolean): Promise<void> {
     w.$RefreshReg$ ??= () => {};
     w.$RefreshSig$ ??= () => (type: unknown) => type;
   }
+  // Asked in parallel with the SDK download: drops methods the Privy app has off.
+  // Its grace period starts once the SDK has loaded, so a slow link still filters.
+  const methods = enabledLoginMethods(appId, loginMethods);
   booted = Promise.all([
     import('react'),
     import('react-dom/client'),
     import('@/components/react/PrivyRoot'),
-  ]).then(([React, { createRoot }, { default: PrivyRoot }]) => {
-    createRoot(mount).render(React.createElement(PrivyRoot, { appId, loginMethods, openLogin }));
+  ]).then(async ([React, { createRoot }, { default: PrivyRoot }]) => {
+    const enabled = await Promise.race([
+      methods,
+      new Promise<string[]>((resolve) => setTimeout(resolve, 1500, loginMethods)),
+    ]);
+    createRoot(mount).render(
+      React.createElement(PrivyRoot, { appId, loginMethods: enabled, openLogin }),
+    );
   });
   return booted;
 }
