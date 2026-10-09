@@ -19,8 +19,6 @@ import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
 import vercel from '@astrojs/vercel';
 
-
-
 export default defineConfig({
   site: 'https://www.withclaude.in',
   trailingSlash: 'always',
@@ -108,6 +106,11 @@ export default defineConfig({
       // The site is static-first; a handful of tiny islands beats one bundle.
       assetsInlineLimit: 2048,
     },
+    // Pre-bundling only; the build output is unchanged. Privy is reached through
+    // account-boot's dynamic import, which the dev server's startup scan misses. Found
+    // later, its lazy screens (the email-code step) could answer 504 "Outdated Optimize
+    // Dep" and leave the login popup blank.
+    optimizeDeps: { include: ['@privy-io/react-auth'] },
     resolve: {
       alias: [
         // The function's entry, wrapped to refuse the adapter's path override

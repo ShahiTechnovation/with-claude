@@ -50,20 +50,32 @@ import type { User } from '@privy-io/node/resources';
 import { createRemoteJWKSet, type JWTVerifyGetKey } from 'jose';
 
 /** Preview diagnostics contain only fixed codes/booleans, never SDK errors or credentials. */
-export function authTrace(event: 'request' | 'verification' | 'member', fields: Record<string, boolean | string>, env: NodeJS.ProcessEnv = process.env): void {
+export function authTrace(
+  event: 'request' | 'verification' | 'member',
+  fields: Record<string, boolean | string>,
+  env: NodeJS.ProcessEnv = process.env,
+): void {
   if (env.VERCEL_ENV === 'preview') console.info(`[auth.${event}] ${JSON.stringify(fields)}`);
 }
 
 export function verificationFailureCode(error: unknown): string {
   const failure = error as { code?: string; claim?: string } | null;
   switch (failure?.code) {
-    case 'ERR_JWT_EXPIRED': return 'EXPIRED';
-    case 'ERR_JWS_SIGNATURE_VERIFICATION_FAILED': return 'SIGNATURE_INVALID';
+    case 'ERR_JWT_EXPIRED':
+      return 'EXPIRED';
+    case 'ERR_JWS_SIGNATURE_VERIFICATION_FAILED':
+      return 'SIGNATURE_INVALID';
     case 'ERR_JWT_CLAIM_VALIDATION_FAILED':
-      return failure.claim === 'aud' ? 'AUDIENCE_MISMATCH' : failure.claim === 'iss' ? 'ISSUER_MISMATCH' : 'TOKEN_INVALID';
+      return failure.claim === 'aud'
+        ? 'AUDIENCE_MISMATCH'
+        : failure.claim === 'iss'
+          ? 'ISSUER_MISMATCH'
+          : 'TOKEN_INVALID';
     case 'ERR_JWS_INVALID':
-    case 'ERR_JWT_INVALID': return 'TOKEN_INVALID';
-    default: return 'UNKNOWN';
+    case 'ERR_JWT_INVALID':
+      return 'TOKEN_INVALID';
+    default:
+      return 'UNKNOWN';
   }
 }
 
@@ -74,12 +86,22 @@ async function diagnoseFailure(token: string, config: PrivyConfig): Promise<stri
   // own failure is already the whole answer, so there is nothing to add.
   if (!config.verificationKey) return 'UNKNOWN';
   let key;
-  try { key = await importSPKI(config.verificationKey, 'ES256'); }
-  catch { return 'VERIFICATION_KEY_INVALID'; }
   try {
-    await jwtVerify(token, key, { typ: 'JWT', algorithms: ['ES256'], issuer: 'privy.io', audience: config.appId });
+    key = await importSPKI(config.verificationKey, 'ES256');
+  } catch {
+    return 'VERIFICATION_KEY_INVALID';
+  }
+  try {
+    await jwtVerify(token, key, {
+      typ: 'JWT',
+      algorithms: ['ES256'],
+      issuer: 'privy.io',
+      audience: config.appId,
+    });
     return 'TOKEN_INVALID'; // Signature/claims passed but Privy's required payload shape did not.
-  } catch (error) { return verificationFailureCode(error); }
+  } catch (error) {
+    return verificationFailureCode(error);
+  }
 }
 
 /** The cookie Privy sets when cookie-based sessions are enabled. */
@@ -88,6 +110,9 @@ export const ACCESS_TOKEN_COOKIE = 'privy-token';
 /** The cookie carrying the identity token, when identity tokens are enabled. */
 export const IDENTITY_TOKEN_COOKIE = 'privy-id-token';
 
+/** The rest of Privy's cookie session. Never read here; only expired on sign-out. */
+export const REFRESH_TOKEN_COOKIE = 'privy-refresh-token';
+export const SESSION_COOKIE = 'privy-session';
 
 export interface PrivyConfig {
   appId: string;
@@ -208,7 +233,8 @@ export type AuthFailure =
   /** The server has no Privy credentials. Not the caller's fault. */
   | 'not-configured';
 
-export type VerifiedIdentity = { ok: true; privyUserId: string } | { ok: false; reason: AuthFailure };
+export type VerifiedIdentity =
+  { ok: true; privyUserId: string } | { ok: false; reason: AuthFailure };
 
 /**
  * Read the access token off a request.
@@ -282,19 +308,32 @@ export async function verifyRequest(
             () => false,
           )
       : false;
-    authTrace('verification', {
-      // `JWKS` is the healthy state when no static key is set, not a fault.
-      key_source: staticKey ? (keyValid ? 'STATIC_PEM' : 'VERIFICATION_KEY_INVALID') : 'JWKS',
-      pem_marker: staticKey?.startsWith('-----BEGIN PUBLIC KEY-----') ?? false,
-      escaped_line_breaks: staticKey?.includes('\n') ?? false,
-    }, env);
+    authTrace(
+      'verification',
+      {
+        // `JWKS` is the healthy state when no static key is set, not a fault.
+        key_source: staticKey ? (keyValid ? 'STATIC_PEM' : 'VERIFICATION_KEY_INVALID') : 'JWKS',
+        pem_marker: staticKey?.startsWith('-----BEGIN PUBLIC KEY-----') ?? false,
+        escaped_line_breaks: staticKey?.includes('\n') ?? false,
+      },
+      env,
+    );
   }
-  authTrace('request', {
-    cookie_present: Boolean(readCookie(request, ACCESS_TOKEN_COOKIE)),
-    authorization_present: Boolean(request.headers.get('authorization')),
-    config_present: Boolean(config),
-    app_id_match: !env.PUBLIC_PRIVY_APP_ID || !config ? 'UNKNOWN' : env.PUBLIC_PRIVY_APP_ID.trim() === config.appId ? 'MATCH' : 'MISMATCH',
-  }, env);
+  authTrace(
+    'request',
+    {
+      cookie_present: Boolean(readCookie(request, ACCESS_TOKEN_COOKIE)),
+      authorization_present: Boolean(request.headers.get('authorization')),
+      config_present: Boolean(config),
+      app_id_match:
+        !env.PUBLIC_PRIVY_APP_ID || !config
+          ? 'UNKNOWN'
+          : env.PUBLIC_PRIVY_APP_ID.trim() === config.appId
+            ? 'MATCH'
+            : 'MISMATCH',
+    },
+    env,
+  );
   if (!config) {
     authTrace('verification', { result: 'CONFIG_MISSING' }, env);
     return { ok: false, reason: 'not-configured' };

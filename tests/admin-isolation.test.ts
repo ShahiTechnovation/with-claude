@@ -32,6 +32,9 @@ function filesUnder(dir: string, extensions: string[]): string[] {
 
 const PUBLIC_SOURCE = filesUnder('src', ['.ts', '.astro', '.js', '.mjs']);
 
+/** The one route allowed to send Set-Cookie: it expires Privy's cookies on sign-out. */
+const SIGNOUT_ROUTE = 'src/pages/api/member/signout.ts';
+
 /** Whichever build output is on disk. */
 function publicClientDir(): string | undefined {
   for (const dir of ['dist/client', '.vercel/output/static', 'dist']) {
@@ -61,8 +64,12 @@ function publicClientDir(): string | undefined {
  * better-auth and the `users` allowlist belong to the admin, Privy and
  * `members` belong to the public site, and neither can mint or read the
  * other's session. Every test below checks a consequence of that, and the ones
- * that check for a session cookie, an auth library or a credential in the
- * bundle are unchanged — because Privy adds none of those.
+ * that check for an auth library or a credential in the bundle are unchanged —
+ * because Privy adds none of those.
+ *
+ * ONE EXCEPTION, NAMED BELOW: `src/pages/api/member/signout.ts` sends
+ * Set-Cookie headers, and only to EXPIRE Privy's own cookies on sign-out. It
+ * never reads a cookie or sets a value. The public site sets no other cookie.
  */
 describe("the public site does not share the admin's authentication", () => {
   it('imports no auth library anywhere in its source', () => {
@@ -90,20 +97,35 @@ describe("the public site does not share the admin's authentication", () => {
     expect(Object.keys(adminPkg.dependencies)).toContain('better-auth');
   });
 
-  it('reads no session and sets no cookie', () => {
+  it("reads no session and sets no cookie, except expiring Privy's on sign-out", () => {
     for (const file of PUBLIC_SOURCE) {
+      if (file.replace(/\\/g, '/') === SIGNOUT_ROUTE) continue;
       const text = readFileSync(file, 'utf8');
       expect(text, `${file} touches cookies`).not.toMatch(
         /Astro\.cookies|context\.cookies|set-cookie|getSession|resolveSession/i,
       );
     }
+
+    // The sign-out route only expires Privy's cookies: it reads none, and every
+    // cookie it builds is empty with Max-Age=0. tests/signout.test.ts pins the
+    // exact header list.
+    const signout = readFileSync(SIGNOUT_ROUTE, 'utf8');
+    expect(signout).not.toMatch(
+      /Astro\.cookies|context\.cookies|cookies\.(get|set)|getSession|resolveSession|get\(['"]cookie/i,
+    );
+    const built = [...signout.matchAll(/`\$\{name\}=([^`]*)`/g)].map((m) => m[1]);
+    expect(built.length).toBeGreaterThan(0);
+    for (const value of built) expect(value).toMatch(/^; /);
+    expect(signout).toMatch(/const attrs = `Path=\/; Max-Age=0; Expires=Thu, 01 Jan 1970/);
   });
 
-  it('has no login, logout or admin route', () => {
+  it('has no login or admin route, and one sign-out route that only expires cookies', () => {
     const routes = filesUnder('src/pages', ['.astro', '.ts']).map((f) => f.replace(/\\/g, '/'));
+    expect(routes).toContain(SIGNOUT_ROUTE);
 
     for (const route of routes) {
-      expect(route).not.toMatch(/\/(login|logout|admin|signin|sign-in|session)/i);
+      if (route === SIGNOUT_ROUTE) continue;
+      expect(route).not.toMatch(/\/(login|logout|signout|sign-out|admin|signin|sign-in|session)/i);
     }
   });
 
@@ -153,6 +175,7 @@ describe("the public site does not share the admin's authentication", () => {
         'src/pages/api/member/claim.ts',
         'src/pages/api/member/me.ts',
         'src/pages/api/member/profile.ts',
+        'src/pages/api/member/signout.ts',
         'src/pages/api/moderation/builders/[id].ts',
         'src/pages/api/moderation/projects/[id].ts',
         'src/pages/api/projects/[id].ts',
@@ -186,7 +209,7 @@ describe("the public site does not share the admin's authentication", () => {
         'src/pages/not-found.astro',
         'src/pages/projects/[slug].astro',
         'src/pages/projects/index.astro',
-        'src/pages/sitemap.xml.ts'
+        'src/pages/sitemap.xml.ts',
       ].sort(),
     );
   });
@@ -390,8 +413,6 @@ describe('nothing from a later phase has crept in', () => {
     ...filesUnder('admin/src', ['.ts', '.astro']),
     ...filesUnder('db', ['.ts']),
   ];
-
-
 
   /**
    * Phase 3 gave the admin a publish flow. What must remain true is that it is

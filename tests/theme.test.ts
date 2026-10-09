@@ -51,7 +51,7 @@ function firstPaint({
     hasAttribute: (name: string) => locked && name === 'data-theme-lock',
     classList: { add: (name: string) => classes.add(name) },
   };
-  const meta = { content: locked ? '#FAF9F5' : '#0C0B0A' };
+  const meta = { content: locked ? '#FAF9F5' : '#141413' };
   const localStorage = {
     getItem: (key: string) => {
       if (storageBlocked) throw new Error('blocked');
@@ -77,13 +77,13 @@ describe('the theme before first paint', () => {
   });
 
   it('is dark unless the visitor chose cream', () => {
-    expect(firstPaint({})).toEqual({ theme: 'dark', meta: '#0C0B0A', js: true });
+    expect(firstPaint({})).toEqual({ theme: 'dark', meta: '#141413', js: true });
     expect(firstPaint({ saved: 'light' })).toEqual({ theme: 'light', meta: '#FAF9F5', js: true });
     expect(firstPaint({ saved: 'dark' }).theme).toBe('dark');
     expect(firstPaint({ saved: 'sepia' }).theme).toBe('dark');
     expect(firstPaint({ storageBlocked: true })).toEqual({
       theme: 'dark',
-      meta: '#0C0B0A',
+      meta: '#141413',
       js: true,
     });
   });
@@ -101,7 +101,7 @@ describe('the theme before first paint', () => {
     expect(base).toContain("data-theme={lockLight ? 'light' : 'dark'}");
     expect(base).toContain("data-theme-lock={lockLight ? '' : undefined}");
     expect(base).toContain(
-      `<meta name="theme-color" content={lockLight ? '#FAF9F5' : '#0C0B0A'} />`,
+      `<meta name="theme-color" content={lockLight ? '#FAF9F5' : '#141413'} />`,
     );
     expect(baseCss).toMatch(/\[data-theme-lock\] \[data-theme-toggle\] \{\s*display: none;/);
   });

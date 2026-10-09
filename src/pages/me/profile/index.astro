@@ -4,6 +4,9 @@ import AuthRequired from '@/components/AuthRequired.astro';
 import AccountNavTabs from '@/components/AccountNavTabs.astro';
 import Base from '@/layouts/Base.astro';
 import { citySlugFor, getBuilderSlug } from '@/server/members/profile';
+import { missingForPublish } from '@/server/members/publish';
+import { isPlaceholderUsername } from '@/server/members/username';
+import { cityName as cityNameFor } from '@/data';
 
 export const prerender = false;
 
@@ -15,20 +18,21 @@ if (guard.ok) {
   privateHeaders(Astro);
   builderSlug = await getBuilderSlug(guard.member.id, guard.db);
   if (guard.profile.cityId) {
-    cityName = await citySlugFor(guard.profile.cityId, guard.db);
+    cityName = cityNameFor(await citySlugFor(guard.profile.cityId, guard.db));
   }
 }
 
 const isPublished = guard.ok && Boolean(guard.profile.publishedAt);
-
-/** Missing publish-required fields for the profile. */
-const missingFields = guard.ok
-  ? ([
-      !guard.profile.displayName && 'Name',
-      !guard.profile.cityId && 'City',
-      !guard.profile.primaryRole && 'Role',
-    ].filter(Boolean) as string[])
-  : [];
+const blockers = guard.ok ? missingForPublish(guard.profile) : [];
+/** A new member's `m-<hex>` shell handle is not a name to show. */
+const hasUsername = guard.ok && !isPlaceholderUsername(guard.profile.username);
+// The dashboard's own labels (me/index.astro).
+const visibilityLabel =
+  guard.ok && isPublished && builderSlug
+    ? guard.profile.visibility === 'unlisted'
+      ? 'Live · unlisted'
+      : 'Live · listed'
+    : 'Not public yet';
 ---
 
 {
@@ -45,8 +49,11 @@ const missingFields = guard.ok
         <header class="pp-header">
           <div class="pp-head-top">
             <div>
-              <h1 class="pp-name">{guard.profile.displayName ?? guard.profile.username}</h1>
-              <p class="pp-handle">@{guard.profile.username}</p>
+              <h1 class="pp-name">
+                {guard.profile.displayName ||
+                  (hasUsername ? guard.profile.username : 'Your Builder Passport')}
+              </h1>
+              {hasUsername && <p class="pp-handle">@{guard.profile.username}</p>}
             </div>
             <span class={`status-badge status-badge--${isPublished ? 'published' : 'draft'}`}>
               {isPublished ? 'Published' : 'Draft'}
@@ -55,14 +62,9 @@ const missingFields = guard.ok
 
           {guard.profile.headline && <p class="pp-headline">{guard.profile.headline}</p>}
 
-          {!isPublished && missingFields.length > 0 && (
+          {!isPublished && blockers.length > 0 && (
             <div class="notice notice--info pp-missing">
-              <p>Missing before publishing:</p>
-              <ul>
-                {missingFields.map((f) => (
-                  <li>{f}</li>
-                ))}
-              </ul>
+              To publish, your profile still needs {blockers.join(', ')}.
             </div>
           )}
         </header>
@@ -91,7 +93,7 @@ const missingFields = guard.ok
           )}
           <div class="pp-field">
             <dt>Visibility</dt>
-            <dd>{guard.profile.visibility}</dd>
+            <dd>{visibilityLabel}</dd>
           </div>
           {guard.profile.website && (
             <div class="pp-field">

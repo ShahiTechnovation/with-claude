@@ -325,7 +325,7 @@ input:checked + .chip,
   color: var(--paper);
 }
 
-/* Verified Ambassador. The only filled chip on the site: 8.9:1 / 6.0:1. */
+/* Verified Ambassador. The only filled chip on the site: 5.9:1 / 6.0:1. */
 .chip-verified {
   border-color: transparent;
   background: var(--clay-deep);

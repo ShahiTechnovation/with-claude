@@ -317,3 +317,66 @@ describe('the profile save regression', () => {
     }
   });
 });
+
+describe('the account pages after the flows review', () => {
+  it('previews the address the save will actually use', () => {
+    const editor = source('src/components/react/ProfileEditor.tsx');
+    expect(editor).toContain("form.username.trim().toLowerCase() || 'your-username'");
+  });
+
+  it.each([
+    ['src/components/react/ProfileEditor.tsx', 'CONTROL_ID[body.field] ?? `pe-${body.field}`'],
+    [
+      'src/components/react/ProjectEditor.tsx',
+      "body.field === 'coverMediaId' ? 'pj-cover' : `pj-${body.field}`",
+    ],
+  ])(
+    '%s focuses a rejected field instead of repeating its error below the buttons',
+    (file, lookup) => {
+      const editor = source(file);
+      expect(editor).toContain(lookup);
+      expect(editor).toMatch(
+        /if \(control\) \{\s*focusId\.current = control\.id;\s*return null;\s*\}/,
+      );
+      expect(editor).toContain('control?.focus({ preventScroll: true });');
+    },
+  );
+
+  it('/me/profile/ lists what publishing needs from the same rule as the dashboard and the API', () => {
+    const page = source('src/pages/me/profile/index.astro');
+    expect(page).toContain('missingForPublish(guard.profile)');
+    expect(page).toContain("To publish, your profile still needs {blockers.join(', ')}.");
+    expect(page).not.toContain('Missing before publishing');
+  });
+
+  it('/me/profile/ shows the city name, not its slug', () => {
+    expect(source('src/pages/me/profile/index.astro')).toContain(
+      'cityName = cityNameFor(await citySlugFor(guard.profile.cityId, guard.db));',
+    );
+  });
+
+  it.each(['src/pages/me/profile/index.astro', 'src/pages/me/settings.astro'])(
+    "%s never shows a new member's placeholder handle or the raw visibility value",
+    (file) => {
+      const page = source(file);
+      expect(page).toContain('!isPlaceholderUsername(guard.profile.username)');
+      expect(page).toContain('{hasUsername && ');
+      expect(page).not.toContain('{guard.profile.visibility}');
+    },
+  );
+
+  it('/me/profile/ labels visibility like the dashboard', () => {
+    const page = source('src/pages/me/profile/index.astro');
+    expect(page).toContain("'Live · unlisted'");
+    expect(page).toContain("'Not public yet'");
+  });
+
+  it("/me/settings/ names the visibility setting in the profile editor's words", () => {
+    expect(source('src/pages/me/settings.astro')).toContain(
+      "guard.profile.visibility === 'unlisted' ? 'Unlisted' : 'Listed'",
+    );
+    const editor = source('src/components/react/ProfileEditor.tsx');
+    expect(editor).toContain('Listed — in the builders directory');
+    expect(editor).toContain('Unlisted — anyone with the link');
+  });
+});

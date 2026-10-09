@@ -100,6 +100,8 @@
 .form-grid {
   display: grid;
   gap: var(--s-5);
+  /* A field showing an error grows; its neighbour in a two-column row keeps its own height. */
+  align-items: start;
 }
 
 @media (min-width: 40em) {

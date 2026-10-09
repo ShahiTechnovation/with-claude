@@ -16,6 +16,8 @@ import { isDirectoryHost, signInHref } from '@/lib/directory-host';
 // bootstrap call would be redirected cross-origin and fail), and Sign in is a
 // plain link to the account page on the main site.
 const onDirectoryHost = isDirectoryHost(Astro.url.hostname);
+// Kept on one line: tests/directory-release-fixes.test.ts pins this text.
+// prettier-ignore
 const appId = onDirectoryHost ? undefined : (import.meta.env.PUBLIC_PRIVY_APP_ID as string | undefined);
 const loginMethods = (import.meta.env.PUBLIC_PRIVY_LOGIN_METHODS as string | undefined)
   ?.split(',')
@@ -32,17 +34,21 @@ const loginMethods = (import.meta.env.PUBLIC_PRIVY_LOGIN_METHODS as string | und
   static fallback and the live button would both stay in the DOM at once.
 -->
 <div id="account-slot-root" class="account-slot" data-account-state="anonymous">
-  <a class="account-join js-hydrate-hide" href={signInHref(Astro.url.hostname)} data-account-signin>Sign in</a>
+  <a class="account-join js-hydrate-hide" href={signInHref(Astro.url.hostname)} data-account-signin
+    >Sign in</a
+  >
 </div>
 
-{/*
+{
+  /*
   Where `PrivyRoot` mounts. Not an Astro island: `src/scripts/account-boot.ts`
   loads it on demand (account pages, an existing session, or a click on
   Sign in), so readers who never sign in never download the Privy SDK.
-*/}
+*/
+}
 {
   appId && (
-    <div id="privy-root" data-app-id={appId} data-login-methods={(loginMethods ?? []).join(',')}></div>
+    <div id="privy-root" data-app-id={appId} data-login-methods={(loginMethods ?? []).join(',')} />
   )
 }
 <script>
@@ -114,7 +120,8 @@ const loginMethods = (import.meta.env.PUBLIC_PRIVY_LOGIN_METHODS as string | und
   }
 
   .account-nudge {
-    margin-right: 6px;
+    /* Clear of the trigger's focus ring (3px offset + 2px). */
+    margin-right: 10px;
     font-family: var(--font-title);
     font-size: var(--t-small);
     font-weight: 600;
@@ -160,19 +167,24 @@ const loginMethods = (import.meta.env.PUBLIC_PRIVY_LOGIN_METHODS as string | und
     z-index: 200;
     display: flex;
     flex-direction: column;
+    gap: 2px;
     min-width: 12rem;
-    padding: 6px;
+    max-width: calc(100vw - 2 * var(--gutter));
+    padding: 8px;
     background: var(--paper-raised);
     border: 1px solid var(--rule-strong);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lift);
   }
 
+  /* Pills, like every other control in the bar. */
   .account-menu-dropdown a,
   .account-menu-dropdown button {
-    display: block;
+    display: flex;
+    align-items: center;
     width: 100%;
-    padding: 10px 14px;
+    min-height: 44px;
+    padding: 0 16px;
     text-align: left;
     font-family: var(--font-body);
     font-size: var(--t-ui);
@@ -180,7 +192,7 @@ const loginMethods = (import.meta.env.PUBLIC_PRIVY_LOGIN_METHODS as string | und
     text-decoration: none;
     background: transparent;
     border: none;
-    border-radius: var(--radius-xs);
+    border-radius: var(--radius-pill);
     cursor: pointer;
     transition: background-color var(--dur-1) var(--ease-out);
   }
@@ -189,11 +201,27 @@ const loginMethods = (import.meta.env.PUBLIC_PRIVY_LOGIN_METHODS as string | und
   .account-menu-dropdown a:focus-visible,
   .account-menu-dropdown button:hover,
   .account-menu-dropdown button:focus-visible {
-    background: var(--paper-raised-2);
+    background: var(--clay-tint);
   }
 
   .account-menu-dropdown :focus-visible {
     outline-offset: -2px;
+  }
+
+  /* Sign out (always last) sits under a hairline, apart from the pages. */
+  .account-menu-dropdown > :last-child {
+    position: relative;
+    margin-top: 9px;
+  }
+
+  .account-menu-dropdown > :last-child::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    left: 16px;
+    right: 16px;
+    height: 1px;
+    background: var(--rule);
   }
 
   /*

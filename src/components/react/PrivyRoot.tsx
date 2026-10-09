@@ -35,7 +35,7 @@
  *   · Privy not becoming ready is reported after 8 s, not shown as a spinner
  *     forever
  */
-import { PrivyProvider, usePrivy } from '@privy-io/react-auth';
+import { PrivyProvider, usePrivy, type PrivyClientConfig } from '@privy-io/react-auth';
 import {
   Component,
   Suspense,
@@ -53,6 +53,7 @@ import {
   AccountContextProvider,
   describeAccountProblem,
   useAccount,
+  USERNAME_SAVED_EVENT,
   type AccountApi,
   type AccountErrorKind,
   type AccountState,
@@ -60,6 +61,9 @@ import {
 
 /** Trailing slash deliberate — see `src/data/forms.ts`. */
 const BOOTSTRAP_ENDPOINT = '/api/member/bootstrap/';
+const SIGNOUT_ENDPOINT = '/api/member/signout/';
+/** Sign-out waits this long for the server at most, then navigates anyway. */
+const SIGNOUT_WAIT_MS = 2_000;
 /** Every key this file writes starts with this, so logout can clear them all. */
 const PREFIX = 'wc:';
 /** Pre-namespacing keys from the previous version, cleared on sight. */
@@ -96,6 +100,17 @@ function writeCache(
   storage()?.setItem(accountKey(userKey), JSON.stringify(value));
 }
 
+/**
+ * A saved username ends the nudge: in this state now, and in the tab's cache so
+ * the next page does not bring it back from the bootstrap answer.
+ */
+export function withUsernameSaved(state: AccountState): AccountState {
+  if (state.status !== 'signed-in' || !state.needsUsername || !state.userKey) return state;
+  const facts = { needsUsername: false, ambassadorSlug: state.ambassadorSlug ?? null };
+  writeCache(state.userKey, facts);
+  return { ...state, ...facts };
+}
+
 /** Remove every key this file owns — or only one user's, on an account switch. */
 function clearIdentityState(userKey?: string) {
   const store = storage();
@@ -105,6 +120,40 @@ function clearIdentityState(userKey?: string) {
     if (!ours) continue;
     if (userKey && !key.startsWith(`${PREFIX}${userKey}:`)) continue;
     store.removeItem(key);
+  }
+}
+
+/**
+ * Ask the server to expire Privy's session cookies. Never throws, and never
+ * holds up the navigation longer than SIGNOUT_WAIT_MS. With `dropLate`, an
+ * answer that misses the wait is aborted: a caller whose own logout already
+ * ended the session passes it, so a slow answer cannot land after the next
+ * sign-in and expire that session's cookies.
+ */
+export async function serverSignOut(dropLate = false): Promise<void> {
+  const late = new AbortController();
+  let request: Promise<unknown>;
+  try {
+    request = fetch(SIGNOUT_ENDPOINT, {
+      method: 'POST',
+      credentials: 'same-origin',
+      keepalive: true,
+      signal: late.signal,
+    }).catch(() => undefined);
+  } catch {
+    return;
+  }
+  await Promise.race([request, new Promise((resolve) => setTimeout(resolve, SIGNOUT_WAIT_MS))]);
+  if (dropLate) late.abort(); // A no-op once the answer is in.
+}
+
+/** Privy's own localStorage keys (tokens included), for when its logout() cannot run. */
+function clearPrivyStorage() {
+  try {
+    const store = window.localStorage;
+    for (const key of Object.keys(store)) if (key.startsWith('privy:')) store.removeItem(key);
+  } catch {
+    // Storage blocked: nothing of Privy's can be in it either.
   }
 }
 
@@ -134,6 +183,8 @@ function useAccountMachine(): AccountApi {
   const [attempt, setAttempt] = useState(0);
   const startedFor = useRef<string | null>(null);
   const previousUser = useRef<string | null>(null);
+  // A save can land while bootstrap is still in flight; its older answer must not undo it.
+  const usernameSaved = useRef(false);
 
   // Privy that never becomes ready is a state, not a spinner.
   useEffect(() => {
@@ -150,6 +201,7 @@ function useAccountMachine(): AccountApi {
     if (previousUser.current && previousUser.current !== currentUser) {
       clearIdentityState(previousUser.current);
       startedFor.current = null;
+      usernameSaved.current = false;
     }
     previousUser.current = currentUser;
   }, [currentUser]);
@@ -209,7 +261,7 @@ function useAccountMachine(): AccountApi {
         ambassador?: { slug?: string } | null;
       };
       const facts = {
-        needsUsername: Boolean(body.profile?.needsUsername),
+        needsUsername: Boolean(body.profile?.needsUsername) && !usernameSaved.current,
         ambassadorSlug: body.ambassador?.slug ?? null,
       };
       writeCache(userKey, facts);
@@ -223,13 +275,26 @@ function useAccountMachine(): AccountApi {
     };
   }, [ready, authenticated, user?.id, attempt]);
 
+  useEffect(() => {
+    const onSaved = () => {
+      usernameSaved.current = true;
+      setState(withUsernameSaved);
+    };
+    window.addEventListener(USERNAME_SAVED_EVENT, onSaved);
+    return () => window.removeEventListener(USERNAME_SAVED_EVENT, onSaved);
+  }, []);
+
   const signIn = useCallback(() => login(), [login]);
 
   const signOut = useCallback(
     async (to = '/') => {
+      let loggedOut = false;
       try {
         await logout();
+        loggedOut = true;
       } finally {
+        // Even when logout() threw, the server session still ends.
+        await serverSignOut(loggedOut);
         clearIdentityState();
         window.location.assign(isSafeNext(to) ? to : '/');
       }
@@ -325,15 +390,24 @@ function AccountSlot() {
     if (!dropdownRef.current) return;
     const items = Array.from(dropdownRef.current.querySelectorAll<HTMLElement>('a, button'));
     const idx = items.indexOf(document.activeElement as HTMLElement);
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      items[(idx + 1) % items.length]?.focus();
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      items[(idx - 1 + items.length) % items.length]?.focus();
-    } else if (e.key === 'Tab') {
-      setOpen(false);
-    }
+    const next = {
+      ArrowDown: (idx + 1) % items.length,
+      ArrowUp: (idx - 1 + items.length) % items.length,
+      Home: 0,
+      End: items.length - 1,
+    }[e.key];
+    if (next === undefined) return;
+    e.preventDefault();
+    items[next]?.focus();
+  }, []);
+
+  // Tab moves through the items like any links; the menu closes once focus moves to
+  // anything but the trigger or the menu (the nudge too, or its pill would sit under
+  // the menu). A null relatedTarget is ignored: Safari and Firefox clear focus on
+  // mousedown, and the pointerdown listener already closes on outside presses.
+  const handleBlur = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
+    const to = e.relatedTarget as Node | null;
+    if (to && to !== triggerRef.current && !dropdownRef.current?.contains(to)) setOpen(false);
   }, []);
 
   if (!target) return null;
@@ -357,7 +431,12 @@ function AccountSlot() {
     const displayName = displayNameOf(user);
     const needsUsername = state.status === 'signed-in' && state.needsUsername;
     content = (
-      <div className="account-slot" data-account-state={state.status} ref={containerRef}>
+      <div
+        className="account-slot"
+        data-account-state={state.status}
+        ref={containerRef}
+        onBlur={handleBlur}
+      >
         {needsUsername && (
           <a className="account-nudge" href="/me/profile/edit/">
             Finish your profile
@@ -672,8 +751,12 @@ function DegradedInner() {
       signIn: () => {
         if (!window.location.pathname.startsWith('/me/')) window.location.assign('/me/');
       },
+      // Clear the local session first: if the tab closes during the server
+      // call, Privy's refresh token must not be left on the device.
       signOut: async (to = '/') => {
+        clearPrivyStorage();
         clearIdentityState();
+        await serverSignOut();
         window.location.assign(isSafeNext(to) ? to : '/');
       },
       retry: () => window.location.reload(),
@@ -686,6 +769,7 @@ function DegradedInner() {
     <AccountContextProvider value={account}>
       <DegradedSlot />
       <JoinCta />
+      <SignOutSlot />
       <AccountIslands />
     </AccountContextProvider>
   );
@@ -705,6 +789,35 @@ function DegradedSlot() {
   );
 }
 
+// ── the login popup's look ───────────────────────────────────────────────
+
+/** The site's clay (`--clay`): Privy's buttons, links and active borders on the dark popup. */
+const PRIVY_ACCENT = '#D97757';
+/** `--clay-deep` on light: Privy draws text in the accent on white, and #D97757 is 3.07:1 there. */
+const PRIVY_ACCENT_LIGHT = '#9e4526';
+/** The dark ground (`--paper`): Privy derives the rest of its dark palette from it. */
+const PRIVY_DARK_GROUND = '#141413';
+/** The popup's heading. Approved by the owner. */
+const PRIVY_TITLE = 'Sign in to WITH CLAUDE';
+
+/**
+ * Privy's look, read once when it boots: the page's theme (`<html data-theme>`,
+ * which is locked light on /me/), the clay accent and the 180px logo from `public/`.
+ * Privy loads the logo itself, so it needs an absolute URL.
+ */
+export function privyAppearance(
+  root: HTMLElement,
+  origin: string,
+): NonNullable<PrivyClientConfig['appearance']> {
+  const light = root.dataset.theme === 'light';
+  return {
+    theme: light ? 'light' : PRIVY_DARK_GROUND,
+    accentColor: light ? PRIVY_ACCENT_LIGHT : PRIVY_ACCENT,
+    logo: `${origin}/logo-180.png`,
+    landingHeader: PRIVY_TITLE,
+  };
+}
+
 interface Props {
   appId: string;
   loginMethods?: string[];
@@ -713,6 +826,9 @@ interface Props {
 }
 
 export default function PrivyRoot({ appId, loginMethods, openLogin = false }: Props) {
+  const [appearance] = useState(() =>
+    privyAppearance(document.documentElement, window.location.origin),
+  );
   return (
     <ProviderBoundary fallback={<DegradedInner />}>
       <PrivyProvider
@@ -721,11 +837,17 @@ export default function PrivyRoot({ appId, loginMethods, openLogin = false }: Pr
           ...(loginMethods && loginMethods.length > 0
             ? { loginMethods: loginMethods as never }
             : {}),
+          // The SDK shows "I have a passkey" whenever the dashboard has passkeys on,
+          // whatever loginMethods says. This flag (internal, missing from the
+          // 3.41 types) hides it unless we configured passkey ourselves.
+          ...(loginMethods && loginMethods.length > 0 && !loginMethods.includes('passkey')
+            ? ({ globalDisablePasskeys: true } as object)
+            : {}),
           embeddedWallets: {
             ethereum: { createOnLogin: 'off' },
             solana: { createOnLogin: 'off' },
           },
-          appearance: { theme: 'light' },
+          appearance,
         }}
       >
         <Inner openLogin={openLogin} />

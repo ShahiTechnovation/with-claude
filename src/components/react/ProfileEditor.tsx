@@ -15,7 +15,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SELECTABLE_ROLES } from '@/lib/roles';
-import { useAccount } from './account-context';
+import { useAccount, USERNAME_SAVED_EVENT } from './account-context';
 import { uploadImage, UploadProblem } from './upload-image';
 
 export interface ProfileEditorProfile {
@@ -62,6 +62,13 @@ type Fields = {
 
 const PLACEHOLDER_USERNAME = /^m-[0-9a-f]{12}$/;
 
+/** A server field name to its control's id, where the two differ. */
+const CONTROL_ID: Record<string, string> = {
+  citySlug: 'pe-city',
+  primaryRole: 'pe-role',
+  claudeSince: 'pe-tools',
+};
+
 function initialFields(p: ProfileEditorProfile): Fields {
   return {
     username: PLACEHOLDER_USERNAME.test(p.username) ? '' : p.username,
@@ -101,6 +108,15 @@ export default function ProfileEditor({ profile, uploadPrefix }: Props) {
   const [builderSlug, setBuilderSlug] = useState(profile.builderSlug ?? null);
   const [avatarUrl, setAvatarUrl] = useState(profile.avatarUrl ?? null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const focusId = useRef<string | null>(null);
+
+  // Move to the field the server rejected once its error is rendered, so it is read with it.
+  useEffect(() => {
+    const control = focusId.current ? document.getElementById(focusId.current) : null;
+    focusId.current = null;
+    control?.scrollIntoView({ block: 'center' });
+    control?.focus({ preventScroll: true });
+  }, [fieldErrors]);
 
   const dirty = useMemo(() => JSON.stringify(form) !== JSON.stringify(saved), [form, saved]);
   const blockers = publishBlockers(form);
@@ -137,7 +153,19 @@ export default function ProfileEditor({ profile, uploadPrefix }: Props) {
     const body = (await response.json().catch(() => ({}))) as { error?: string; field?: string };
     if (body.field) setFieldErrors({ [body.field]: body.error ?? 'Check this field.' });
     if (response.status === 401) {
-      return { tone: 'error', text: 'Your session has expired. Sign in again — your edits are still here.', signIn: true };
+      return {
+        tone: 'error',
+        text: 'Your session has expired. Sign in again — your edits are still here.',
+        signIn: true,
+      };
+    }
+    // The error shows under its field: focus that instead of repeating it below the buttons.
+    const control = body.field
+      ? document.getElementById(CONTROL_ID[body.field] ?? `pe-${body.field}`)
+      : null;
+    if (control) {
+      focusId.current = control.id;
+      return null;
     }
     return { tone: 'error', text: body.error ?? 'Your changes could not be saved. Try again.' };
   };
@@ -166,6 +194,11 @@ export default function ProfileEditor({ profile, uploadPrefix }: Props) {
       return false;
     }
     setSaved(form);
+    // Ends the header's "Finish your profile" nudge, here and on the next page (PrivyRoot).
+    // A placeholder-shaped handle still counts as no username on the server (isPlaceholderUsername).
+    if (body.username && !PLACEHOLDER_USERNAME.test(body.username as string)) {
+      window.dispatchEvent(new Event(USERNAME_SAVED_EVENT));
+    }
     return true;
   };
 
@@ -183,7 +216,10 @@ export default function ProfileEditor({ profile, uploadPrefix }: Props) {
         });
       }
     } catch {
-      setNotice({ tone: 'error', text: 'We could not reach the server. Your edits are still here — try again.' });
+      setNotice({
+        tone: 'error',
+        text: 'We could not reach the server. Your edits are still here — try again.',
+      });
     } finally {
       setBusy(null);
     }
@@ -216,7 +252,10 @@ export default function ProfileEditor({ profile, uploadPrefix }: Props) {
             : 'Published. Your profile is live and listed in the builders directory.',
       });
     } catch {
-      setNotice({ tone: 'error', text: 'We could not reach the server. Your edits are still here — try again.' });
+      setNotice({
+        tone: 'error',
+        text: 'We could not reach the server. Your edits are still here — try again.',
+      });
     } finally {
       setBusy(null);
     }
@@ -234,11 +273,15 @@ export default function ProfileEditor({ profile, uploadPrefix }: Props) {
       });
       set('avatarMediaId', mediaId);
       setAvatarUrl(url);
-      setNotice({ tone: 'info', text: 'Portrait uploaded. Save to keep it; it goes public when you publish.' });
+      setNotice({
+        tone: 'info',
+        text: 'Portrait uploaded. Save to keep it; it goes public when you publish.',
+      });
     } catch (error) {
       setNotice({
         tone: 'error',
-        text: error instanceof UploadProblem ? error.message : 'The portrait could not be uploaded.',
+        text:
+          error instanceof UploadProblem ? error.message : 'The portrait could not be uploaded.',
       });
     } finally {
       setBusy(null);
@@ -247,7 +290,7 @@ export default function ProfileEditor({ profile, uploadPrefix }: Props) {
   };
 
   const sessionGone = account.state.status === 'signed-out';
-  const publicPath = `/builders/${builderSlug ?? (form.username || 'your-username')}/`;
+  const publicPath = `/builders/${builderSlug ?? (form.username.trim().toLowerCase() || 'your-username')}/`;
   const err = (key: string) =>
     fieldErrors[key] ? (
       <p className="field-error" id={`pe-${key}-error`}>
@@ -255,7 +298,9 @@ export default function ProfileEditor({ profile, uploadPrefix }: Props) {
       </p>
     ) : null;
   const describedBy = (key: string, hint?: boolean) =>
-    [fieldErrors[key] ? `pe-${key}-error` : '', hint ? `pe-${key}-hint` : ''].filter(Boolean).join(' ') || undefined;
+    [fieldErrors[key] ? `pe-${key}-error` : '', hint ? `pe-${key}-hint` : '']
+      .filter(Boolean)
+      .join(' ') || undefined;
 
   return (
     <form
@@ -270,7 +315,11 @@ export default function ProfileEditor({ profile, uploadPrefix }: Props) {
         <div className="panel-head">
           <h2>Status</h2>
           <span className={`status-badge status-badge--${published ? 'published' : 'draft'}`}>
-            {published ? (form.visibility === 'unlisted' ? 'Live · unlisted' : 'Live · listed') : 'Not public yet'}
+            {published
+              ? form.visibility === 'unlisted'
+                ? 'Live · unlisted'
+                : 'Live · listed'
+              : 'Not public yet'}
           </span>
         </div>
         <p className="panel-hint">
@@ -334,7 +383,9 @@ export default function ProfileEditor({ profile, uploadPrefix }: Props) {
             />
             <p className="field-hint" id="pe-username-hint">
               3–30 lower-case letters, numbers, - or _.
-              {builderSlug ? ` Your public address stays ${`/builders/${builderSlug}/`} even if you change it.` : ''}
+              {builderSlug
+                ? ` Your public address stays ${`/builders/${builderSlug}/`} even if you change it.`
+                : ''}
             </p>
             {err('username')}
           </div>
@@ -358,9 +409,11 @@ export default function ProfileEditor({ profile, uploadPrefix }: Props) {
                 </option>
               ))}
               {/* Keep the saved value selectable even before the list loads. */}
-              {form.citySlug && cities !== null && !cities.some((c) => c.slug === form.citySlug) && (
-                <option value={form.citySlug}>{form.citySlug}</option>
-              )}
+              {form.citySlug &&
+                cities !== null &&
+                !cities.some((c) => c.slug === form.citySlug) && (
+                  <option value={form.citySlug}>{form.citySlug}</option>
+                )}
             </select>
             {cities !== null && cities.length === 0 && (
               <p className="field-hint">The city list could not be loaded. Reload to try again.</p>
@@ -390,7 +443,9 @@ export default function ProfileEditor({ profile, uploadPrefix }: Props) {
             {err('primaryRole')}
           </div>
 
-          <div className={`form-field form-field--wide${fieldErrors.headline ? ' form-field--error' : ''}`}>
+          <div
+            className={`form-field form-field--wide${fieldErrors.headline ? ' form-field--error' : ''}`}
+          >
             <label className="field-label" htmlFor="pe-headline">
               Headline <span className="field-tag">optional</span>
             </label>
@@ -407,7 +462,9 @@ export default function ProfileEditor({ profile, uploadPrefix }: Props) {
             {err('headline')}
           </div>
 
-          <div className={`form-field form-field--wide${fieldErrors.bio ? ' form-field--error' : ''}`}>
+          <div
+            className={`form-field form-field--wide${fieldErrors.bio ? ' form-field--error' : ''}`}
+          >
             <label className="field-label" htmlFor="pe-bio">
               Bio <span className="field-tag">optional</span>
             </label>
@@ -489,11 +546,19 @@ export default function ProfileEditor({ profile, uploadPrefix }: Props) {
             onChange={(e) => void onPortrait(e.target.files?.[0])}
           />
           {form.avatarMediaId && (
-            <button type="button" className="button button--quiet" onClick={() => set('avatarMediaId', null)}>
+            <button
+              type="button"
+              className="button button--quiet"
+              onClick={() => set('avatarMediaId', null)}
+            >
               Remove portrait
             </button>
           )}
-          {busy === 'upload' && <p className="panel-hint" aria-live="polite">Uploading…</p>}
+          {busy === 'upload' && (
+            <p className="panel-hint" aria-live="polite">
+              Uploading…
+            </p>
+          )}
         </div>
       </div>
 
@@ -544,7 +609,11 @@ export default function ProfileEditor({ profile, uploadPrefix }: Props) {
           disabled={busy !== null || blockers.length > 0 || sessionGone}
           onClick={() => void onPublish()}
         >
-          {busy === 'publish' ? 'Publishing…' : published ? 'Update public profile' : 'Publish profile'}
+          {busy === 'publish'
+            ? 'Publishing…'
+            : published
+              ? 'Update public profile'
+              : 'Publish profile'}
         </button>
         <button type="submit" className="button" disabled={busy !== null || !dirty || sessionGone}>
           {busy === 'save' ? 'Saving…' : dirty ? 'Save draft' : 'Saved'}
@@ -558,7 +627,10 @@ export default function ProfileEditor({ profile, uploadPrefix }: Props) {
 
       <div aria-live="polite">
         {notice && (
-          <div className={`notice notice--${notice.tone}`} role={notice.tone === 'error' ? 'alert' : 'status'}>
+          <div
+            className={`notice notice--${notice.tone}`}
+            role={notice.tone === 'error' ? 'alert' : 'status'}
+          >
             {notice.text}{' '}
             {notice.signIn && (
               <button type="button" className="button button--quiet" onClick={account.signIn}>
