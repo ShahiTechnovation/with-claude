@@ -268,29 +268,52 @@ const arrowOut = 'M7 13l6.5-6.5M8 6.5h5.5V12';
     top: 20px;
   }
 
+  /* The dot is ::after, painted over the ring in ::before, so the ring grows out from
+     under it. The ring scales and fades (compositor only) instead of animating a
+     box-shadow: 4.5px radius + 10px spread = scale(3.222). */
   .feature-pulse {
+    position: relative;
     flex: none;
     width: 9px;
     height: 9px;
     border-radius: 50%;
+  }
+
+  .feature-pulse::before,
+  .feature-pulse::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+  }
+
+  .feature-pulse::before {
+    background: rgb(var(--glow));
+    opacity: 0;
+  }
+
+  .feature-pulse::after {
     background: #f4a184;
   }
 
   @media (prefers-reduced-motion: no-preference) {
-    .feature-pulse {
+    .feature-pulse::before {
       animation: feature-pulse 2.2s ease-out 2;
     }
   }
 
   @keyframes feature-pulse {
     0% {
-      box-shadow: 0 0 0 0 rgb(var(--glow) / 0.7);
+      transform: none;
+      opacity: 0.7;
     }
     70% {
-      box-shadow: 0 0 0 10px rgb(var(--glow) / 0);
+      transform: scale(3.222);
+      opacity: 0;
     }
     100% {
-      box-shadow: 0 0 0 0 rgb(var(--glow) / 0);
+      transform: none;
+      opacity: 0;
     }
   }
 

@@ -217,25 +217,51 @@
   color: var(--clay-deep);
 }
 
+.pip-live {
+  position: relative;
+  isolation: isolate;
+}
+
 .pip-live::before {
   background: var(--clay);
-  box-shadow: 0 0 0 0 rgb(var(--glow) / 0.7);
+}
+
+/* The pulse ring: a glow disc behind the dot that scales out and fades, the same
+   ring a growing box-shadow spread drew (3.5px + 10px = 27/7 of the dot), but on
+   transform and opacity. */
+.pip-live::after {
+  content: '';
+  position: absolute;
+  top: calc(50% - 3.5px);
+  left: 0;
+  z-index: -1;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgb(var(--glow));
+  opacity: 0;
 }
 
 /* Twice, then still. */
 @media (prefers-reduced-motion: no-preference) {
-  .pip-live::before {
+  .pip-live::after {
     animation: pulse 2.2s var(--ease-in-out);
     animation-iteration-count: 2;
   }
 }
 
 @keyframes pulse {
+  0% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
   70% {
-    box-shadow: 0 0 0 10px rgb(var(--glow) / 0);
+    opacity: 0;
+    transform: scale(calc(27 / 7));
   }
   100% {
-    box-shadow: 0 0 0 0 rgb(var(--glow) / 0);
+    opacity: 0;
+    transform: scale(1);
   }
 }
 
@@ -372,7 +398,6 @@ input:checked + .chip,
   cursor: pointer;
   transition:
     transform 0.6s var(--ease-cine),
-    box-shadow 0.6s var(--ease-cine),
     border-color var(--dur-2) var(--ease-out),
     background-color var(--dur-2) var(--ease-out),
     color var(--dur-2) var(--ease-out);
@@ -414,15 +439,42 @@ input:checked + .chip,
   border-color: transparent;
   background: var(--clay);
   color: var(--btn-ink);
+}
+
+/* The glow and its hover glow live on two layers that cross-fade on opacity, so
+   the hover never repaints a 70px blur frame by frame. */
+.btn-primary::before,
+.btn-primary::after {
+  content: '';
+  position: absolute;
+  inset: calc(-1 * var(--border-hair));
+  border-radius: inherit;
+  pointer-events: none;
+  transition: opacity 0.6s var(--ease-cine);
+}
+
+.btn-primary::before {
   box-shadow: var(--glow-btn);
+}
+
+.btn-primary::after {
+  opacity: 0;
+  box-shadow:
+    0 0 0 1px rgb(var(--glow) / 0.7),
+    0 18px 70px -8px rgb(var(--glow) / 0.9);
 }
 
 .btn-primary:hover {
   border-color: transparent;
   transform: translateY(-2px);
-  box-shadow:
-    0 0 0 1px rgb(var(--glow) / 0.7),
-    0 18px 70px -8px rgb(var(--glow) / 0.9);
+}
+
+.btn-primary:hover::before {
+  opacity: 0;
+}
+
+.btn-primary:hover::after {
+  opacity: 1;
 }
 
 .btn-sm {
@@ -438,6 +490,11 @@ input:checked + .chip,
   color: var(--ink-3);
   box-shadow: none;
   transform: none;
+}
+
+.btn[aria-disabled='true']::before,
+.btn[aria-disabled='true']::after {
+  display: none;
 }
 
 /* --- The text link with an arrow --------------------------------------- */

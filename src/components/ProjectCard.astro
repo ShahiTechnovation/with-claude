@@ -133,26 +133,52 @@ const actions = [
   }
 
   .pcard-icon {
+    position: relative;
     flex: none;
     width: 64px;
     height: 64px;
     border-radius: var(--radius-sm);
-    overflow: hidden;
     background: var(--clay);
-    box-shadow: var(--glow-tile);
-    transition:
-      transform 0.6s var(--ease-cine),
-      box-shadow 0.6s var(--ease-cine);
+    transition: transform 0.6s var(--ease-cine);
   }
 
+  /* The glow is two fixed shadows on layers the size of the tile; hover cross-fades them (opacity
+     only) instead of animating box-shadow. Rest shadow on ::before, hover shadow on ::after.
+     z-index -1 keeps them under the title and text, where the tile's own shadow painted. */
+  .pcard-icon::before,
+  .pcard-icon::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    transition: opacity 0.6s var(--ease-cine);
+  }
+
+  .pcard-icon::before {
+    box-shadow: var(--glow-tile);
+  }
+
+  .pcard-icon::after {
+    box-shadow: 0 18px 44px -14px rgb(var(--glow) / 0.95);
+    opacity: 0;
+  }
+
+  .pcard:hover .pcard-icon::before {
+    opacity: 0;
+  }
+
+  .pcard:hover .pcard-icon::after {
+    opacity: 1;
+  }
+
+  /* The tile no longer clips (it would clip the glow layers), so the artwork rounds its own corners. */
   .pcard-icon :global(svg) {
     display: block;
     width: 100%;
     height: 100%;
-  }
-
-  .pcard:hover .pcard-icon {
-    box-shadow: 0 18px 44px -14px rgb(var(--glow) / 0.95);
+    border-radius: inherit;
   }
 
   .pcard-title {
@@ -263,6 +289,9 @@ const actions = [
     width: 88px;
     height: 88px;
     border-radius: 16px;
+  }
+
+  .is-lg .pcard-icon::before {
     box-shadow: 0 18px 50px -18px rgb(var(--glow) / 0.8);
   }
 
