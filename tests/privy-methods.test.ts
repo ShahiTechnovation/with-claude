@@ -150,8 +150,11 @@ describe('the wiring', () => {
     );
     // The request starts before the SDK imports...
     expect(boot).toMatch(
-      /const methods = enabledLoginMethods\(appId, loginMethods\);\s*booted = Promise\.all\(\[[^\]]*import\('@\/components\/react\/PrivyRoot'\),\s*\]\)/,
+      /methods: enabledLoginMethods\(appId, loginMethods\),\s*sdk: Promise\.all\(\[[^\]]*import\('@\/components\/react\/PrivyRoot'\),\s*\]\)/,
     );
+    // Pointing at, focusing or touching "Sign in" starts both downloads before the click.
+    expect(boot).toMatch(/closest\?\.\('\[data-account-signin\]'\)\) warm\(\);/);
+    expect(boot).toMatch(/\['pointerover', 'focusin', 'touchstart'\]/);
     // ...and its grace period only starts once they have loaded.
     expect(boot).toMatch(
       /await Promise\.race\(\[\s*methods,\s*new Promise<string\[\]>\(\(resolve\) => setTimeout\(resolve, 1500, loginMethods\)\),\s*\]\)/,

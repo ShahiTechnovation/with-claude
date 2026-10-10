@@ -9,7 +9,8 @@
  *                  or when this browser already holds a Privy session — a
  *                  signed-in member sees their account control as before
  *   load on click  for everyone else, when they press "Sign in"; the login
- *                  opens as soon as the SDK is ready
+ *                  opens as soon as the SDK is ready. The download starts
+ *                  a little earlier, when they point at, focus or touch it
  *
  * With JavaScript off the static "Sign in" link still goes to `/me/`
  * (`signInHref`), the sign-in gate.
@@ -42,12 +43,19 @@ function needsAccountNow(): boolean {
   );
 }
 
-let booted: Promise<void> | null = null;
+const appId = mount?.dataset.appId ?? '';
+const loginMethods = (mount?.dataset.loginMethods ?? '').split(',').filter(Boolean);
 
-function boot(openLogin: boolean): Promise<void> {
-  if (booted || !mount) return booted ?? Promise.resolve();
-  const appId = mount.dataset.appId ?? '';
-  const loginMethods = (mount.dataset.loginMethods ?? '').split(',').filter(Boolean);
+type Loaded = [
+  typeof import('react'),
+  typeof import('react-dom/client'),
+  typeof import('@/components/react/PrivyRoot'),
+];
+let warmed: { sdk: Promise<Loaded>; methods: Promise<string[]> } | null = null;
+
+/** Start the downloads without rendering: on intent (hover, focus, touch) and on boot. */
+function warm(): NonNullable<typeof warmed> {
+  if (warmed) return warmed;
   if (import.meta.env.DEV) {
     // Dev only: Vite's React plugin adds fast-refresh hooks to every .tsx, and
     // Astro installs their globals only for its own islands. This tree is not
@@ -57,13 +65,24 @@ function boot(openLogin: boolean): Promise<void> {
     w.$RefreshSig$ ??= () => (type: unknown) => type;
   }
   // Asked in parallel with the SDK download: drops methods the Privy app has off.
-  // Its grace period starts once the SDK has loaded, so a slow link still filters.
-  const methods = enabledLoginMethods(appId, loginMethods);
-  booted = Promise.all([
-    import('react'),
-    import('react-dom/client'),
-    import('@/components/react/PrivyRoot'),
-  ]).then(async ([React, { createRoot }, { default: PrivyRoot }]) => {
+  warmed = {
+    methods: enabledLoginMethods(appId, loginMethods),
+    sdk: Promise.all([
+      import('react'),
+      import('react-dom/client'),
+      import('@/components/react/PrivyRoot'),
+    ]),
+  };
+  return warmed;
+}
+
+let booted: Promise<void> | null = null;
+
+function boot(openLogin: boolean): Promise<void> {
+  if (booted || !mount) return booted ?? Promise.resolve();
+  const { sdk, methods } = warm();
+  booted = sdk.then(async ([React, { createRoot }, { default: PrivyRoot }]) => {
+    // Its grace period starts once the SDK has loaded, so a slow link still filters.
     const enabled = await Promise.race([
       methods,
       new Promise<string[]>((resolve) => setTimeout(resolve, 1500, loginMethods)),
@@ -75,10 +94,17 @@ function boot(openLogin: boolean): Promise<void> {
   return booted;
 }
 
-if (mount?.dataset.appId) {
+if (appId) {
   if (needsAccountNow() || hasPrivySession()) {
     void boot(false);
   } else {
+    // A pointer resting on, a focus on or a finger touching "Sign in" usually
+    // comes a few hundred ms before the click: start the download then.
+    const onIntent = (event: Event) => {
+      if ((event.target as Element | null)?.closest?.('[data-account-signin]')) warm();
+    };
+    for (const type of ['pointerover', 'focusin', 'touchstart'])
+      document.addEventListener(type, onIntent, { passive: true });
     // Capture-phase, so the static link never navigates once JS is running.
     document.addEventListener(
       'click',
