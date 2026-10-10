@@ -147,17 +147,29 @@ const groups: { year?: string; rows: Row[] }[] = events
     color: inherit;
     text-decoration: none;
     border-radius: var(--radius-sm);
-    transition:
-      background var(--dur-1) var(--ease-out),
-      opacity var(--dur-2) var(--ease-out);
+    position: relative;
+    isolation: isolate;
+    transition: opacity var(--dur-2) var(--ease-out);
+  }
+
+  /* The hover fill fades in as a layer's opacity (compositor only), not a background repaint. */
+  .erow::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: var(--paper-raised);
+    opacity: 0;
+    transition: opacity var(--dur-1) var(--ease-out);
   }
 
   .erow.no-plate {
     grid-template-columns: minmax(0, 1fr) auto;
   }
 
-  .erow:hover {
-    background: var(--paper-raised);
+  .erow:hover::before {
+    opacity: 1;
   }
 
   .erow-plate {

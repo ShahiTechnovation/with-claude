@@ -86,7 +86,11 @@ describe('the homepage at /', () => {
     expect(hero).toContain("class:list={['hero', room && roomImage && 'has-room']}");
     expect(hero).toContain(':global(.js) .hero.has-room {');
     expect(hero).not.toMatch(/:global\(\.js\) \.hero \{/);
-    expect(hero).toMatch(/@keyframes lift \{\s*to \{[^}]*pointer-events: none;/);
+    // The click-through flip lives in its own keyframes on the same scroll timeline as the lift.
+    expect(hero).toMatch(/@keyframes lift-hit \{\s*to \{[^}]*pointer-events: none;/);
+    expect(hero).toMatch(
+      /\.hero-copy \{[^}]*animation:[^;]*lift-hit linear both[^}]*animation-timeline: --hero;/,
+    );
   });
 
   it('answers a failed read with an uncached 503, not stale or empty sections', () => {

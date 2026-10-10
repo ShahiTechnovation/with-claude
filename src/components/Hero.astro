@@ -264,9 +264,12 @@ const arrow = 'M4 10h11m-4.5-4.5L15 10l-4.5 4.5';
       animation: sunrise 2.4s var(--ease-cine) backwards;
     }
 
-    /* Transform and filter only: the h1 is never below full opacity. */
+    /* Transform and filter only: the h1 is never below full opacity. Split in two so
+       the transform runs on the compositor; a blur cannot. */
     .hero-copy h1 {
-      animation: settle 1.2s var(--ease-cine) backwards;
+      animation:
+        settle 1.2s var(--ease-cine) backwards,
+        settle-blur 1.2s var(--ease-cine) backwards;
     }
 
     .hero-copy .lead,
@@ -335,7 +338,13 @@ const arrow = 'M4 10h11m-4.5-4.5L15 10l-4.5 4.5';
         :global(.js) .has-room .hero-copy {
           position: relative;
           z-index: 2;
-          animation: lift linear both;
+          /* One timeline, three keyframe sets: the blur and the pointer-events flip cannot
+             run on the compositor, and sharing keyframes with them would keep the lift's
+             transform and opacity on the main thread too. */
+          animation:
+            lift linear both,
+            lift-blur linear both,
+            lift-hit linear both;
           animation-timeline: --hero;
           animation-range: contain 0% contain 30%;
         }
@@ -390,10 +399,20 @@ const arrow = 'M4 10h11m-4.5-4.5L15 10l-4.5 4.5';
   @keyframes lift {
     to {
       opacity: 0;
-      /* Flips halfway: the faded copy stops taking clicks meant for the photo. */
-      pointer-events: none;
       transform: translateY(-12vh) scale(0.96);
+    }
+  }
+
+  @keyframes lift-blur {
+    to {
       filter: blur(10px);
+    }
+  }
+
+  /* Flips halfway: the faded copy stops taking clicks meant for the photo. */
+  @keyframes lift-hit {
+    to {
+      pointer-events: none;
     }
   }
 
@@ -414,6 +433,11 @@ const arrow = 'M4 10h11m-4.5-4.5L15 10l-4.5 4.5';
   @keyframes settle {
     from {
       transform: translateY(28px);
+    }
+  }
+
+  @keyframes settle-blur {
+    from {
       filter: blur(12px);
     }
   }

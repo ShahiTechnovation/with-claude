@@ -1,7 +1,8 @@
 ---
 /**
  * The newest photographs, in one row that scrolls sideways with snap. Captions are always
- * visible. Skips the photograph the room band above already shows.
+ * visible. Skips the photograph the room band above already shows. Black and white until
+ * pointed at or tapped, when the colour blooms in: `tabindex="-1"` lets a tap focus a photo without adding tab stops.
  */
 import { Image } from 'astro:assets';
 import type { RecordSelectors } from '@/data/selectors';
@@ -38,10 +39,18 @@ const arrow = 'M4 10h11m-4.5-4.5L15 10l-4.5 4.5';
 
 {
   frames.length > 0 && (
-    <div class="strip" role="region" tabindex="0" aria-label="Photos from recent events">
+    <div
+      class="strip"
+      role="region"
+      tabindex="0"
+      aria-label="Photos from recent events"
+      data-autoscroll
+    >
       {frames.map((f) => (
-        <figure class="frame">
-          <Image src={f.image} alt={f.alt} widths={[400, 800]} sizes="400px" loading="lazy" />
+        <figure class="frame" tabindex="-1">
+          <span class="shot">
+            <Image src={f.image} alt={f.alt} widths={[400, 800]} sizes="400px" loading="lazy" />
+          </span>
           <figcaption>{f.caption}</figcaption>
         </figure>
       ))}
@@ -64,12 +73,60 @@ const arrow = 'M4 10h11m-4.5-4.5L15 10l-4.5 4.5';
   </a>
 </div>
 
+<script>
+  // Glide one photo forward every few seconds while the strip is on screen, back to the start
+  // at the end. Hover or focus pauses it; the visitor scrolling it themselves stops it for good.
+  // Reduced motion: it never moves.
+  const strip = document.querySelector<HTMLElement>('[data-autoscroll]');
+  if (strip && matchMedia('(prefers-reduced-motion: no-preference)').matches) {
+    let visible = false;
+    let held = false;
+    let stopped = false;
+    new IntersectionObserver(([entry]) => (visible = entry.isIntersecting), {
+      threshold: 0.5,
+    }).observe(strip);
+    strip.addEventListener('pointerenter', () => (held = true));
+    strip.addEventListener('pointerleave', () => (held = false));
+    strip.addEventListener('focusin', () => (held = true));
+    strip.addEventListener('focusout', () => (held = false));
+    // Only input aimed sideways at the strip counts; a page scroll passing over it does not.
+    const stop = () => (stopped = true);
+    strip.addEventListener('keydown', stop);
+    strip.addEventListener(
+      'wheel',
+      (e) => (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) && stop(),
+      { passive: true },
+    );
+    let x0 = 0;
+    let y0 = 0;
+    strip.addEventListener(
+      'touchstart',
+      (e) => ([x0, y0] = [e.touches[0].clientX, e.touches[0].clientY]),
+      { passive: true },
+    );
+    strip.addEventListener(
+      'touchmove',
+      (e) => Math.abs(e.touches[0].clientX - x0) > Math.abs(e.touches[0].clientY - y0) && stop(),
+      { passive: true },
+    );
+    const timer = setInterval(() => {
+      if (stopped) return clearInterval(timer);
+      if (!visible || held || document.hidden) return;
+      const frame = strip.querySelector<HTMLElement>('.frame');
+      if (!frame) return;
+      const step = frame.offsetWidth + parseFloat(getComputedStyle(strip).columnGap || '0');
+      const atEnd = strip.scrollLeft + strip.clientWidth >= strip.scrollWidth - 4;
+      strip.scrollTo({ left: atEnd ? 0 : strip.scrollLeft + step, behavior: 'smooth' });
+    }, 3500);
+  }
+</script>
+
 <style>
   .strip {
     --edge: max(var(--gutter), calc((100vw - var(--measure)) / 2));
     display: flex;
     gap: 16px;
-    padding: 4px var(--edge) 8px;
+    padding: 5px var(--edge) 8px;
     overflow-x: auto;
     scroll-snap-type: x mandatory;
     scroll-padding-inline: var(--edge);
@@ -82,10 +139,20 @@ const arrow = 'M4 10h11m-4.5-4.5L15 10l-4.5 4.5';
   }
 
   .frame {
+    position: relative;
     flex: none;
     width: clamp(260px, 27vw, 400px);
     margin: 0;
     scroll-snap-align: start;
+  }
+
+  /* The rounded window the photo zooms inside. */
+  .shot {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    border-radius: 14px;
+    background: var(--paper-raised);
   }
 
   .frame img {
@@ -94,8 +161,89 @@ const arrow = 'M4 10h11m-4.5-4.5L15 10l-4.5 4.5';
     height: auto;
     aspect-ratio: 3 / 2;
     object-fit: cover;
-    border-radius: 14px;
-    background: var(--paper-raised);
+    filter: grayscale(1) brightness(0.92);
+  }
+
+  /* Hover, tap (focus, touch screens only, so a mouse click does not leave a photo lit) or a
+     keyboard-focused strip: the colour blooms in. */
+  .frame:hover img,
+  .strip:focus-visible img {
+    filter: none;
+  }
+
+  .frame:hover figcaption {
+    color: var(--ink);
+  }
+
+  @media (hover: none) {
+    .frame:focus img {
+      filter: none;
+    }
+
+    .frame:focus figcaption {
+      color: var(--ink);
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .shot {
+      transition: transform var(--dur-3) var(--ease-out);
+    }
+
+    /* The lift glow: a fixed shadow on a layer behind the photo that fades and rises with it, so
+       hover animates opacity and transform only, never box-shadow. Outside .shot, whose
+       overflow would clip it. Same box as .shot: full width, 3:2. */
+    .frame::before {
+      content: '';
+      position: absolute;
+      inset: 0 0 auto;
+      aspect-ratio: 3 / 2;
+      border-radius: 14px;
+      box-shadow: 0 14px 28px -16px rgb(var(--glow) / 0.55);
+      opacity: 0;
+      pointer-events: none;
+      transition:
+        transform var(--dur-3) var(--ease-out),
+        opacity var(--dur-3) var(--ease-out);
+    }
+
+    .frame img {
+      transition:
+        filter var(--dur-3) var(--ease-out),
+        transform var(--dur-4) var(--ease-out);
+    }
+
+    .frame figcaption {
+      transition: color var(--dur-2) var(--ease-out);
+    }
+
+    .frame:hover .shot,
+    .frame:hover::before {
+      transform: translateY(-4px);
+    }
+
+    .frame:hover::before {
+      opacity: 1;
+    }
+
+    .frame:hover img {
+      transform: scale(1.05);
+    }
+
+    @media (hover: none) {
+      .frame:focus .shot,
+      .frame:focus::before {
+        transform: translateY(-4px);
+      }
+
+      .frame:focus::before {
+        opacity: 1;
+      }
+
+      .frame:focus img {
+        transform: scale(1.05);
+      }
+    }
   }
 
   .frame figcaption {
