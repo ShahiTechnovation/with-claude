@@ -31,13 +31,11 @@ const ROLE: Record<string, string> = {
 const held = (state: string) => ['restricted', 'removed', 'archived'].includes(state);
 ---
 
-{
-  !guard.ok ? (
-    <Base title="Sign in" description="Sign in to continue" noindex>
+<Base title="Your projects" description="Your projects." active="/me" noindex>
+  {
+    !guard.ok ? (
       <AuthRequired reason={guard.reason} />
-    </Base>
-  ) : (
-    <Base title="Your projects" description="Your projects." active="/me" noindex>
+    ) : (
       <div class="account-shell">
         <AccountNavTabs current="/me/projects/" />
         <header class="account-head">
@@ -86,9 +84,9 @@ const held = (state: string) => ['restricted', 'removed', 'archived'].includes(s
           ))
         )}
       </div>
-    </Base>
-  )
-}
+    )
+  }
+</Base>
 
 <style>
   .plist li {

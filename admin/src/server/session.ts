@@ -92,7 +92,10 @@ export function canReview(role: string): boolean {
   return (ADMIN_ROLES as readonly string[]).includes(role);
 }
 
-/** True when this role may do administrator-only things. Phase 2 has none yet. */
+/**
+ * True when this role may do administrator-only things: the report and content
+ * moderation actions.
+ */
 export function isAdmin(role: string): boolean {
   return role === 'admin';
 }

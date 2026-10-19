@@ -28,8 +28,8 @@
   --clay-deep: #9e4526;
   --clay-tint: #f7ded2;
 
-  /* Review outcomes. Distinguished by shape as well as colour — every status
-     chip carries its own border weight — so the queue reads in monochrome. */
+  /* Review outcomes. Colour first; a border style marks the three that must read
+     without it: critical is 2px, changes requested dashed, draft and dismissed dotted. */
   --ok: #2f6b46;
   --ok-tint: #dff0e5;
   --warn: #8a6100;
@@ -47,6 +47,10 @@
   --s-5: 1.5rem;
   --s-6: 2rem;
   --s-7: 3rem;
+
+  /* Small text sizes, below the body size. */
+  --t-small: 0.875rem;
+  --t-micro: 0.7rem;
 
   --radius: 3px;
   --track-meta: 0.08em;
@@ -119,10 +123,12 @@ h2 {
 
 .masthead nav {
   display: flex;
-  gap: var(--s-4);
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-4);
 }
 
 .masthead nav a {
+  white-space: nowrap;
   font-family: var(--font-mono);
   font-size: 0.7rem;
   letter-spacing: var(--track-meta);
@@ -168,13 +174,29 @@ main {
   margin-bottom: var(--s-5);
 }
 
-.page-head p {
+/* A short count beside the title is metadata and reads as it. */
+.page-head p:not(.hint) {
   margin: 0;
   font-family: var(--font-mono);
   font-size: 0.7rem;
   letter-spacing: var(--track-meta);
   text-transform: uppercase;
   color: var(--ink-3);
+}
+
+/* A sentence under the title is read, not scanned, so it is set as prose, on
+   its own line. */
+.page-head:has(> .hint) {
+  flex-direction: column;
+  align-items: start;
+  gap: var(--s-2);
+}
+
+.page-head .hint {
+  max-width: 62ch;
+  font-family: var(--font-sans);
+  font-size: var(--t-small);
+  color: var(--ink-2);
 }
 
 /* --- Buttons and forms -------------------------------------------------- */
@@ -235,8 +257,11 @@ label {
   margin-bottom: var(--s-2);
 }
 
+/* An input with no type is a text input: most admin fields leave it off. */
+input:not([type]),
 input[type='email'],
 input[type='text'],
+input[type='url'],
 textarea,
 select {
   width: 100%;
@@ -312,6 +337,12 @@ tbody tr:hover {
   white-space: nowrap;
 }
 
+/* A numeric column's header still reads as a header. */
+th.num {
+  font-size: 0.65rem;
+  color: var(--ink-2);
+}
+
 /* The age column is what the queue is about, so it is the one thing set in
    the ink colour rather than in metadata grey. */
 .age {
@@ -341,20 +372,33 @@ tbody tr:hover {
   white-space: nowrap;
 }
 
-.chip[data-status='pending'] {
+.chip[data-status='pending'],
+.chip[data-status='open'] {
   color: var(--clay-deep);
   background: var(--clay-tint);
 }
-.chip[data-status='in_review'] {
+.chip[data-status='in_review'],
+.chip[data-status='triaged'],
+.chip[data-status='investigating'],
+.chip[data-severity='medium'] {
   color: var(--warn);
   background: var(--warn-tint);
+}
+.chip[data-severity='high'],
+.chip[data-severity='critical'] {
+  color: var(--stop);
+  background: var(--stop-tint);
+}
+.chip[data-severity='critical'] {
+  border-width: 2px;
 }
 .chip[data-status='changes_requested'] {
   color: var(--warn);
   background: transparent;
   border-style: dashed;
 }
-.chip[data-status='approved'] {
+.chip[data-status='approved'],
+.chip[data-status='resolved'] {
   color: var(--ok);
   background: var(--ok-tint);
 }
@@ -362,7 +406,8 @@ tbody tr:hover {
   color: var(--stop);
   background: var(--stop-tint);
 }
-.chip[data-status='draft'] {
+.chip[data-status='draft'],
+.chip[data-status='dismissed'] {
   color: var(--ink-3);
   background: transparent;
   border-style: dotted;
@@ -401,6 +446,22 @@ tbody tr:hover {
   opacity: 0.6;
 }
 
+/* --- Pager -------------------------------------------------------------- */
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+  margin-top: var(--s-5);
+}
+
+.pager-at {
+  font-variant-numeric: tabular-nums;
+  font-size: var(--t-small);
+  color: var(--ink-3);
+}
+
 /* --- Panels ------------------------------------------------------------- */
 
 .panel {
@@ -408,7 +469,17 @@ tbody tr:hover {
   border-radius: var(--radius);
   background: var(--paper-raised);
   padding: var(--s-5);
-  margin-bottom: var(--s-5);
+  margin-block: var(--s-5);
+}
+
+/* One step between everything a panel holds. Specific enough to beat .hint's
+   zero margin and .private-note's smaller one, which were stacking notes flush. */
+.panel > :not(:first-child) {
+  margin-top: var(--s-4);
+}
+
+.panel > h3 {
+  font-size: 0.875rem;
 }
 
 .panel > h2 {
@@ -428,6 +499,11 @@ tbody tr:hover {
   grid-template-columns: max-content minmax(0, 1fr);
   gap: var(--s-3) var(--s-5);
   margin: 0;
+}
+
+/* A <div> grouping one dt/dd pair keeps the pair on the grid's two columns. */
+.meta-grid > div {
+  display: contents;
 }
 
 .meta-grid dt {
@@ -486,6 +562,25 @@ tbody tr:hover {
   flex-wrap: wrap;
   gap: var(--s-3);
   align-items: center;
+}
+
+/* Controls sharing a row with their button size to their content, so a form
+   in a table cell stays one line instead of stacking full-width fields. */
+.actions :is(input, select) {
+  width: auto;
+  padding: var(--s-1) var(--s-2);
+}
+
+td .actions {
+  flex-wrap: nowrap;
+  gap: var(--s-2);
+}
+
+/* Below a wide screen the row would push the button out of view; let it wrap. */
+@media (max-width: 64rem) {
+  td .actions {
+    flex-wrap: wrap;
+  }
 }
 
 .action-form {

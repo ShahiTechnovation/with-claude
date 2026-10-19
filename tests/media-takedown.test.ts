@@ -24,7 +24,7 @@
  *
  * None of these predicates changes what the site renders today — checked
  * before building. The archive's 80 asset-key covers carry no media row at
- * all, and all 41 event photographs are `published` with no tombstone.
+ * all, and every event photograph is `published` with no tombstone.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';

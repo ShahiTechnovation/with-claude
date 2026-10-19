@@ -1,7 +1,8 @@
 ---
 /**
- * One project: its icon tile, its name, one line in the team's words, and its links. Nothing else, so
- * no card ever repeats the team, event, city, category, status or date the list around it already says.
+ * One project: its icon tile, its name, its team (when it has one, so same-titled projects can be told
+ * apart), one line in the team's words, and its links. Nothing else, so no card repeats the event, city,
+ * category, status or date the list around it already says.
  *
  * Takes `CardProps` (built by `cardProps()` from the directory DTO or a record-set project), so every
  * list on the site renders the same card from the same fields. The whole card is one link for a
@@ -13,7 +14,7 @@ import { projectIcon } from '@/lib/project-icon';
 
 type Props = CardProps;
 
-const { slug, title, text, links = {}, size = 'md', level = 'h3' } = Astro.props;
+const { slug, title, team, text, links = {}, size = 'md', level = 'h3' } = Astro.props;
 const Heading = level;
 const svg = projectIcon(slug);
 const VISIBLE: Record<'live' | 'repo', string> = { live: 'Live', repo: 'Code' };
@@ -49,6 +50,7 @@ const actions = [
         stroke-linejoin="round"></path></svg
     >
   </div>
+  {team && <p class="pcard-team meta">{team}</p>}
   {text && <p class="pcard-text">{text}</p>}
   {
     actions.length > 0 && (
@@ -228,6 +230,16 @@ const actions = [
   .pcard:hover .pcard-go,
   .pcard:focus-within .pcard-go {
     opacity: 1;
+  }
+
+  .pcard-team {
+    margin: 0;
+    font-family: var(--font-body);
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 
   .pcard-text {

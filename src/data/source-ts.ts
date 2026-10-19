@@ -21,12 +21,11 @@ import { stories } from './stories';
 import { useCases } from './use-cases';
 import type { RecordSet } from './source';
 /**
- * RELATIVE, NOT `@/lib/credits`.
+ * RELATIVE, NOT `@/lib/credits`, like every import in this file.
  *
- * `astro.config.mjs` loads `src/lib/indexable.ts`, which loads `./dataset`,
- * which loads this file — all of it before Astro has registered the `@` alias.
- * An aliased import here breaks the config load and therefore the whole build,
- * which is the build-order trap `src/lib/indexable.ts` documents at length.
+ * `./dataset` loads this file, and `./dataset` is read by every static page
+ * and by the prebuild (`db/snapshot.ts`). A relative path resolves the same
+ * in both without relying on the `@` alias being configured.
  */
 import { curatedCredits, sortCredits } from '../lib/credits';
 

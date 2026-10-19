@@ -8,9 +8,8 @@ const year = new Date().getFullYear();
 /**
  * The closing moment.
  *
- * Four columns, and the Anthropic one is the point: the paths that belong to
- * Anthropic are grouped, labelled as theirs, and kept apart from the ones this
- * community runs. A visitor should never have to guess which is which.
+ * Four columns. The Anthropic one keeps Anthropic's own links apart from the
+ * ones this community runs, so a visitor never has to guess which is which.
  */
 const columns = [
   {
@@ -37,7 +36,6 @@ const columns = [
   {
     heading: 'Anthropic',
     links: [
-      { label: 'Become an Ambassador', href: official.ambassadorProgramUrl },
       { label: 'Anthropic', href: official.anthropic },
       { label: 'Claude', href: official.claude },
     ],

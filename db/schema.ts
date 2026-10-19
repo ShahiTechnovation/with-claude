@@ -1353,7 +1353,7 @@ export const projects = pgTable(
      * This project's index in `src/data/projects.ts`'s authored array.
      *
      * `src/data/projects.ts` is one flat list with a real, deliberate order —
-     * the file's own comments say so ("Homepage preview candidates first").
+     * the file's own comments say so (its header explains how each event's entries are ordered).
      * PostgreSQL has no equivalent of "array order" for a table with no
      * `ORDER BY`, and the id column cannot substitute for one: it is a random
      * `gen_random_uuid()`, not a sequence, so ordering by it reproduces

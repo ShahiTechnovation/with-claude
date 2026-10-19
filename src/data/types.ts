@@ -210,6 +210,7 @@ export interface CommunityEvent extends RecordBase {
   /** A compact label for badges ("Impact Lab 2"). Falls back to `title`. */
   shortTitle?: string;
   startTime: ClockTime;
+  /** On the same day as `date`: an event cannot run past midnight. */
   endTime?: ClockTime;
   venue: Venue;
   /** One sentence. Used on cards and as the meta description. */
@@ -396,7 +397,7 @@ export type PathKind =
   | 'external'
   /** Anthropic's own programme. This site never grants the status. */
   | 'official'
-  /** A compose-and-send submission handled by `SubmitPanel`. */
+  /** An on-site page, picked by `formId` from `destinations` in `Participation.astro`. */
   | 'submission';
 
 export interface ParticipationPath {
@@ -404,16 +405,15 @@ export interface ParticipationPath {
   label: string;
   title: string;
   description: string;
-  ctaLabel: string;
+  /** Absent for `official` paths, which have no CTA. */
+  ctaLabel?: string;
   kind: PathKind;
-  /** Where the CTA goes. Undefined only for `submission` paths. */
+  /** Where the CTA goes. Undefined for `submission` and `official`. */
   url?: string;
   /** Tally form id, when the CTA can open a Tally popup. */
   tallyId?: string;
   /** Submission form id, for `submission` paths. */
   formId?: string;
-  /** Rendered as a caveat under the CTA. Used for the Ambassador path. */
-  note?: string;
 }
 
 // =========================================================================

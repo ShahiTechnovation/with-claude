@@ -17,7 +17,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAccount } from './account-context';
-import { uploadImage, UploadProblem } from './upload-image';
+import { IMAGE_ACCEPT, IMAGE_HINT, uploadImage, UploadProblem } from './upload-image';
 
 type Role = 'owner' | 'collaborator' | 'contributor';
 
@@ -134,7 +134,8 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Proj
   const fileRef = useRef<HTMLInputElement>(null);
   const focusId = useRef<string | null>(null);
 
-  // Move to the field the server rejected once its error is rendered, so it is read with it.
+  // Move to the field whose error was just rendered, whether the server or a check here set it,
+  // so it is read with it.
   useEffect(() => {
     const control = focusId.current ? document.getElementById(focusId.current) : null;
     focusId.current = null;
@@ -216,6 +217,7 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Proj
     let projectId = id;
     if (!projectId) {
       if (form.title.trim().length < 2) {
+        focusId.current = 'pj-title';
         setFieldErrors({ title: 'Give the project a name (at least two characters) to save it.' });
         return null;
       }
@@ -355,7 +357,7 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Proj
           text:
             error instanceof UploadProblem
               ? error.message
-              : 'The share image could not be uploaded.',
+              : 'We could not reach the server. Try again.',
         });
       } finally {
         if (fileRef.current) fileRef.current.value = '';
@@ -363,6 +365,7 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Proj
     });
 
   const sessionGone = account.state.status === 'signed-out';
+  const cityListFailed = cities !== null && cities.length === 0;
   const disabled = busy !== null || !editable || sessionGone;
   const publicUrl = status === 'published' && slug ? `/projects/${slug}/` : null;
 
@@ -510,7 +513,7 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Proj
               className="input"
               value={form.cityId}
               onChange={(e) => set('cityId', e.target.value)}
-              {...aria('cityId')}
+              {...aria('cityId', cityListFailed)}
             >
               <option value="">{cities === null ? 'Loading cities…' : 'Choose a city'}</option>
               {(cities ?? []).map((c) => (
@@ -518,7 +521,12 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Proj
                   {c.name}
                 </option>
               ))}
+              {/* Keep the saved city selected when the list lacks it; only its id is known here. */}
+              {form.cityId && cities !== null && !cities.some((c) => c.id === form.cityId) && (
+                <option value={form.cityId}>Current city</option>
+              )}
             </select>,
+            cityListFailed ? 'The city list could not be loaded. Reload to try again.' : undefined,
           )}
           {field(
             'tags',
@@ -634,7 +642,7 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Proj
         <div className="panel-head">
           <h2>Share image</h2>
           <span className="panel-hint">
-            Optional · shown when someone shares your project page · JPEG, PNG, WebP · up to 5 MB
+            Optional · shown when someone shares your project page · {IMAGE_HINT}
           </span>
         </div>
         <div className="image-picker">
@@ -653,7 +661,7 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Proj
                 ref={fileRef}
                 type="file"
                 {...aria('coverMediaId')}
-                accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+                accept={IMAGE_ACCEPT}
                 disabled={disabled}
                 onChange={(e) => void onCover(e.target.files?.[0])}
               />
@@ -665,6 +673,7 @@ export default function ProjectEditor({ initialData = {} }: { initialData?: Proj
             <button
               type="button"
               className="button button--quiet"
+              disabled={disabled}
               onClick={() => set('coverMediaId', null)}
             >
               Remove share image

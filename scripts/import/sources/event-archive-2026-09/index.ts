@@ -166,7 +166,7 @@ const STATUS: Record<string, BuildStatus> = {
   'prototype / demonstration only': 'prototype',
 };
 
-function verifyHeaders(spec: SourceSpec, headers: string[]): void {
+export function verifyHeaders(spec: Pick<SourceSpec, 'label' | 'headers'>, headers: string[]): void {
   for (const [index, prefix] of Object.entries(spec.headers)) {
     const actual = cleanText(headers[Number(index)]).toLowerCase();
     if (!actual.startsWith(prefix)) {
@@ -387,7 +387,7 @@ interface Picked {
   row: number;
 }
 
-function pickLinks(rows: RowRecord[], order: number[], verified: LinkVerification) {
+export function pickLinks(rows: Pick<RowRecord, 'row' | 'cells'>[], order: number[], verified: LinkVerification) {
   const ordered = order.map((n) => rows.find((r) => r.row === n)!).filter(Boolean);
   const notes: string[] = [];
   const pending: string[] = [];
@@ -454,7 +454,7 @@ function pickLinks(rows: RowRecord[], order: number[], verified: LinkVerificatio
   return { live, repo, video, altVideo, download, artifact, notes, pending };
 }
 
-function teamLabel(raw: string | null, editorial: RowEditorial): string | null {
+export function teamLabel(raw: string | null, editorial: Pick<RowEditorial, 'withholdTeamLabel'>): string | null {
   const t = cleanText(raw);
   if (!t || /^(n\/?a|na|none|-|\.)$/i.test(t)) return null;
   if (editorial.withholdTeamLabel || looksPrivate(t)) return null;

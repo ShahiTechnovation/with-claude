@@ -137,4 +137,25 @@ const arrow = 'M4 10h11m-4.5-4.5L15 10l-4.5 4.5';
       display: flex;
     }
   }
+
+  /* Paper does not scroll: lay every card out in a grid, and drop the arrows. The .js prefix
+     matches the specificity of the arrows' own rule above, which a bare selector would lose to.
+     Three rows are tall enough to straddle a page, and a card must move whole, not be sliced. */
+  @media print {
+    .rail {
+      grid-auto-flow: row;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      overflow: visible;
+      margin-inline: 0;
+      padding-inline: 0;
+    }
+
+    .rail > :global(.pcard) {
+      break-inside: avoid;
+    }
+
+    :global(.js) .rail-arrows {
+      display: none;
+    }
+  }
 </style>

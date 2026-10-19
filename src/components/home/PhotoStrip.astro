@@ -2,7 +2,9 @@
 /**
  * The newest photographs, in one row that scrolls sideways with snap. Captions are always
  * visible. Skips the photograph the room band above already shows. Black and white until
- * pointed at or tapped, when the colour blooms in: `tabindex="-1"` lets a tap focus a photo without adding tab stops.
+ * pointed at or tapped, when the colour blooms in: `tabindex="-1"` lets a tap focus a photo
+ * without adding tab stops. A keyboard-focused strip shows every photo in colour. It glides one
+ * photo forward every 3.5 s while on screen (`data-autoscroll`, src/scripts/strip-glide.ts).
  */
 import { Image } from 'astro:assets';
 import type { RecordSelectors } from '@/data/selectors';
@@ -21,7 +23,14 @@ const frames = selectors
   .photoRecord()
   .filter((p) => p.src !== skip)
   .map((p) => ({ ...p, image: asset(p.src) }))
-  .filter((p) => p.image)
+  // The home page stays up without one photo, but says so: /gallery/ answers 503 for the same row.
+  .filter((p) => {
+    if (p.image) return true;
+    console.error(
+      `[home] photo ${p.src} from ${p.event.slug} is in the database but not in src/assets; left out of the strip`,
+    );
+    return false;
+  })
   .slice(0, 8)
   .map((p) => ({
     image: p.image!,
@@ -74,51 +83,7 @@ const arrow = 'M4 10h11m-4.5-4.5L15 10l-4.5 4.5';
 </div>
 
 <script>
-  // Glide one photo forward every few seconds while the strip is on screen, back to the start
-  // at the end. Hover or focus pauses it; the visitor scrolling it themselves stops it for good.
-  // Reduced motion: it never moves.
-  const strip = document.querySelector<HTMLElement>('[data-autoscroll]');
-  if (strip && matchMedia('(prefers-reduced-motion: no-preference)').matches) {
-    let visible = false;
-    let held = false;
-    let stopped = false;
-    new IntersectionObserver(([entry]) => (visible = entry.isIntersecting), {
-      threshold: 0.5,
-    }).observe(strip);
-    strip.addEventListener('pointerenter', () => (held = true));
-    strip.addEventListener('pointerleave', () => (held = false));
-    strip.addEventListener('focusin', () => (held = true));
-    strip.addEventListener('focusout', () => (held = false));
-    // Only input aimed sideways at the strip counts; a page scroll passing over it does not.
-    const stop = () => (stopped = true);
-    strip.addEventListener('keydown', stop);
-    strip.addEventListener(
-      'wheel',
-      (e) => (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) && stop(),
-      { passive: true },
-    );
-    let x0 = 0;
-    let y0 = 0;
-    strip.addEventListener(
-      'touchstart',
-      (e) => ([x0, y0] = [e.touches[0].clientX, e.touches[0].clientY]),
-      { passive: true },
-    );
-    strip.addEventListener(
-      'touchmove',
-      (e) => Math.abs(e.touches[0].clientX - x0) > Math.abs(e.touches[0].clientY - y0) && stop(),
-      { passive: true },
-    );
-    const timer = setInterval(() => {
-      if (stopped) return clearInterval(timer);
-      if (!visible || held || document.hidden) return;
-      const frame = strip.querySelector<HTMLElement>('.frame');
-      if (!frame) return;
-      const step = frame.offsetWidth + parseFloat(getComputedStyle(strip).columnGap || '0');
-      const atEnd = strip.scrollLeft + strip.clientWidth >= strip.scrollWidth - 4;
-      strip.scrollTo({ left: atEnd ? 0 : strip.scrollLeft + step, behavior: 'smooth' });
-    }, 3500);
-  }
+  import '@/scripts/strip-glide';
 </script>
 
 <style>

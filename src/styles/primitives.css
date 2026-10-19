@@ -7,8 +7,7 @@
    ========================================================================= */
 
 /* --- Containers --------------------------------------------------------- */
-.container,
-.container-wide {
+.container {
   width: 100%;
   max-width: calc(var(--measure) + 2 * var(--gutter));
   margin-inline: auto;
@@ -48,8 +47,8 @@
 
 .t-poster {
   font-size: var(--t-poster);
-  line-height: 0.9;
-  letter-spacing: -0.04em;
+  line-height: var(--lh-poster);
+  letter-spacing: var(--track-poster);
 }
 
 .t-display {
@@ -116,6 +115,19 @@
 @media print {
   .dot {
     color: var(--clay-deep);
+  }
+
+  /* Chrome's default print setting drops backgrounds, and print is cream: a filled chip's
+     --paper label would print on white. Keep the fill, as EventFeature's chip does. */
+  .chip-verified,
+  .chip[aria-pressed='true'],
+  .chip.is-on,
+  .chip:has(> input:checked),
+  input:checked + .chip,
+  .filter[aria-pressed='true'],
+  .filter.is-on {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
   }
 }
 
@@ -204,6 +216,8 @@
   font-weight: 600;
 }
 
+/* The dot takes its label's colour, so it holds 3:1 in both themes and in print: clay on
+   cream is 2.96:1, the deeper clay 6:1. */
 .pip::before {
   content: '';
   width: 7px;
@@ -220,10 +234,6 @@
 .pip-live {
   position: relative;
   isolation: isolate;
-}
-
-.pip-live::before {
-  background: var(--clay);
 }
 
 /* The pulse ring: a glow disc behind the dot that scales out and fades, the same
@@ -268,9 +278,6 @@
 .pip-next {
   color: var(--clay-deep);
 }
-.pip-next::before {
-  background: var(--clay);
-}
 
 .pip-closed {
   color: var(--ink-3);
@@ -282,9 +289,6 @@
 
 .pip-archive {
   color: var(--ink-3);
-}
-.pip-archive::before {
-  background: var(--rule-strong);
 }
 
 /* =========================================================================
@@ -429,12 +433,6 @@ input:checked + .chip,
   transform: translateX(3px);
 }
 
-.btn-ghost {
-  border-color: var(--rule-strong);
-  background: transparent;
-  color: var(--ink);
-}
-
 .btn-primary {
   border-color: transparent;
   background: var(--clay);
@@ -502,7 +500,7 @@ input:checked + .chip,
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding-bottom: 3px;
+  padding: 0 0 3px;
   border-bottom: var(--border-hair) solid var(--rule-strong);
   color: var(--ink);
   font-family: var(--font-title);

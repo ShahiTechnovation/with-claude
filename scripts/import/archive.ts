@@ -102,6 +102,7 @@ export const ARCHIVE_SHORT_TITLES: Record<SourceId, string> = {
 };
 
 const SOURCE_IDS = Object.keys(ARCHIVE_EVENT_KEYS) as SourceId[];
+const archiveTarget = (id: SourceId) => ({ key: ARCHIVE_EVENT_KEYS[id], shortTitle: ARCHIVE_SHORT_TITLES[id] });
 type Db = ReturnType<typeof pooledDb>;
 type Row = { id: number } & Record<string, unknown>;
 
@@ -146,7 +147,7 @@ async function eventBindings(client: Pick<Writer, 'listAllRows'>, config: Basero
   return out;
 }
 
-async function linkChecks(): Promise<LinkVerification> {
+export async function linkChecks(): Promise<LinkVerification> {
   try {
     return JSON.parse(await readFile(option('link-checks') ?? join('imports', 'link-checks.json'), 'utf8')) as LinkVerification;
   } catch {
@@ -166,11 +167,11 @@ const PLACEHOLDER_EVENTS: Record<SourceId, EventBinding> = {
  * mirrors every column the projection writes, so adoption changes nothing
  * but the authority — and carries the held date from then on.
  */
-async function eventMirror(
+export async function eventMirror(
   db: Db,
   config: BaserowConfig,
   live: LiveField[],
-  id: SourceId,
+  target: { key: string; shortTitle: string },
   event: typeof schema.events.$inferSelect,
   neonId: string,
   cityRowId: number | null = null,
@@ -197,7 +198,7 @@ async function eventMirror(
   if (cityIsLink && (!config.tables.cities || !cityRowId)) {
     fail('events.city links to a Cities table, but none is configured — make City a text field holding the Neon city slug');
   }
-  put('key', ARCHIVE_EVENT_KEYS[id]);
+  put('key', target.key);
   put('neonId', neonId);
   put('title', event.title);
   put('slug', event.slug);
@@ -209,7 +210,7 @@ async function eventMirror(
   put('venuePrivate', event.venuePrivate);
   put('date', String(event.date).slice(0, 10));
   put('rescheduledFrom', event.rescheduledFrom ? String(event.rescheduledFrom).slice(0, 10) : null);
-  put('shortTitle', event.shortTitle ?? ARCHIVE_SHORT_TITLES[id]);
+  put('shortTitle', event.shortTitle ?? target.shortTitle);
   put('startTime', String(event.startTime).slice(0, 5));
   put('endTime', event.endTime ? String(event.endTime).slice(0, 5) : null);
   put('timezone', event.timezone ?? 'Asia/Kolkata');
@@ -237,7 +238,7 @@ function neonIdOverrides(): Partial<Record<SourceId, string>> {
 }
 
 /** A workspace WITH a Cities table (the original file fixture): the Bhopal row, created if missing. */
-async function citiesRow(db: Db, client: Writer & { listFields(tableId: number): Promise<unknown[]> }, config: BaserowConfig): Promise<number | null> {
+export async function citiesRow(db: Db, client: Writer & { listFields(tableId: number): Promise<unknown[]> }, config: BaserowConfig): Promise<number | null> {
   const cities = config.tables.cities;
   if (!cities) return null;
   const [city] = await db.select().from(schema.cities).where(eq(schema.cities.slug, 'bhopal'));
@@ -278,7 +279,7 @@ async function seedEvents() {
           : 'the local database has no Fable 5.1 Build Day — ingest the Luma sample feed (scripts/dev/ingest-sample-feed.ts)',
       );
     }
-    mirrors[id] = await eventMirror(db, config, live, id, event, overrides[id] ?? event.id, cityRowId);
+    mirrors[id] = await eventMirror(db, config, live, archiveTarget(id), event, overrides[id] ?? event.id, cityRowId);
   }
   const checksum = createHash('sha256').update(JSON.stringify(mirrors)).digest('hex');
   const [batch] = await db
@@ -463,7 +464,7 @@ async function archiveVerify() {
   for (const id of SOURCE_IDS) {
     // The mirror is re-derived from the database; Neon ID is checked only when given.
     const cityRow = config.tables.cities ? (await readTable(client, config.tables.cities.tableId)).find((r) => r[`field_${config.tables.cities!.fields.slug}`] === 'bhopal')?.id ?? null : null;
-    const mirror = await eventMirror(db, config, eventsLive, id, neonEventRows[id]!, overrides[id] ?? '', cityRow);
+    const mirror = await eventMirror(db, config, eventsLive, archiveTarget(id), neonEventRows[id]!, overrides[id] ?? '', cityRow);
     if (!overrides[id]) delete mirror[`field_${config.tables.events.fields.neonId}`];
     events[id] = { ...saved.events[id], expected: mirror };
   }
@@ -746,7 +747,14 @@ async function verifyLinks() {
   const workbooks = await readArchiveWorkbooks(archivePaths());
   const built = buildArchiveCandidates(workbooks, PLACEHOLDER_EVENTS);
   const urls = [...new Set([...built.pendingVerification, ...(flag('all') ? publishableUrls(built.candidates) : [])])];
-  const out: LinkVerification = await linkChecks();
+  const out = await checkUrls(urls, await linkChecks());
+  await mkdir('imports', { recursive: true });
+  await writeFile(join('imports', 'link-checks.json'), JSON.stringify(out, null, 2));
+  console.log('Wrote imports/link-checks.json (git-ignored). Re-run archive-plan to use it.');
+}
+
+/** The bounded, SSRF-safe public check of each URL, added to `out` by comparable URL. */
+export async function checkUrls(urls: string[], out: LinkVerification = {}): Promise<LinkVerification> {
   console.log(`Checking ${urls.length} public URL(s) with the bounded fetcher…`);
   for (const url of urls) {
     let status: number | undefined;
@@ -766,9 +774,7 @@ async function verifyLinks() {
     const u = new URL(url);
     console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${status ?? '—'}  ${u.hostname}${u.pathname}`);
   }
-  await mkdir('imports', { recursive: true });
-  await writeFile(join('imports', 'link-checks.json'), JSON.stringify(out, null, 2));
-  console.log('Wrote imports/link-checks.json (git-ignored). Re-run archive-plan to use it.');
+  return out;
 }
 
 // ── sync ─────────────────────────────────────────────────────────────────

@@ -31,7 +31,10 @@
  * reach it. `tests/moderation-actions.test.ts` asserts every action against a
  * real database and, for the takedowns, through the public projection rather
  * than by reading the row back.
+ *
+ * Also here: the reports queue's URL helpers, `reportFilters()` and `reportsHref()`.
  */
+import { reportSeverity, reportStatus } from '../../../db/schema';
 
 export const MODERATABLE_TYPES = ['project', 'builder', 'media'] as const;
 export type ModeratableType = (typeof MODERATABLE_TYPES)[number];
@@ -163,7 +166,7 @@ export function moderationWrite(
 // ── The request boundary ──────────────────────────────────────────────────
 
 /** Path ids reach Postgres as `uuid`, so a malformed one is a 400, not a 500. */
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * A refusal, with the status the route returns and the two halves of the body:
@@ -237,6 +240,39 @@ export function moderationRequest(
   }
 
   return { ok: true, type, action, id, write };
+}
+
+// ── The reports queue's filters ───────────────────────────────────────────
+
+export type ReportStatus = (typeof reportStatus.enumValues)[number];
+export type ReportSeverity = (typeof reportSeverity.enumValues)[number];
+
+const isReportStatus = (s: string): s is ReportStatus =>
+  (reportStatus.enumValues as readonly string[]).includes(s);
+const isReportSeverity = (s: string): s is ReportSeverity =>
+  (reportSeverity.enumValues as readonly string[]).includes(s);
+
+export type ReportFilters = { status: ReportStatus | 'all'; severities: ReportSeverity[] };
+
+/**
+ * `?status=` and `?severity=` on the reports queue. Unknown values are dropped
+ * here, before they can reach an enum column and come back as a 500, so a
+ * stale bookmark gets the default view.
+ */
+export function reportFilters(params: URLSearchParams): ReportFilters {
+  const status = params.get('status') || 'open';
+  return {
+    status: status === 'all' || isReportStatus(status) ? status : 'open',
+    severities: (params.get('severity') ?? '').split(',').filter(isReportSeverity),
+  };
+}
+
+/** The queue with these filters, on this page. The status links and the pager both keep severity. */
+export function reportsHref({ status, severities }: ReportFilters, page = 1): string {
+  const query = new URLSearchParams({ status });
+  if (severities.length) query.set('severity', severities.join(','));
+  if (page > 1) query.set('page', String(page));
+  return `/reports?${query}`;
 }
 
 // ── Media-only compatibility surface ──────────────────────────────────────

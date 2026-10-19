@@ -31,7 +31,7 @@ const configured = Boolean(import.meta.env.PUBLIC_PRIVY_APP_ID);
   <script type="application/json" set:html={safeJsonLd(props)} />
   {
     configured ? (
-      <p class="island-loading js-hydrate-hide">Loading the editor…</p>
+      <p class="island-loading js-only js-hydrate-hide">Loading the editor…</p>
     ) : (
       <p class="island-loading" role="alert">
         Editing is unavailable on this deployment because sign-in is not configured.

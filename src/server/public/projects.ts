@@ -626,10 +626,26 @@ function orderFor(sort: DirectorySort): SQL[] {
   // ICU), and the classic word-by-word order — "Bhopal Tourism" before
   // "BhopalFlow".
   const byName = [sql`lower(${schema.projects.title}) COLLATE "C" ASC`, asc(schema.projects.slug)];
+  // Inside an event (and as the tie-break for the recent and featured sorts): code + video + live
+  // first, then code + live, then any other two links, then a live link or video alone, then code
+  // alone, then projects with none.
+  const { repo, video, live } = HAS_COLUMN;
+  const byLinks = sql`CASE
+    WHEN ${repo} AND ${video} AND ${live} THEN 0
+    WHEN ${repo} AND ${live} THEN 1
+    WHEN (${repo} AND ${video}) OR (${video} AND ${live}) THEN 2
+    WHEN ${live} OR ${video} THEN 3
+    WHEN ${repo} THEN 4
+    ELSE 5 END ASC`;
   // Two events held on the same day stay in separate blocks.
   const byEvent = [
     sql`${schema.events.date} DESC NULLS LAST`,
     sql`${schema.events.slug} ASC NULLS LAST`,
+    byLinks,
+    // Then the record's own order (src/data/projects.ts puts the most polished live sites first
+    // within each link group); projects with no position, such as ones that arrived through
+    // Baserow, fall back to the title.
+    sql`${schema.projects.position} ASC NULLS LAST`,
     ...byName,
   ];
   switch (sort) {
@@ -905,8 +921,9 @@ export async function publicProjectsForBuilder(
 }
 
 /**
- * Every public project as a card, in the directory's default order (newest event first, no event last,
- * title A–Z within an event): the grouped /projects/ view. The predicate `publicProjectsForEvent` uses;
+ * Every public project as a card, in the directory's default order (newest event first, no event last;
+ * within an event by links, then the record's order, then title, see `orderFor`): the grouped
+ * /projects/ view. The predicate `publicProjectsForEvent` uses;
  * two queries (the select and `creditsFor`).
  */
 export async function allPublicProjectCards(db: AnyDatabase): Promise<PublicProjectCard[]> {

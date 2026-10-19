@@ -1,6 +1,7 @@
 ---
 import Admin from '@/layouts/Admin.astro';
 import { pooledDb } from '@db/pool';
+import { submissionKind } from '@db/schema';
 import { ageLabel, countByStatus, listSubmissions } from '@/server/submissions';
 import { ALL_STATUSES, OPEN_STATUSES, type SubmissionStatus } from '@/server/transitions';
 
@@ -29,7 +30,11 @@ export const prerender = false;
 const db = pooledDb();
 
 const statusParam = Astro.url.searchParams.get('status');
-const kindParam = Astro.url.searchParams.get('kind') ?? undefined;
+const rawKind = Astro.url.searchParams.get('kind') ?? '';
+/** Only a real kind reaches the enum column; anything else would come back as a 500. */
+const isKind = (k: string): k is (typeof submissionKind.enumValues)[number] =>
+  (submissionKind.enumValues as readonly string[]).includes(k);
+const kindParam = isKind(rawKind) ? rawKind : undefined;
 
 /** `open` (the default), `all`, or one specific state. */
 const statuses: readonly SubmissionStatus[] =
@@ -59,7 +64,7 @@ const statuses: readonly SubmissionStatus[] =
 const PAGE_SIZE = 50;
 
 const pageParam = Number(Astro.url.searchParams.get('page') ?? '1');
-const page = Number.isFinite(pageParam) && pageParam >= 1 ? Math.floor(pageParam) : 1;
+const page = Number.isSafeInteger(pageParam) && pageParam >= 1 ? pageParam : 1;
 
 const [fetched, counts] = await Promise.all([
   listSubmissions(db, {
@@ -237,19 +242,3 @@ const formatted = new Intl.DateTimeFormat('en-GB', {
     the submission itself, never here.
   </p>
 </Admin>
-
-<style>
-  .pager {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    margin-top: 1.5rem;
-  }
-
-  .pager-at {
-    font-variant-numeric: tabular-nums;
-    font-size: var(--t-small);
-    color: var(--ink-3);
-  }
-</style>

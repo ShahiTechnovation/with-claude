@@ -2,7 +2,7 @@
 import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
 import PageIntro from '@/components/PageIntro.astro';
-import { official, publicAmbassadors, site, stewardship } from '@/data';
+import { publicAmbassadors, site, stewardship } from '@/data';
 import { titles, trail } from '@/lib/seo';
 
 /**
@@ -46,18 +46,6 @@ const MAP_CREDIT =
         <p class="lead">
           It is run by volunteers and it is free. See <a href="/community/">who runs what</a>.
         </p>
-      </div>
-
-      <div>
-        <a
-          class="btn btn-ghost"
-          href={official.ambassadorProgramUrl}
-          target="_blank"
-          rel="noopener"
-        >
-          <span>Anthropic’s Ambassador programme</span>
-          <span class="arrow" aria-hidden="true">↗</span>
-        </a>
       </div>
     </div>
   </Section>

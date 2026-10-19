@@ -54,7 +54,10 @@ const event = (
     title: slug,
     format: 'workshop',
     citySlug: 'bhopal',
-    host: { ambassadorSlug: credits.find((c) => c.role === 'primary_host')?.ambassadorSlug, credits },
+    host: {
+      ambassadorSlug: credits.find((c) => c.role === 'primary_host')?.ambassadorSlug,
+      credits,
+    },
     date,
     startTime: '16:00',
     venue: { name: 'Somewhere' },
@@ -228,6 +231,27 @@ describe('§21 time windows', () => {
     const first = [event('first', '2026-09-01', [credit('a', 'primary_host')])];
     const [entry] = leaderboard([ambassador('a', 'A')], first, { window: 'month', now: NOW });
     expect(entry.events).toHaveLength(1);
+  });
+
+  it('reads "now" as an IST day, so 02:00 IST on 1 January is the new year', () => {
+    // 2027-01-01T02:00+05:30 is still 2026-12-31 in UTC.
+    const newYear = new Date('2027-01-01T02:00:00+05:30');
+    const turn = [
+      event('new-year', '2027-01-01', [credit('a', 'primary_host')]),
+      event('new-years-eve', '2026-12-31', [credit('a', 'primary_host')]),
+    ];
+    const [entry] = leaderboard([ambassador('a', 'A')], turn, { window: 'year', now: newYear });
+    expect(entry.events.map((e) => e.slug)).toEqual(['new-year']);
+  });
+
+  it('reads "now" as an IST day, so 02:00 IST on 1 November is November', () => {
+    const november = new Date('2026-11-01T02:00:00+05:30');
+    const turn = [
+      event('november', '2026-11-01', [credit('a', 'primary_host')]),
+      event('october', '2026-10-31', [credit('a', 'primary_host')]),
+    ];
+    const [entry] = leaderboard([ambassador('a', 'A')], turn, { window: 'month', now: november });
+    expect(entry.events.map((e) => e.slug)).toEqual(['november']);
   });
 
   it('keeps a long-term contributor visible in a narrow window', () => {

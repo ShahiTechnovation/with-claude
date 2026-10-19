@@ -7,30 +7,17 @@
  * should always land somewhere honest. Only a city with something actually in
  * it gets to be a search result.
  *
- * ── Why the imports here are relative ──────────────────────────────────
+ * ── Who reads it ───────────────────────────────────────────────────────
  *
- * This module is loaded by `astro.config.mjs`, which is evaluated before the
- * project's `@` alias exists. Everything it imports must therefore resolve
- * relatively and must not pull in a module that uses the alias at runtime.
+ * `src/pages/cities/[slug].astro` decides its `noindex` with
+ * `isCityIndexable()`, passing the live record it already loaded. The sitemap
+ * (`src/pages/sitemap.xml.ts`) does not import this module: it applies the
+ * same five signals in SQL, so a change to the rule has to land in both.
  *
- * The alternative was to restate the rule in the config, which would put the
- * sitemap and the page's `noindex` on separate copies of the same condition,
- * free to drift. One definition, imported twice, is worth the odd import path.
- *
- * ── Why it does not import `../data` ───────────────────────────────────
- *
- * `src/data/index.ts` imports `@/lib/datetime`, `@/lib/city` and
- * `@/lib/status`, all through the alias — so importing the selector layer here
- * would break the config load, which is the build-order problem the Phase 2
- * audit identified. It reads `./dataset` instead: a leaf module whose only
- * imports are node builtins and the record itself, which resolves cleanly from
- * the config and carries whichever source this build is reading.
- *
- * That is also what keeps the sitemap honest under both sources. The excluded
- * path set is computed from the same records the pages render from, so a
- * `DATA_SOURCE=db` build cannot advertise a route its own pages marked
- * `noindex`, and no unpublished record can reach the sitemap because no
- * unpublished record is in the dataset at all.
+ * `nonIndexablePaths()` and `indexableCityPaths()` read `records()` from
+ * `../data/dataset`, the build-time record every static page renders from.
+ * Nothing in the build calls them; the equivalence suites compare them across
+ * both data sources.
  */
 
 import { records } from '../data/dataset';
@@ -77,9 +64,8 @@ export function isCityIndexable(city: City, set: RecordSet = records()): boolean
  * was about cities. So the site was simultaneously telling crawlers "do not
  * index this" on the page and "here, index this" in the sitemap.
  *
- * `astro.config.mjs`'s own comment states the rule being broken: a sitemap
- * that advertises pages marked `noindex` is a crawl-budget bill with no page
- * behind it, so the two have to agree. §46 and §47 say the same thing.
+ * A sitemap that advertises pages marked `noindex` is a crawl-budget bill
+ * with no page behind it, so the two have to agree. §46 and §47 say so.
  *
  * ── WHY A PREFIX AND NOT A LIST ──────────────────────────────────────────
  *

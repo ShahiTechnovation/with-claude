@@ -35,6 +35,28 @@ describe('dynamic sitemap', () => {
         blurb: 'No public activity here',
         status: 'published',
       },
+      // Each has one published event and nothing else: hostless-city's has no
+      // host, so the live record drops it and the city page renders noindex.
+      {
+        id: '00000000-0000-0000-0001-000000000003',
+        slug: 'hostless-city',
+        name: 'Hostless City',
+        region: 'Test Region',
+        lat: 0,
+        lon: 0,
+        blurb: 'Its only event has no host',
+        status: 'published',
+      },
+      {
+        id: '00000000-0000-0000-0001-000000000004',
+        slug: 'hosted-city',
+        name: 'Hosted City',
+        region: 'Test Region',
+        lat: 0,
+        lon: 0,
+        blurb: 'Its only event is hosted',
+        status: 'published',
+      },
     ]);
 
     const cityId = '00000000-0000-0000-0001-000000000001';
@@ -156,6 +178,41 @@ describe('dynamic sitemap', () => {
         verifiedVia: 'Confirmed for the test',
         status: 'draft',
       },
+      // The host the live record keeps events for. Lives in test-city, so it
+      // adds no signal to the two event-only cities.
+      {
+        id: '00000000-0000-0000-0005-000000000003',
+        slug: 'aniket-sahu',
+        name: 'Aniket Sahu',
+        cityId,
+        verifiedVia: 'Confirmed for the test',
+        status: 'published',
+      },
+    ]);
+
+    // ── Events ───────────────────────────────────────────────────────────────
+    const event = {
+      format: 'meetup',
+      date: '2026-09-01',
+      startTime: '18:00',
+      venueName: 'Somewhere',
+      summary: 'A room.',
+      status: 'published',
+    } as const;
+    await db.insert(schema.events).values([
+      {
+        ...event,
+        slug: 'hostless-event',
+        title: 'Hostless Event',
+        cityId: '00000000-0000-0000-0001-000000000003',
+      },
+      {
+        ...event,
+        slug: 'hosted-event',
+        title: 'Hosted Event',
+        cityId: '00000000-0000-0000-0001-000000000004',
+        ambassadorId: '00000000-0000-0000-0005-000000000003',
+      },
     ]);
   });
 
@@ -243,6 +300,13 @@ describe('dynamic sitemap', () => {
     const xml = await (await GET({} as any)).text();
     expect(xml).toContain('<loc>https://www.withclaude.in/cities/test-city/</loc>');
     expect(xml).not.toContain('cities/empty-city');
+  });
+
+  // ── 11b. A city's events count only if its own page counts them ─────────
+  it('leaves out a city whose only event has no host, as the city page does', async () => {
+    const xml = await (await GET({} as any)).text();
+    expect(xml).not.toContain('cities/hostless-city');
+    expect(xml).toContain('<loc>https://www.withclaude.in/cities/hosted-city/</loc>');
   });
 
   // ── 12. Null slug does not produce a malformed URL ───────────────────────

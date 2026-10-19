@@ -11,8 +11,7 @@
  * (`publicBuilders`, `cityBySlug`, `eventsChronological`) or synchronous
  * functions built on top of them (`nationalSignal()`, `citySignal()`,
  * `timeline()`, `photoRecord()`). Roughly fifty files consume them, including
- * inside `getStaticPaths`, and `astro.config.mjs` reaches the same record
- * through `src/lib/indexable.ts` before the `@` alias even exists.
+ * inside `getStaticPaths`.
  *
  * Turning those exports async would mean editing every one of those fifty
  * consumers, which is precisely the rewrite this migration is supposed to
@@ -25,19 +24,21 @@
  *       ├── prebuild   read PostgreSQL once  →  .astro/dataset.json
  *       └── astro build   every page reads that file synchronously
  *
- * With `DATA_SOURCE=ts` there is no snapshot and no prebuild: the record is
- * imported directly, exactly as it always has been. That is what makes the
- * rollback total — on the TypeScript path this module is a pass-through, and
- * not one line of the previous behaviour is going through new machinery.
+ * With `DATA_SOURCE=ts` there is no snapshot, and the prebuild does nothing:
+ * the record is imported directly. `records()` runs the single-host filter
+ * (`./host-filter`) on both paths, and every curated event passes it
+ * (`tests/single-host-filter.test.ts`), so the rollback still renders the
+ * TypeScript record unchanged.
  *
  * ── WHY A FILE AND NOT A TOP-LEVEL AWAIT ─────────────────────────────────
  *
- * Because `astro.config.mjs` needs the same records, and a config that awaits
- * a database is a config that cannot be loaded without one — `astro check`,
- * the test suite and `astro dev` would all start requiring a live connection.
- * A snapshot on disk is readable by the config, the pages and the sitemap
- * filter alike, with no import graph tricks and no driver in the browser
- * bundle.
+ * Because a module that awaits a database cannot be imported without one, and
+ * every rendered page imports this one through `src/data/index.ts`, as does
+ * the test suite. With a top-level await, every build, `astro dev` session
+ * and test run would need a live connection. A snapshot on disk is read
+ * synchronously instead, with no driver in the browser bundle. The prebuild
+ * (`db/snapshot.ts`) imports this module too, for the snapshot's path and
+ * version.
  *
  * It also happens to give §26 and §27 for free and by construction: one
  * finite load per build, in memory for every page, with no possibility of a
@@ -45,6 +46,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { hostedByAniketSahu } from './host-filter';
 import { dataSourceName, type DataSourceName, type RecordSet } from './source';
 import { tsRecordSet } from './source-ts';
 
@@ -95,7 +97,10 @@ let cached: RecordSet | undefined;
  */
 export function records(): RecordSet {
   if (cached) return cached;
-  cached = dataSourceName() === 'db' ? readSnapshot() : tsRecordSet();
+  const set = dataSourceName() === 'db' ? readSnapshot() : tsRecordSet();
+  // The single-host filter `loadLiveRecords()` applies, so a prerendered page
+  // never links to an event the live pages withhold. See `./host-filter`.
+  cached = { ...set, events: set.events.filter(hostedByAniketSahu) };
   return cached;
 }
 

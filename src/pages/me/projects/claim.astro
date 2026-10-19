@@ -22,14 +22,12 @@ if (guard.ok) {
 }
 ---
 
-{
-  !guard.ok ? (
-    <Base title="Sign in" description="Sign in to continue" noindex>
-      {/* The project is in the query, so signing in must come back with it. */}
+<Base title="Claim a project" description="Ask to manage an imported project." active="/me" noindex>
+  {
+    !guard.ok ? (
+      // The project is in the query, so signing in must come back with it.
       <AuthRequired reason={guard.reason} next={Astro.url.pathname + Astro.url.search} />
-    </Base>
-  ) : (
-    <Base title="Claim a project" description="Ask to manage an imported project." active="/me" noindex>
+    ) : (
       <div class="account-shell account-shell--narrow">
         <AccountNavTabs current="/me/projects/" />
         {claimable && project ? (
@@ -37,9 +35,9 @@ if (guard.ok) {
             <header class="account-head">
               <h1>Claim “{project.title}”</h1>
               <p>
-                This project came from an event archive the organisers keep. If it is yours, tell us how —
-                a moderator checks every claim before anything changes. Once approved you become its owner
-                and edit it here; until then the organisers' record stays as it is.
+                This project came from an event archive the organisers keep. If it is yours, tell us
+                how — a moderator checks every claim before anything changes. Once approved you
+                become its owner and edit it here; until then the organisers' record stays as it is.
               </p>
             </header>
             <form class="panel" id="claim-form" data-project={project.slug}>
@@ -47,17 +45,29 @@ if (guard.ok) {
                 <label class="field-label" for="claim-evidence">
                   How are you connected to it? <span class="field-tag">required</span>
                 </label>
-                <textarea id="claim-evidence" class="input" name="evidence" rows="6" minlength="10" maxlength="2000" required></textarea>
+                <textarea
+                  id="claim-evidence"
+                  class="input"
+                  name="evidence"
+                  rows="6"
+                  minlength="10"
+                  maxlength="2000"
+                  required
+                />
                 <p class="field-hint">
-                  For example: the repository is under your GitHub account, you presented it at the event, or a
-                  teammate can confirm. Do not include passwords or private documents.
+                  For example: the repository is under your GitHub account, you presented it at the
+                  event, or a teammate can confirm. Do not include passwords or private documents.
                 </p>
               </div>
               <div class="form-actions">
-                <button class="button button--primary" type="submit">Send claim for review</button>
-                <a class="button button--quiet" href={`/projects/${project.slug}/`}>Back to the project</a>
+                <button class="button button--primary" type="submit">
+                  Send claim for review
+                </button>
+                <a class="button button--quiet" href={`/projects/${project.slug}/`}>
+                  Back to the project
+                </a>
               </div>
-              <div aria-live="polite" id="claim-result"></div>
+              <div aria-live="polite" id="claim-result" />
             </form>
           </>
         ) : (
@@ -69,9 +79,9 @@ if (guard.ok) {
           </div>
         )}
       </div>
-    </Base>
-  )
-}
+    )
+  }
+</Base>
 
 <style>
   .panel > .account-head:last-child {

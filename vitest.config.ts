@@ -31,6 +31,7 @@ const NEON_SUITE = 'tests/equivalence-neon.test.ts';
 const neonSuiteNamed = process.argv.some((arg) => arg.includes('equivalence-neon'));
 
 export default defineConfig({
+  esbuild: { jsx: 'automatic' }, // Astro's React JSX runtime, for tests/islands-render.test.ts
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

@@ -3,7 +3,7 @@ import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
 import PageIntro from '@/components/PageIntro.astro';
 import Participation from '@/components/Participation.astro';
-import { faq, official, partners, publicAmbassadors, site } from '@/data';
+import { faq, partners, publicAmbassadors, site } from '@/data';
 import { trail } from '@/lib/seo';
 
 const faqSchema = [
@@ -73,8 +73,14 @@ const entities = [
           entities.map((entity) => (
             <li class="entity">
               <span class="entity-kind t-title">{entity.kind}</span>
-              <span class="entity-cell">{entity.who}</span>
-              <span class="entity-cell">{entity.granted}</span>
+              <span class="entity-cell">
+                <span class="visually-hidden">Who: </span>
+                {entity.who}
+              </span>
+              <span class="entity-cell">
+                <span class="visually-hidden">How it is granted: </span>
+                {entity.granted}
+              </span>
             </li>
           ))
         }
@@ -92,18 +98,6 @@ const entities = [
           Claude Community events are hosted by Claude Community Ambassadors, who are appointed by
           Anthropic.
         </p>
-        <p class="prose">
-          To run Claude Community events where you live, apply to Anthropic’s programme.
-        </p>
-        <a
-          class="btn btn-primary amb-cta"
-          href={official.ambassadorProgramUrl}
-          target="_blank"
-          rel="noopener"
-        >
-          <span>Become an Ambassador</span>
-          <span class="arrow" aria-hidden="true">↗</span>
-        </a>
       </div>
 
       <div class="amb-side">
@@ -218,14 +212,6 @@ const entities = [
     font-style: italic;
     font-weight: 300;
     color: var(--clay-deep);
-  }
-
-  .amb .prose + .prose {
-    margin-top: var(--s-4);
-  }
-
-  .amb-cta {
-    margin-top: var(--s-6);
   }
 
   .amb-side-head {

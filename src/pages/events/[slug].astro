@@ -11,6 +11,7 @@ const selectors = new RecordSelectors(_rs);
 
 publicCache(Astro);
 
+import type { ImageMetadata } from 'astro';
 import { Image } from 'astro:assets';
 import Base from '@/layouts/Base.astro';
 import Section from '@/components/Section.astro';
@@ -31,7 +32,7 @@ import { cardProps } from '@/lib/project-display';
 import { listJoin } from '@/lib/words';
 import { registrationLink } from '@/lib/attribution';
 import { CREDIT_ROLE_LABEL } from '@/lib/credits';
-import { requireAsset } from '@/lib/images';
+import { asset } from '@/lib/images';
 import { titles, trail } from '@/lib/seo';
 import {
   isForthcoming,
@@ -161,7 +162,9 @@ const schema = [
         addressCountry: 'IN',
       },
     },
-    ...(event.registrationUrl
+    // An offer only while the room is still ahead and taking registrations: a past, cancelled or
+    // closed one is not "InStock". A sold-out one stays, as "SoldOut".
+    ...(event.registrationUrl && isForthcoming(event) && lifecycle !== 'registration-closed'
       ? {
           offers: {
             '@type': 'Offer',
@@ -233,6 +236,26 @@ const shown = outputs.slice(0, 6);
 // The first photo spans both columns (a pair stays side by side); with an even count the last one
 // does too, so none sits alone.
 const wide = (i: number, n: number) => (i === 0 ? n !== 2 : n > 2 && n % 2 === 0 && i === n - 1);
+// A photo with no file (a row applied before its deploy, or a file since dropped) must not take
+// the page down: it is left out, and the log says so.
+const photos = (event.photos ?? []).flatMap((photo) => {
+  const image = asset(photo.src);
+  if (image) return [{ ...photo, image }];
+  console.error(
+    `[event ${event.slug}] photo ${photo.src} is in the database but not in src/assets; left out`,
+  );
+  return [];
+});
+// In a 3:2 tile an upright photo (9:16 to 3:4) shows only the middle 37-50% of its height, and the
+// 2:1 wide tile less; centred, that cut heads off. People's heads sit in the upper third, so
+// upright photos frame high. Two upright full-length scenes frame lower. EventPhoto has no field
+// for this (nor event_photos), so those two are keyed here by asset.
+const framing: Record<string, string> = {
+  'events/vol14-2.jpg': '50% 75%', // the queue on the red carpet, not the garden above it
+  'events/vol14-5.jpg': '50% 50%', // the speaker stands at mid-height, beside the slide
+};
+const photoStyle = ({ width, height }: ImageMetadata, src: string) =>
+  height > width ? `object-position: ${framing[src] ?? '50% 30%'}` : undefined;
 const written = [
   ...recaps.map((story) => ({
     href: `/stories/${story.slug}/`,
@@ -379,7 +402,7 @@ const written = [
             {ambassador ? (
               <p class="event-text">
                 {/* One expression: a line break between </a> and the tail would render as a space. */}
-                {['Hosted by ', <a href={hostHref}>{ambassador.name}</a>, hostTail]}
+                {[<a href={hostHref}>{ambassador.name}</a>, hostTail]}
               </p>
             ) : (
               organisations && <p class="event-text">{`With ${organisations}.`}</p>
@@ -504,23 +527,24 @@ const written = [
 
   {/* Photos, Written up and the neighbours share the paper ground too: one Section. */}
   {
-    Boolean(event.photos?.length || written.length || previous || upNext) && (
+    Boolean(photos.length || written.length || previous || upNext) && (
       <Section id="more">
-        {event.photos && event.photos.length > 0 && (
+        {photos.length > 0 && (
           <section id="photos" class="part" aria-labelledby="photos-heading">
             <div class="section-head">
               <h2 id="photos-heading">Photos</h2>
             </div>
             <ul class="event-photos">
-              {event.photos.map((photo, i) => (
-                <li class:list={{ 'is-wide': wide(i, event.photos!.length) }}>
+              {photos.map((photo, i) => (
+                <li class:list={{ 'is-wide': wide(i, photos.length) }}>
                   <figure>
                     <Image
-                      src={requireAsset(photo.src)}
+                      src={photo.image}
                       alt={photo.alt}
-                      widths={wide(i, event.photos!.length) ? [640, 1280, 1600] : [400, 800, 1280]}
+                      style={photoStyle(photo.image, photo.src)}
+                      widths={wide(i, photos.length) ? [640, 1280, 1600] : [400, 800, 1280]}
                       sizes={
-                        wide(i, event.photos!.length)
+                        wide(i, photos.length)
                           ? '(min-width: 1421px) 1296px, 92vw'
                           : '(min-width: 1421px) 638px, (min-width: 700px) 46vw, 92vw'
                       }

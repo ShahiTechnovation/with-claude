@@ -1,10 +1,10 @@
 /**
  * The event-photograph backfill: strictly additive, one transaction, reversible.
  *
- * `src/assets/events/` holds 41 photographs and `src/data/events.ts` references
- * all 41. Six are live, the ones the initial commit added; `2322e4c` added the
- * other 35 and nothing copied them into the database, because `db:import` runs
- * nowhere automatically. This closes that gap and nothing else.
+ * `src/data/events.ts` references every photograph in `src/assets/events/`.
+ * The six the initial commit added were already live; the ones added since
+ * (from `2322e4c` on) reach the database only through this script, because
+ * `db:import` runs nowhere automatically. This closes that gap and nothing else.
  *
  * ── WHY THIS IS NOT `npm run db:import` ──────────────────────────────────
  *
@@ -27,7 +27,7 @@
  * Two inserts and one targeted update, inside one transaction:
  *
  *  - `media`, `ON CONFLICT (path) DO NOTHING` — DO NOTHING, not DO UPDATE, so
- *    the six rows that are already there are not touched.
+ *    the rows that are already there are not touched.
  *  - `event_photos`, `ON CONFLICT DO NOTHING`. Every row appends: the live
  *    plates sit at positions 0, 1, 2 and the new entries start at 3, so
  *    nothing collides with the unique `(event_id, position)` index and no
@@ -35,14 +35,14 @@
  *    database rather than trusting it, because `DO NOTHING` would otherwise
  *    swallow a collision silently.
  *
- *    This count is **not reliably 35**. The record declared 11 events at
- *    `81fe1e7` and declares 17 now; a photo-bearing event with no row in the
+ *    How many rows this writes is **not fixed**. The record declared 11 events
+ *    at `81fe1e7` and has gained more since; a photo-bearing event with no row in the
  *    target is skipped and reported rather than treated as an error, because a
  *    database behind on events is an expected state. The dry run is what
  *    produces the real number.
  *  - `media.width` / `media.height` for the rows that lack them, measured off
- *    the files in git. `db/import/index.ts:324` writes only `{ path, alt, kind }`,
- *    so all 41 rows would carry nulls, and a null dimension makes a plate
+ *    the files in git. `db/import/index.ts` writes no `width` or `height`, so
+ *    every row it writes carries nulls, and a null dimension makes a plate
  *    non-renderable once photographs are served from object storage. This is
  *    the one update worth making: it writes no field a human owns, and it
  *    deliberately leaves `updated_at` alone.
@@ -57,9 +57,15 @@
  * never carries two consent values because two code paths wrote it.
  *
  * Why `true`: the people in these photographs registered for the events and
- * accepted the registration terms, which permit public web use (VIS-14,
- * confirmed by Vishal on 2026-10-05). Leaving the column at its `false` default
- * would be wrong on the facts.
+ * accepted the registration terms, which permit public web use. Confirmed by
+ * Vishal on 2026-10-05 (VIS-14) for the events up to then, and confirmed by
+ * Vishal on 2026-10-16 for 10 and 11 October. Leaving the column at its `false`
+ * default would be wrong on the facts.
+ *
+ * Nothing confirms an event held after `CONSENT_CONFIRMED_THROUGH`. The dry run
+ * prints a WARNING naming any such event whose photographs it would insert;
+ * `apply` still writes them. Whether it should refuse instead is an open
+ * product call, not something this script decides.
  *
  * Corrected 2026-10-05. This script first recorded the basis as
  * `provenance = 'event-showcase-release'`, a written release signed at the
@@ -87,11 +93,13 @@
 import { readdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { and, eq, inArray, or } from 'drizzle-orm';
+import { and, eq, inArray, isNull, or } from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import sharp from 'sharp';
 
 import { events } from '../../src/data/events';
+import { PUBLIC_CONTENT_STATUS } from '../../src/data/source-db';
+import type { CommunityEvent, IsoDate } from '../../src/data/types';
 import * as schema from '../../db/schema';
 
 /** Either pooled driver, or PGlite in the tests. Needs real transactions. */
@@ -101,24 +109,24 @@ export type BackfillDatabase = PgDatabase<PgQueryResultHKT, typeof schema>;
 export const ASSETS_DIR = join(dirname(fileURLToPath(import.meta.url)), '../../src/assets');
 
 /**
- * The six plates commit `81fe1e7` added, and the six production serves.
- *
- * A measured fact, not a configuration: `git log --diff-filter=A --name-only
- * -- src/assets/events/` returns two commits, and the live set is the
- * initial-commit set file for file. Used to seed a rehearsal to the state the
- * real target is in — nothing reads it on the way to a write.
- */
-/**
  * What `media.consent_basis` records on an event photograph, and therefore what
  * `media.consent = true` means on one: the subject accepted the event
- * registration terms (VIS-14, confirmed by Vishal on 2026-10-05). The value
- * migration 0017 and `db/import/index.ts` write. See the header of this file.
+ * registration terms (confirmed by Vishal on 2026-10-05, VIS-14, for the events
+ * up to then, and on 2026-10-16 for 10 and 11 October). The value migration
+ * 0017 and `db/import/index.ts` write. See the header of this file.
  *
  * One constant: the insert writes it, the dry run reports against it, and the
  * printed correction SQL quotes it.
  */
 export const CONSENT_BASIS = 'registration_terms';
 
+/** The last event date a consent confirmation covers. See the header. */
+export const CONSENT_CONFIRMED_THROUGH: IsoDate = '2026-10-11';
+
+/**
+ * The six plates the initial commit (`81fe1e7`) added: the rehearsal's
+ * baseline. Nothing reads it on the way to a write.
+ */
 export const LIVE_SIX = [
   'events/vol02-1.jpg',
   'events/vol02-2.jpg',
@@ -235,8 +243,8 @@ export interface BackfillPlan {
    * Photo-bearing events the record describes that have no row in the target.
    *
    * Reported and skipped, not fatal. `src/data/events.ts` declared 11 events at
-   * `81fe1e7` and declares 17 now, and two of the twelve photo-bearing ones
-   * (`claude-for-businesses`, `claude-code-build-day-fable`) are not among the
+   * `81fe1e7` and has gained more since, and photo-bearing ones such as
+   * `claude-for-businesses` and `claude-code-build-day-fable` are not among the
    * original 11 — so a target database behind on events is an expected state,
    * not a broken one. A photograph cannot join to an event row that does not
    * exist; inserting the event here would be `db:import`'s job and would carry
@@ -256,6 +264,26 @@ export interface BackfillPlan {
    */
   positionCollisions: PositionCollision[];
   unresolvableAssetPaths: string[];
+  /**
+   * Also a refusal: the `media.path` of each row the public reader serves whose
+   * file the asset registry lacks and the record does not name, as when a
+   * photograph leaves the record and its file is deleted but its row stays.
+   * `requireAsset` throws on such a row, which takes `/gallery` down, so `plan`
+   * exits 2 and `apply` agrees with it.
+   *
+   * "Serves" is the reader's own filter: a published `media` row with no
+   * tombstone, on a published event. Every event counts, not only the ones the
+   * record shows photos for, so a room taken out of the record is caught too.
+   * A photograph taken down in the admin is not served, so it is not listed.
+   * The single-host filter is not applied, so an event it hides can still
+   * refuse: the safe side.
+   */
+  staleLiveRows: string[];
+  /**
+   * Events held after `CONSENT_CONFIRMED_THROUGH` whose photographs get a new
+   * `media` row here. Printed as a WARNING; not a refusal.
+   */
+  consentUnconfirmed: string[];
   /** Reported, never corrected — this script does not move existing rows. */
   positionDrift: PositionDrift[];
   /** `event_photos` rows on these events that the record does not describe. */
@@ -263,15 +291,39 @@ export interface BackfillPlan {
 }
 
 /**
- * True when applying the plan would do exactly what the plan says.
+ * True when applying the plan would do exactly what the plan says, to a target
+ * whose gallery resolves.
  *
  * A missing event is deliberately **not** a refusal — its photographs are
- * skipped and reported, and the rest still land. A position collision and an
- * unresolvable asset path are, because the first would make the script claim
- * 35 while writing fewer, and the second would take `/gallery` down.
+ * skipped and reported, and the rest still land. A position collision, an
+ * unresolvable asset path and a stale live row are: the first would make the
+ * script claim the full delta while writing less, the second would take
+ * `/gallery` down, and the third, a served row whose file is gone, already has.
  */
 export function isApplicable(plan: BackfillPlan): boolean {
-  return plan.positionCollisions.length === 0 && plan.unresolvableAssetPaths.length === 0;
+  return (
+    plan.positionCollisions.length === 0 &&
+    plan.unresolvableAssetPaths.length === 0 &&
+    plan.staleLiveRows.length === 0
+  );
+}
+
+/**
+ * The events in `record` held after `CONSENT_CONFIRMED_THROUGH` that show any
+ * of `paths`. `record` is a parameter so the test can supply a later event.
+ */
+export function eventsPastConsent(
+  paths: string[],
+  record: Pick<CommunityEvent, 'slug' | 'date' | 'photos'>[] = events,
+): string[] {
+  const inserted = new Set(paths);
+  return record
+    .filter(
+      (event) =>
+        event.date > CONSENT_CONFIRMED_THROUGH &&
+        (event.photos ?? []).some((photo) => inserted.has(photo.src)),
+    )
+    .map((event) => event.slug);
 }
 
 /**
@@ -361,7 +413,10 @@ export async function assetRegistryKeys(assetsDir = ASSETS_DIR): Promise<Set<str
  * A missing or unreadable file throws: a `media` row for a file nobody can
  * open is the silently-broken graph `db/import/index.ts` refuses to write.
  */
-export async function measure(paths: string[], assetsDir = ASSETS_DIR): Promise<Map<string, Dimensions>> {
+export async function measure(
+  paths: string[],
+  assetsDir = ASSETS_DIR,
+): Promise<Map<string, Dimensions>> {
   const measured = new Map<string, Dimensions>();
   for (const path of paths) {
     const { width, height, orientation } = await sharp(join(assetsDir, path)).metadata();
@@ -416,7 +471,12 @@ export async function buildBackfillPlan(
       consentBasis: schema.media.consentBasis,
     })
     .from(schema.media)
-    .where(inArray(schema.media.path, paths.map((p) => p.path)));
+    .where(
+      inArray(
+        schema.media.path,
+        paths.map((p) => p.path),
+      ),
+    );
   const mediaByPath = new Map(mediaRows.map((row) => [row.path as string, row]));
 
   const eventIds = eventRows.map((row) => row.id);
@@ -430,8 +490,12 @@ export async function buildBackfillPlan(
         .from(schema.eventPhotos)
         .where(inArray(schema.eventPhotos.eventId, eventIds))
     : [];
-  const livePositionOwner = new Map(liveRows.map((row) => [`${row.eventId}:${row.position}`, row.mediaId]));
-  const livePositionByPair = new Map(liveRows.map((row) => [`${row.eventId}:${row.mediaId}`, row.position]));
+  const livePositionOwner = new Map(
+    liveRows.map((row) => [`${row.eventId}:${row.position}`, row.mediaId]),
+  );
+  const livePositionByPair = new Map(
+    liveRows.map((row) => [`${row.eventId}:${row.mediaId}`, row.position]),
+  );
 
   const mediaInserts: MediaInsert[] = [];
   for (const { path, alt } of paths) {
@@ -445,7 +509,12 @@ export async function buildBackfillPlan(
     if (!row) continue;
     const want = measured.get(path)!;
     if (row.width === want.width && row.height === want.height) continue;
-    dimensionCandidates.push({ id: row.id, path, ...want, was: { width: row.width, height: row.height } });
+    dimensionCandidates.push({
+      id: row.id,
+      path,
+      ...want,
+      was: { width: row.width, height: row.height },
+    });
   }
 
   // Measured, reported, and left alone. A row already carrying the basis is
@@ -456,7 +525,11 @@ export async function buildBackfillPlan(
     const row = mediaByPath.get(path);
     if (!row) continue;
     if (row.consent && row.consentBasis === CONSENT_BASIS) continue;
-    consentBasisCandidates.push({ id: row.id, path, was: { consent: row.consent, consentBasis: row.consentBasis } });
+    consentBasisCandidates.push({
+      id: row.id,
+      path,
+      was: { consent: row.consent, consentBasis: row.consentBasis },
+    });
   }
 
   const photoInserts: PhotoInsert[] = [];
@@ -508,7 +581,12 @@ export async function buildBackfillPlan(
       continue;
     }
 
-    photoInserts.push({ eventSlug: photo.eventSlug, eventId, path: photo.path, position: photo.position });
+    photoInserts.push({
+      eventSlug: photo.eventSlug,
+      eventId,
+      path: photo.path,
+      position: photo.position,
+    });
   }
 
   const wantedPairs = new Set(
@@ -518,7 +596,32 @@ export async function buildBackfillPlan(
       return eventId && mediaId ? [`${eventId}:${mediaId}`] : [];
     }),
   );
-  const undescribedLiveRows = liveRows.filter((row) => !wantedPairs.has(`${row.eventId}:${row.mediaId}`)).length;
+  const undescribedLiveRows = liveRows.filter(
+    (row) => !wantedPairs.has(`${row.eventId}:${row.mediaId}`),
+  ).length;
+
+  // Every path the public reader serves, on any event, filtered the way
+  // `src/data/source-db.ts` filters. A path the registry lacks is stale unless
+  // the record names it, because then it is already refused as unresolvable.
+  // A null path is an uploaded blob, which the reader skips.
+  const served = await db
+    .selectDistinct({ path: schema.media.path })
+    .from(schema.eventPhotos)
+    .innerJoin(schema.media, eq(schema.media.id, schema.eventPhotos.mediaId))
+    .innerJoin(schema.events, eq(schema.events.id, schema.eventPhotos.eventId))
+    .where(
+      and(
+        eq(schema.events.status, PUBLIC_CONTENT_STATUS),
+        eq(schema.media.status, 'published'),
+        isNull(schema.media.deletedAt),
+      ),
+    );
+  const staleLiveRows = served
+    .map((row) => row.path)
+    .filter(
+      (path): path is string => path !== null && !registry.has(path) && !unresolvable.has(path),
+    )
+    .sort();
 
   return {
     mediaInserts,
@@ -535,6 +638,8 @@ export async function buildBackfillPlan(
     unresolvableAssetPaths,
     positionDrift,
     undescribedLiveRows,
+    staleLiveRows,
+    consentUnconfirmed: eventsPastConsent(mediaInserts.map((row) => row.path)),
   };
 }
 
@@ -553,7 +658,13 @@ export interface BackfillReceipt {
   databaseHost: string;
   databaseName: string;
   insertedMedia: { id: string; path: string }[];
-  insertedPhotos: { eventId: string; eventSlug: string; mediaId: string; path: string; position: number }[];
+  insertedPhotos: {
+    eventId: string;
+    eventSlug: string;
+    mediaId: string;
+    path: string;
+    position: number;
+  }[];
   /**
    * The dimension update, with the values it replaced.
    *
@@ -562,7 +673,13 @@ export interface BackfillReceipt {
    * difference. The previous values are recorded so a human who disagrees can
    * reverse it by hand.
    */
-  dimensionsUpdated: { id: string; path: string; width: number; height: number; was: { width: number | null; height: number | null } }[];
+  dimensionsUpdated: {
+    id: string;
+    path: string;
+    width: number;
+    height: number;
+    was: { width: number | null; height: number | null };
+  }[];
   /** The inverse, as SQL, so the undo is readable without running anything. */
   rollbackSql: string;
 }
@@ -581,7 +698,9 @@ export async function applyBackfill(
   context: { databaseHost: string; databaseName: string },
 ): Promise<BackfillReceipt> {
   if (!isApplicable(plan)) {
-    throw new Error('This plan is not applicable — re-run the dry run and resolve its refusals first.');
+    throw new Error(
+      'This plan is not applicable — re-run the dry run and resolve its refusals first.',
+    );
   }
 
   return db.transaction(async (tx) => {
@@ -619,8 +738,8 @@ export async function applyBackfill(
     });
 
     // `media.updated_at` has no trigger and no `$onUpdate`, so writing the two
-    // dimension columns leaves it alone. That is deliberate: these six rows
-    // did not change in any way a reader or an editor would recognise.
+    // dimension columns leaves it alone. That is deliberate: these rows did
+    // not change in any way a reader or an editor would recognise.
     for (const update of plan.dimensionUpdates) {
       await tx
         .update(schema.media)
@@ -633,7 +752,12 @@ export async function applyBackfill(
     const mediaRows = await tx
       .select({ id: schema.media.id, path: schema.media.path })
       .from(schema.media)
-      .where(inArray(schema.media.path, plan.photoInserts.map((row) => row.path)));
+      .where(
+        inArray(
+          schema.media.path,
+          plan.photoInserts.map((row) => row.path),
+        ),
+      );
     const mediaIdByPath = new Map(mediaRows.map((row) => [row.path as string, row.id]));
 
     const photoValues = plan.photoInserts.map((row) => {
@@ -646,7 +770,11 @@ export async function applyBackfill(
       ? await tx
           .insert(schema.eventPhotos)
           .values(
-            photoValues.map((row) => ({ eventId: row.eventId, mediaId: row.mediaId, position: row.position })),
+            photoValues.map((row) => ({
+              eventId: row.eventId,
+              mediaId: row.mediaId,
+              position: row.position,
+            })),
           )
           .onConflictDoNothing()
           .returning({ eventId: schema.eventPhotos.eventId, mediaId: schema.eventPhotos.mediaId })
@@ -670,7 +798,13 @@ export async function applyBackfill(
         path: row.path,
         position: row.position,
       })),
-      dimensionsUpdated: plan.dimensionUpdates.map(({ id, path, width, height, was }) => ({ id, path, width, height, was })),
+      dimensionsUpdated: plan.dimensionUpdates.map(({ id, path, width, height, was }) => ({
+        id,
+        path,
+        width,
+        height,
+        was,
+      })),
       rollbackSql: '',
     };
     receipt.rollbackSql = renderRollbackSql(receipt);
@@ -682,8 +816,8 @@ export async function applyBackfill(
  * Undo exactly what a receipt records.
  *
  * Driven by the receipt rather than recomputed from the record, because "the
- * 35 the record describes" and "the 35 this run inserted" stop being the same
- * set the moment anything else writes. A `media` row that something else has
+ * rows the record describes" and "the rows this run inserted" stop being the
+ * same set the moment anything else writes. A `media` row that something else has
  * since adopted is left alone and reported.
  */
 export async function rollbackBackfill(
@@ -732,7 +866,10 @@ export async function rollbackBackfill(
             .where(
               or(
                 ...receipt.insertedPhotos.map((row) =>
-                  and(eq(schema.eventPhotos.eventId, row.eventId), eq(schema.eventPhotos.mediaId, row.mediaId)),
+                  and(
+                    eq(schema.eventPhotos.eventId, row.eventId),
+                    eq(schema.eventPhotos.mediaId, row.mediaId),
+                  ),
                 ),
               ),
             )
@@ -766,13 +903,17 @@ export async function rollbackBackfill(
     }
 
     const mediaDeleted = deletable.length
-      ? (await tx.delete(schema.media).where(inArray(schema.media.id, deletable)).returning({ id: schema.media.id }))
-          .length
+      ? (
+          await tx
+            .delete(schema.media)
+            .where(inArray(schema.media.id, deletable))
+            .returning({ id: schema.media.id })
+        ).length
       : 0;
 
     // A row somebody else already deleted is neither retained nor deleted by
-    // us. Counting it as a failure used to abort the transaction and take the
-    // other 34 join-row deletes down with it, leaving nothing undone and no
+    // us. Counting it as a failure used to abort the transaction and take
+    // every other join-row delete down with it, leaving nothing undone and no
     // way forward but editing the receipt. One missing row is not a reason to
     // refuse the whole undo — it is a reason to say so.
     // NO ARITHMETIC GUARD HERE, deliberately. The loop above puts every
@@ -837,61 +978,121 @@ const MEDIA_ADOPTERS: {
     table: 'events',
     column: 'cover_image_id',
     present: async (tx, id) =>
-      (await tx.select({ k: schema.events.id }).from(schema.events).where(eq(schema.events.coverImageId, id)).limit(1)).length > 0,
+      (
+        await tx
+          .select({ k: schema.events.id })
+          .from(schema.events)
+          .where(eq(schema.events.coverImageId, id))
+          .limit(1)
+      ).length > 0,
   },
   {
     table: 'cities',
     column: 'image_id',
     present: async (tx, id) =>
-      (await tx.select({ k: schema.cities.id }).from(schema.cities).where(eq(schema.cities.imageId, id)).limit(1)).length > 0,
+      (
+        await tx
+          .select({ k: schema.cities.id })
+          .from(schema.cities)
+          .where(eq(schema.cities.imageId, id))
+          .limit(1)
+      ).length > 0,
   },
   {
     table: 'builders',
     column: 'image_id',
     present: async (tx, id) =>
-      (await tx.select({ k: schema.builders.id }).from(schema.builders).where(eq(schema.builders.imageId, id)).limit(1)).length > 0,
+      (
+        await tx
+          .select({ k: schema.builders.id })
+          .from(schema.builders)
+          .where(eq(schema.builders.imageId, id))
+          .limit(1)
+      ).length > 0,
   },
   {
     table: 'ambassadors',
     column: 'image_id',
     present: async (tx, id) =>
-      (await tx.select({ k: schema.ambassadors.id }).from(schema.ambassadors).where(eq(schema.ambassadors.imageId, id)).limit(1)).length > 0,
+      (
+        await tx
+          .select({ k: schema.ambassadors.id })
+          .from(schema.ambassadors)
+          .where(eq(schema.ambassadors.imageId, id))
+          .limit(1)
+      ).length > 0,
   },
   {
     table: 'projects',
     column: 'image_id',
     present: async (tx, id) =>
-      (await tx.select({ k: schema.projects.id }).from(schema.projects).where(eq(schema.projects.imageId, id)).limit(1)).length > 0,
+      (
+        await tx
+          .select({ k: schema.projects.id })
+          .from(schema.projects)
+          .where(eq(schema.projects.imageId, id))
+          .limit(1)
+      ).length > 0,
   },
   {
     table: 'projects',
     column: 'logo_media_id',
     present: async (tx, id) =>
-      (await tx.select({ k: schema.projects.id }).from(schema.projects).where(eq(schema.projects.logoMediaId, id)).limit(1)).length > 0,
+      (
+        await tx
+          .select({ k: schema.projects.id })
+          .from(schema.projects)
+          .where(eq(schema.projects.logoMediaId, id))
+          .limit(1)
+      ).length > 0,
   },
   {
     table: 'member_profiles',
     column: 'avatar_media_id',
     present: async (tx, id) =>
-      (await tx.select({ k: schema.memberProfiles.memberId }).from(schema.memberProfiles).where(eq(schema.memberProfiles.avatarMediaId, id)).limit(1)).length > 0,
+      (
+        await tx
+          .select({ k: schema.memberProfiles.memberId })
+          .from(schema.memberProfiles)
+          .where(eq(schema.memberProfiles.avatarMediaId, id))
+          .limit(1)
+      ).length > 0,
   },
   {
     table: 'stories',
     column: 'image_id',
     present: async (tx, id) =>
-      (await tx.select({ k: schema.stories.id }).from(schema.stories).where(eq(schema.stories.imageId, id)).limit(1)).length > 0,
+      (
+        await tx
+          .select({ k: schema.stories.id })
+          .from(schema.stories)
+          .where(eq(schema.stories.imageId, id))
+          .limit(1)
+      ).length > 0,
   },
   {
     table: 'use_cases',
     column: 'image_id',
     present: async (tx, id) =>
-      (await tx.select({ k: schema.useCases.id }).from(schema.useCases).where(eq(schema.useCases.imageId, id)).limit(1)).length > 0,
+      (
+        await tx
+          .select({ k: schema.useCases.id })
+          .from(schema.useCases)
+          .where(eq(schema.useCases.imageId, id))
+          .limit(1)
+      ).length > 0,
   },
   {
     table: 'guides',
     column: 'image_id',
     present: async (tx, id) =>
-      (await tx.select({ k: schema.guides.id }).from(schema.guides).where(eq(schema.guides.imageId, id)).limit(1)).length > 0,
+      (
+        await tx
+          .select({ k: schema.guides.id })
+          .from(schema.guides)
+          .where(eq(schema.guides.imageId, id))
+          .limit(1)
+      ).length > 0,
   },
 ];
 
@@ -904,7 +1105,8 @@ async function adoptedElsewhere(tx: BackfillDatabase, mediaId: string): Promise<
 }
 
 const quote = (value: string) => `'${value.replace(/'/g, "''")}'`;
-const list = (values: string[], indent: string) => values.map((v) => `${indent}${quote(v)}`).join(',\n');
+const list = (values: string[], indent: string) =>
+  values.map((v) => `${indent}${quote(v)}`).join(',\n');
 
 /**
  * The guard clauses that keep a `DELETE FROM media` from blanking somebody's
@@ -930,9 +1132,15 @@ const PREFER_THE_COMMAND = [
 
 /** The inverse of a receipt, as SQL. Printed, never executed. */
 export function renderRollbackSql(receipt: BackfillReceipt): string {
-  if (!receipt.insertedMedia.length && !receipt.insertedPhotos.length) return '-- Nothing was inserted; nothing to undo.';
-  const pairs = receipt.insertedPhotos.map((row) => `  (${quote(row.eventId)}, ${quote(row.mediaId)})`).join(',\n');
-  const paths = list(receipt.insertedMedia.map((row) => row.path), '  ');
+  if (!receipt.insertedMedia.length && !receipt.insertedPhotos.length)
+    return '-- Nothing was inserted; nothing to undo.';
+  const pairs = receipt.insertedPhotos
+    .map((row) => `  (${quote(row.eventId)}, ${quote(row.mediaId)})`)
+    .join(',\n');
+  const paths = list(
+    receipt.insertedMedia.map((row) => row.path),
+    '  ',
+  );
   return [
     PREFER_THE_COMMAND,
     '',
@@ -966,11 +1174,15 @@ export function renderRollbackSql(receipt: BackfillReceipt): string {
  * guards the command applies.
  */
 export function renderPlannedRollbackSql(plan: BackfillPlan): string {
-  if (!plan.mediaInserts.length && !plan.photoInserts.length) return '-- Nothing would be inserted; nothing to undo.';
+  if (!plan.mediaInserts.length && !plan.photoInserts.length)
+    return '-- Nothing would be inserted; nothing to undo.';
   const pairs = plan.photoInserts
     .map((row) => `    (${quote(row.eventSlug)}, ${quote(row.path)})`)
     .join(',\n');
-  const paths = list(plan.mediaInserts.map((row) => row.path), '    ');
+  const paths = list(
+    plan.mediaInserts.map((row) => row.path),
+    '    ',
+  );
   const lines = [PREFER_THE_COMMAND, '', 'BEGIN;', ''];
   if (plan.photoInserts.length) {
     lines.push(
@@ -1011,19 +1223,36 @@ export function renderPlan(plan: BackfillPlan): string {
   lines.push('DELTA');
   lines.push(
     `  media             +${plan.mediaInserts.length} inserted` +
-      (plan.dimensionUpdates.length ? `, ${plan.dimensionUpdates.length} updated (width/height only)` : ', 0 updated'),
+      (plan.dimensionUpdates.length
+        ? `, ${plan.dimensionUpdates.length} updated (width/height only)`
+        : ', 0 updated'),
   );
   lines.push(
     `  event_photos      +${plan.photoInserts.length} inserted` +
-      (plan.photosSkippedForMissingEvent ? `  (${plan.photosSkippedForMissingEvent} skipped — see MISSING EVENTS)` : ''),
+      (plan.photosSkippedForMissingEvent
+        ? `  (${plan.photosSkippedForMissingEvent} skipped — see MISSING EVENTS)`
+        : ''),
   );
   lines.push('  deletes           0');
   lines.push('  other tables      untouched');
   if (plan.mediaInserts.length) {
     lines.push('');
-    lines.push(`  New media rows carry consent = true, consent_basis = '${CONSENT_BASIS}' — the event`);
-    lines.push('  registration terms, confirmed by Vishal 2026-10-05 (VIS-14).');
+    lines.push(
+      `  New media rows carry consent = true, consent_basis = '${CONSENT_BASIS}' — the event`,
+    );
+    lines.push(
+      '  registration terms, confirmed by Vishal 2026-10-05 (VIS-14) for the events up to',
+    );
+    lines.push('  then, and confirmed by Vishal 2026-10-16 for 10 and 11 October.');
     lines.push('  On the insert, so it is not a separate statement and touches nothing existing.');
+    if (plan.consentUnconfirmed.length) {
+      lines.push(
+        `  WARNING: ${plan.consentUnconfirmed.length} event(s) here were held after ${CONSENT_CONFIRMED_THROUGH}, the last date`,
+      );
+      lines.push(`  a confirmation covers: ${plan.consentUnconfirmed.join(', ')}.`);
+      lines.push('  Confirm their registration terms carry the same photo clause before `apply`.');
+      lines.push('  `apply` does not check this.');
+    }
   }
   lines.push('');
 
@@ -1033,7 +1262,9 @@ export function renderPlan(plan: BackfillPlan): string {
       lines.push(`  ${slug}`);
       for (const row of rows.sort((a, b) => a.position - b.position)) {
         const size = plan.mediaInserts.find((m) => m.path === row.path);
-        lines.push(`    position ${String(row.position).padStart(2)}  ${row.path}${size ? `  ${size.width}x${size.height}` : ''}`);
+        lines.push(
+          `    position ${String(row.position).padStart(2)}  ${row.path}${size ? `  ${size.width}x${size.height}` : ''}`,
+        );
       }
     }
     lines.push('');
@@ -1046,7 +1277,10 @@ export function renderPlan(plan: BackfillPlan): string {
         : `media — ${plan.dimensionCandidates.length} existing row(s) have no or stale width/height. NOT writing them:`,
     );
     for (const row of plan.dimensionCandidates) {
-      const was = row.was.width === null && row.was.height === null ? 'null' : `${row.was.width}x${row.was.height}`;
+      const was =
+        row.was.width === null && row.was.height === null
+          ? 'null'
+          : `${row.was.width}x${row.was.height}`;
       lines.push(`  ${row.path}  ${was} -> ${row.width}x${row.height}`);
     }
     lines.push(
@@ -1071,61 +1305,120 @@ export function renderPlan(plan: BackfillPlan): string {
       const was = `consent=${row.was.consent}, consent_basis=${row.was.consentBasis === null ? 'null' : quote(row.was.consentBasis)}`;
       lines.push(`  ${row.path}  ${was}`);
     }
-    lines.push('  There is no flag for this one. The rows inserted above get the basis for free; these');
-    lines.push('  would need an UPDATE against rows the database already has, and correcting every');
-    lines.push('  existing row is one decision rather than a statement inside a pure-insert backfill.');
+    lines.push(
+      '  There is no flag for this one. The rows inserted above get the basis for free; these',
+    );
+    lines.push(
+      '  would need an UPDATE against rows the database already has, and correcting every',
+    );
+    lines.push(
+      '  existing row is one decision rather than a statement inside a pure-insert backfill.',
+    );
     lines.push('  The statement, for whoever takes that decision — not run here:');
     lines.push('');
     lines.push(`    UPDATE media SET consent = true, consent_basis = ${quote(CONSENT_BASIS)}`);
     lines.push('    WHERE id IN (');
-    lines.push(list(plan.consentBasisCandidates.map((row) => row.id), '      '));
+    lines.push(
+      list(
+        plan.consentBasisCandidates.map((row) => row.id),
+        '      ',
+      ),
+    );
     lines.push('    );');
     lines.push('');
   }
 
   lines.push('ALREADY IN PLACE');
-  lines.push(`  ${plan.photosAlreadyPresent} of ${wantedPhotos().length} plates the record describes are already joined to their event.`);
+  lines.push(
+    `  ${plan.photosAlreadyPresent} of ${wantedPhotos().length} plates the record describes are already joined to their event.`,
+  );
   if (plan.undescribedLiveRows) {
-    lines.push(`  ${plan.undescribedLiveRows} event_photos row(s) on these events are not in the record. Left alone — this operation never deletes.`);
+    lines.push(
+      `  ${plan.undescribedLiveRows} event_photos row(s) on these events are not in the record. Left alone — this operation never deletes.`,
+    );
   }
   lines.push('');
 
   if (plan.positionDrift.length) {
     lines.push('DRIFT — reported, not corrected');
     for (const row of plan.positionDrift) {
-      lines.push(`  ${row.eventSlug} ${row.path}: record says position ${row.recordPosition}, database has ${row.livePosition}`);
+      lines.push(
+        `  ${row.eventSlug} ${row.path}: record says position ${row.recordPosition}, database has ${row.livePosition}`,
+      );
     }
     lines.push('  Reordering existing plates is a different operation. This one only appends.');
     lines.push('');
   }
 
   if (plan.unknownEventSlugs.length) {
-    lines.push(`MISSING EVENTS — ${plan.photosSkippedForMissingEvent} photograph(s) skipped, not an error:`);
+    lines.push(
+      `MISSING EVENTS — ${plan.photosSkippedForMissingEvent} photograph(s) skipped, not an error:`,
+    );
     for (const slug of plan.unknownEventSlugs) lines.push(`  ${slug}`);
-    lines.push('  These events are in the record and have no row in the target, so their photographs');
-    lines.push('  have nothing to join to. Their media rows still land; the joins appear on a re-run');
-    lines.push('  once the event rows exist. Creating an event row is `db:import`\'s job, not this');
-    lines.push('  script\'s — report these slugs rather than folding them in.');
+    lines.push(
+      '  These events are in the record and have no row in the target, so their photographs',
+    );
+    lines.push(
+      '  have nothing to join to. Their media rows still land; the joins appear on a re-run',
+    );
+    lines.push("  once the event rows exist. Creating an event row is `db:import`'s job, not this");
+    lines.push("  script's — report these slugs rather than folding them in.");
     lines.push('');
   }
 
   if (plan.unresolvableAssetPaths.length) {
     lines.push('REFUSING — the asset registry would not resolve these paths:');
     for (const path of plan.unresolvableAssetPaths) lines.push(`  ${path}`);
-    lines.push('  `requireAsset` throws on an unresolved key and `/gallery` answers 503 for the whole');
-    lines.push('  page, so one of these in `media.path` takes every room down. Fix the path or the file.');
+    lines.push(
+      '  `requireAsset` throws on an unresolved key and `/gallery` answers 503 for the whole',
+    );
+    lines.push(
+      '  page, so one of these in `media.path` takes every room down. Fix the path or the file.',
+    );
+    lines.push('');
+  }
+
+  if (plan.staleLiveRows.length) {
+    lines.push('REFUSING — STALE: published rows name files the registry lacks:');
+    for (const path of plan.staleLiveRows) lines.push(`  ${path}`);
+    lines.push(
+      '  Each is a published photograph on a published event that the record does not name.',
+    );
+    lines.push(
+      '  `requireAsset` throws on it whenever the reader serves it, which takes every room of',
+    );
+    lines.push(
+      '  `/gallery` down. Restore the file, take the photograph down in the admin, or remove the',
+    );
+    lines.push('  row. If a backfill run added it,');
+    lines.push('    npm run backfill:photos -- rollback --receipt imports/<file>.json --yes');
+    lines.push('  undoes that whole run, not only this row.');
     lines.push('');
   }
 
   if (plan.positionCollisions.length) {
     lines.push('REFUSING — these positions are already held by a different media row:');
     for (const row of plan.positionCollisions) {
-      lines.push(`  ${row.eventSlug} position ${row.position} wanted by ${row.wantedPath}, held by media ${row.occupiedByMediaId}`);
+      lines.push(
+        `  ${row.eventSlug} position ${row.position} wanted by ${row.wantedPath}, held by media ${row.occupiedByMediaId}`,
+      );
     }
-    lines.push('  ON CONFLICT DO NOTHING would skip these without a word, so apply declines instead.');
+    lines.push(
+      '  ON CONFLICT DO NOTHING would skip these without a word, so apply declines instead.',
+    );
     lines.push('');
   }
 
-  lines.push(isApplicable(plan) ? 'APPLICABLE — re-run with `apply --yes` to write it.' : 'NOT APPLICABLE — resolve the refusals above first.');
+  // The call `plan` and `apply` exit on in cli.ts: `isApplicable`, then
+  // whether a plain apply would write anything (`nothingToDo`).
+  const writes =
+    plan.mediaInserts.length || plan.photoInserts.length || plan.dimensionUpdates.length;
+  if (!isApplicable(plan)) lines.push('NOT APPLICABLE — resolve the refusals above first.');
+  else if (writes) lines.push('APPLICABLE — re-run with `apply --yes` to write it.');
+  else if (plan.positionDrift.length)
+    lines.push(
+      'DRIFT ONLY — a plain apply would write nothing, and it cannot move the plates above.',
+    );
+  else lines.push('NOTHING TO DO — a plain apply would write nothing.');
   return lines.join('\n');
 }

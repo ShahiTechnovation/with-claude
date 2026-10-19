@@ -8,6 +8,7 @@
 import type { APIRoute } from 'astro';
 import { pooledDb } from '@db/pool';
 import { assertSameOrigin } from '@/server/session';
+import { UUID } from '@/server/moderation';
 import { resolveProjectClaim } from '../../../../../../src/server/projects/claims';
 
 export const prerender = false;
@@ -17,17 +18,46 @@ export const POST: APIRoute = async ({ request, params, locals }) => {
   if (!user || (user.role !== 'admin' && user.role !== 'editor')) {
     return new Response('Editors only.', { status: 403 });
   }
-  if (!assertSameOrigin(request)) return new Response('Cross-origin request refused.', { status: 403 });
+  if (!assertSameOrigin(request))
+    return new Response('Cross-origin request refused.', { status: 403 });
   const { id, action } = params;
-  if (!id || !/^[0-9a-f-]{36}$/i.test(id) || (action !== 'approve' && action !== 'reject')) {
+  if (!id || !UUID.test(id) || (action !== 'approve' && action !== 'reject')) {
     return new Response('Bad request.', { status: 400 });
   }
   const form = await request.formData().catch(() => null);
-  const note = String(form?.get('note') ?? '').trim().slice(0, 1_000) || null;
+  const note =
+    String(form?.get('note') ?? '')
+      .trim()
+      .slice(0, 1_000) || null;
   if (action === 'approve' && !note) {
-    return new Response(null, { status: 303, headers: { Location: '/claims?note=' + encodeURIComponent('Approval needs a note saying how it was verified.') } });
+    return new Response(null, {
+      status: 303,
+      headers: {
+        Location:
+          '/claims?error=' +
+          encodeURIComponent('Approval needs a note saying how it was verified.'),
+      },
+    });
   }
-  const result = await resolveProjectClaim(pooledDb(), id, action, { id: user.id, email: user.email }, note);
-  const message = result.ok ? `Claim ${result.status}.` : result.error;
-  return new Response(null, { status: 303, headers: { Location: `/claims?note=${encodeURIComponent(message)}`, 'Cache-Control': 'no-store' } });
+  let query: string;
+  try {
+    const result = await resolveProjectClaim(
+      pooledDb(),
+      id,
+      action,
+      { id: user.id, email: user.email },
+      note,
+    );
+    query = result.ok
+      ? `note=${encodeURIComponent(`Claim ${result.status}.`)}`
+      : `error=${encodeURIComponent(result.error)}`;
+  } catch (error) {
+    console.error(`claim ${action} on ${id} failed`, error);
+    const message = `Could not ${action} this claim. The change was not saved.`;
+    query = `error=${encodeURIComponent(message)}`;
+  }
+  return new Response(null, {
+    status: 303,
+    headers: { Location: `/claims?${query}`, 'Cache-Control': 'no-store' },
+  });
 };

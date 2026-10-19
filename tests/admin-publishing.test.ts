@@ -30,6 +30,8 @@ import {
 } from '../admin/src/server/publishing';
 import { promoteSubmission, slugify } from '../admin/src/server/promotion';
 import { loadRecordSet } from '../src/data/source-db';
+import { ManualEventSource } from '../src/server/events/registry';
+import { syncSource } from '../src/server/events/sync';
 
 let db: TestDatabase;
 let cityId: string;
@@ -209,10 +211,7 @@ describe('promotion', () => {
       .select()
       .from(schema.socialLinks)
       .where(eq(schema.socialLinks.ownerId, builder.id));
-    expect(links.map((l) => l.url)).toEqual([
-      'https://example.com/',
-      'https://github.com/asha',
-    ]);
+    expect(links.map((l) => l.url)).toEqual(['https://example.com/', 'https://github.com/asha']);
   });
 
   it('points the submission at what it created, and audits it', async () => {
@@ -221,10 +220,7 @@ describe('promotion', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 
-    const [row] = await db
-      .select()
-      .from(schema.submissions)
-      .where(eq(schema.submissions.id, id));
+    const [row] = await db.select().from(schema.submissions).where(eq(schema.submissions.id, id));
     expect(row.entityType).toBe('builder');
     expect(row.entityId).toBe(result.entityId);
 
@@ -514,10 +510,7 @@ describe('publishing', () => {
 
       expect(result.ok, `publish from "${status}" was allowed`).toBe(false);
 
-      const [after] = await db
-        .select()
-        .from(schema.builders)
-        .where(eq(schema.builders.id, row.id));
+      const [after] = await db.select().from(schema.builders).where(eq(schema.builders.id, row.id));
       expect(after.status).toBe(status);
     }
   });
@@ -629,6 +622,53 @@ describe('publishing', () => {
     expect(result.to).toBe('approved');
   });
 
+  it('keeps a later takedown of an event the feed withdrew, whatever the feed lists next', async () => {
+    const key = 'test:feed-withdrawn-takedown';
+    const listing = (description: string) => ({
+      externalId: 'evt-feed-takedown',
+      title: 'Bhopal | Claude Code Build Day',
+      description,
+      startsAt: new Date('2026-12-01T04:30:00Z'),
+      location: 'Bhopal, Madhya Pradesh, India',
+      registrationUrl: 'https://luma.com/feed-takedown',
+    });
+    const feed = (...events: ReturnType<typeof listing>[]) =>
+      syncSource(new ManualEventSource(events, { key, complete: true }), db);
+    const event = async () =>
+      (
+        await db
+          .select()
+          .from(schema.events)
+          .where(eq(schema.events.externalId, 'evt-feed-takedown'))
+      )[0];
+
+    await feed(listing('First copy.'));
+    // The host hides it: the sync archives it and marks it with `canceledAt`.
+    expect((await feed()).withdrawn).toBe(1);
+    const { id } = await event();
+    const step = (action: 'publish' | 'archive' | 'restore', note?: string) =>
+      transitionContent(db as never, {
+        entityType: 'event',
+        entityId: id,
+        action,
+        actor: editor,
+        note,
+        deploy: fakeDeploy().deploy,
+      });
+
+    expect((await step('restore', 'The host asked for it back.')).ok).toBe(true);
+    // Taken back from the feed, so the feed's withdrawal no longer applies.
+    expect(await event()).toMatchObject({ status: 'approved', canceledAt: null });
+    expect((await step('publish')).ok).toBe(true);
+    expect((await step('archive', 'A privacy complaint.')).ok).toBe(true);
+
+    // The same copy and then an edited one: neither undoes the editor's takedown.
+    await feed(listing('First copy.'));
+    expect(await event()).toMatchObject({ status: 'archived', canceledAt: null });
+    await feed(listing('The host relisted it with an edit.'));
+    expect(await event()).toMatchObject({ status: 'archived', canceledAt: null });
+  });
+
   it('keeps the editorial decision when the deploy hook fails', async () => {
     /**
      * §13. The database is the source of truth and the deploy is a delivery
@@ -681,10 +721,7 @@ describe('publishing', () => {
     expect([a.ok, b.ok].filter(Boolean)).toHaveLength(1);
 
     // And the audit log has exactly one entry claiming the move.
-    const entries = await db
-      .select()
-      .from(schema.auditLog)
-      .where(eq(schema.auditLog.entityId, id));
+    const entries = await db.select().from(schema.auditLog).where(eq(schema.auditLog.entityId, id));
     expect(entries.filter((e) => e.toStatus === 'published')).toHaveLength(1);
   });
 

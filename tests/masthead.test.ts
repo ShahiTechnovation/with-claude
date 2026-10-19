@@ -80,6 +80,38 @@ describe('the masthead', () => {
     expect(script).toMatch(/new MutationObserver[\s\S]*signin\.removeAttribute\('aria-busy'\)/);
   });
 
+  /**
+   * While Privy loads, the slot holds a placeholder, not the live button. Preventing the tap first
+   * left it doing nothing; it must follow the href to the /me/ gate. The handler runs here as written.
+   */
+  it('lets a sheet Sign in tap follow its href while Privy is still loading', () => {
+    const script = masthead.slice(masthead.indexOf('<script>'));
+    const body = /signin\?\.addEventListener\('click', \(e\) => \{\n([\s\S]*?)\n {2}\}\);/.exec(
+      script,
+    )?.[1];
+    expect(body, 'the sheet Sign in handler moved').toBeDefined();
+    const onTap = new Function('e', 'slotRoot', 'menu', body!.replace(/<HTMLElement>/g, '')) as (
+      e: object,
+      slotRoot: object,
+      menu: object,
+    ) => void;
+    const tap = (slot: 'empty' | 'placeholder' | 'live') => {
+      const e = { defaultPrevented: false, preventDefault: () => (e.defaultPrevented = true) };
+      const menu = { open: true };
+      let clicks = 0;
+      const button = {
+        matches: (selector: string) =>
+          slot === 'placeholder' && selector === '.account-placeholder',
+        click: () => (clicks += 1),
+      };
+      onTap(e, { querySelector: () => (slot === 'empty' ? null : button) }, menu);
+      return { followsHref: !e.defaultPrevented, clicks, menuOpen: menu.open };
+    };
+    expect(tap('empty')).toEqual({ followsHref: true, clicks: 0, menuOpen: true });
+    expect(tap('placeholder')).toEqual({ followsHref: true, clicks: 0, menuOpen: true });
+    expect(tap('live')).toEqual({ followsHref: false, clicks: 1, menuOpen: false });
+  });
+
   /** The open sheet locks the page behind it, for scrolling and for assistive tech. */
   it('makes the page behind the open menu inert and unscrollable', () => {
     expect(masthead).toMatch(/menu\.addEventListener\('toggle'[\s\S]*el\.inert = menu\.open;/);
@@ -104,7 +136,7 @@ describe('the masthead', () => {
       "addEventListener('storage', (e) => e.key === 'wc-theme' && rereadTheme());",
     );
     expect(masthead).toMatch(
-      /function rereadTheme\(\) \{\s*if \(root\.hasAttribute\('data-theme-lock'\)\) return;/,
+      /function rereadTheme\(\) \{\s*try \{\s*const t = localStorage\.getItem\('wc-theme'\);/,
     );
   });
 
@@ -113,6 +145,15 @@ describe('the masthead', () => {
     expect(masthead).toContain("document.addEventListener('pointerdown', () => (tabbed = false));");
     expect(masthead).toContain("tabbed = e.key === 'Tab';");
     expect(masthead).toContain('(tabbed || now !== document.body) && !menu.contains(now)');
+  });
+
+  /** The menu button shows a cross while the sheet is open, from CSS, so it holds with JS off. */
+  it('swaps the menu icon for a close icon while the menu is open', () => {
+    expect(masthead).toMatch(
+      /<summary class="icon-btn">[\s\S]*class="i-menu"[\s\S]*class="i-close"[\s\S]*<\/summary>/,
+    );
+    expect(masthead).toMatch(/\.menu \.i-close,\s*\.menu\[open\] \.i-menu \{\s*display: none;/);
+    expect(masthead).toMatch(/\.menu\[open\] \.i-close \{\s*display: block;/);
   });
 
   /** The root's scroll-padding covers the sticky bar: a focused control in it must not scroll the page. */

@@ -63,12 +63,17 @@ function init(scope: HTMLElement): void {
   }
   const nodeOf = new Map([...records].map(([node, record]) => [record, node]));
 
-  /** Kind narrowing from the tabs, which is a filter rather than a query. */
+  /**
+   * Kind narrowing from the tabs, which is a filter rather than a query: it
+   * decides what shows, never what counts, so every tab keeps the number it
+   * would show if picked. A kind the query names ("people in bhopal") is part
+   * of the query and narrows the counts too.
+   */
   let pinned: SearchKind | 'all' = 'all';
+  const shown = (kind: SearchKind): boolean => pinned === 'all' || kind === pinned;
 
   const apply = (): void => {
     const intent = parseQuery(input.value, vocabulary);
-    if (pinned !== 'all') intent.kinds = [pinned];
 
     const blank = isEmptyIntent(intent);
     const ranked = blank
@@ -80,7 +85,7 @@ function init(scope: HTMLElement): void {
 
     for (const [node, record] of records) {
       const hit = hits.has(record);
-      node.hidden = !hit;
+      node.hidden = !hit || !shown(record.kind);
       if (hit) perKind.set(record.kind, (perKind.get(record.kind) ?? 0) + 1);
     }
 
@@ -95,7 +100,7 @@ function init(scope: HTMLElement): void {
     for (const group of groups) {
       const kind = group.dataset.searchGroup as SearchKind;
       const count = perKind.get(kind) ?? 0;
-      group.hidden = count === 0;
+      group.hidden = count === 0 || !shown(kind);
       const counter = group.querySelector<HTMLElement>('[data-search-group-count]');
       if (counter) counter.textContent = String(count);
     }
@@ -113,7 +118,8 @@ function init(scope: HTMLElement): void {
       }
     }
 
-    const total = ranked.length;
+    // The empty state and the status describe what shows: the pinned kind.
+    const total = pinned === 'all' ? ranked.length : (perKind.get(pinned) ?? 0);
     if (empty) empty.hidden = total > 0;
     if (emptyTerm) emptyTerm.textContent = input.value.trim();
     if (clear) clear.hidden = blank && pinned === 'all';
@@ -128,11 +134,13 @@ function init(scope: HTMLElement): void {
       }
       if (intent.surface) parts.push(`using ${intent.surface}`);
       if (intent.format) parts.push(intent.format.replace(/-/g, ' '));
-      if (intent.kinds.length === 1) parts.push(KIND_LABEL[intent.kinds[0]].toLowerCase());
+      const kinds = pinned === 'all' ? intent.kinds : [pinned];
+      if (kinds.length === 1) parts.push(KIND_LABEL[kinds[0]].toLowerCase());
 
-      status.textContent = blank
-        ? `${total} records`
-        : `${total} ${total === 1 ? 'result' : 'results'}${parts.length ? ` · ${parts.join(' · ')}` : ''}`;
+      status.textContent =
+        blank && pinned === 'all'
+          ? `${total} records`
+          : `${total} ${total === 1 ? 'result' : 'results'}${parts.length ? ` · ${parts.join(' · ')}` : ''}`;
     }
   };
 

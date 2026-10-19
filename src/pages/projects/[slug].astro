@@ -374,7 +374,7 @@ const crumbs = project
               {/* Reporting needs the www session, which projects.withclaude.in never has. */}
               {isDirectoryHost(Astro.url.hostname) ? (
                 <a
-                  class="button button--quiet"
+                  class="link"
                   href={`${MAIN_ORIGIN}/projects/${project.slug}/`}
                   title="Report this content on www.withclaude.in, where you are signed in"
                 >
@@ -382,7 +382,11 @@ const crumbs = project
                 </a>
               ) : (
                 <div class="js-only">
-                  <ReportModal client:visible entityType="project" entityId={project.id} />
+                  <ReportModal
+                    client:visible={{ rootMargin: '600px' }}
+                    entityType="project"
+                    entityId={project.id}
+                  />
                 </div>
               )}
               <ModeratorControls

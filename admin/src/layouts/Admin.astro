@@ -42,6 +42,8 @@ const user = Astro.locals.user;
     <!-- Nothing in here is for a crawler, a cache, or a link preview. -->
     <meta name="robots" content="noindex, nofollow, noarchive" />
     <meta name="referrer" content="same-origin" />
+    <!-- An empty icon, so the browser does not ask for /favicon.ico and log a 404. -->
+    <link rel="icon" href="data:," />
     <title>{title} — WITH CLAUDE admin</title>
   </head>
 

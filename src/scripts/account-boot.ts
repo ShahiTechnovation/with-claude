@@ -73,6 +73,10 @@ function warm(): NonNullable<typeof warmed> {
       import('@/components/react/PrivyRoot'),
     ]),
   };
+  // A failed download is not kept: the next hover or click starts it again.
+  warmed.sdk.catch(() => {
+    warmed = null;
+  });
   return warmed;
 }
 
@@ -81,16 +85,37 @@ let booted: Promise<void> | null = null;
 function boot(openLogin: boolean): Promise<void> {
   if (booted || !mount) return booted ?? Promise.resolve();
   const { sdk, methods } = warm();
-  booted = sdk.then(async ([React, { createRoot }, { default: PrivyRoot }]) => {
-    // Its grace period starts once the SDK has loaded, so a slow link still filters.
-    const enabled = await Promise.race([
-      methods,
-      new Promise<string[]>((resolve) => setTimeout(resolve, 1500, loginMethods)),
-    ]);
-    createRoot(mount).render(
-      React.createElement(PrivyRoot, { appId, loginMethods: enabled, openLogin }),
-    );
-  });
+  booted = sdk
+    .then(async ([React, { createRoot }, { default: PrivyRoot }]) => {
+      // Its grace period starts once the SDK has loaded, so a slow link still filters.
+      const enabled = await Promise.race([
+        methods,
+        new Promise<string[]>((resolve) => setTimeout(resolve, 1500, loginMethods)),
+      ]);
+      createRoot(mount).render(
+        React.createElement(PrivyRoot, { appId, loginMethods: enabled, openLogin }),
+      );
+    })
+    .catch((error: unknown) => {
+      // The download failed (a deploy replaced the file, the connection dropped, a blocker).
+      // PrivyRoot never mounted, so its own slow state cannot show: undo the click's label,
+      // let the next click try again, and give the gate PrivyRoot's slow-start line.
+      console.error('[account] sign-in failed to load', error);
+      booted = null;
+      for (const link of document.querySelectorAll('[data-account-signin][aria-busy]')) {
+        link.removeAttribute('aria-busy');
+        link.textContent = 'Sign in';
+      }
+      const gate = document.getElementById('join-cta-root');
+      if (gate) {
+        // Fixed markup, the same as PrivyRoot's slow state; nothing from the error goes in.
+        gate.innerHTML =
+          '<div class="signin-failed" role="alert">' +
+          '<p class="signin-status">Sign-in is taking longer than usual to load.</p>' +
+          '<button type="button" class="signin-button">Reload</button></div>';
+        gate.querySelector('button')?.addEventListener('click', () => window.location.reload());
+      }
+    });
   return booted;
 }
 

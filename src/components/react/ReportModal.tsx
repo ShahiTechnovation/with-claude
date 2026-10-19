@@ -1,5 +1,5 @@
-import { useId, useRef, useState } from 'react';
-import { describeAccountError } from '@/lib/account-fetch';
+import { useEffect, useId, useRef, useState } from 'react';
+import { signInHref } from '@/lib/directory-host';
 
 interface ReportModalProps {
   entityType: 'builder' | 'project' | 'media';
@@ -7,8 +7,8 @@ interface ReportModalProps {
 }
 
 /**
- * `ReportModal` is mounted with `client:load` directly on `/builders/[slug]`
- * and `/projects/[slug]` — its own React root, not inside the site's one
+ * `ReportModal` is mounted with `client:visible={{ rootMargin: '600px' }}` directly on
+ * `/builders/[slug]` and `/projects/[slug]` — its own React root, not inside the site's one
  * `PrivyProvider` (see `src/lib/account-fetch.ts` for the full explanation).
  *
  * Two consequences, both real bugs, neither previously caught:
@@ -32,16 +32,32 @@ interface ReportModalProps {
  * `privy-token` cookie a same-origin request carries automatically — be the
  * one honest answer to "is this person signed in". A 401 there means
  * genuinely not signed in, and is shown as such rather than swallowed.
+ *
+ * The "Report" button is server-rendered, so it does nothing until this island hydrates.
+ * `client:visible` starts that a screen (600px) before the button comes into view, so a first
+ * Enter or tap finds it live, and a builder page nobody scrolls to its foot never downloads
+ * React. One directive on both pages, so neither can drift to a different timing.
+ * ponytail: a very slow download, or an Enter within about 100ms of focus after holding Tab down a
+ * long builder page, can still drop a first Enter. The upgrade path is load-on-intent, as
+ * `src/scripts/account-boot.ts` does for sign-in.
  */
 export function ReportModal({ entityType, entityId }: ReportModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const errorRef = useRef<HTMLDivElement>(null);
   const id = useId();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // 'sign-in' is a 401: the notice links to the sign-in gate.
+  const [error, setError] = useState<'sign-in' | { message: string } | null>(null);
 
   const [reason, setReason] = useState<string>('other');
   const [details, setDetails] = useState('');
+
+  // Submitting disables the focused button, which drops focus to <body>, so focus moves to the
+  // notice. An effect, not a callback ref, which would pull focus back on every keystroke.
+  useEffect(() => {
+    if (error) errorRef.current?.focus();
+  }, [error]);
 
   // The dialog is closed before this replaces it; focus moves to the notice so
   // keyboard and screen-reader users are not dropped on <body>.
@@ -53,7 +69,7 @@ export function ReportModal({ entityType, entityId }: ReportModalProps) {
     );
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError(null);
@@ -69,18 +85,27 @@ export function ReportModal({ entityType, entityId }: ReportModalProps) {
         credentials: 'same-origin',
       });
 
-      if (!res.ok) {
-        // 401 here is the real, honest "not signed in" — the one this
-        // component previously never reached, because the broken client-side
-        // `authenticated` check intercepted every click before the form even
-        // opened.
-        throw new Error(await describeAccountError(res));
+      if (res.ok) {
+        dialogRef.current?.close();
+        setSuccess(true);
+        return;
       }
-
-      dialogRef.current?.close();
-      setSuccess(true);
-    } catch (err: any) {
-      setError(err.message);
+      if (res.status === 401) {
+        setError('sign-in');
+        return;
+      }
+      // Here, not in the shared `describeAccountError`, whose 401 says "session expired" and whose
+      // other failures say "save your changes". A 403 or 409 carries a sentence meant for the
+      // visitor: a suspended or closed account, an unfinished sign-up (`messageFor` in guard.ts).
+      // Other 4xx bodies, such as "Send JSON.", are not for them.
+      const body =
+        res.status === 403 || res.status === 409 ? await res.json().catch(() => null) : null;
+      setError({
+        message:
+          typeof body?.error === 'string' ? body.error : "Couldn't send your report. Try again.",
+      });
+    } catch {
+      setError({ message: 'We could not reach the server. Try again.' });
     } finally {
       setIsSubmitting(false);
     }
@@ -92,21 +117,29 @@ export function ReportModal({ entityType, entityId }: ReportModalProps) {
     <>
       <button
         type="button"
-        className="button button--quiet"
-        onClick={() => dialogRef.current?.showModal()}
+        className="link"
+        onClick={() => {
+          setError(null);
+          dialogRef.current?.showModal();
+        }}
         title="Report this content"
       >
         Report
       </button>
 
-      {/* `* { margin: 0 }` in base.css cancels the browser's own centring of a modal dialog.
-          Built for the cream ground, so it keeps a light scope on a dark page. */}
+      {/* `* { margin: 0 }` in base.css cancels the browser's own centring of a modal dialog,
+          and the browser's dialog colour would override the inherited ink. The field rule
+          keeps its edge at 3:1 on the dark page, where the backdrop barely dims. */}
       <dialog
         ref={dialogRef}
         className="panel"
-        data-theme="light"
         aria-labelledby={`${id}-title`}
-        style={{ width: '28rem', margin: 'auto' }}
+        style={{
+          width: '28rem',
+          margin: 'auto',
+          color: 'var(--ink-2)',
+          borderColor: 'var(--rule-field)',
+        }}
       >
         <div className="panel-head">
           <h2 id={`${id}-title`}>Report content</h2>
@@ -120,8 +153,14 @@ export function ReportModal({ entityType, entityId }: ReportModalProps) {
         <form onSubmit={handleSubmit}>
           <div className="form-grid">
             {error && (
-              <div className="notice notice--error" role="alert">
-                {error}
+              <div className="notice notice--error" role="alert" tabIndex={-1} ref={errorRef}>
+                {error === 'sign-in' ? (
+                  <>
+                    <a href={signInHref(window.location.hostname)}>Sign in</a> to report this.
+                  </>
+                ) : (
+                  error.message
+                )}
               </div>
             )}
 
@@ -158,6 +197,7 @@ export function ReportModal({ entityType, entityId }: ReportModalProps) {
                 value={details}
                 onChange={(e) => setDetails(e.target.value)}
                 rows={3}
+                maxLength={1000}
                 placeholder="Any additional details..."
               />
             </div>

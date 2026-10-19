@@ -1,13 +1,12 @@
 ---
-import { official, participationPaths } from '@/data';
+import { participationPaths } from '@/data';
 
 /**
  * Ways in.
  *
- * Six open paths and one that is not ours to give. The HOST path routes to
- * Anthropic's Ambassador programme and says plainly that this site does not
- * grant the status — it is set apart visually for the same reason it is set
- * apart in the data model.
+ * Six open paths and one that is not ours to give. The HOST path says plainly
+ * that hosting is Anthropic's programme and carries no link: it is set apart
+ * visually for the same reason it is set apart in the data model.
  *
  * Tally-backed CTAs open a popup where the embed script is available and fall
  * back to a plain link everywhere else. The href is always real.
@@ -23,10 +22,10 @@ const usesTally = participationPaths.some((item) => item.tallyId);
 
 /**
  * A `submission` path maps to its authenticated destination here, rather than
- * routing through an anonymous form. That
- * makes `formId` load-bearing: name a form that does not exist and the build
- * stops here, the same way `SubmitPanel` stops. The alternative — a `formId`
- * nothing reads — is how the two drifted apart in the first place.
+ * routing through an anonymous form. That makes `formId` load-bearing: an id
+ * missing from `destinations` stops the build here instead of linking home.
+ * The alternative — a `formId` nothing reads — is how the two drifted apart
+ * in the first place.
  */
 function submissionHref(path: (typeof participationPaths)[number]): string {
   const destinations: Record<string, string> = {
@@ -35,16 +34,13 @@ function submissionHref(path: (typeof participationPaths)[number]): string {
     practice: '/practice/',
     city: '/me/profile/edit/',
   };
-  return path.formId ? (destinations[path.formId] ?? '/') : '/';
+  const href = path.formId ? destinations[path.formId] : undefined;
+  if (!href) throw new Error(`Unknown participation form: ${path.formId}`);
+  return href;
 }
 
 const paths = participationPaths.map((path) => {
-  const url =
-    path.kind === 'official'
-      ? official.ambassadorProgramUrl
-      : path.kind === 'submission'
-        ? submissionHref(path)
-        : path.url;
+  const url = path.kind === 'submission' ? submissionHref(path) : path.url;
   return {
     ...path,
     href: url ?? '#',
@@ -67,8 +63,8 @@ const authorised = paths.filter((p) => p.kind === 'official');
 
   <ol class="paths">
     {
-      open.map((item, i) => (
-        <li data-reveal="fade" style={`--reveal-delay:${i * 45}ms`}>
+      open.map((item) => (
+        <li data-reveal="fade">
           <a
             class="path"
             href={item.href}
@@ -100,14 +96,6 @@ const authorised = paths.filter((p) => p.kind === 'official');
         <div class="official-body">
           <h3 class="official-title t-h3">{item.title}</h3>
           <p class="official-desc">{item.description}</p>
-        </div>
-        <div class="official-action">
-          <a class="btn btn-primary" href={item.href} target="_blank" rel="noopener">
-            <span>{item.ctaLabel}</span>
-            <span class="arrow" aria-hidden="true">
-              ↗
-            </span>
-          </a>
         </div>
       </div>
     ))
@@ -212,12 +200,6 @@ const authorised = paths.filter((p) => p.kind === 'official');
     color: var(--ink-3);
   }
 
-  .official-action {
-    display: grid;
-    align-content: start;
-    justify-items: start;
-  }
-
   @media (min-width: 700px) {
     .paths {
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -227,18 +209,6 @@ const authorised = paths.filter((p) => p.kind === 'official');
   @media (min-width: 1100px) {
     .paths {
       grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-  }
-
-  @media (min-width: 56em) {
-    .official {
-      grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.7fr);
-      gap: var(--s-8);
-      align-items: center;
-    }
-
-    .official-action {
-      justify-items: end;
     }
   }
 

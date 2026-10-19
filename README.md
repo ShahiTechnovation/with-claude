@@ -395,7 +395,7 @@ These rules are enforced in code and in the schema, not by convention:
   `admin/src/server/moderation.ts`. A restore clears the deletion tombstone as well as the state.
 
 There's deliberately no "start a chapter" flow. Hosting Claude Community events means becoming a
-Claude Community Ambassador, which is Anthropic's programme, and the site links there.
+Claude Community Ambassador, which is Anthropic's programme.
 
 `tests/data.test.ts` enforces the honesty rules on the record. A city can't be Ambassador-led
 without a real Ambassador record. Every Ambassador must say how the status was verified, every
@@ -421,7 +421,7 @@ puts it in the repository, not in the database. `backfill:photos` adds those pho
 running the full importer:
 
 ```bash
-npm run backfill:photos -- rehearse     # dry run against PGlite seeded to the live state
+npm run backfill:photos -- rehearse     # dry run against PGlite seeded to the 81fe1e7 baseline
 npm run backfill:photos -- plan         # dry run against DATABASE_URL; writes nothing
 npm run backfill:photos -- apply --yes  # write, after printing the delta; saves a receipt in imports/
 npm run backfill:photos -- rollback --receipt imports/<file>.json --yes
@@ -450,14 +450,13 @@ the strongest text in either theme. Shared classes (containers, the heading pair
 fields) live in `src/styles/primitives.css`, and components don't redefine them. Read the tokens
 before changing any UI.
 
-**Themes.** Dark is the default on every public page. The server renders `data-theme="dark"`, so
+**Themes.** Dark is the default on every page. The server renders `data-theme="dark"`, so
 with JavaScript off the site is dark and complete and the theme toggle is hidden. Cream is the
 visitor's choice: the toggle in the masthead switches the theme and saves it as `wc-theme` in
 `localStorage`, and an inline script in the `<head>` of `src/layouts/Base.astro` applies the saved
-choice before first paint. The site doesn't follow the device's colour scheme. Everything under
-`/me/` is locked light and hides the toggle, and print is always light. Every colour token has a
-literal value in the dark, light and print blocks; `tests/theme.test.ts` checks that, along with the
-head script and the `/me/` lock.
+choice before first paint. The site doesn't follow the device's colour scheme. Print is always
+light. Every colour token has a literal value in the dark, light and print blocks;
+`tests/theme.test.ts` checks that, along with the head script.
 
 **Shape and type.** Buttons, chips, fields and icon buttons are pills. The primary button is clay
 with a glow and dark text, and the rest are outlined. Clay text uses `--clay-deep`, the text-safe
@@ -467,15 +466,20 @@ Sans Display Semibold, and body text is Inter. The serif never goes below 21px, 
 below 15px (`--t-small`, checked by `tests/theme.test.ts`). Fraunces sets the wordmark and nothing
 else. There's no monospace anywhere. The fonts are defined in `src/styles/fonts.css`.
 
-**Motion.** Animation either plays once on load or follows the scroll, and nothing loops:
-`tests/theme.test.ts` fails on any `infinite` in `src`. The hero's sunrise and headline play once on
-load, and the headline only rises and sharpens, so it is never below full opacity. The live dot, the
+**Motion.** Most animation either plays once on load or follows the scroll. Three things keep
+moving, and only with motion allowed. The film grain over the page shimmers in a stepped 1s loop
+(`body::after`, the one `infinite` that `tests/theme.test.ts` allows in `src`). The WebGL mist over
+the sun (`src/scripts/hero-mist.ts`) eases in on load, then drifts slowly while the hero is on
+screen, and the scroll moves it further. The photo strips on the home page, `/builders/` and
+`/stories/` glide on, one photo every 3.5s, pause on hover or focus, and stop for good once the
+visitor scrolls them or presses a key in them. The hero's sunrise and headline play once on load,
+and the headline only rises and sharpens, so it is never below full opacity. The live dot, the
 next-event pulse and the lead city's ring on the map run twice and stop. Reveals, and the map's pins
 and routes, run on CSS scroll timelines inside both `prefers-reduced-motion: no-preference` and
 `@supports (animation-timeline: view())`. The static state is the finished state, so reduced-motion
-visitors and browsers without scroll timelines get the complete page, and with reduced motion every
-remaining animation and transition is cut to near zero. The film grain over the page is a static
-layer.
+visitors and browsers without scroll timelines get the complete page. With reduced motion the grain
+is static, the mist is one still frame and the strips stay put, each by its own check, and every
+other animation and transition is cut to near zero.
 
 **The India map** (`src/components/CityAtlas.astro`) is drawn from DataMeet's state boundaries,
 which follow the official Survey of India outline, simplified and reprojected by
@@ -533,9 +537,6 @@ This is an independent, non-commercial, volunteer-run community. It isn't an Ant
 programme or endorsement. The affiliation statement lives in `site.affiliation` in
 `src/data/site.ts` and renders in the footer and on `/about` and `/community`. The structured data
 has no `parentOrganization`, `sponsor` or `memberOf` pointing at Anthropic.
-
-Every "Become a Claude Community Ambassador" link reads `official.ambassadorProgramUrl` in
-`src/data/site.ts` and goes to <https://claude.com/community/ambassadors>.
 
 ## Credits
 

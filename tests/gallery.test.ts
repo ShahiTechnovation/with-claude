@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
+import sharp from 'sharp';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { importRecords, repositoryRecords } from '../db/import';
 import { createTestDatabase, type TestDatabase } from '../db/testing';
@@ -47,6 +48,49 @@ describe.each<[string, RecordSet]>([
     expect(new Set(slugs).size).toBe(slugs.length);
     const dates = rooms.map(({ event }) => event.date);
     expect(dates).toEqual([...dates].sort().reverse());
+  });
+});
+
+describe('the photograph files', () => {
+  it('has the 10 and 11 October rooms photographed', () => {
+    for (const slug of ['claude-community-workshop', 'claude-code-impact-lab-october'])
+      expect(
+        record.events.find((event) => event.slug === slug)?.photos?.length,
+        slug,
+      ).toBeGreaterThan(0);
+  });
+
+  // In both October rooms the last plate is the one shown widest: 21:9 on /gallery/ (10 Oct's 7
+  // plates at three columns, 11 Oct's 26 at two) and 2:1 on the 11 Oct event page (an even count).
+  // Each keeps every face in that crop, so a reorder would bring the cut faces back.
+  it('closes the October rooms with the plates whose faces survive the wide tile', () => {
+    const last = (slug: string) =>
+      record.events.find((event) => event.slug === slug)?.photos?.at(-1)?.src;
+    expect(last('claude-community-workshop')).toBe('events/claude-community-workshop-4.jpg');
+    expect(last('claude-code-impact-lab-october')).toBe('events/vol14-22.jpg');
+  });
+
+  it('keeps every event photo on disk, at most 1600px, with its EXIF and GPS stripped', async () => {
+    for (const { src } of record.events.flatMap((event) => event.photos ?? [])) {
+      const meta = await sharp(`src/assets/${src}`).metadata();
+      expect(Math.max(meta.width!, meta.height!), src).toBeLessThanOrEqual(1600);
+      expect(meta.exif, src).toBeUndefined();
+      // The phone and camera sources carry XMP as well, which can hold GPS too.
+      expect(meta.xmp, src).toBeUndefined();
+      // IPTC can carry a by-line, a contact and a location.
+      expect(meta.iptc, src).toBeUndefined();
+    }
+  });
+
+  // The other direction: a photo dropped from the record must take its file with it, or it stays
+  // in the public repository and the asset registry with no event showing it.
+  it('ships no file the record does not show, and shows no file twice', () => {
+    const srcs = record.events.flatMap((event) => (event.photos ?? []).map((photo) => photo.src));
+    expect(new Set(srcs).size, 'a photo is listed twice').toBe(srcs.length);
+    for (const file of readdirSync('src/assets/events').filter((name) => !name.startsWith('.')))
+      expect(srcs, `src/assets/events/${file} is on disk but on no event`).toContain(
+        `events/${file}`,
+      );
   });
 });
 
@@ -139,6 +183,10 @@ describe('the /gallery/ page', () => {
     expect(page).toMatch(/\.w2-2:not\(\.is-lead\) \.frame \{\s*aspect-ratio: 21 \/ 9;/);
     // Sizes follow the spans, so a half-width photo never downloads the full-width file.
     expect(page).toContain("w3 === 3 ? '100vw' : w3 === 2 ? '860px' : '420px'");
+    // The 2x2 lead stretches to its two rows like every spanning tile: no 6.6 px step under it
+    // at three columns.
+    expect(page).toMatch(/:is\(\.h3-2, \.w3-2\) \{\s*align-self: stretch;/);
+    expect(page).toMatch(/:is\(\.h3-2, \.w3-2\) :is\(figure, \.frame\) \{\s*height: 100%;/);
   });
 
   it('gives a portrait a tall tile instead of bars at its sides', () => {
@@ -148,6 +196,19 @@ describe('the /gallery/ page', () => {
     // A portrait forced wide takes the banner ratio, not a 3:2 frame.
     expect(page).toContain('.is-tall:not(.h2-2, .w2-2) .frame {');
     expect(page).toContain('.is-tall:not(.h3-2, .w3-2, .w3-3) .frame {');
+  });
+
+  it('rests photos in black and white, blooming to colour on hover or focus', () => {
+    expect(page).toContain('filter: grayscale(1) brightness(0.92);');
+  });
+
+  it('keeps motion inside prefers-reduced-motion and @supports guards', () => {
+    expect(page).toMatch(
+      /@media\s*\(prefers-reduced-motion:\s*no-preference\)[\s\S]*@supports\s*\(animation-timeline:\s*view\(\)\)/,
+    );
+    expect(page).toContain('animation-timeline: view()');
+    expect(page).toMatch(/transform:\s*translateY\(24px\)/);
+    expect(page).toContain('transform: scale(1.04)');
   });
 });
 
@@ -195,5 +256,21 @@ describe('the gallery grid packer', async () => {
     ]);
     // A seventh photo alone after the lead block becomes the full-width banner.
     expect(pack(Array(7).fill(false), 3).at(-1)).toEqual([3, 1]);
+  });
+
+  // The sweep above stops at nine photos; the record already holds a 26-plate room. layout()
+  // packs a room of three or more, with a tall tile for each portrait after the lead.
+  it('closes every room on the record at two and three columns', async () => {
+    for (const { event, plates } of new RecordSelectors(record).photoRecordByEvent()) {
+      if (plates.length < 3) continue;
+      const tall = await Promise.all(
+        plates.map(async ({ src }, i) => {
+          const { width, height } = await sharp(`src/assets/${src}`).metadata();
+          return i > 0 && height! > width!;
+        }),
+      );
+      for (const cols of [2, 3])
+        expect(fills(pack(tall, cols), cols), `${event.slug} at ${cols} columns`).toBe(true);
+    }
   });
 });

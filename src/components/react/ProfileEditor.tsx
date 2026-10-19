@@ -9,14 +9,16 @@
  *   Publish / Update  PATCH, then POST               — projects it to the
  *                                                     public builder page
  *
- * Every field is sent on save, and an emptied field is sent as empty — the
- * server stores NULL. The old editor omitted an empty website or role
- * because the schema rejected `""`, so those could never be cleared.
+ * Every field but the username is sent on save; an emptied one goes as empty
+ * or null and the server stores NULL. A blank username is never sent: with a
+ * saved handle `savePassport` refuses it, and without one there is nothing to
+ * clear. The old editor omitted an empty website or role because the schema
+ * rejected `""`, so those could never be cleared.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SELECTABLE_ROLES } from '@/lib/roles';
 import { useAccount, USERNAME_SAVED_EVENT } from './account-context';
-import { uploadImage, UploadProblem } from './upload-image';
+import { IMAGE_ACCEPT, IMAGE_HINT, uploadImage, UploadProblem } from './upload-image';
 
 export interface ProfileEditorProfile {
   username: string;
@@ -56,7 +58,7 @@ type Fields = {
   bio: string;
   claudeSince: string;
   website: string;
-  visibility: string;
+  visibility: 'public' | 'unlisted';
   avatarMediaId: string | null;
 };
 
@@ -110,7 +112,8 @@ export default function ProfileEditor({ profile, uploadPrefix }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const focusId = useRef<string | null>(null);
 
-  // Move to the field the server rejected once its error is rendered, so it is read with it.
+  // Move to the field whose error was just rendered, whether the server or a check here set it,
+  // so it is read with it.
   useEffect(() => {
     const control = focusId.current ? document.getElementById(focusId.current) : null;
     focusId.current = null;
@@ -171,6 +174,14 @@ export default function ProfileEditor({ profile, uploadPrefix }: Props) {
   };
 
   const savePassport = async (): Promise<boolean> => {
+    // A blank username is left out of the PATCH below (sent, the server answers 422 "Choose a
+    // username."), so the saved handle survives and `setSaved(form)` would show the blank as
+    // saved. Refuse it here instead.
+    if (saved.username && !form.username.trim()) {
+      focusId.current = 'pe-username';
+      setFieldErrors({ username: 'Choose a username' });
+      return false;
+    }
     const body: Record<string, unknown> = {
       displayName: form.displayName,
       citySlug: form.citySlug || null,
@@ -281,7 +292,9 @@ export default function ProfileEditor({ profile, uploadPrefix }: Props) {
       setNotice({
         tone: 'error',
         text:
-          error instanceof UploadProblem ? error.message : 'The portrait could not be uploaded.',
+          error instanceof UploadProblem
+            ? error.message
+            : 'We could not reach the server. Try again.',
       });
     } finally {
       setBusy(null);
@@ -290,6 +303,7 @@ export default function ProfileEditor({ profile, uploadPrefix }: Props) {
   };
 
   const sessionGone = account.state.status === 'signed-out';
+  const cityListFailed = cities !== null && cities.length === 0;
   const publicPath = `/builders/${builderSlug ?? (form.username.trim().toLowerCase() || 'your-username')}/`;
   const err = (key: string) =>
     fieldErrors[key] ? (
@@ -316,7 +330,7 @@ export default function ProfileEditor({ profile, uploadPrefix }: Props) {
           <h2>Status</h2>
           <span className={`status-badge status-badge--${published ? 'published' : 'draft'}`}>
             {published
-              ? form.visibility === 'unlisted'
+              ? saved.visibility === 'unlisted'
                 ? 'Live · unlisted'
                 : 'Live · listed'
               : 'Not public yet'}
@@ -399,7 +413,7 @@ export default function ProfileEditor({ profile, uploadPrefix }: Props) {
               className="input"
               value={form.citySlug}
               aria-invalid={Boolean(fieldErrors.citySlug)}
-              aria-describedby={describedBy('citySlug')}
+              aria-describedby={describedBy('citySlug', cityListFailed)}
               onChange={(e) => set('citySlug', e.target.value)}
             >
               <option value="">{cities === null ? 'Loading cities…' : 'Choose a city'}</option>
@@ -408,15 +422,18 @@ export default function ProfileEditor({ profile, uploadPrefix }: Props) {
                   {city.name}
                 </option>
               ))}
-              {/* Keep the saved value selectable even before the list loads. */}
+              {/* Keep the saved slug selected when the loaded list lacks it; until it loads the
+                  select shows "Loading cities…". */}
               {form.citySlug &&
                 cities !== null &&
                 !cities.some((c) => c.slug === form.citySlug) && (
                   <option value={form.citySlug}>{form.citySlug}</option>
                 )}
             </select>
-            {cities !== null && cities.length === 0 && (
-              <p className="field-hint">The city list could not be loaded. Reload to try again.</p>
+            {cityListFailed && (
+              <p className="field-hint" id="pe-citySlug-hint">
+                The city list could not be loaded. Reload to try again.
+              </p>
             )}
             {err('citySlug')}
           </div>
@@ -495,6 +512,7 @@ export default function ProfileEditor({ profile, uploadPrefix }: Props) {
               maxLength={40}
               placeholder="Claude Code, the API…"
               aria-invalid={Boolean(fieldErrors.claudeSince)}
+              aria-describedby={describedBy('claudeSince')}
               onChange={(e) => set('claudeSince', e.target.value)}
             />
             {err('claudeSince')}
@@ -526,7 +544,7 @@ export default function ProfileEditor({ profile, uploadPrefix }: Props) {
       <div className="panel">
         <div className="panel-head">
           <h2>Portrait</h2>
-          <span className="panel-hint">Optional · JPEG, PNG, WebP · up to 5 MB</span>
+          <span className="panel-hint">Optional · {IMAGE_HINT}</span>
         </div>
         <div className="image-picker image-picker--round">
           {avatarUrl && form.avatarMediaId ? (
@@ -541,7 +559,7 @@ export default function ProfileEditor({ profile, uploadPrefix }: Props) {
             id="pe-portrait"
             ref={fileRef}
             type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+            accept={IMAGE_ACCEPT}
             disabled={busy !== null}
             onChange={(e) => void onPortrait(e.target.files?.[0])}
           />
@@ -549,6 +567,7 @@ export default function ProfileEditor({ profile, uploadPrefix }: Props) {
             <button
               type="button"
               className="button button--quiet"
+              disabled={busy !== null}
               onClick={() => set('avatarMediaId', null)}
             >
               Remove portrait

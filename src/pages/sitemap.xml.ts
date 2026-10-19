@@ -1,5 +1,7 @@
 import type { APIRoute } from 'astro';
-import { eq, and, isNull, or, sql } from 'drizzle-orm';
+import { eq, and, isNull, or } from 'drizzle-orm';
+import { isCityIndexable } from '@/lib/indexable';
+import { loadLiveRecords } from '@/server/directory';
 import { publicProjectWhere } from '@/server/projects/lifecycle';
 import { resolvableEvents } from '@/server/public/pages';
 import { pooledDb } from '../../db/pool';
@@ -110,32 +112,16 @@ export const GET: APIRoute = async () => {
       .where(eq(schema.ambassadors.status, 'published'));
 
     /**
-     * 5. Cities — published, AND at least one public signal of the five the
-     * city page itself uses (`isCityIndexable()` in src/lib/indexable.ts):
-     * an ambassador, an event, a builder, a project or a story.
+     * 5. Cities — decided exactly as `/cities/[slug]` decides its noindex:
+     * `isCityIndexable()` over `loadLiveRecords()`. A SQL copy of the rule
+     * used to live here, and it counted events the live record drops (no
+     * host), so it listed city pages that render noindex.
      *
-     * This used to check builders and projects only, so a city with a real
-     * published event or a verified ambassador — and nothing else yet — was
-     * indexable on its own page and missing from the sitemap.
+     * ponytail: `resolvableEvents()` above loads the same record a second time
+     * (the CDN keeps this response 300 s). If that load ever costs, pass it `rs`.
      */
-    const cities = await db
-      .selectDistinct({ slug: schema.cities.slug })
-      .from(schema.cities)
-      .where(
-        and(
-          eq(schema.cities.status, 'published'),
-          sql`(
-            exists (select 1 from ambassadors a where a.city_id = ${schema.cities.id} and a.status = 'published')
-            or exists (select 1 from events e where e.city_id = ${schema.cities.id} and e.status = 'published')
-            or exists (select 1 from builders b where b.city_id = ${schema.cities.id}
-                         and b.status = 'published' and b.moderation_state = 'clean' and b.deleted_at is null)
-            or exists (select 1 from projects p where p.city_id = ${schema.cities.id}
-                         and p.publication_status = 'published' and p.moderation_state = 'clean'
-                         and p.deleted_at is null)
-            or exists (select 1 from stories s where s.city_id = ${schema.cities.id} and s.status = 'published')
-          )`,
-        ),
-      );
+    const rs = await loadLiveRecords(db);
+    const cities = rs.cities.filter((city) => isCityIndexable(city, rs));
 
     const staticPaths = [
       '/',
@@ -154,7 +140,7 @@ export const GET: APIRoute = async () => {
     const urls: { url: string; lastmod?: string }[] = [
       ...staticPaths.map((path) => ({ url: `${ORIGIN}${path}` })),
 
-      // Cities — only those with public activity (mirrors isCityIndexable logic)
+      // Cities — only the ones whose own page is indexable
       ...cities.flatMap((c) => {
         const u = cityUrl(c.slug);
         return u ? [{ url: u }] : [];

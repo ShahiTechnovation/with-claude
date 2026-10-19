@@ -29,33 +29,15 @@ export const site = {
   affiliation:
     'An independent, volunteer-run community of people who build with Claude. Not affiliated with, endorsed by, or operated by Anthropic. Claude and Anthropic are trademarks of Anthropic PBC.',
 
-  /**
-   * The one place the Ambassador relationship is explained. Rendered wherever
-   * someone is about to assume this site can make them an Ambassador.
-   */
-  ambassadorNote:
-    'Claude Community Ambassadors are appointed by Anthropic. Applications go through Anthropic — not through this site.',
-
   locale: 'en_IN',
   timezone: 'Asia/Kolkata',
 } as const;
 
-/**
- * Official destinations.
- *
- * `ambassadorProgramUrl` is the confirmed home of the Claude Community
- * Ambassador programme, and it is required rather than optional: every
- * "Become an Ambassador" CTA on this site goes there and nowhere else. Typing
- * it as a plain `string` is what removes the possibility of a fallback — a
- * generic anthropic.com link would leave someone who wants to host events
- * navigating for the page themselves.
- */
+/** Official destinations. */
 export const official: {
-  ambassadorProgramUrl: string;
   anthropic: string;
   claude: string;
 } = {
-  ambassadorProgramUrl: 'https://claude.com/community/ambassadors',
   anthropic: 'https://www.anthropic.com',
   claude: 'https://claude.ai',
 };
@@ -139,14 +121,14 @@ export const partners: Partner[] = [
  *
  * Note what is *not* here: there is no path that lets a visitor start a
  * chapter. Hosting Claude Community events is an Anthropic programme, so the
- * HOST path routes to Anthropic and says so. Everything else is genuinely open
- * to anyone.
+ * HOST path says so and has no CTA. Everything else is genuinely open to
+ * anyone.
  *
  * The three Tally forms are live and were created by the Bhopal organisers.
- * The two `submission` paths are handled on-site by `SubmitPanel`. Each names a
- * form in `forms.ts` by id and nothing else: the anchor the CTA scrolls to is
- * read off that form, so an id that does not resolve fails the build rather
- * than quietly pointing at a panel that is not there.
+ * The two `submission` paths each name a form in `forms.ts` by id and nothing
+ * else. `Participation.astro` turns that id into a page through its
+ * `destinations` map, so an id the map lacks fails the build rather than
+ * quietly linking to the home page.
  */
 export const participationPaths: ParticipationPath[] = [
   {
@@ -215,9 +197,7 @@ export const participationPaths: ParticipationPath[] = [
     id: 'host',
     label: 'Host',
     title: 'Lead Claude Community events',
-    description:
-      'Hosting Claude Community events is an Anthropic programme. You apply through Anthropic.',
-    ctaLabel: 'Become an Ambassador',
+    description: 'Hosting Claude Community events is an Anthropic programme.',
     kind: 'official',
   },
 ];

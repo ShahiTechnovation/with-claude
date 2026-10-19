@@ -15,7 +15,7 @@ import { registrationLink } from '@/lib/attribution';
 import { formatDayLong, formatHours, isoDateTime, relativeDay } from '@/lib/datetime';
 import { eventPlate } from '@/lib/event-plate';
 import { isRegistrationOpen, lifecycleLabel, lifecycleOf } from '@/lib/status';
-import { listJoin } from '@/lib/words';
+import { initials, listJoin } from '@/lib/words';
 
 interface Props {
   /** Absent: the "No event on the calendar yet." state. */
@@ -65,14 +65,7 @@ const entry = event
     }.`
   : '';
 const host = event ? selectors.hostAmbassador(event) : undefined;
-const initials = host
-  ? host.name
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((w) => w[0]!.toUpperCase())
-      .join('')
-  : '';
+const hostInitials = host ? initials(host.name) : '';
 const organisations = listJoin(event?.host.organisations ?? []);
 const register =
   event && isRegistrationOpen(event) ? registrationLink(event.registrationUrl) : null;
@@ -127,7 +120,7 @@ const arrowOut = 'M7 13l6.5-6.5M8 6.5h5.5V12';
         {host ? (
           <div class="feature-host">
             <span class="feature-av" aria-hidden="true">
-              {initials}
+              {hostInitials}
             </span>
             <p>
               Hosted by <b>{host.name}</b>

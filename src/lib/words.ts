@@ -14,3 +14,17 @@ export function listJoin(items: string[]): string {
   if (items.length < 2) return items[0] ?? '';
   return `${items.slice(0, -1).join(', ')} & ${items[items.length - 1]}`;
 }
+
+/**
+ * `Aniket Sahu` → `AS`: the upper-cased first letter of each of the first two
+ * words. The avatar where there is no photo (index card, profile) or none is
+ * shown (home people list, event host).
+ */
+export function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]!.toUpperCase())
+    .join('');
+}
