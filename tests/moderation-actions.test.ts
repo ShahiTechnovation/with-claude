@@ -25,6 +25,9 @@
  * `tests/media-takedown.test.ts`, which owns the media read paths. What is
  * asserted here for media is the other half: that `archive` is refused rather
  * than written, because `media_status` has no `archived` value.
+ *
+ * Section 2b also pins `reportFilters()` and `reportsHref()`, the reports queue's
+ * query-string parsing, because they live in the same module.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
@@ -39,6 +42,8 @@ import {
   isModerationAction,
   moderationRequest,
   moderationWrite,
+  reportFilters,
+  reportsHref,
   type ModerationAction,
   type ModeratableType,
 } from '../admin/src/server/moderation';
@@ -308,6 +313,34 @@ describe('moderationRequest()', () => {
     const parsed = moderationRequest({ type: 'media', id: ID, action: 'archive' }, 'actor-1');
     if (parsed.ok) throw new Error('expected a refusal');
     expect(parsed.error).not.toMatch(/invalid input value|enum|at Object\.|\n/);
+  });
+});
+
+// ── 2b. the reports queue's query string ─────────────────────────────────
+
+describe('reportFilters()', () => {
+  // An unknown value reaching an enum column is a 500, so each one falls back.
+  it.each([
+    ['', 'open', []],
+    ['status=bogus', 'open', []],
+    ['status=all', 'all', []],
+    ['status=dismissed', 'dismissed', []],
+    ['severity=high,bogus,critical', 'open', ['high', 'critical']],
+    ['severity=bogus', 'open', []],
+  ])('reportFilters(%s)', (qs, status, severities) => {
+    expect(reportFilters(new URLSearchParams(qs))).toEqual({ status, severities });
+  });
+
+  it('keeps severity on the status links and the pager', () => {
+    const filters = reportFilters(new URLSearchParams('status=all&severity=high'));
+    const at = (href: string) =>
+      Object.fromEntries(new URL(href, 'https://admin.test').searchParams);
+    expect(at(reportsHref({ ...filters, status: 'open' }))).toEqual({
+      status: 'open',
+      severity: 'high',
+    });
+    expect(at(reportsHref(filters, 2))).toEqual({ status: 'all', severity: 'high', page: '2' });
+    expect(reportsHref({ status: 'open', severities: [] })).toBe('/reports?status=open');
   });
 });
 

@@ -8,7 +8,7 @@ import ProjectRail from '@/components/ProjectRail.astro';
 import type { RecordSelectors } from '@/data/selectors';
 import { eventLabel } from '@/lib/event-display';
 import { cardProps } from '@/lib/project-display';
-import { listJoin, plural } from '@/lib/words';
+import { initials, listJoin, plural } from '@/lib/words';
 
 interface Props {
   selectors: RecordSelectors;
@@ -49,12 +49,7 @@ const builders = selectors.publicBuilders
     role: b.role,
     city: selectors.cityName(b.citySlug),
     ambassador: Boolean(selectors.ambassadorForBuilder(b)),
-    initials: b.name
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((w) => w[0]!.toUpperCase())
-      .join(''),
+    initials: initials(b.name),
   }))
   .sort((a, b) => Number(b.ambassador) - Number(a.ambassador))
   .slice(0, 3);

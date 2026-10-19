@@ -35,13 +35,11 @@ const visibilityLabel =
     : 'Not public yet';
 ---
 
-{
-  !guard.ok ? (
-    <Base title="Sign in" description="Sign in to continue" noindex>
+<Base title="Your Builder Passport" description="View your profile." active="/me" noindex>
+  {
+    !guard.ok ? (
       <AuthRequired reason={guard.reason} />
-    </Base>
-  ) : (
-    <Base title="Your Builder Passport" description="View your profile." active="/me" noindex>
+    ) : (
       <div class="account-shell account-shell--narrow pp">
         <AccountNavTabs current="/me/profile/" />
 
@@ -122,9 +120,9 @@ const visibilityLabel =
           </a>
         </div>
       </div>
-    </Base>
-  )
-}
+    )
+  }
+</Base>
 
 <style>
   /* ── Header ── */

@@ -5,9 +5,8 @@
  * Rendered ANONYMOUS by the server — every page stays CDN-cacheable. The
  * PrivyRoot island upgrades it in the browser for signed-in visitors.
  *
- * With JS off: the fallback is the static "Join WITH CLAUDE" link rendered
- * server-side by AccountMenu (it returns a stable placeholder during Privy
- * hydration to prevent layout shift).
+ * With JS off, the static "Sign in" link below is all there is. While Privy
+ * hydrates, PrivyRoot shows a placeholder in the same box, so nothing shifts.
  */
 
 import { isDirectoryHost, signInHref } from '@/lib/directory-host';

@@ -1,10 +1,6 @@
 ---
 import Admin from '@/layouts/Admin.astro';
-import {
-  ambassadorOptions,
-  sourceStatus,
-  unattributedIngestedEvents,
-} from '@/server/ambassadors';
+import { ambassadorOptions, sourceStatus, unattributedIngestedEvents } from '@/server/ambassadors';
 import { unresolvedOrganizers } from '../../../src/server/events/hosts';
 import { pooledDb } from '@db/pool';
 
@@ -69,13 +65,19 @@ const FRESHNESS: Record<string, string> = {
   <div class="page-head">
     <h1>Attribution</h1>
     <p class="hint">
-      Event sources, and the events nobody is credited on. An unattributed event is a
-      valid event — it is published and public either way.
+      Event sources, and the events nobody is credited on. An unattributed event is a valid event —
+      it is published and public either way.
     </p>
   </div>
 
   {error && <p class="notice notice-error">{error}</p>}
-  {saved && <p class="notice notice-ok">Saved. Rebuild the public site to see it on the prerendered pages.</p>}
+  {
+    saved && (
+      <p class="notice notice-ok">
+        Saved. Rebuild the public site to see it on the prerendered pages.
+      </p>
+    )
+  }
 
   <section class="panel">
     <h2>Sources</h2>
@@ -101,7 +103,9 @@ const FRESHNESS: Record<string, string> = {
                   {source.label}
                   <span class="hint">{source.key}</span>
                 </td>
-                <td><code>{source.syncMode}</code></td>
+                <td>
+                  <code>{source.syncMode}</code>
+                </td>
                 <td class="hint">{FRESHNESS[source.syncMode] ?? source.syncMode}</td>
                 <td>{ago(source.lastSyncedAt)}</td>
                 <td>
@@ -118,9 +122,15 @@ const FRESHNESS: Record<string, string> = {
               </tr>
             ))
           }
-          {status.sources.length === 0 && (
-            <tr><td colspan="8" class="empty">No sources configured.</td></tr>
-          )}
+          {
+            status.sources.length === 0 && (
+              <tr>
+                <td colspan="8" class="empty">
+                  No sources configured.
+                </td>
+              </tr>
+            )
+          }
         </tbody>
       </table>
     </div>
@@ -144,10 +154,10 @@ const FRESHNESS: Record<string, string> = {
   <section class="panel">
     <h2>Unresolved organisers</h2>
     <p class="hint">
-      Organiser names from the feed that no published ambassador is configured for. To
-      attribute every event from one of these at once, put the name verbatim in the
-      ambassador's <strong>Luma organiser name</strong> field. Matching ignores case and
-      spacing and nothing else.
+      Organiser names from the feed that no published ambassador is configured for. To attribute
+      every event from one of these at once, put the name verbatim in the ambassador's <strong
+        >Luma organiser name</strong
+      > field. Matching ignores case and spacing and nothing else.
     </p>
     <div class="table-wrap">
       <table>
@@ -161,14 +171,22 @@ const FRESHNESS: Record<string, string> = {
           {
             organisers.map((row) => (
               <tr>
-                <td><code>{row.organizer}</code></td>
+                <td>
+                  <code>{row.organizer}</code>
+                </td>
                 <td class="num">{row.events}</td>
               </tr>
             ))
           }
-          {organisers.length === 0 && (
-            <tr><td colspan="2" class="empty">Nothing unresolved.</td></tr>
-          )}
+          {
+            organisers.length === 0 && (
+              <tr>
+                <td colspan="2" class="empty">
+                  Nothing unresolved.
+                </td>
+              </tr>
+            )
+          }
         </tbody>
       </table>
     </div>
@@ -177,8 +195,8 @@ const FRESHNESS: Record<string, string> = {
   <section class="panel">
     <h2>Ingested events with no host credit</h2>
     <p class="hint">
-      Correcting one here writes a moderator attribution, which the next sync will not
-      overwrite. The staged source record keeps saying exactly what the feed said.
+      Correcting one here writes a moderator attribution, which the next sync will not overwrite.
+      The staged source record keeps saying exactly what the feed said.
     </p>
     <div class="table-wrap">
       <table>
@@ -199,7 +217,7 @@ const FRESHNESS: Record<string, string> = {
                   {row.title}
                   <span class="hint">{row.slug}</span>
                 </td>
-                <td>{row.date}</td>
+                <td class="num">{row.date}</td>
                 <td>{row.cityName}</td>
                 <td class="hint">{row.organizer ?? '—'}</td>
                 <td>
@@ -210,21 +228,29 @@ const FRESHNESS: Record<string, string> = {
                         <option value={person.id}>{person.name}</option>
                       ))}
                     </select>
-                    <select name="role" aria-label="Role">
+                    <select name="role" aria-label={`Role for ${row.title}`}>
                       <option value="primary_host">host</option>
                       <option value="co_host">co-host</option>
                       <option value="organizer">organiser</option>
                       <option value="partner">partner</option>
                     </select>
-                    <button class="btn" type="submit">Credit</button>
+                    <button class="btn" type="submit">
+                      Credit
+                    </button>
                   </form>
                 </td>
               </tr>
             ))
           }
-          {unattributed.length === 0 && (
-            <tr><td colspan="5" class="empty">Every ingested event has a host credit.</td></tr>
-          )}
+          {
+            unattributed.length === 0 && (
+              <tr>
+                <td colspan="5" class="empty">
+                  Every ingested event has a host credit.
+                </td>
+              </tr>
+            )
+          }
         </tbody>
       </table>
     </div>

@@ -544,6 +544,73 @@ describe('directory queries', () => {
     expect(filtered.atEvents).toBe(all.atEvents);
     expect(filtered.totalPublic).toBe(all.totalPublic);
   });
+
+  it('within one event the event sort puts code + video + live first, code alone near the end and no links last', async () => {
+    const linksDay = await event({
+      slug: 'dq-link-order-day',
+      title: 'DQ Link Order Day',
+      date: '2026-09-18',
+    });
+    const mk = async (title: string, link: Partial<typeof schema.projects.$inferInsert>) => {
+      const [p] = await db
+        .insert(schema.projects)
+        .values({
+          slug: `dq-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+          title,
+          summary: `${title} summary`,
+          category: 'product',
+          publicationStatus: 'published',
+          status: 'published',
+          moderationState: 'clean',
+          contentAuthority: 'baserow',
+          publishedAt: new Date('2026-10-01T00:00:00Z'),
+          builtAtEventId: linksDay.id,
+          ...link,
+        })
+        .returning({ id: schema.projects.id });
+      return p!.id;
+    };
+    // The titles' alphabetical order differs from the expected order, so the links
+    // (and, for 'Z', the position), not the title tie-break, decide where each project lands.
+    const repoUrl = 'https://github.com/x/r';
+    const videoUrl = 'https://youtu.be/v';
+    const url = 'https://live.example';
+    await mk('A none', {});
+    await mk('B code', { repoUrl });
+    await mk('C live', { url });
+    await mk('D code video', { repoUrl, videoUrl });
+    await mk('E code live', { repoUrl, url });
+    await mk('F code video live', { repoUrl, videoUrl, url });
+    await mk('G video live', { videoUrl, url });
+    await mk('H video', { videoUrl });
+    // Inside one link group the record's position wins over the title.
+    await mk('Z code live first', { repoUrl, url, position: 0 });
+
+    const byEvent = await listPublicProjects(db, { sort: 'event' });
+    const wanted = new Set([
+      'A none',
+      'B code',
+      'C live',
+      'D code video',
+      'E code live',
+      'F code video live',
+      'G video live',
+      'H video',
+      'Z code live first',
+    ]);
+    const mine = byEvent.items.map((p) => p.title).filter((t) => wanted.has(t));
+    expect(mine).toEqual([
+      'F code video live',
+      'Z code live first',
+      'E code live',
+      'D code video',
+      'G video live',
+      'C live',
+      'H video',
+      'B code',
+      'A none',
+    ]);
+  });
 });
 
 // ── 3. the pipeline, end to end ──────────────────────────────────────────

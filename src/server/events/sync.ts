@@ -38,7 +38,7 @@
  * never fires on this feed. §23 still has to be satisfied, and absence is what
  * is left.
  */
-import { and, eq, inArray, isNotNull, isNull, ne, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, ne, or, sql } from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import { createHash } from 'node:crypto';
 import * as schema from '../../../db/schema';
@@ -143,14 +143,15 @@ export function fingerprint(event: NormalizedEvent): string {
  * a display facet with a harmless default, not a trust or geography decision.
  * `other` is the fallback and is a perfectly good answer.
  */
-export function inferFormat(title: string): typeof schema.eventFormat.enumValues[number] {
+export function inferFormat(title: string): (typeof schema.eventFormat.enumValues)[number] {
   const value = title.toLowerCase();
   if (value.includes('impact lab')) return 'impact-lab';
   if (value.includes('hackathon') || value.includes('build day')) return 'hackathon';
   if (value.includes('workshop')) return 'workshop';
   if (value.includes('meetup')) return 'meetup';
   if (value.includes('demo')) return 'demo';
-  if (value.includes('campus') || value.includes('college') || value.includes('university')) return 'campus';
+  if (value.includes('campus') || value.includes('college') || value.includes('university'))
+    return 'campus';
   if (value.includes('conversation')) return 'conversation';
   return 'other';
 }
@@ -493,8 +494,14 @@ export async function syncSource(source: EventSource, db: AnyDatabase): Promise<
     });
   }
 
-  const unchanged = planned.filter((row) => row.existing && row.existing.rawHash === row.hash);
-  const changed = planned.filter((row) => !row.existing || row.existing.rawHash !== row.hash);
+  // A row the absence pass withdrew is not settled by its hash when the feed lists it again:
+  // that pass keeps the stored hash, and `event.status` is in the fingerprint, so only it leaves this pair.
+  const isSettled = (row: Planned) =>
+    !!row.existing &&
+    row.existing.rawHash === row.hash &&
+    !(row.existing.state === 'withdrawn' && row.state !== 'withdrawn');
+  const unchanged = planned.filter(isSettled);
+  const changed = planned.filter((row) => !isSettled(row));
 
   // ── PHASE 2: the unchanged majority, in ONE statement ────────────────────
   //
@@ -763,7 +770,12 @@ export async function syncSource(source: EventSource, db: AnyDatabase): Promise<
     for (const row of missing) {
       await db
         .update(schema.eventSourceRecords)
-        .set({ state: 'withdrawn', stateReason: 'absent-from-feed', lastChangedAt: now, updatedAt: now })
+        .set({
+          state: 'withdrawn',
+          stateReason: 'absent-from-feed',
+          lastChangedAt: now,
+          updatedAt: now,
+        })
         .where(eq(schema.eventSourceRecords.id, row.id));
       /**
        * The count follows the EVENT, not the staging row.
@@ -852,15 +864,23 @@ async function promote(options: {
    */
   const ist = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Kolkata',
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
   });
   const wallClock = (instant: Date) => {
     const parts = ist.formatToParts(instant);
     const part = (type: string) => parts.find((p) => p.type === type)?.value ?? '00';
     // `en-CA` renders midnight as `24`; Postgres `time` will not accept it.
     const hour = part('hour') === '24' ? '00' : part('hour');
-    return { date: `${part('year')}-${part('month')}-${part('day')}`, time: `${hour}:${part('minute')}:${part('second')}` };
+    return {
+      date: `${part('year')}-${part('month')}-${part('day')}`,
+      time: `${hour}:${part('minute')}:${part('second')}`,
+    };
   };
   const { date, time: startTime } = wallClock(event.startsAt);
   const end = event.endsAt ? wallClock(event.endsAt) : null;
@@ -877,7 +897,11 @@ async function promote(options: {
     date,
     startTime,
     // `end_time` is a time on `date`: a date-only event fills the day, and a later-day end is left out.
-    endTime: event.dateOnly ? '23:59:59' : end && end.date === date && end.time > startTime ? end.time : null,
+    endTime: event.dateOnly
+      ? '23:59:59'
+      : end && end.date === date && end.time > startTime
+        ? end.time
+        : null,
     /**
      * `venueName` is NOT NULL and the feed frequently has no venue — the
      * registrant-only events say "Check event page for more details."
@@ -888,7 +912,11 @@ async function promote(options: {
     venueName: noVenue ? PRIVATE_VENUE_NAME : event.location!.slice(0, 200),
     venueAddress: null,
     venuePrivate: noVenue,
-    summary: (event.description?.split('\n').find((line) => line.trim())?.slice(0, 300)) || event.title,
+    summary:
+      event.description
+        ?.split('\n')
+        .find((line) => line.trim())
+        ?.slice(0, 300) || event.title,
     description: event.description ?? null,
     registrationUrl: event.registrationUrl ?? null,
     timezone: event.timezone ?? 'Asia/Kolkata',
@@ -908,6 +936,17 @@ async function promote(options: {
     updatedAt: new Date(),
   };
 
+  /**
+   * An editor's takedown is final for the feed. The admin's Archive sets
+   * `archived` and leaves `canceledAt` null; only an event this sync withdrew
+   * itself (`withdrawEvent()` sets `canceledAt`) may come back when the feed
+   * lists it again.
+   */
+  const notTakenDown = or(
+    ne(schema.events.status, 'archived'),
+    isNotNull(schema.events.canceledAt),
+  );
+
   if (existingEventId) {
     const updated = await db
       .update(schema.events)
@@ -919,6 +958,7 @@ async function promote(options: {
           // An event the organisers adopted into Baserow is theirs to edit;
           // the feed's copy stays in event_source_records for review.
           ne(schema.events.contentAuthority, 'baserow'),
+          notTakenDown,
         ),
       )
       .returning({ id: schema.events.id });
@@ -936,11 +976,16 @@ async function promote(options: {
       contentAuthority: schema.events.contentAuthority,
     })
     .from(schema.events)
-    .where(and(eq(schema.events.sourceId, sourceId), eq(schema.events.externalId, event.externalId)));
+    .where(
+      and(eq(schema.events.sourceId, sourceId), eq(schema.events.externalId, event.externalId)),
+    );
 
   if (linked) {
     if (linked.contentAuthority !== 'baserow') {
-      await db.update(schema.events).set(values).where(eq(schema.events.id, linked.id));
+      await db
+        .update(schema.events)
+        .set(values)
+        .where(and(eq(schema.events.id, linked.id), notTakenDown));
     }
     return linked.id;
   }
@@ -975,6 +1020,11 @@ async function isAdopted(db: AnyDatabase, eventId: string): Promise<boolean> {
  * is that it stop advertising registration, which `/events/[slug]` reads
  * `canceledAt` to honour.
  *
+ * `statusOverride` is left alone: it is a person's door state, and only the
+ * sync writes `canceledAt`, which already reads as cancelled and which
+ * `promote()` clears when the feed lists the event again. Writing the override
+ * here too kept a relisted event "cancelled" and overwrote an editor's own.
+ *
  * Scoped to `sourceId` — a curated event cannot be reached from here.
  */
 async function withdrawEvent(
@@ -985,19 +1035,23 @@ async function withdrawEvent(
 ): Promise<boolean> {
   const updated = await db
     .update(schema.events)
-    .set({ canceledAt: now, statusOverride: 'cancelled', status: 'archived', updatedAt: now })
+    .set({ canceledAt: now, status: 'archived', updatedAt: now })
     .where(
       and(
         eq(schema.events.id, eventId),
         eq(schema.events.sourceId, sourceId),
         // Disappearing from the feed does not withdraw an adopted event.
         ne(schema.events.contentAuthority, 'baserow'),
+        // Nor one already archived. An editor's takedown re-filed as a sync
+        // withdrawal would get `canceledAt`, and the feed could then undo it.
+        ne(schema.events.status, 'archived'),
       ),
     )
     .returning({ id: schema.events.id });
 
   // Nothing matched: the event belongs to another source, or to no source at
-  // all because a person authored it. Either way there is nothing to log.
+  // all because a person authored it, or it is already archived. Either way
+  // there is nothing to log.
   if (updated.length === 0) return false;
 
   await db.insert(schema.auditLog).values({
@@ -1029,9 +1083,18 @@ export async function syncAll(sources: EventSource[], db: AnyDatabase): Promise<
         mode: source.syncMode,
         ok: false,
         reason: 'UNHANDLED',
-        seen: 0, created: 0, updated: 0, unchanged: 0,
-        promoted: 0, matchedCurated: 0, review: 0, rejected: 0, withdrawn: 0,
-        hostsMatched: 0, hostsUnresolved: 0, hostsKept: 0,
+        seen: 0,
+        created: 0,
+        updated: 0,
+        unchanged: 0,
+        promoted: 0,
+        matchedCurated: 0,
+        review: 0,
+        rejected: 0,
+        withdrawn: 0,
+        hostsMatched: 0,
+        hostsUnresolved: 0,
+        hostsKept: 0,
       });
     }
   }

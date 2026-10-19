@@ -50,9 +50,16 @@ const next = selectors?.nextEvent(now);
 
 // The room under the hero: the lead photo of the held event with the most
 // projects (a stable sort keeps the newest first on a tie). The strip skips it.
+// A photo with no file is passed over, and logged (as PhotoStrip does).
 const room = (selectors?.photoRecordByEvent() ?? [])
   .map(({ event, plates }) => ({
-    photo: plates.find((p) => asset(p.src)),
+    photo: plates.find((p) => {
+      if (asset(p.src)) return true;
+      console.error(
+        `[home] photo ${p.src} from ${event.slug} is in the database but not in src/assets; passed over for the room band`,
+      );
+      return false;
+    }),
     projects: selectors!.projectsFromEvent(event.slug).length,
   }))
   .filter((r) => r.photo)

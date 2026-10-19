@@ -1,16 +1,17 @@
 /**
  * The event-photograph backfill, against a real PostgreSQL rewound to the
- * state production is actually in.
+ * `81fe1e7` baseline.
  *
  * The seed is not invented. `importRecords` builds the whole graph from the
- * current record, and then the six paths commit `81fe1e7` added are kept and
- * the thirty-five commit `2322e4c` added are removed — which is production,
- * file for file, because the live set is the initial-commit set and nothing
- * filters (VIS-3 `gap-baseline` §11.1).
+ * current record, and then the paths commit `81fe1e7` added (`LIVE_SIX`) are
+ * kept and every photograph added since is removed (VIS-3 `gap-baseline`
+ * §11.1). So these tests measure the delta from the `81fe1e7` baseline.
+ * Against a real target `plan` prints less, by whatever earlier applies
+ * landed (see imports/*.json).
  *
- * So the delta these tests measure is the delta the dry run will print against
- * Neon, and the gallery assertion is the same derivation `gallery.astro:28`
- * renders rather than a restatement of the insert.
+ * The record's counts are derived from `src/data/events.ts` below, so a new
+ * photo batch changes nothing here, and the gallery assertion is the same
+ * derivation `/gallery/` renders rather than a restatement of the insert.
  */
 import { mkdtemp, mkdir, readFile, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -21,6 +22,8 @@ import { and, eq, inArray, isNull, notInArray, or, sql } from 'drizzle-orm';
 import { importRecords } from '../db/import';
 import * as schema from '../db/schema';
 import { createTestDatabase, type TestDatabase } from '../db/testing';
+import { RecordSelectors } from '../src/data/selectors';
+import { tsRecordSet } from '../src/data/source-ts';
 import { galleryRooms } from '../src/server/public/pages';
 import {
   applyBackfill,
@@ -40,10 +43,23 @@ import { emitReceipt } from '../scripts/backfill/cli';
 
 let db: TestDatabase;
 
+// Derived from the record, never from `wantedPhotos()` (the code under test). The `LIVE_SIX`
+// numbers below stay pinned: that baseline is history and does not move.
+const record = tsRecordSet();
+/** Every photo entry on the record: the `event_photos` rows a full apply leaves. */
+const RECORD = record.events.flatMap((event) => event.photos ?? []);
+/** The distinct files: the `media` rows a full apply leaves. */
+const PATHS = new Set(RECORD.map((photo) => photo.src));
+/** The files the backfill adds to the baseline. */
+const NEW = [...PATHS].filter((path) => !LIVE_SIX.includes(path));
+/** The join rows it adds. */
+const NEW_ROWS = RECORD.filter((photo) => !LIVE_SIX.includes(photo.src)).length;
+/** What /gallery/ shows once every row is in. Through the selectors, so `featured` events count. */
+const ROOMS = new RecordSelectors(record).photoRecordByEvent();
+const PLATES = ROOMS.reduce((sum, room) => sum + room.plates.length, 0);
+
 const photoCount = async () => {
-  const [row] = await db
-    .select({ n: sql<number>`count(*)::int` })
-    .from(schema.eventPhotos);
+  const [row] = await db.select({ n: sql<number>`count(*)::int` }).from(schema.eventPhotos);
   return row.n;
 };
 
@@ -59,14 +75,19 @@ const nullDimensionCount = async () => {
   const [row] = await db
     .select({ n: sql<number>`count(*)::int` })
     .from(schema.media)
-    .where(and(eq(schema.media.kind, 'photo'), or(isNull(schema.media.width), isNull(schema.media.height))));
+    .where(
+      and(
+        eq(schema.media.kind, 'photo'),
+        or(isNull(schema.media.width), isNull(schema.media.height)),
+      ),
+    );
   return row.n;
 };
 
 beforeEach(async () => {
   db = await createTestDatabase();
   await importRecords(db as never);
-  // Rewind to the live state: drop the thirty-five `2322e4c` added.
+  // Rewind to the `81fe1e7` baseline: drop every photograph added after it.
   const stale = await db
     .select({ id: schema.media.id })
     .from(schema.media)
@@ -76,7 +97,7 @@ beforeEach(async () => {
     await db.delete(schema.eventPhotos).where(inArray(schema.eventPhotos.mediaId, staleIds));
     await db.delete(schema.media).where(inArray(schema.media.id, staleIds));
   }
-  // And to the live consent: production's six read `false` with no basis until
+  // And to that baseline's consent: its six read `false` with no basis until
   // migration 0017 runs, while `importRecords` now writes the basis on import.
   await db
     .update(schema.media)
@@ -88,7 +109,7 @@ afterEach(async () => {
   await db?.$close();
 });
 
-describe('the seed reproduces production', () => {
+describe('the seed reproduces the 81fe1e7 baseline', () => {
   it('serves six plates in two rooms, and db:import left every dimension null', async () => {
     expect(await mediaPhotoCount()).toBe(6);
     expect(await photoCount()).toBe(6);
@@ -103,11 +124,13 @@ describe('the seed reproduces production', () => {
 });
 
 describe('the dry run', () => {
-  it('prints a +35 / +35 delta with no deletes and no refusals', async () => {
+  it('prints the whole delta from the baseline, with no deletes and no refusals', async () => {
     const plan = await buildBackfillPlan(db as never);
 
-    expect(plan.mediaInserts).toHaveLength(35);
-    expect(plan.photoInserts).toHaveLength(35);
+    expect(plan.mediaInserts).toHaveLength(NEW.length);
+    // Which files, not only how many.
+    expect(new Set(plan.mediaInserts.map((row) => row.path))).toEqual(new Set(NEW));
+    expect(plan.photoInserts).toHaveLength(NEW_ROWS);
     // Pure-insert by default: the one statement that touches existing rows is
     // reported as a candidate and not written without --with-dimensions.
     expect(plan.dimensionUpdates).toEqual([]);
@@ -131,7 +154,7 @@ describe('the dry run', () => {
       expect(row.position).toBeGreaterThanOrEqual(3);
     }
 
-    // The 35 carry measured dimensions, not nulls.
+    // The inserts carry measured dimensions, not nulls.
     for (const row of plan.mediaInserts) {
       expect(row.width, row.path).toBeGreaterThan(0);
       expect(row.height, row.path).toBeGreaterThan(0);
@@ -140,20 +163,21 @@ describe('the dry run', () => {
 
     // The dry run carries its own undo, keyed on path so it needs no receipt.
     const undo = renderPlannedRollbackSql(plan);
-    expect(undo.match(/'events\//g) ?? []).toHaveLength(70); // the 35 paths, in both deletes
+    // Every inserted pair in the first delete, and every inserted path in the second.
+    expect(undo.match(/'events\//g) ?? []).toHaveLength(NEW_ROWS + NEW.length);
     expect(undo).toContain('DELETE FROM event_photos');
     expect(undo).toContain('DELETE FROM media');
     expect(undo).toContain('COMMIT;');
     for (const live of LIVE_SIX) expect(undo, live).not.toContain(live);
 
     // The counts the CLI prints as "expect N" are derived from these two.
-    expect(plan.mediaAlreadyPresent + plan.mediaInserts.length).toBe(41);
-    expect(plan.photosAlreadyPresent + plan.photoInserts.length).toBe(41);
+    expect(plan.mediaAlreadyPresent + plan.mediaInserts.length).toBe(PATHS.size);
+    expect(plan.photosAlreadyPresent + plan.photoInserts.length).toBe(RECORD.length);
 
     const printed = renderPlan(plan);
-    expect(printed).toContain('media             +35 inserted, 0 updated');
+    expect(printed).toContain(`media             +${NEW.length} inserted, 0 updated`);
     expect(printed).toContain('NOT writing them');
-    expect(printed).toContain('event_photos      +35');
+    expect(printed).toContain(`event_photos      +${NEW_ROWS} inserted`);
     expect(printed).toContain('deletes           0');
     expect(printed).toContain('APPLICABLE');
     expect(printed).toContain(`consent = true, consent_basis = '${CONSENT_BASIS}'`);
@@ -168,26 +192,29 @@ describe('the dry run', () => {
 });
 
 describe('apply', () => {
-  it('brings the gallery to twelve rooms and 41 photographs', async () => {
+  it('brings the gallery to every room and photograph the record shows', async () => {
     const plan = await buildBackfillPlan(db as never);
-    const receipt = await applyBackfill(db as never, plan, { databaseHost: 'pglite', databaseName: 'memory' });
+    const receipt = await applyBackfill(db as never, plan, {
+      databaseHost: 'pglite',
+      databaseName: 'memory',
+    });
 
-    expect(receipt.insertedMedia).toHaveLength(35);
-    expect(receipt.insertedPhotos).toHaveLength(35);
+    expect(receipt.insertedMedia).toHaveLength(NEW.length);
+    expect(receipt.insertedPhotos).toHaveLength(NEW_ROWS);
     // Pure insert by default — no existing row modified at all.
     expect(receipt.dimensionsUpdated).toEqual([]);
 
-    expect(await mediaPhotoCount()).toBe(41);
-    expect(await photoCount()).toBe(41);
-    // The 35 new rows carry measured dimensions; the 6 that were already there
+    expect(await mediaPhotoCount()).toBe(PATHS.size);
+    expect(await photoCount()).toBe(RECORD.length);
+    // The new rows carry measured dimensions; the 6 that were already there
     // keep their nulls until somebody asks for --with-dimensions.
     expect(await nullDimensionCount()).toBe(6);
-    expect(wantedPhotos()).toHaveLength(41);
+    expect(wantedPhotos()).toHaveLength(RECORD.length);
 
     // The real check: what the page derives from what rendered.
     const rooms = await galleryRooms(db as never);
-    expect(rooms).toHaveLength(12);
-    expect(rooms.reduce((sum, room) => sum + room.plates.length, 0)).toBe(41);
+    expect(rooms).toHaveLength(ROOMS.length);
+    expect(rooms.reduce((sum, room) => sum + room.plates.length, 0)).toBe(PLATES);
     for (const plate of rooms.flatMap((room) => room.plates)) {
       expect(plate.image, plate.src).toBeTruthy();
       expect(plate.alt.trim(), plate.src).not.toBe('');
@@ -198,7 +225,10 @@ describe('apply', () => {
 
   it('leaves the six live rows byte-for-byte untouched by default', async () => {
     const before = await liveRows();
-    await applyBackfill(db as never, await buildBackfillPlan(db as never), { databaseHost: 'pglite', databaseName: 'memory' });
+    await applyBackfill(db as never, await buildBackfillPlan(db as never), {
+      databaseHost: 'pglite',
+      databaseName: 'memory',
+    });
     expect(await liveRows()).toEqual(before);
   });
 
@@ -207,7 +237,10 @@ describe('apply', () => {
     const plan = await buildBackfillPlan(db as never, { withDimensions: true });
     expect(plan.dimensionUpdates).toHaveLength(6);
 
-    const receipt = await applyBackfill(db as never, plan, { databaseHost: 'pglite', databaseName: 'memory' });
+    const receipt = await applyBackfill(db as never, plan, {
+      databaseHost: 'pglite',
+      databaseName: 'memory',
+    });
     expect(receipt.dimensionsUpdated).toHaveLength(6);
     expect(await nullDimensionCount()).toBe(0);
 
@@ -225,31 +258,37 @@ describe('apply', () => {
   });
 
   it('is idempotent — a second run inserts nothing', async () => {
-    await applyBackfill(db as never, await buildBackfillPlan(db as never), { databaseHost: 'pglite', databaseName: 'memory' });
+    await applyBackfill(db as never, await buildBackfillPlan(db as never), {
+      databaseHost: 'pglite',
+      databaseName: 'memory',
+    });
 
     const second = await buildBackfillPlan(db as never);
     expect(second.mediaInserts).toEqual([]);
     expect(second.photoInserts).toEqual([]);
     expect(second.dimensionUpdates).toEqual([]);
-    expect(second.photosAlreadyPresent).toBe(41);
+    expect(second.photosAlreadyPresent).toBe(RECORD.length);
 
-    const receipt = await applyBackfill(db as never, second, { databaseHost: 'pglite', databaseName: 'memory' });
+    const receipt = await applyBackfill(db as never, second, {
+      databaseHost: 'pglite',
+      databaseName: 'memory',
+    });
     expect(receipt.insertedMedia).toEqual([]);
     expect(receipt.insertedPhotos).toEqual([]);
-    expect(await photoCount()).toBe(41);
-    expect(await mediaPhotoCount()).toBe(41);
+    expect(await photoCount()).toBe(RECORD.length);
+    expect(await mediaPhotoCount()).toBe(PATHS.size);
   });
 
   it('rolls the whole transaction back when the database moved since the dry run', async () => {
     const plan = await buildBackfillPlan(db as never);
 
-    // Somebody else inserts one of the 35 between the dry run and the write.
+    // Somebody else inserts one of the new paths between the dry run and the write.
     const [raced] = plan.mediaInserts;
     await db.insert(schema.media).values({ path: raced.path, alt: raced.alt, kind: 'photo' });
 
-    await expect(applyBackfill(db as never, plan, { databaseHost: 'pglite', databaseName: 'memory' })).rejects.toThrow(
-      /target database changed since the dry run/,
-    );
+    await expect(
+      applyBackfill(db as never, plan, { databaseHost: 'pglite', databaseName: 'memory' }),
+    ).rejects.toThrow(/target database changed since the dry run/);
 
     // Nothing from the aborted attempt survived: the one raced row, and the
     // six live ones. No event_photos row, and no dimension written.
@@ -265,8 +304,9 @@ describe('apply', () => {
    * `reviewer` on [VIS-9]: an assertion that cannot fail is worse than none.
    *
    * This squats a wanted `(event_id, position)` with a media row that is not
-   * one of the 35, so the media insert still returns 35, the `UPDATE` runs,
-   * and the `event_photos` insert is the statement that comes back short.
+   * one of the new paths, so the media insert still returns all of them, the
+   * `UPDATE` runs, and the `event_photos` insert is the statement that comes
+   * back short.
    */
   it('rolls the dimension update back too, when the abort comes after it', async () => {
     const plan = await buildBackfillPlan(db as never, { withDimensions: true });
@@ -279,13 +319,21 @@ describe('apply', () => {
       .where(eq(schema.events.slug, 'claude-meetup'));
     const [squatter] = await db
       .insert(schema.media)
-      .values({ path: 'events/not-on-the-record.jpg', alt: 'Not on the record', kind: 'photo', width: 1, height: 1 })
+      .values({
+        path: 'events/not-on-the-record.jpg',
+        alt: 'Not on the record',
+        kind: 'photo',
+        width: 1,
+        height: 1,
+      })
       .returning({ id: schema.media.id });
-    await db.insert(schema.eventPhotos).values({ eventId: event.id, mediaId: squatter.id, position: 3 });
+    await db
+      .insert(schema.eventPhotos)
+      .values({ eventId: event.id, mediaId: squatter.id, position: 3 });
 
-    await expect(applyBackfill(db as never, plan, { databaseHost: 'pglite', databaseName: 'memory' })).rejects.toThrow(
-      /event_photos rows but inserted/,
-    );
+    await expect(
+      applyBackfill(db as never, plan, { databaseHost: 'pglite', databaseName: 'memory' }),
+    ).rejects.toThrow(/event_photos rows but inserted/);
 
     // The update ran inside the transaction and went back with it.
     expect(await nullDimensionCount()).toBe(6);
@@ -314,7 +362,7 @@ describe('consent and its basis', () => {
       .select()
       .from(schema.media)
       .where(and(eq(schema.media.kind, 'photo'), notInArray(schema.media.path, LIVE_SIX)));
-    expect(inserted).toHaveLength(35);
+    expect(inserted).toHaveLength(NEW.length);
     for (const row of inserted) {
       expect(row.consent, row.path!).toBe(true);
       expect(row.consentBasis, row.path!).toBe(CONSENT_BASIS);
@@ -322,7 +370,9 @@ describe('consent and its basis', () => {
 
     // The correction to existing rows is a separate decision over every row,
     // so this run must not have made it — not even as a side effect.
-    expect(await db.select().from(schema.media).where(inArray(schema.media.path, LIVE_SIX))).toEqual(before);
+    expect(
+      await db.select().from(schema.media).where(inArray(schema.media.path, LIVE_SIX)),
+    ).toEqual(before);
   });
 
   it('reports the existing rows that carry no basis, and prints the UPDATE without running it', async () => {
@@ -333,11 +383,16 @@ describe('consent and its basis', () => {
     }
 
     const printed = renderPlan(plan);
-    expect(printed).toContain(`UPDATE media SET consent = true, consent_basis = '${CONSENT_BASIS}'`);
+    expect(printed).toContain(
+      `UPDATE media SET consent = true, consent_basis = '${CONSENT_BASIS}'`,
+    );
     for (const row of plan.consentBasisCandidates) expect(printed).toContain(row.id);
 
     // Printed, not applied. The dry run writes nothing, including this.
-    const after = await db.select({ consent: schema.media.consent }).from(schema.media).where(inArray(schema.media.path, LIVE_SIX));
+    const after = await db
+      .select({ consent: schema.media.consent })
+      .from(schema.media)
+      .where(inArray(schema.media.path, LIVE_SIX));
     expect(after.every((row) => row.consent === false)).toBe(true);
   });
 
@@ -374,9 +429,15 @@ describe('refusals', () => {
       .where(eq(schema.events.slug, 'claude-meetup'));
     const [squatter] = await db
       .insert(schema.media)
-      .values({ path: 'events/not-on-the-record.jpg', alt: 'A plate the record does not describe', kind: 'photo' })
+      .values({
+        path: 'events/not-on-the-record.jpg',
+        alt: 'A plate the record does not describe',
+        kind: 'photo',
+      })
       .returning({ id: schema.media.id });
-    await db.insert(schema.eventPhotos).values({ eventId: event.id, mediaId: squatter.id, position: 3 });
+    await db
+      .insert(schema.eventPhotos)
+      .values({ eventId: event.id, mediaId: squatter.id, position: 3 });
 
     const plan = await buildBackfillPlan(db as never);
 
@@ -390,7 +451,9 @@ describe('refusals', () => {
     expect(isApplicable(plan)).toBe(false);
     expect(renderPlan(plan)).toContain('REFUSING');
 
-    await expect(applyBackfill(db as never, plan, { databaseHost: 'pglite', databaseName: 'memory' })).rejects.toThrow(/not applicable/);
+    await expect(
+      applyBackfill(db as never, plan, { databaseHost: 'pglite', databaseName: 'memory' }),
+    ).rejects.toThrow(/not applicable/);
     expect(await photoCount()).toBe(7);
   });
 
@@ -413,7 +476,9 @@ describe('refusals', () => {
     // Not planned at all, so a refusal that someone overrode could not write it.
     expect(plan.mediaInserts.map((row) => row.path)).not.toContain(absent);
     expect(plan.photoInserts.map((row) => row.path)).not.toContain(absent);
-    await expect(applyBackfill(db as never, plan, { databaseHost: 'pglite', databaseName: 'memory' })).rejects.toThrow(/not applicable/);
+    await expect(
+      applyBackfill(db as never, plan, { databaseHost: 'pglite', databaseName: 'memory' }),
+    ).rejects.toThrow(/not applicable/);
   });
 });
 
@@ -429,14 +494,20 @@ describe('the asset registry check', () => {
     const images = await readFile('src/lib/images.ts', 'utf8');
     const braces = images.match(/\*\.\{([a-z,]+)\}/)?.[1];
     expect(braces, 'the glob in src/lib/images.ts moved').toBeDefined();
-    expect(braces!.split(',').map((ext) => `.${ext}`).sort()).toEqual([...ASSET_EXTENSIONS].sort());
+    expect(
+      braces!
+        .split(',')
+        .map((ext) => `.${ext}`)
+        .sort(),
+    ).toEqual([...ASSET_EXTENSIONS].sort());
   });
 });
 
 describe('an event the record photographs but the target has not got', () => {
-  // `src/data/events.ts` declared 11 events at 81fe1e7 and declares 17 now, so
-  // a target behind on events is expected. Skip and report; never fail, never
-  // insert the event row — that is `db:import`'s job and carries its hazard.
+  // `src/data/events.ts` declared 11 events at `81fe1e7` and has gained more
+  // since, so a target behind on events is expected. Skip and report; never
+  // fail, never insert the event row — that is `db:import`'s job and carries
+  // its hazard.
   const orphanSlug = 'claude-for-businesses';
 
   /** Remove the event row, keeping it so the re-run test can put it back verbatim. */
@@ -456,11 +527,12 @@ describe('an event the record photographs but the target has not got', () => {
 
     expect(plan.unknownEventSlugs).toEqual([orphanSlug]);
     expect(plan.photosSkippedForMissingEvent).toBe(photos);
-    // media is still +35 — the files are real. event_photos is 35 less those.
-    expect(plan.mediaInserts).toHaveLength(35);
-    expect(plan.photoInserts).toHaveLength(35 - photos);
-    expect(plan.mediaAlreadyPresent + plan.mediaInserts.length).toBe(41);
-    expect(plan.photosAlreadyPresent + plan.photoInserts.length).toBe(41 - photos);
+    // media is still every new path — the files are real. event_photos is
+    // that less those.
+    expect(plan.mediaInserts).toHaveLength(NEW.length);
+    expect(plan.photoInserts).toHaveLength(NEW_ROWS - photos);
+    expect(plan.mediaAlreadyPresent + plan.mediaInserts.length).toBe(PATHS.size);
+    expect(plan.photosAlreadyPresent + plan.photoInserts.length).toBe(RECORD.length - photos);
     expect(isApplicable(plan)).toBe(true);
 
     const printed = renderPlan(plan);
@@ -469,20 +541,26 @@ describe('an event the record photographs but the target has not got', () => {
     expect(printed).toContain('APPLICABLE');
     expect(printed).not.toContain('REFUSING');
 
-    const receipt = await applyBackfill(db as never, plan, { databaseHost: 'pglite', databaseName: 'memory' });
-    expect(receipt.insertedMedia).toHaveLength(35);
-    expect(receipt.insertedPhotos).toHaveLength(35 - photos);
-    expect(await mediaPhotoCount()).toBe(41);
-    expect(await photoCount()).toBe(41 - photos);
+    const receipt = await applyBackfill(db as never, plan, {
+      databaseHost: 'pglite',
+      databaseName: 'memory',
+    });
+    expect(receipt.insertedMedia).toHaveLength(NEW.length);
+    expect(receipt.insertedPhotos).toHaveLength(NEW_ROWS - photos);
+    expect(await mediaPhotoCount()).toBe(PATHS.size);
+    expect(await photoCount()).toBe(RECORD.length - photos);
 
     const rooms = await galleryRooms(db as never);
-    expect(rooms).toHaveLength(11);
+    expect(rooms).toHaveLength(ROOMS.length - 1);
   });
 
   it('joins the skipped photographs on a re-run once the event row exists', async () => {
     const dropped = await drop();
-    await applyBackfill(db as never, await buildBackfillPlan(db as never), { databaseHost: 'pglite', databaseName: 'memory' });
-    expect(await photoCount()).toBe(38);
+    await applyBackfill(db as never, await buildBackfillPlan(db as never), {
+      databaseHost: 'pglite',
+      databaseName: 'memory',
+    });
+    expect(await photoCount()).toBe(RECORD.length - 3);
 
     // Whoever owns that decision inserts the event; this script then completes.
     await db.insert(schema.events).values(dropped);
@@ -493,8 +571,8 @@ describe('an event the record photographs but the target has not got', () => {
     expect(second.photoInserts).toHaveLength(3);
 
     await applyBackfill(db as never, second, { databaseHost: 'pglite', databaseName: 'memory' });
-    expect(await photoCount()).toBe(41);
-    expect(await mediaPhotoCount()).toBe(41);
+    expect(await photoCount()).toBe(RECORD.length);
+    expect(await mediaPhotoCount()).toBe(PATHS.size);
   });
 });
 
@@ -505,12 +583,12 @@ describe('rollback', () => {
       await buildBackfillPlan(db as never, { withDimensions: true }),
       { databaseHost: 'pglite', databaseName: 'memory' },
     );
-    expect(await photoCount()).toBe(41);
+    expect(await photoCount()).toBe(RECORD.length);
 
     const result = await rollbackBackfill(db as never, receipt);
 
-    expect(result.photosDeleted).toBe(35);
-    expect(result.mediaDeleted).toBe(35);
+    expect(result.photosDeleted).toBe(NEW_ROWS);
+    expect(result.mediaDeleted).toBe(NEW.length);
     expect(result.mediaRetained).toEqual([]);
     expect(result.mediaAlreadyGone).toBe(0);
     expect(await photoCount()).toBe(6);
@@ -534,13 +612,18 @@ describe('rollback', () => {
     });
 
     const adopted = receipt.insertedMedia.find((row) => row.path === 'events/vol07-1.jpg')!;
-    await db.update(schema.cities).set({ imageId: adopted.id }).where(eq(schema.cities.slug, 'bhopal'));
+    await db
+      .update(schema.cities)
+      .set({ imageId: adopted.id })
+      .where(eq(schema.cities.slug, 'bhopal'));
 
     const result = await rollbackBackfill(db as never, receipt);
 
-    expect(result.photosDeleted).toBe(35);
-    expect(result.mediaDeleted).toBe(34);
-    expect(result.mediaRetained).toEqual([{ path: 'events/vol07-1.jpg', reason: 'adopted as cities.image_id' }]);
+    expect(result.photosDeleted).toBe(NEW_ROWS);
+    expect(result.mediaDeleted).toBe(NEW.length - 1);
+    expect(result.mediaRetained).toEqual([
+      { path: 'events/vol07-1.jpg', reason: 'adopted as cities.image_id' },
+    ]);
 
     // The city still points at a row that exists, rather than at a blanked null.
     const [city] = await db
@@ -572,7 +655,10 @@ describe('rollback', () => {
 describe('the rollback SQL it prints', () => {
   it('guards the media delete against every column that could adopt a row', async () => {
     const plan = await buildBackfillPlan(db as never);
-    const receipt = await applyBackfill(db as never, plan, { databaseHost: 'pglite', databaseName: 'memory' });
+    const receipt = await applyBackfill(db as never, plan, {
+      databaseHost: 'pglite',
+      databaseName: 'memory',
+    });
 
     for (const sqlText of [receipt.rollbackSql, renderPlannedRollbackSql(plan)]) {
       expect(sqlText).toContain('AND id NOT IN (SELECT media_id FROM event_photos)');
@@ -602,7 +688,10 @@ describe('the rollback SQL it prints', () => {
       databaseName: 'memory',
     });
     const adopted = receipt.insertedMedia.find((row) => row.path === 'events/vol07-1.jpg')!;
-    await db.update(schema.cities).set({ imageId: adopted.id }).where(eq(schema.cities.slug, 'bhopal'));
+    await db
+      .update(schema.cities)
+      .set({ imageId: adopted.id })
+      .where(eq(schema.cities.slug, 'bhopal'));
 
     // The printed SQL, run as a human would run it. Statement by statement,
     // because the extended protocol parses one at a time; BEGIN/COMMIT are the
@@ -645,8 +734,8 @@ describe('rollback when a receipt row has vanished', () => {
     const result = await rollbackBackfill(db as never, receipt);
 
     expect(result.mediaAlreadyGone).toBe(1);
-    expect(result.mediaDeleted).toBe(34);
-    expect(result.photosDeleted).toBe(34);
+    expect(result.mediaDeleted).toBe(NEW.length - 1);
+    expect(result.photosDeleted).toBe(NEW_ROWS - 1);
     // The whole undo completed rather than wedging on the one missing row.
     expect(await photoCount()).toBe(6);
     expect(await mediaPhotoCount()).toBe(6);
@@ -659,14 +748,17 @@ describe('rollback when a receipt row has vanished', () => {
     });
 
     // A receipt is a file and a file can be edited. Without the shape check
-    // this undoes all 35 and then reports one of them as "already deleted by
+    // this undoes every row and then reports one of them as "already deleted by
     // something else", which is the opposite of what happened.
-    const duplicated = { ...receipt, insertedMedia: [...receipt.insertedMedia, { ...receipt.insertedMedia[0] }] };
+    const duplicated = {
+      ...receipt,
+      insertedMedia: [...receipt.insertedMedia, { ...receipt.insertedMedia[0] }],
+    };
 
     await expect(rollbackBackfill(db as never, duplicated)).rejects.toThrow(/more than once/);
     // Refused before the transaction opened, so nothing was undone.
-    expect(await photoCount()).toBe(41);
-    expect(await mediaPhotoCount()).toBe(41);
+    expect(await photoCount()).toBe(RECORD.length);
+    expect(await mediaPhotoCount()).toBe(PATHS.size);
   });
 
   /**
@@ -691,8 +783,8 @@ describe('rollback when a receipt row has vanished', () => {
     };
 
     await expect(rollbackBackfill(db as never, duplicated)).rejects.toThrow(/more than once/);
-    expect(await photoCount()).toBe(41);
-    expect(await mediaPhotoCount()).toBe(41);
+    expect(await photoCount()).toBe(RECORD.length);
+    expect(await mediaPhotoCount()).toBe(PATHS.size);
   });
 
   /**
@@ -710,7 +802,9 @@ describe('rollback when a receipt row has vanished', () => {
     // A BEFORE DELETE trigger returning NULL: no error, no returned row, the
     // row still present. Exactly what the dry run warns it cannot see.
     await db.execute(
-      sql.raw(`CREATE FUNCTION veto_delete() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`),
+      sql.raw(
+        `CREATE FUNCTION veto_delete() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`,
+      ),
     );
     await db.execute(
       sql.raw(
@@ -723,9 +817,12 @@ describe('rollback when a receipt row has vanished', () => {
 
     // Rolled back whole: nothing half-undone, and the operator can fix the
     // trigger and re-run the same receipt.
-    expect(await photoCount()).toBe(41);
-    expect(await mediaPhotoCount()).toBe(41);
-    const [still] = await db.select({ id: schema.media.id }).from(schema.media).where(eq(schema.media.id, survivor.id));
+    expect(await photoCount()).toBe(RECORD.length);
+    expect(await mediaPhotoCount()).toBe(PATHS.size);
+    const [still] = await db
+      .select({ id: schema.media.id })
+      .from(schema.media)
+      .where(eq(schema.media.id, survivor.id));
     expect(still.id).toBe(survivor.id);
   });
 });
@@ -793,7 +890,7 @@ describe('emitReceipt', () => {
 });
 
 /**
- * The EXIF branch, which none of the 41 files exercises. Written by `reviewer`
+ * The EXIF branch, which none of the record's files exercises. Written by `reviewer`
  * on [VIS-9] — it was three lines no suite had ever run.
  *
  * `metadata()` reports the stored pixels. Orientations 5–8 rotate the image a
@@ -813,7 +910,10 @@ describe('measure', () => {
     await plate(dir, 'none.jpg');
     for (const o of [1, 2, 3, 4, 5, 6, 7, 8]) await plate(dir, `o${o}.jpg`, o);
 
-    const measured = await measure(['none.jpg', ...[1, 2, 3, 4, 5, 6, 7, 8].map((o) => `o${o}.jpg`)], dir);
+    const measured = await measure(
+      ['none.jpg', ...[1, 2, 3, 4, 5, 6, 7, 8].map((o) => `o${o}.jpg`)],
+      dir,
+    );
 
     // Stored 4x2. Upright and the 180° flips keep it; 5–8 are the quarter turns.
     for (const name of ['none.jpg', 'o1.jpg', 'o2.jpg', 'o3.jpg', 'o4.jpg']) {

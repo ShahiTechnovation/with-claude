@@ -4,7 +4,7 @@ import * as staticData from '@/data';
 import type { RecordSelectors } from '@/data/selectors';
 import type { Builder } from '@/data/types';
 import { asset } from '@/lib/images';
-import { plural } from '@/lib/words';
+import { initials, plural } from '@/lib/words';
 
 /**
  * BUILDERS — the open index, as cards (three, two, one columns).
@@ -105,14 +105,16 @@ const remaining = entries.length - rows.length;
                   decoding="async"
                 />
               ) : entry.remotePortrait ? (
-                <img src={entry.remotePortrait} alt="" loading="lazy" decoding="async" />
+                <img
+                  src={entry.remotePortrait}
+                  alt=""
+                  width="56"
+                  height="56"
+                  loading="lazy"
+                  decoding="async"
+                />
               ) : (
-                entry.builder.name
-                  .split(' ')
-                  .map((part) => part[0])
-                  .slice(0, 2)
-                  .join('')
-                  .toUpperCase()
+                initials(entry.builder.name)
               )}
             </span>
 

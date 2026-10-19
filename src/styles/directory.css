@@ -109,11 +109,6 @@
   color: inherit;
 }
 
-/* No count at zero (a filtered view leaves some events empty). */
-.dir-n:empty {
-  display: none;
-}
-
 /* Forced colours drop the ink fill that marks the checked pill: mark it with the system highlight. */
 @media (forced-colors: active) {
   .dir-pill:has(input:checked) {
@@ -395,7 +390,7 @@
 
 .dir-submit-title {
   margin: 0;
-  font-size: clamp(1.375rem, 1.05rem + 1.4vw, 2.25rem); /* 22 → 36 */
+  font-size: var(--t-h2);
   line-height: var(--lh-h2);
   letter-spacing: var(--track-h2);
   text-wrap: balance;
@@ -404,4 +399,15 @@
 .dir-submit .btn {
   white-space: normal;
   text-align: center;
+}
+
+/* --- print ------------------------------------------------------------------ */
+
+/* The current page is an ink fill with a --paper number: keep the fill when Chrome drops
+   backgrounds, as primitives.css does for the filled chips. */
+@media print {
+  .dir-pager [aria-current='page'] {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
 }

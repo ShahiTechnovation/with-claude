@@ -66,7 +66,7 @@ const nav = [
         </svg>
       </a>
 
-      {/* Hidden without JS (nothing could switch it) and on the locked-light account pages. */}
+      {/* Hidden without JS: nothing could switch it. */}
       <button
         class="icon-btn js-only theme-toggle"
         type="button"
@@ -99,9 +99,16 @@ const nav = [
       <details class="menu">
         <summary class="icon-btn">
           <span class="visually-hidden">Menu</span>
-          <svg viewBox="0 0 20 20" aria-hidden="true">
+          <svg class="i-menu" viewBox="0 0 20 20" aria-hidden="true">
             <path
               d="M3.5 7h13M3.5 13h13"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"></path>
+          </svg>
+          <svg class="i-close" viewBox="0 0 20 20" aria-hidden="true">
+            <path
+              d="M5 5l10 10M15 5L5 15"
               stroke="currentColor"
               stroke-width="1.6"
               stroke-linecap="round"></path>
@@ -253,6 +260,16 @@ const nav = [
     display: none;
   }
 
+  /* Two bars shut, a cross open: CSS on [open], so it holds with JS off too. */
+  .menu .i-close,
+  .menu[open] .i-menu {
+    display: none;
+  }
+
+  .menu[open] .i-close {
+    display: block;
+  }
+
   .menu-sheet {
     position: fixed;
     top: var(--nav-h);
@@ -328,6 +345,11 @@ const nav = [
     :global(body:has(.masthead .menu[open]) > :is(.skip-link, main, footer)) {
       visibility: hidden;
     }
+
+    /* Astro's dev toolbar (dev server only) would float over the sheet's Sign in. */
+    :global(body:has(.masthead .menu[open]) > astro-dev-toolbar) {
+      visibility: hidden;
+    }
   }
 </style>
 
@@ -350,7 +372,6 @@ const nav = [
   // A page restored from the back/forward cache, or a choice made in another tab, skips
   // the head script: read the saved theme again.
   function rereadTheme() {
-    if (root.hasAttribute('data-theme-lock')) return;
     try {
       const t = localStorage.getItem('wc-theme');
       if (t === 'light' || t === 'dark') root.dataset.theme = t;
@@ -410,15 +431,15 @@ const nav = [
   // Under 900px the bar's account slot is hidden while signed out, so the sheet's Sign in
   // stands in for PrivyRoot's live button. account-boot only catches it before Privy has
   // booted (and then prevents the default); after that, hand the tap to the live button
-  // instead of following the no-JS href.
+  // instead of following the no-JS href. While Privy is still loading there is no live
+  // button yet, so the tap follows the href to the /me/ sign-in gate.
   const signin = document.querySelector<HTMLAnchorElement>('[data-masthead] .menu-signin');
   const slotRoot = document.getElementById('account-slot-root');
   signin?.addEventListener('click', (e) => {
     if (e.defaultPrevented) return;
     const live = slotRoot?.querySelector<HTMLElement>('.account-slot .account-join');
-    if (!live) return;
+    if (!live || live.matches('.account-placeholder')) return;
     e.preventDefault();
-    if (live.matches('.account-placeholder')) return; // Privy is still loading.
     if (menu) menu.open = false;
     live.click();
   });

@@ -1,14 +1,15 @@
 /**
  * THE SINGLE-HOST EVENT FILTER — the reminder Vishal asked for.
  *
- * `loadLiveRecords()` narrows every event the public site reads to the ones
- * `aniket-sahu` hosts, and drops the rest with no error and no log. Vishal's
- * decision on 5 October 2026 was "leave it, remind me when it starts hiding
- * something". A reminder somebody has to remember is not a reminder, so it is
- * this file.
+ * `hostedByAniketSahu` (src/data/host-filter.ts) narrows every event the
+ * public site reads, prerendered (`records()`) or live (`loadLiveRecords()`),
+ * to the ones `aniket-sahu` hosts, and drops the rest with no error and no
+ * log. Vishal's decision on 5 October 2026 was "leave it, remind me when it
+ * starts hiding something". A reminder somebody has to remember is not a
+ * reminder, so it is this file.
  *
- * The reminder is `keeps every event in the curated record`. All 17 events in
- * `src/data/events.ts` are hosted by `aniket-sahu` today, so it is green; it
+ * The reminder is `keeps every event in the curated record`. Every event in
+ * `src/data/events.ts` is hosted by `aniket-sahu` today, so it is green; it
  * goes red the first time somebody adds an event to the record hosted by
  * anybody else, which is the moment the filter starts hiding curated work.
  *
@@ -57,10 +58,10 @@ describe('the single-host event filter', () => {
     expect(
       hidden.map((event) => event.slug),
       'These curated events are no longer hosted by aniket-sahu, so the ' +
-        'single-host filter in loadLiveRecords() will hide them from ' +
-        '/events/, /gallery and every city page. This is the reminder ' +
-        'Vishal asked for: either credit aniket-sahu on them or widen the ' +
-        'filter. Do not delete this test to go green.',
+        'single-host filter (src/data/host-filter.ts) will hide them from ' +
+        '/events/, /record/, /gallery, the sitemap and every city page. ' +
+        'This is the reminder Vishal asked for: either credit aniket-sahu ' +
+        'on them or widen the filter. Do not delete this test to go green.',
     ).toEqual([]);
 
     // Guards the guard: an empty record would also produce zero hidden
@@ -92,16 +93,18 @@ describe('the single-host event filter', () => {
           ...base,
           host: {
             ambassadorSlug: 'priya-nair',
-            credits: [{ ambassadorSlug: 'aniket-sahu', role: 'host', source: 'curated', confidence: 1 }],
+            credits: [
+              { ambassadorSlug: 'aniket-sahu', role: 'host', source: 'curated', confidence: 1 },
+            ],
           },
         } as never),
       ).toBe(true);
     });
 
     it('drops an event hosted by somebody else', () => {
-      expect(
-        hostedByAniketSahu({ ...base, host: { ambassadorSlug: 'priya-nair' } } as never),
-      ).toBe(false);
+      expect(hostedByAniketSahu({ ...base, host: { ambassadorSlug: 'priya-nair' } } as never)).toBe(
+        false,
+      );
     });
 
     it('drops an event with no host at all', () => {
@@ -160,10 +163,9 @@ describe('the single-host event filter', () => {
         ...(ambassadorId ? { ambassadorId } : {}),
       });
 
-      await db.insert(schema.events).values([
-        event('hosted-by-aniket', aniket),
-        event('hosted-by-nobody', null),
-      ]);
+      await db
+        .insert(schema.events)
+        .values([event('hosted-by-aniket', aniket), event('hosted-by-nobody', null)]);
     });
 
     afterAll(async () => {

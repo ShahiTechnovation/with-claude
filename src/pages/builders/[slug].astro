@@ -31,6 +31,7 @@ import {
 import { asset } from '@/lib/images';
 import { cardProps } from '@/lib/project-display';
 import { formatName } from '@/lib/status';
+import { initials } from '@/lib/words';
 import ProjectGrid from '@/components/ProjectGrid.astro';
 import EventRecord from '@/components/EventRecord.astro';
 import { profileSchema, titles, trail } from '@/lib/seo';
@@ -157,7 +158,14 @@ const schema = builderRow
               loading="eager"
               decoding="async"
             />
-          ) : null}
+          ) : (
+            <span
+              class:list={['portrait', 'initials', { 'is-verified': ambassador }]}
+              aria-hidden="true"
+            >
+              {initials(builderRow.name)}
+            </span>
+          )}
           <p>
             {builderRow.role}
             {' · '}
@@ -246,7 +254,11 @@ const schema = builderRow
             </a>
             {/* The report form needs its script, so without JS it is not rendered. */}
             <div class="js-only">
-              <ReportModal client:load entityType="builder" entityId={builderRow.id} />
+              <ReportModal
+                client:visible={{ rootMargin: '600px' }}
+                entityType="builder"
+                entityId={builderRow.id}
+              />
             </div>
           </div>
           <ModeratorControls
@@ -285,6 +297,24 @@ const schema = builderRow
     border-radius: 50%;
     object-fit: cover;
     border: 1px solid var(--rule-strong);
+  }
+
+  /* No photo: initials, as on the builder's index card. */
+  .initials {
+    display: grid;
+    place-items: center;
+    background: var(--paper-raised-2);
+    color: var(--ink);
+    font-family: var(--font-title);
+    font-size: var(--t-h3);
+    font-weight: 600;
+  }
+
+  .initials.is-verified {
+    background: var(--clay);
+    border-color: transparent;
+    color: var(--btn-ink);
+    box-shadow: var(--glow-tile);
   }
 
   .who a {
@@ -386,5 +416,11 @@ const schema = builderRow
     justify-content: space-between;
     gap: var(--s-4);
     margin-top: var(--s-6);
+  }
+
+  /* A flex item, not a block: a block's line box is taller than the link beside it and would sit
+     the Report text 1.5px below "All builders". Without JS base.css still hides it. */
+  .foot .js-only {
+    display: flex;
   }
 </style>

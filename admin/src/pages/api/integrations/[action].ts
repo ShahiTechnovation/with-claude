@@ -20,18 +20,38 @@ export const POST: APIRoute = async ({ request, params, locals }) => {
   if (!user || (user.role !== 'admin' && user.role !== 'editor')) {
     return new Response('Editors only.', { status: 403 });
   }
-  if (!assertSameOrigin(request)) return new Response('Cross-origin request refused.', { status: 403 });
+  if (!assertSameOrigin(request))
+    return new Response('Cross-origin request refused.', { status: 403 });
 
   const action = params.action;
   if (action !== 'process' && action !== 'reconcile' && action !== 'retry') {
     return new Response('Unknown action.', { status: 400 });
   }
   let note = '';
-  if (action === 'retry') note = `${await retryFailed(pooledDb())} job(s) re-queued. `;
-  const result = await runSync('manual', { reconcileFirst: action === 'reconcile', budgetMs: CRON_BUDGET_MS });
-  note += result.ran ? 'Run finished.' : `Not run: ${result.reason}.`;
+  let key = 'error';
+  try {
+    if (action === 'retry') note = `${await retryFailed(pooledDb())} job(s) re-queued. `;
+    const result = await runSync('manual', {
+      reconcileFirst: action === 'reconcile',
+      budgetMs: CRON_BUDGET_MS,
+    });
+    if (result.ran) {
+      note += 'Run finished.';
+      key = 'note';
+    } else {
+      // A run that started and failed keeps its message on the run row, which the page lists.
+      note += result.started ? 'The run failed. See Recent runs.' : `Not run: ${result.reason}.`;
+    }
+  } catch (error) {
+    // Reached before a run starts, and after one when recording its failure fails too.
+    console.error(`sync ${action} failed`, error);
+    note += 'The sync failed. See the server log.';
+  }
   return new Response(null, {
     status: 303,
-    headers: { Location: `/integrations?note=${encodeURIComponent(note)}`, 'Cache-Control': 'no-store' },
+    headers: {
+      Location: `/integrations?${key}=${encodeURIComponent(note)}`,
+      'Cache-Control': 'no-store',
+    },
   });
 };

@@ -14,15 +14,15 @@
   ],
   "crons": [
     {
-      "path": "/api/cron/events-sync",
+      "path": "/api/cron/events-sync/",
       "schedule": "45 21 * * *"
     },
     {
-      "path": "/api/cron/rebuild",
+      "path": "/api/cron/rebuild/",
       "schedule": "30 22 * * *"
     },
     {
-      "path": "/api/cron/baserow-reconcile",
+      "path": "/api/cron/baserow-reconcile/",
       "schedule": "15 21 * * *"
     }
   ],

@@ -17,7 +17,7 @@ import BuilderIndex from '@/components/BuilderIndex.astro';
 import ProjectGroup from '@/components/ProjectGroup.astro';
 import PracticeLibrary from '@/components/PracticeLibrary.astro';
 import SubmitPanel from '@/components/SubmitPanel.astro';
-import { official, site } from '@/data';
+import { site } from '@/data';
 import { isLive } from '@/lib/city';
 import { dateParts, formatDate, formatDateLong } from '@/lib/datetime';
 import { eventLabel } from '@/lib/event-display';
@@ -177,12 +177,6 @@ const tone = {
                     </a>
                   )}
                 </div>
-                <p class="meta quiet-note">
-                  Want to host events in {city.name}?{' '}
-                  <a href={official.ambassadorProgramUrl} target="_blank" rel="noopener">
-                    Apply to Anthropic’s Ambassador programme
-                  </a>
-                </p>
               </div>
             </div>
           )}
@@ -333,21 +327,6 @@ const tone = {
     margin-top: var(--head-after);
   }
 
-  .quiet-note {
-    max-width: 60ch;
-    margin-top: var(--head-after);
-    padding-top: 20px;
-    border-top: 1px solid var(--rule);
-  }
-
-  .quiet-note a {
-    color: var(--ink-2);
-  }
-
-  .quiet-note a:hover {
-    color: var(--ink);
-  }
-
   /* --- Side ------------------------------------------------------------------ */
   .status-side {
     display: grid;
@@ -387,6 +366,25 @@ const tone = {
       grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
       gap: clamp(40px, 4vw, 72px);
       align-items: start;
+    }
+
+    /* A live city's h2 is out of flow, so the side would fill column 1 and leave column 2 empty:
+       dissolve it, and the photo takes the first column and the channels the second. */
+    .status:has(> .visually-hidden) > .status-side {
+      display: contents;
+    }
+
+    /* The channels sit on the photo's bottom edge, like a caption, and the photo is a shorter crop,
+       which leaves less empty space above them. The source is a portrait: 28% down keeps the
+       statue's crown, the tower and the skyline, and drops the reflection. */
+    .status:has(> .visually-hidden) {
+      align-items: end;
+    }
+
+    .status:has(> .visually-hidden) .status-image img {
+      aspect-ratio: 16 / 9;
+      max-height: 22rem;
+      object-position: 50% 28%;
     }
   }
 </style>

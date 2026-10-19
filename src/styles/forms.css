@@ -104,6 +104,17 @@
   align-items: start;
 }
 
+/* A fieldset that only groups fields draws no box of its own. */
+fieldset.form-grid {
+  padding: 0;
+  border: 0;
+}
+
+/* The browser's blue radio is off the palette; clay matches the focus ring. */
+.field-label > input[type='radio'] {
+  accent-color: var(--clay-deep);
+}
+
 @media (min-width: 40em) {
   .form-grid--two {
     grid-template-columns: 1fr 1fr;
@@ -150,13 +161,19 @@
   font-size: 1rem;
   color: var(--ink);
   background: var(--paper);
-  border: var(--border-hair) solid var(--rule-strong);
+  border: var(--border-hair) solid var(--rule-field);
   border-radius: var(--radius-xs);
   transition: border-color var(--dur-1) var(--ease-out);
 }
 
 .input:hover {
   border-color: var(--ink-3);
+}
+
+.input::placeholder {
+  color: var(--ink-3);
+  /* Firefox fades placeholders to 0.54, which would take --ink-3 under 4.5:1. */
+  opacity: 1;
 }
 
 .input:focus-visible {
@@ -213,7 +230,7 @@ textarea.input {
 }
 
 .notice--success {
-  border-left-color: #2f6b3a;
+  border-left-color: var(--ink);
 }
 
 .notice--error {
@@ -243,6 +260,8 @@ textarea.input {
   background: var(--paper);
 }
 
+/* The base dot is also archived's. Every dot clears 3:1 on the badge in both themes
+   (tests/non-text-contrast.test.ts): clay on cream is 2.96:1, so draft takes the deeper clay. */
 .status-badge::before {
   content: '';
   width: 0.5em;
@@ -252,22 +271,19 @@ textarea.input {
 }
 
 .status-badge--published::before {
-  background: #2f6b3a;
+  background: var(--ink);
 }
 
 .status-badge--draft::before {
-  background: var(--clay);
-}
-
-.status-badge--archived::before {
-  background: var(--rule-strong);
+  background: var(--clay-deep);
 }
 
 .status-badge--held::before {
   background: var(--clay-deep);
 }
 
-/* Buttons used inside React islands, matching `.btn` in primitives.css. */
+/* Buttons for forms, panels and dialogs. Not `.btn` (primitives.css): an 8px corner instead of
+   a pill, and the primary is ink, not clay. */
 .button {
   display: inline-flex;
   align-items: center;

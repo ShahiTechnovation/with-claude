@@ -264,7 +264,7 @@ const description =
                     data-facet="events:*"
                   />
                   All<span class="visually-hidden">,</span>{' '}
-                  <span class="dir-n" data-count="events:*" set:text={allCount || ''} />
+                  <span class="dir-n" data-count="events:*" set:text={allCount} />
                 </label>
                 {facets.events.map((f) => (
                   <label class="chip dir-pill">
@@ -278,7 +278,7 @@ const description =
                     />
                     {eventName(f.value)}
                     <span class="visually-hidden">,</span>{' '}
-                    <span class="dir-n" data-count={`events:${f.value}`} set:text={f.count || ''} />
+                    <span class="dir-n" data-count={`events:${f.value}`} set:text={f.count} />
                   </label>
                 ))}
               </fieldset>
@@ -288,9 +288,7 @@ const description =
                   <option value="">All types</option>
                   {facets.categories.map((f) => (
                     <option value={f.value} selected={query.categories[0] === f.value}>
-                      {f.count > 0
-                        ? `${categoryLabel(f.value)} (${f.count})`
-                        : categoryLabel(f.value)}
+                      {`${categoryLabel(f.value)} (${f.count})`}
                     </option>
                   ))}
                 </select>

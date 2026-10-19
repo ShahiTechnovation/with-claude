@@ -110,6 +110,28 @@ describe('cardProps', () => {
       links: { live: null, repo: null, video: null },
     });
   });
+
+  it('passes the team name when present and omits it when absent', () => {
+    expect(cardProps({ slug: 'x', title: 'X', team: 'Team Alpha' })).toEqual({
+      slug: 'x',
+      title: 'X',
+      team: 'Team Alpha',
+      text: null,
+      links: { live: null, repo: null, video: null },
+    });
+    expect(cardProps({ slug: 'x', title: 'X', team: null })).toEqual({
+      slug: 'x',
+      title: 'X',
+      text: null,
+      links: { live: null, repo: null, video: null },
+    });
+    expect(cardProps({ slug: 'x', title: 'X', team: '   ' })).toEqual({
+      slug: 'x',
+      title: 'X',
+      text: null,
+      links: { live: null, repo: null, video: null },
+    });
+  });
 });
 
 describe('eventPlate', () => {
@@ -177,5 +199,13 @@ describe('component markup (review fixes)', () => {
     expect(onLuma.test('lu.ma/abc')).toBe(false);
     expect(onLuma.test('https://evil-luma.com/x')).toBe(false);
     expect(onLuma.test('https://luma.com.evil.test/x')).toBe(false);
+  });
+
+  it('the team line renders when present and is absent otherwise', () => {
+    expect(card).toMatch(/^const \{[^\n]*\bteam\b[^\n]*= Astro\.props;$/m);
+    // Under the title, above the card text.
+    expect(card).toMatch(
+      /<\/Heading>[\s\S]*\{team && <p class="pcard-team meta">\{team\}<\/p>\}\s*\{text &&/,
+    );
   });
 });

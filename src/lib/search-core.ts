@@ -131,6 +131,10 @@ const STOP_WORDS = new Set([
   'with',
   'india',
   'claude',
+  // Finder words: "find events in bhopal" is "events in bhopal".
+  'find',
+  'show',
+  'me',
 ]);
 
 const normalise = (input: string): string =>
@@ -256,7 +260,9 @@ export function scoreRecord(record: SearchRecord, intent: SearchIntent): number 
   if (intent.kinds.length && !intent.kinds.includes(record.kind)) return 0;
   if (intent.city && record.facets.city !== intent.city) return 0;
   if (intent.format && record.facets.format !== intent.format) return 0;
-  if (intent.surface && !record.facets.surfaces?.some((s) => s.includes(intent.surface!))) return 0;
+  // A surface is a phrase the record's `terms` must contain. `terms` already
+  // holds every surface facet, and it is the only place an event names one.
+  if (intent.surface && !contains(record.terms, intent.surface)) return 0;
 
   // A query that was entirely structured — "events in Pune" — is answered by
   // the constraints alone, so everything surviving them is a hit.

@@ -172,21 +172,53 @@ html.js .no-js-only {
   display: none !important;
 }
 
-/* The masthead's theme toggle has nothing to do where the theme is locked. */
-[data-theme-lock] [data-theme-toggle] {
-  display: none;
-}
-
 /* --- Film grain ---------------------------------------------------------
-   One fixed, static layer over everything. No flicker, no other noise. */
+   One fixed layer over everything, no other noise. It jumps to a new offset eight times a
+   second, so the grain shimmers like film; a transform, so the compositor moves it without a
+   repaint. The layer overhangs the viewport by more than the largest jump, so no edge shows.
+   Reduced motion: it stays still. */
 body::after {
   content: '';
   position: fixed;
-  inset: 0;
+  inset: -64px;
   z-index: var(--z-grain);
   pointer-events: none;
   opacity: var(--grain-o);
   background-image: var(--grain);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  body::after {
+    animation: grain 1s steps(1) infinite;
+  }
+}
+
+@keyframes grain {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  12.5% {
+    transform: translate(-37px, 21px);
+  }
+  25% {
+    transform: translate(29px, -43px);
+  }
+  37.5% {
+    transform: translate(-13px, -51px);
+  }
+  50% {
+    transform: translate(47px, 17px);
+  }
+  62.5% {
+    transform: translate(-53px, -9px);
+  }
+  75% {
+    transform: translate(11px, 39px);
+  }
+  87.5% {
+    transform: translate(-27px, -31px);
+  }
 }
 
 @media print {
@@ -198,8 +230,8 @@ body::after {
 /* =========================================================================
    THE REVEAL
    CSS only, on a scroll timeline, for every `[data-reveal]` variant. The
-   static state is the finished state: with motion reduced, without scroll
-   timelines (Firefox, Safari before 26) or without JS, nothing is hidden.
+   static state is the finished state: with motion reduced or without scroll
+   timelines (Firefox, Safari before 26), nothing is hidden. It needs no JS.
    Every scroll-driven effect on the site sits inside this same double gate.
    Never put `data-reveal` on anything in the first screen.
    ========================================================================= */

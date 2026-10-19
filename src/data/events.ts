@@ -42,6 +42,7 @@ export const events: CommunityEvent[] = [
     host: { ...bhopalHost, builderSlugs: ['vishal-kumar'] },
     date: '2026-03-01',
     startTime: '16:00',
+    endTime: '19:00',
     venue: { name: 'Bhopal', private: true },
     summary: 'Where it all started — demos and a Q&A with an Anthropic team member.',
     registrationUrl: 'https://luma.com/hphplrbx',
@@ -69,6 +70,7 @@ export const events: CommunityEvent[] = [
     host: { ambassadorSlug: 'aniket-sahu', organisations: ['The Origin Guild', 'Builder Base'] },
     date: '2026-07-12',
     startTime: '16:30',
+    endTime: '19:00',
     venue: { name: 'Aanarchy', address: 'Bhopal' },
     summary: 'Developers and AI enthusiasts showing each other what they had built.',
     registrationUrl: 'https://luma.com/claude-18gk',
@@ -104,6 +106,7 @@ export const events: CommunityEvent[] = [
     host: bhopalHost,
     date: '2026-07-26',
     startTime: '18:00',
+    endTime: '20:00',
     venue: { name: 'Sheryians HQ', address: 'Bhopal' },
     summary: 'Small-group talks on building with AI in 2026.',
     registrationUrl: 'https://luma.com/claude-w1nu',
@@ -140,6 +143,7 @@ export const events: CommunityEvent[] = [
     },
     date: '2026-08-02',
     startTime: '17:00',
+    endTime: '20:30',
     venue: { name: 'BIBA', address: 'Bhopal' },
     summary: 'Hands-on intro to Claude.ai, Claude Code, the API and MCP.',
     registrationUrl: 'https://luma.com/claude-9g93',
@@ -171,6 +175,7 @@ export const events: CommunityEvent[] = [
     host: { ...bhopalHost, builderSlugs: ['vishal-kumar'] },
     date: '2026-08-05',
     startTime: '17:00',
+    endTime: '20:30',
     venue: { name: 'RICR — Raj Institute of Coding & Robotics', address: 'Bhopal' },
     summary: 'A deeper Claude Code session, run by Aniket Sahu and Vishal Kumar.',
     registrationUrl: 'https://luma.com/claude-7myk',
@@ -203,6 +208,7 @@ export const events: CommunityEvent[] = [
     host: bhopalHost,
     date: '2026-08-09',
     startTime: '17:30',
+    endTime: '19:30',
     venue: { name: 'BIBA', address: 'Bhopal' },
     summary: 'Advanced workflows, larger codebases, live coding.',
     registrationUrl: 'https://luma.com/claude-jy40',
@@ -238,8 +244,10 @@ export const events: CommunityEvent[] = [
     host: soloHost,
     date: '2026-08-15',
     startTime: '17:30',
+    endTime: '20:00',
     venue: { name: 'Walkover', address: 'Indore' },
     summary: 'The first Claude community room in Indore.',
+    registrationUrl: 'https://luma.com/claude-t91n',
     free: true,
   },
   {
@@ -252,6 +260,7 @@ export const events: CommunityEvent[] = [
     host: bhopalHost,
     date: '2026-08-16',
     startTime: '17:30',
+    endTime: '20:30',
     venue: { name: 'Farzi Cafe', address: 'Bhopal' },
     summary: 'An evening on what Claude changes for people running a business.',
     registrationUrl: 'https://luma.com/claude-ssrl',
@@ -282,7 +291,7 @@ export const events: CommunityEvent[] = [
     host: { ambassadorSlug: 'aniket-sahu', organisations: ['The Origin Guild', 'Builder Base'] },
     date: '2026-08-23',
     startTime: '09:00',
-    endTime: '19:00',
+    endTime: '18:00',
     venue: { name: 'PaPaPet head office', address: 'Bhopal' },
     summary: 'The first full-day build day: how could AI make Bhopal better?',
     registrationUrl: 'https://luma.com/claude-af61',
@@ -351,7 +360,9 @@ export const events: CommunityEvent[] = [
     citySlug: 'bhopal',
     host: bhopalHost,
     date: '2026-08-27',
-    startTime: '16:00',
+    // Luma's structured time reads 02:30–05:40; its description says 1:10–4:20 PM.
+    startTime: '13:10',
+    endTime: '16:20',
     venue: { name: 'Bhopal', private: true },
     summary: 'Idea to prototype with Claude, for college builders.',
     registrationUrl: 'https://luma.com/claude-j2dr',
@@ -386,7 +397,7 @@ export const events: CommunityEvent[] = [
     endTime: '18:00',
     venue: {
       name: 'AIC-RNTU Foundation (Start-up Incubation Centre)',
-      address: 'Chiklod Road, Bhopal',
+      address: 'Kothri Kalan',
     },
     summary: 'A tour of the Claude ecosystem, then a guided build with Claude Code.',
     description:
@@ -409,7 +420,8 @@ export const events: CommunityEvent[] = [
     host: soloHost,
     date: '2026-09-05',
     startTime: '11:00',
-    venue: { name: 'Paytm', address: 'Delhi' },
+    endTime: '15:00',
+    venue: { name: 'Paytm', address: 'Noida' },
     summary: 'The first Claude community room in Delhi.',
     registrationUrl: 'https://luma.com/claude-44tv',
     free: true,
@@ -424,7 +436,7 @@ export const events: CommunityEvent[] = [
     citySlug: 'bhopal',
     host: bhopalHost,
     date: '2026-09-12',
-    startTime: '18:00',
+    startTime: '17:00',
     endTime: '20:30',
     venue: { name: 'Bhopal', private: true },
     summary: 'One question, no demos: what does AI mean for the future of building startups?',
@@ -514,6 +526,7 @@ export const events: CommunityEvent[] = [
     host: bhopalHost,
     date: '2026-09-20',
     startTime: '09:00',
+    endTime: '18:30',
     venue: { name: 'Bhopal', private: true },
     summary: 'A full day building with Claude Code and Fable 5.1.',
     registrationUrl: 'https://luma.com/claude-z01j',
@@ -622,26 +635,226 @@ export const events: CommunityEvent[] = [
     host: bhopalHost,
     date: '2026-09-30',
     startTime: '14:00',
+    endTime: '17:00',
     venue: { name: 'Bhopal', private: true },
     summary: 'Workshop on building and learning with AI agents.',
     registrationUrl: 'https://luma.com/claude-8le5',
     free: true,
   },
   {
+    id: 'evt-bhopal-everyone',
+    slug: 'claude-for-everyone-bhopal',
+    status: 'published',
+    title: 'Claude for Everyone',
+    format: 'meetup',
+    citySlug: 'bhopal',
+    // Luma lists Aniket Sahu alone.
+    host: { ambassadorSlug: 'aniket-sahu' },
+    date: '2026-10-06',
+    startTime: '17:30',
+    endTime: '19:30',
+    venue: { name: 'Bhopal', private: true },
+    summary:
+      'A community meetup for anyone curious about Claude, AI and how these technologies are shaping the way we learn, work and create.',
+    registrationUrl: 'https://luma.com/claude-lulm',
+    free: true,
+  },
+  {
+    // Day 1 of the two-day programme; the Impact Lab below is Day 2.
+    id: 'evt-bhopal-community-workshop',
+    slug: 'claude-community-workshop',
+    status: 'published',
+    title: 'Claude Community Workshop',
+    format: 'workshop',
+    citySlug: 'bhopal',
+    host: {
+      ambassadorSlug: 'aniket-sahu',
+      builderSlugs: ['vishal-kumar'],
+      organisations: ['Builder Base'],
+    },
+    date: '2026-10-10',
+    startTime: '16:00',
+    endTime: '19:00',
+    venue: { name: 'Bhopal', private: true },
+    summary: 'Hands-on integration workshop, expert session and Impact Lab orientation.',
+    registrationUrl: 'https://luma.com/claude-pmjo',
+    free: true,
+    photos: [
+      {
+        src: 'events/claude-community-workshop-1.jpg',
+        alt: 'Attendees checking their phones around a table spread with stickers, beside a Claude Community Bhopal Impact Lab banner',
+      },
+      {
+        src: 'events/claude-community-workshop-2.jpg',
+        alt: 'An attendee speaking into a microphone from the lecture hall seats, the people around him listening',
+      },
+      {
+        src: 'events/claude-community-workshop-3.jpg',
+        alt: 'Two presenters at a lectern, one speaking into a microphone behind a sticker-covered laptop',
+      },
+      {
+        src: 'events/claude-community-workshop-5.jpg',
+        alt: 'A speaker in a black T-shirt talking outdoors in front of Claude Community Bhopal Impact Lab banners',
+      },
+      {
+        src: 'events/claude-community-workshop-6.jpg',
+        alt: 'A speaker in a green sweater talking into a microphone in front of orange Claude Community Bhopal banners',
+      },
+      {
+        src: 'events/claude-community-workshop-7.jpg',
+        alt: 'An attendee in a red top speaking into a microphone from among the seated audience',
+      },
+      // Last on purpose: /gallery/ widens the last plate of a 7-plate room at three columns to
+      // 21:9, and this one keeps every face in that crop.
+      {
+        src: 'events/claude-community-workshop-4.jpg',
+        alt: 'Two presenters in the open-air theatre courtyard, one speaking, beside a Claude Community Bhopal Impact Lab sign',
+      },
+    ],
+  },
+  {
+    // Luma lists one two-day programme (10 Oct 16:00 to 11 Oct 19:30). This
+    // row is Day 2, the Impact Lab; Day 1 is the workshop above (claude-pmjo).
     id: 'evt-bhopal-14',
     slug: 'claude-code-impact-lab-october',
     status: 'published',
-    title: 'Claude Code Impact Lab',
+    title: 'Claude Impact Lab',
     format: 'impact-lab',
     volume: 14,
     citySlug: 'bhopal',
     host: bhopalHost,
-    date: '2026-10-10',
+    date: '2026-10-11',
     startTime: '09:00',
-    endTime: '18:00',
+    endTime: '19:30',
     venue: { name: 'Bhopal', private: true },
     summary: 'The October edition of the Claude Code Impact Lab.',
     registrationUrl: 'https://luma.com/claude-ozni',
+    free: true,
+    photos: [
+      {
+        src: 'events/vol14-1.jpg',
+        alt: 'A large group of Impact Lab participants posing for a group photo in front of the stage',
+      },
+      {
+        src: 'events/vol14-2.jpg',
+        alt: 'Participants queuing along a red carpet to the registration desk on arrival',
+      },
+      {
+        src: 'events/vol14-3.jpg',
+        alt: 'The registration team in orange lanyards giving a thumbs up at the desk, under a Claude Bhopal banner',
+      },
+      {
+        src: 'events/vol14-4.jpg',
+        alt: 'The auditorium filling up under the Claude Impact Lab Bhopal slide, participants at laptops in the front rows',
+      },
+      {
+        src: 'events/vol14-5.jpg',
+        alt: 'A speaker in a red and white jersey on stage beside the Today’s agenda slide, from check-in and breakfast to the final presentations, winners and closing',
+      },
+      {
+        src: 'events/vol14-6.jpg',
+        alt: 'Three people talking in white armchairs, one gesturing over a laptop covered in stickers',
+      },
+      {
+        src: 'events/vol14-7.jpg',
+        alt: 'A builder presenting Visarjan Ghat Watch, a site about water tests at Bhopal’s immersion ghats, on the auditorium screen',
+      },
+      {
+        src: 'events/vol14-8.jpg',
+        alt: 'Participants on stage around a Winner cheque, giving a thumbs up',
+      },
+      {
+        src: 'events/vol14-9.jpg',
+        alt: 'Participants at the registration desk, the table covered in stickers and orange lanyards',
+      },
+      {
+        src: 'events/vol14-10.jpg',
+        alt: 'Volunteers in orange lanyards smiling at the registration desk',
+      },
+      {
+        src: 'events/vol14-11.jpg',
+        alt: 'A participant in an orange lanyard posing in the Claude Community Bhopal Impact Lab photo frame, which reads Oct 11, 9 AM to 7 PM',
+      },
+      {
+        src: 'events/vol14-12.jpg',
+        alt: 'Three participants giving a thumbs up inside the Claude Community Bhopal photo frame',
+      },
+      {
+        src: 'events/vol14-13.jpg',
+        alt: 'A speaker in a red and white jersey at the lectern in the darkened auditorium',
+      },
+      {
+        src: 'events/vol14-14.jpg',
+        alt: 'A speaker in a number 23 jersey, seen from behind, facing rows of participants in the auditorium',
+      },
+      {
+        src: 'events/vol14-15.jpg',
+        alt: 'A speaker in a red and white jersey talking into a microphone beside an Impact Lab slide, a co-presenter at the lectern',
+      },
+      {
+        src: 'events/vol14-16.jpg',
+        alt: 'A line of people standing on stage under the Wrap up, Thank you, Bhopal slide',
+      },
+      {
+        src: 'events/vol14-17.jpg',
+        alt: 'Three people giving a thumbs up in front of the stage curtain',
+      },
+      {
+        src: 'events/vol14-18.jpg',
+        alt: 'Two people in conversation by the stage, in front of the Claude Community Bhopal Impact Lab banners',
+      },
+      {
+        src: 'events/vol14-19.jpg',
+        alt: 'Participants in orange lanyards holding plates of snacks and cups, giving a thumbs up',
+      },
+      {
+        src: 'events/vol14-20.jpg',
+        alt: 'Five people standing in front of the Impact Lab, Ideas to Reality slide',
+      },
+      {
+        src: 'events/vol14-21.jpg',
+        alt: 'Two people talking beside the stage, a Claude Community Bhopal Impact Lab banner behind them',
+      },
+      {
+        src: 'events/vol14-26.jpg',
+        alt: 'Participants posing for a group photo on stage under the October 11, 2026 Claude Impact Lab Bhopal slide',
+      },
+      {
+        src: 'events/vol14-23.jpg',
+        alt: 'A speaker in a zigzag-patterned blouse talking into a microphone in front of the Claude Community globe on the screen',
+      },
+      {
+        src: 'events/vol14-24.jpg',
+        alt: 'A speaker in a number 23 jersey greeting a participant in an orange lanyard on stage',
+      },
+      {
+        src: 'events/vol14-25.jpg',
+        alt: 'A speaker with a microphone on stage, the globe from the title slide on the screen behind her',
+      },
+      // Last on purpose: it closes wide (2:1 on the event page while the count is even, 21:9 on
+      // /gallery/ at two columns), and this 4:3 group keeps every face at 3:2, 2:1 and 21:9.
+      {
+        src: 'events/vol14-22.jpg',
+        alt: 'Participants in orange lanyards posing for a group photo on stage under the Claude Impact Lab slide',
+      },
+    ],
+  },
+  {
+    id: 'evt-bhopal-workshop-october',
+    slug: 'claude-code-workshop-october',
+    status: 'published',
+    title: 'Claude Code Workshop',
+    format: 'workshop',
+    citySlug: 'bhopal',
+    // Luma lists Aniket Sahu alone.
+    host: { ambassadorSlug: 'aniket-sahu' },
+    date: '2026-10-15',
+    startTime: '13:30',
+    endTime: '16:30',
+    venue: { name: 'BIBA', address: 'Bhopal' },
+    summary:
+      'A hands-on workshop introducing the Claude ecosystem and how developers can build with Claude Code.',
+    registrationUrl: 'https://luma.com/claude-3brg',
     free: true,
   },
 ];

@@ -16,9 +16,12 @@ import { formatName } from '@/lib/status';
  * excuses for being pictures, because pictures of real rooms are the strongest
  * evidence on the site.
  *
- * A horizontal set of plates you scroll, not an autoplaying carousel: no
- * timers, no hover-only affordances, and it works with a trackpad, a finger,
- * or the Tab key. Frames and captions match the homepage photo strip.
+ * A horizontal set of plates you scroll with a trackpad, a finger or the Tab
+ * key. It behaves like the homepage photo strip: black and white until pointed
+ * at, tapped or focused, when the colour blooms in, and it glides one plate
+ * forward every 3.5 s while on screen (`data-autoscroll`, the shared
+ * src/scripts/strip-glide.ts, which also holds the pause and stop rules).
+ * Frames and captions match the homepage strip.
  */
 interface Props {
   showHead?: boolean;
@@ -64,7 +67,12 @@ const written = data.storiesChronological();
     )
   }
 
-  <ul class="floor-track" tabindex="0" aria-label="Photographs from past events, scrollable">
+  <ul
+    class="floor-track"
+    tabindex="0"
+    aria-label="Photographs from past events, scrollable"
+    data-autoscroll
+  >
     {
       plates.map((plate, i) => {
         const city = data.cityName(plate.event.citySlug);
@@ -80,14 +88,16 @@ const written = data.storiesChronological();
                 href={`/events/${plate.event.slug}/`}
                 tabindex={repeat ? -1 : undefined}
               >
-                <Image
-                  src={requireAsset(plate.src)}
-                  alt={plate.alt}
-                  widths={[400, 800]}
-                  sizes="400px"
-                  loading="lazy"
-                  decoding="async"
-                />
+                <span class="shot">
+                  <Image
+                    src={requireAsset(plate.src)}
+                    alt={plate.alt}
+                    widths={[400, 800]}
+                    sizes="400px"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </span>
                 {/* The photograph's alt describes the picture; the link also
                     has to say where it goes. The caption below is a sibling of
                     the anchor, so it cannot name it. */}
@@ -122,6 +132,8 @@ const written = data.storiesChronological();
 </div>
 
 <script>
+  import '@/scripts/strip-glide';
+
   // Chrome leaves a tab stop that is already partly on screen where it is, so a frame
   // peeking in at the edge would take focus mostly hidden. Bring the whole item in.
   document.addEventListener('focusin', (e) => {
@@ -169,12 +181,18 @@ const written = data.storiesChronological();
     display: flex;
     gap: 16px;
     margin: 0;
-    padding: 4px var(--edge);
+    /* 5px: room for a focused plate's ring (3px offset + 2px) inside the scroller's clip. */
+    padding: 5px var(--edge);
     list-style: none;
     overflow-x: auto;
     scroll-snap-type: x mandatory;
     scroll-padding-inline: var(--edge);
     overscroll-behavior-x: contain;
+  }
+
+  /* Inset, so the ring is not clipped at the viewport edge the strip bleeds to. */
+  .floor-track:focus-visible {
+    outline-offset: -2px;
   }
 
   .floor-item {
@@ -187,11 +205,21 @@ const written = data.storiesChronological();
     margin: 0;
   }
 
-  /* Positioned, so the visually hidden link text stays inside the scroller. */
+  /* Positioned: it keeps the visually hidden link text inside the scroller and holds the lift
+     glow (::before) on the plate. */
   .frame {
     position: relative;
     display: block;
     border-radius: 14px;
+  }
+
+  /* The rounded window the photo zooms inside. */
+  .shot {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    border-radius: 14px;
+    background: var(--paper-raised);
   }
 
   .frame :global(img) {
@@ -200,8 +228,92 @@ const written = data.storiesChronological();
     height: auto;
     aspect-ratio: 3 / 2;
     object-fit: cover;
-    border-radius: 14px;
-    background: var(--paper-raised);
+    filter: grayscale(1) brightness(0.92);
+  }
+
+  /* As on the homepage strip. Hover, tap (focus, touch screens only, so a mouse click does not
+     leave a photo lit), a keyboard-focused plate or the keyboard-focused strip: the colour
+     blooms in. */
+  .frame:hover :global(img),
+  .frame:focus-visible :global(img),
+  .floor-track:focus-visible :global(img) {
+    filter: none;
+  }
+
+  .frame:hover + figcaption,
+  .frame:focus-visible + figcaption {
+    color: var(--ink);
+  }
+
+  @media (hover: none) {
+    .frame:focus :global(img) {
+      filter: none;
+    }
+
+    .frame:focus + figcaption {
+      color: var(--ink);
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .shot {
+      transition: transform var(--dur-3) var(--ease-out);
+    }
+
+    /* The lift glow: a fixed shadow on a layer behind the photo that fades and rises with it,
+       so hover animates opacity and transform only. Outside .shot, whose overflow would clip
+       it. Same box as .shot: full width, 3:2. */
+    .frame::before {
+      content: '';
+      position: absolute;
+      inset: 0 0 auto;
+      aspect-ratio: 3 / 2;
+      border-radius: 14px;
+      box-shadow: 0 14px 28px -16px rgb(var(--glow) / 0.55);
+      opacity: 0;
+      pointer-events: none;
+      transition:
+        transform var(--dur-3) var(--ease-out),
+        opacity var(--dur-3) var(--ease-out);
+    }
+
+    .frame :global(img) {
+      transition:
+        filter var(--dur-3) var(--ease-out),
+        transform var(--dur-4) var(--ease-out);
+    }
+
+    .floor-item figcaption {
+      transition: color var(--dur-2) var(--ease-out);
+    }
+
+    .frame:hover .shot,
+    .frame:hover::before {
+      transform: translateY(-4px);
+    }
+
+    .frame:hover::before {
+      opacity: 1;
+    }
+
+    .frame:hover :global(img) {
+      transform: scale(1.05);
+    }
+
+    @media (hover: none) {
+      .frame:focus .shot,
+      .frame:focus::before {
+        transform: translateY(-4px);
+      }
+
+      .frame:focus::before {
+        opacity: 1;
+      }
+
+      .frame:focus :global(img) {
+        transform: scale(1.05);
+      }
+    }
   }
 
   .floor-item figcaption {

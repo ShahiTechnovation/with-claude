@@ -127,6 +127,13 @@
       "when": 1791193092876,
       "tag": "0017_media_consent_basis",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792137420369,
+      "tag": "0018_events_luma_october",
+      "breakpoints": true
     }
   ]
 }

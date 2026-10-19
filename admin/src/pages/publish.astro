@@ -89,13 +89,25 @@ function publicUrl(entityType: string, slug: string): string | undefined {
   <header class="head">
     <h1>Publish</h1>
     <p class="lede">
-      Approved records that are not on the website yet. Publishing is a separate act from
-      approving — nothing here reached this page by itself.
+      Approved records that are not on the website yet. Publishing is a separate act from approving
+      — nothing here reached this page by itself.
     </p>
   </header>
 
-  {error && <p class="banner banner-error" role="alert">{error}</p>}
-  {done && <p class="banner banner-done" role="status">{done}</p>}
+  {
+    error && (
+      <p class="notice notice-error" role="alert">
+        {error}
+      </p>
+    )
+  }
+  {
+    done && (
+      <p class="notice notice-ok" role="status">
+        {done}
+      </p>
+    )
+  }
 
   <nav class="filters" aria-label="Views">
     {
@@ -114,9 +126,9 @@ function publicUrl(entityType: string, slug: string): string | undefined {
 
   {
     !mayPublish && (
-      <p class="banner banner-error">
-        Your role ({user.role}) can read this queue but cannot publish. Publishing and takedown
-        are Editor and Admin actions.
+      <p class="notice notice-info">
+        Your role ({user.role}) can read this queue but cannot publish. Publishing and takedown are
+        Editor and Admin actions.
       </p>
     )
   }
@@ -149,7 +161,7 @@ function publicUrl(entityType: string, slug: string): string | undefined {
               <tr>
                 <td class="cell-type">{PUBLISHABLE[row.entityType].label}</td>
 
-                <td class="cell-title">
+                <td>
                   <span class="title">{row.title}</span>
                   {row.status === 'published' && url ? (
                     <a class="slug" href={url} target="_blank" rel="noopener">
@@ -160,7 +172,7 @@ function publicUrl(entityType: string, slug: string): string | undefined {
                   )}
                 </td>
 
-                <td class="cell-from">
+                <td>
                   {row.submissionId ? (
                     <a href={`/submissions/${row.submissionId}`}>
                       {row.submitterName ?? 'a submission'}
@@ -181,13 +193,16 @@ function publicUrl(entityType: string, slug: string): string | undefined {
                   )}
                 </td>
 
-                <td class="cell-status">
+                <td>
                   <span class:list={['pip', `pip-${row.status}`]}>{row.status}</span>
                 </td>
 
                 <td class="cell-actions">
                   {mayPublish && row.status === 'approved' && (
-                    <form method="POST" action={`/api/content/${row.entityType}/${row.id}/transition`}>
+                    <form
+                      method="POST"
+                      action={`/api/content/${row.entityType}/${row.id}/transition`}
+                    >
                       <input type="hidden" name="action" value="publish" />
                       <input type="hidden" name="return" value={`/publish?view=${view}`} />
                       <button class="btn btn-solid" type="submit">
@@ -205,7 +220,10 @@ function publicUrl(entityType: string, slug: string): string | undefined {
                   {mayPublish && row.status === 'published' && (
                     <details class="with-note">
                       <summary class="btn btn-quiet">Archive</summary>
-                      <form method="POST" action={`/api/content/${row.entityType}/${row.id}/transition`}>
+                      <form
+                        method="POST"
+                        action={`/api/content/${row.entityType}/${row.id}/transition`}
+                      >
                         <input type="hidden" name="action" value="archive" />
                         <input type="hidden" name="return" value={`/publish?view=${view}`} />
                         <label for={`note-${row.id}`}>Why is this coming down?</label>
@@ -220,7 +238,10 @@ function publicUrl(entityType: string, slug: string): string | undefined {
                   {mayPublish && row.status === 'archived' && (
                     <details class="with-note">
                       <summary class="btn btn-quiet">Restore</summary>
-                      <form method="POST" action={`/api/content/${row.entityType}/${row.id}/transition`}>
+                      <form
+                        method="POST"
+                        action={`/api/content/${row.entityType}/${row.id}/transition`}
+                      >
                         <input type="hidden" name="action" value="restore" />
                         <input type="hidden" name="return" value={`/publish?view=${view}`} />
                         <label for={`restore-${row.id}`}>Why is it coming back?</label>
@@ -245,9 +266,9 @@ function publicUrl(entityType: string, slug: string): string | undefined {
   }
 
   <p class="foot">
-    Publishing triggers a rebuild of the public site. The database is the record; the build is
-    how it reaches the CDN. If a rebuild cannot be triggered, the change is still saved and the
-    nightly build carries it.
+    Publishing triggers a rebuild of the public site. The database is the record; the build is how
+    it reaches the CDN. If a rebuild cannot be triggered, the change is still saved and the nightly
+    build carries it.
   </p>
 </Admin>
 

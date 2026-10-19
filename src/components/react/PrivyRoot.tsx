@@ -49,6 +49,7 @@ import {
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { signInHref } from '@/lib/directory-host';
 import {
   AccountContextProvider,
   describeAccountProblem,
@@ -355,7 +356,7 @@ function displayNameOf(user: unknown): string {
   return 'Account';
 }
 
-function AccountSlot() {
+export function AccountSlot() {
   const { user } = usePrivy();
   const { state, signIn, signOut, retry } = useAccount();
   const [open, setOpen] = useState(false);
@@ -413,10 +414,19 @@ function AccountSlot() {
   if (!target) return null;
 
   let content: React.ReactNode;
-  if (state.status === 'initialising' || state.status === 'slow') {
+  if (state.status === 'initialising') {
     content = (
       <div className="account-slot" data-account-state="loading" aria-hidden="true">
         <span className="account-join account-placeholder">Sign in</span>
+      </div>
+    );
+  } else if (state.status === 'slow') {
+    // Privy didn't start: a real link to the /me/ gate, which says so and offers a reload.
+    content = (
+      <div className="account-slot" data-account-state="loading">
+        <a className="account-join" href={signInHref(window.location.hostname)}>
+          Sign in
+        </a>
       </div>
     );
   } else if (state.status === 'signed-out') {
@@ -571,7 +581,7 @@ function JoinCta() {
   } else if (state.status === 'signed-out') {
     content = (
       <button type="button" className="signin-button" onClick={signIn}>
-        Sign in to continue
+        Sign in
       </button>
     );
   } else if (state.status === 'bootstrapping') {
@@ -617,7 +627,7 @@ function SignOutSlot() {
 /**
  * Lazily loaded, so the editors' code is fetched only on the pages that have
  * a mount point for them. The names are the only values a page can put in
- * `data-account-island`; anything else is ignored.
+ * `data-account-island`; anything else is logged and skipped.
  */
 const ISLANDS: Record<string, ComponentType<Record<string, unknown>>> = {
   'profile-editor': lazy(() => import('./ProfileEditor')) as never,
@@ -630,11 +640,18 @@ interface IslandMount {
   props: Record<string, unknown>;
 }
 
-function readIslandMounts(): IslandMount[] {
+/**
+ * Logs a mount it can't use (unknown name, bad props JSON). The member still
+ * sees an empty panel; the console line is the only trace.
+ */
+export function readIslandMounts(): IslandMount[] {
   return Array.from(document.querySelectorAll<HTMLElement>('[data-account-island]')).flatMap(
     (node) => {
       const name = node.dataset.accountIsland ?? '';
-      if (!ISLANDS[name]) return [];
+      if (!ISLANDS[name]) {
+        console.error('[account] island not mounted:', name);
+        return [];
+      }
       const script = node.querySelector('script[type="application/json"]');
       try {
         const props = script?.textContent
@@ -642,6 +659,7 @@ function readIslandMounts(): IslandMount[] {
           : {};
         return [{ node, name, props }];
       } catch {
+        console.error('[account] island not mounted:', name);
         return [];
       }
     },
@@ -654,10 +672,20 @@ function AccountIslands() {
     <>
       {mounts.map(({ node, name, props }, index) => {
         const Island = ISLANDS[name];
+        // Its own boundary: a failed chunk or a render error stays in this panel.
         return createPortal(
-          <Suspense fallback={<p className="island-loading">Loading…</p>}>
-            <Island {...props} />
-          </Suspense>,
+          <ProviderBoundary
+            label={`island ${name} failed`}
+            fallback={
+              <p className="island-loading" role="alert">
+                Something went wrong on our side. Please try again in a moment.
+              </p>
+            }
+          >
+            <Suspense fallback={<p className="island-loading">Loading…</p>}>
+              <Island {...props} />
+            </Suspense>
+          </ProviderBoundary>,
           node,
           `${name}-${index}`,
         );
@@ -714,10 +742,11 @@ function Inner({ openLogin = false }: { openLogin?: boolean }) {
  * then sat on "Loading the editor…" forever. Now a failure drops to a
  * degraded root: the state is an explicit, honest "sign-in unavailable", and
  * requests go with the cookie alone. A page the SERVER already authorised
- * keeps working; nothing is pretended.
+ * keeps working; nothing is pretended. Each account island has one too
+ * (`label`), so an editor that fails takes down only its own panel.
  */
-class ProviderBoundary extends Component<
-  { children: ReactNode; fallback: ReactNode },
+export class ProviderBoundary extends Component<
+  { children: ReactNode; fallback: ReactNode; label?: string },
   { failed: boolean }
 > {
   state = { failed: false };
@@ -729,7 +758,7 @@ class ProviderBoundary extends Component<
   componentDidCatch(error: unknown) {
     // A fixed code only; SDK errors are not echoed.
     console.warn(
-      '[account] sign-in provider failed to start',
+      `[account] ${this.props.label ?? 'sign-in provider failed to start'}`,
       error instanceof Error ? error.name : 'unknown',
     );
   }
@@ -801,9 +830,9 @@ const PRIVY_DARK_GROUND = '#141413';
 const PRIVY_TITLE = 'Sign in to WITH CLAUDE';
 
 /**
- * Privy's look, read once when it boots: the page's theme (`<html data-theme>`,
- * which is locked light on /me/), the clay accent and the 180px logo from `public/`.
- * Privy loads the logo itself, so it needs an absolute URL.
+ * Privy's look: the page's theme (`<html data-theme>`), the clay accent and the
+ * 180px logo from `public/`. Read when Privy boots and again whenever the theme
+ * changes (`watchAppearance`). Privy loads the logo itself, so it needs an absolute URL.
  */
 export function privyAppearance(
   root: HTMLElement,
@@ -818,6 +847,21 @@ export function privyAppearance(
   };
 }
 
+/**
+ * Hands `set` a new look each time `<html data-theme>` changes. An account page boots Privy
+ * on load, so the masthead toggle can switch the theme after that. Only `appearance` changes:
+ * PrivyProvider keeps its client across renders, so the session stays. Returns the disconnect.
+ */
+export function watchAppearance(
+  root: HTMLElement,
+  origin: string,
+  set: (look: ReturnType<typeof privyAppearance>) => void,
+): () => void {
+  const observer = new MutationObserver(() => set(privyAppearance(root, origin)));
+  observer.observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+  return () => observer.disconnect();
+}
+
 interface Props {
   appId: string;
   loginMethods?: string[];
@@ -826,8 +870,12 @@ interface Props {
 }
 
 export default function PrivyRoot({ appId, loginMethods, openLogin = false }: Props) {
-  const [appearance] = useState(() =>
+  const [appearance, setAppearance] = useState(() =>
     privyAppearance(document.documentElement, window.location.origin),
+  );
+  useEffect(
+    () => watchAppearance(document.documentElement, window.location.origin, setAppearance),
+    [],
   );
   return (
     <ProviderBoundary fallback={<DegradedInner />}>

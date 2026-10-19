@@ -250,11 +250,13 @@ export function excerpt(text: string | null | undefined, max = 155): string {
 
 // ── cards ────────────────────────────────────────────────────────────────
 
-/** What a project card renders: its icon, name, one line and its links. Nothing else. */
+/** What a project card renders: its icon, name, team (if any), one line and its links. Nothing else. */
 export interface CardProps {
   /** The href /projects/<slug>/ and the icon. */
   slug: string;
   title: string;
+  /** Published team name, if any. */
+  team?: string | null;
   /** One line: cardText(). */
   text?: string | null;
   links?: { live?: string | null; repo?: string | null; video?: string | null };
@@ -283,6 +285,7 @@ export function cardProps(
   p: {
     slug: string;
     title: string;
+    team?: string | null;
     description?: string | null;
     summary?: string | null;
     links?: { live: string | null; repo: string | null; video: string | null };
@@ -292,9 +295,11 @@ export function cardProps(
   },
   extra: Pick<CardProps, 'size' | 'level'> = {},
 ): CardProps {
+  const team = p.team?.trim();
   return {
     slug: p.slug,
     title: p.title,
+    ...(team ? { team } : {}),
     text: cardText(p),
     links: p.links
       ? { live: p.links.live, repo: p.links.repo, video: p.links.video }

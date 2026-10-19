@@ -5,10 +5,18 @@ import { createTestDatabase, type TestDatabase } from '../db/testing';
 import * as schema from '../db/schema';
 import { parseIcs, parseIcsDate, unescapeText, unfold } from '../src/server/events/ics';
 import { classifyIndia, nearestIndianCity } from '../src/server/events/india';
-import { LumaIcsSource, normalizeLumaIcsEvent, lumaExternalId, parseGeo, lumaIcsUrl } from '../src/server/events/luma';
+import {
+  LumaIcsSource,
+  normalizeLumaIcsEvent,
+  lumaExternalId,
+  parseGeo,
+  lumaIcsUrl,
+} from '../src/server/events/luma';
 import { ManualEventSource } from '../src/server/events/registry';
 import { fingerprint, inferFormat, syncSource } from '../src/server/events/sync';
 import { withAttribution } from '../src/lib/attribution';
+import { isRegistrationOpen } from '../src/lib/status';
+import { loadRecordSet } from '../src/data/source-db';
 import type { NormalizedEvent } from '../src/server/events/source';
 
 /**
@@ -39,9 +47,30 @@ afterAll(async () => {
 /** The atlas cities the sync resolves against. */
 async function seedCities(): Promise<void> {
   await db.insert(schema.cities).values([
-    { slug: 'bhopal', name: 'Bhopal', region: 'Madhya Pradesh', lat: 23.2599, lon: 77.4126, blurb: 'Where it started.' },
-    { slug: 'mumbai', name: 'Mumbai', region: 'Maharashtra', lat: 19.076, lon: 72.8777, blurb: 'On the coast.' },
-    { slug: 'bengaluru', name: 'Bengaluru', region: 'Karnataka', lat: 12.9716, lon: 77.5946, blurb: 'On the plateau.' },
+    {
+      slug: 'bhopal',
+      name: 'Bhopal',
+      region: 'Madhya Pradesh',
+      lat: 23.2599,
+      lon: 77.4126,
+      blurb: 'Where it started.',
+    },
+    {
+      slug: 'mumbai',
+      name: 'Mumbai',
+      region: 'Maharashtra',
+      lat: 19.076,
+      lon: 72.8777,
+      blurb: 'On the coast.',
+    },
+    {
+      slug: 'bengaluru',
+      name: 'Bengaluru',
+      region: 'Karnataka',
+      lat: 12.9716,
+      lon: 77.5946,
+      blurb: 'On the plateau.',
+    },
   ]);
 }
 
@@ -98,9 +127,14 @@ describe('the ICS parser', () => {
   });
 
   it('reads the three date forms and flags what it could not resolve', () => {
-    expect(parseIcsDate({ value: '20251009T161500Z', params: {} })).toMatchObject({ utc: true, dateOnly: false });
+    expect(parseIcsDate({ value: '20251009T161500Z', params: {} })).toMatchObject({
+      utc: true,
+      dateOnly: false,
+    });
     expect(parseIcsDate({ value: '20251009', params: {} })).toMatchObject({ dateOnly: true });
-    expect(parseIcsDate({ value: '20251009T161500', params: { TZID: 'Asia/Kolkata' } })).toMatchObject({
+    expect(
+      parseIcsDate({ value: '20251009T161500', params: { TZID: 'Asia/Kolkata' } }),
+    ).toMatchObject({
       utc: false,
       zone: 'Asia/Kolkata',
     });
@@ -108,7 +142,8 @@ describe('the ICS parser', () => {
   });
 
   it('reads a TZID or floating time on its own wall clock, not as UTC', () => {
-    const at = (value: string, params: Record<string, string>) => parseIcsDate({ value, params })?.date.toISOString();
+    const at = (value: string, params: Record<string, string>) =>
+      parseIcsDate({ value, params })?.date.toISOString();
     // 18:00 in Kolkata is 12:30 UTC. Read as UTC it would render as 23:30 IST.
     expect(at('20260912T180000', { TZID: 'Asia/Kolkata' })).toBe('2026-09-12T12:30:00.000Z');
     expect(at('20260701T180000', { TZID: 'America/New_York' })).toBe('2026-07-01T22:00:00.000Z');
@@ -119,9 +154,16 @@ describe('the ICS parser', () => {
     // A date is the whole day in IST, so it starts at midnight IST rather than 05:30.
     expect(at('20261205', {})).toBe('2026-12-04T18:30:00.000Z');
     // A TZID Intl does not know reads like a floating time: IST, claiming no zone.
-    for (const TZID of ['India Standard Time', 'GMT+05:30', '/mozilla.org/20050126_1/Asia/Kolkata']) {
+    for (const TZID of [
+      'India Standard Time',
+      'GMT+05:30',
+      '/mozilla.org/20050126_1/Asia/Kolkata',
+    ]) {
       expect(at('20260912T180000', { TZID }), TZID).toBe('2026-09-12T12:30:00.000Z');
-      expect(parseIcsDate({ value: '20260912T180000', params: { TZID } })?.zone, TZID).toBeUndefined();
+      expect(
+        parseIcsDate({ value: '20260912T180000', params: { TZID } })?.zone,
+        TZID,
+      ).toBeUndefined();
     }
   });
 
@@ -152,7 +194,11 @@ describe('the India filter', () => {
   });
 
   it('rejects coordinates outside India', () => {
-    const verdict = classifyIndia({ location: 'Bahnhofstrasse 75, 8001 Zürich, Switzerland', latitude: 47.37, longitude: 8.53 });
+    const verdict = classifyIndia({
+      location: 'Bahnhofstrasse 75, 8001 Zürich, Switzerland',
+      latitude: 47.37,
+      longitude: 8.53,
+    });
     expect(verdict.inIndia).toBe(false);
   });
 
@@ -193,11 +239,15 @@ describe('the India filter', () => {
     const accepted = calendar.events
       .map(normalizeLumaIcsEvent)
       .filter((e): e is NormalizedEvent => Boolean(e))
-      .filter((e) =>
-        classifyIndia({
-          location: e.location, country: e.country,
-          latitude: e.latitude, longitude: e.longitude, timezone: e.timezone,
-        }).inIndia,
+      .filter(
+        (e) =>
+          classifyIndia({
+            location: e.location,
+            country: e.country,
+            latitude: e.latitude,
+            longitude: e.longitude,
+            timezone: e.timezone,
+          }).inIndia,
       );
 
     // 13 established by inspecting all 317 by hand. Bhopal appears 3 times.
@@ -233,11 +283,15 @@ describe('Luma specifics', () => {
   it('prefers the description address when LOCATION is a URL', () => {
     const calendar = parseIcs(
       [
-        'BEGIN:VCALENDAR', 'BEGIN:VEVENT', 'UID:evt-a@events.lu.ma',
-        'SUMMARY:Bhopal | Claude', 'DTSTART:20260101T043000Z',
+        'BEGIN:VCALENDAR',
+        'BEGIN:VEVENT',
+        'UID:evt-a@events.lu.ma',
+        'SUMMARY:Bhopal | Claude',
+        'DTSTART:20260101T043000Z',
         'LOCATION:https://luma.com/event/evt-a',
         'DESCRIPTION:Get up-to-date information at: https://luma.com/abc\\n\\nAddress:\\nMP Nagar\\nBhopal, Madhya Pradesh\\nIndia\\n\\nHosted by Aniket Sahu',
-        'END:VEVENT', 'END:VCALENDAR',
+        'END:VEVENT',
+        'END:VCALENDAR',
       ].join('\n'),
     );
     const normalized = normalizeLumaIcsEvent(calendar.events[0]);
@@ -335,18 +389,37 @@ describe('the sync', () => {
     const source = new ManualEventSource(
       [
         // 09:00–18:00 IST. Without an end it would read "Past" from 11:00.
-        event({ externalId: 'evt-day', title: 'Bhopal | Full Day', startsAt: new Date('2026-12-02T03:30:00Z'), endsAt: new Date('2026-12-02T12:30:00Z') }),
+        event({
+          externalId: 'evt-day',
+          title: 'Bhopal | Full Day',
+          startsAt: new Date('2026-12-02T03:30:00Z'),
+          endsAt: new Date('2026-12-02T12:30:00Z'),
+        }),
         // 20:00–02:00 IST: 02:00 on the start date would break `events_end_after_start`.
-        event({ externalId: 'evt-overnight', title: 'Bhopal | Overnight', startsAt: new Date('2026-12-03T14:30:00Z'), endsAt: new Date('2026-12-03T20:30:00Z') }),
-        event({ externalId: 'evt-two-days', title: 'Bhopal | Two Days', startsAt: new Date('2026-12-04T03:30:00Z'), endsAt: new Date('2026-12-05T12:30:00Z') }),
+        event({
+          externalId: 'evt-overnight',
+          title: 'Bhopal | Overnight',
+          startsAt: new Date('2026-12-03T14:30:00Z'),
+          endsAt: new Date('2026-12-03T20:30:00Z'),
+        }),
+        event({
+          externalId: 'evt-two-days',
+          title: 'Bhopal | Two Days',
+          startsAt: new Date('2026-12-04T03:30:00Z'),
+          endsAt: new Date('2026-12-05T12:30:00Z'),
+        }),
       ],
       { key: 'test:end', complete: true },
     );
     expect(await syncSource(source, db)).toMatchObject({ ok: true, promoted: 3 });
 
     const endOf = async (externalId: string) =>
-      (await db.select({ endTime: schema.events.endTime }).from(schema.events).where(eq(schema.events.externalId, externalId)))[0]
-        .endTime;
+      (
+        await db
+          .select({ endTime: schema.events.endTime })
+          .from(schema.events)
+          .where(eq(schema.events.externalId, externalId))
+      )[0].endTime;
     expect(await endOf('evt-day')).toBe('18:00:00');
     expect(await endOf('evt-overnight')).toBeNull();
     expect(await endOf('evt-two-days')).toBeNull();
@@ -354,7 +427,15 @@ describe('the sync', () => {
 
   it('holds a confidently-Indian event with no atlas city for review', async () => {
     const source = new ManualEventSource(
-      [event({ externalId: 'evt-pny', title: 'Puducherry | Claude', location: 'Puducherry, India', latitude: 11.9416, longitude: 79.8083 })],
+      [
+        event({
+          externalId: 'evt-pny',
+          title: 'Puducherry | Claude',
+          location: 'Puducherry, India',
+          latitude: 11.9416,
+          longitude: 79.8083,
+        }),
+      ],
       { key: 'test:atlas', complete: true },
     );
     const summary = await syncSource(source, db);
@@ -372,54 +453,99 @@ describe('the sync', () => {
 
   /** One VEVENT through the real parser and normaliser. */
   const lumaEvent = (...lines: string[]) =>
-    normalizeLumaIcsEvent(parseIcs(['BEGIN:VCALENDAR', 'BEGIN:VEVENT', ...lines, 'END:VEVENT', 'END:VCALENDAR'].join('\n')).events[0])!;
+    normalizeLumaIcsEvent(
+      parseIcs(
+        ['BEGIN:VCALENDAR', 'BEGIN:VEVENT', ...lines, 'END:VEVENT', 'END:VCALENDAR'].join('\n'),
+      ).events[0],
+    )!;
   const eventRow = async (externalId: string) =>
     (await db.select().from(schema.events).where(eq(schema.events.externalId, externalId)))[0];
 
   it('publishes a date-only event on its own date as the whole day, not at 05:30', async () => {
     const allDay = lumaEvent(
-      'UID:evt-allday@events.lu.ma', 'SUMMARY:Bhopal | Claude Day', 'DTSTART;VALUE=DATE:20261205',
+      'UID:evt-allday@events.lu.ma',
+      'SUMMARY:Bhopal | Claude Day',
+      'DTSTART;VALUE=DATE:20261205',
       'LOCATION:Bhopal, Madhya Pradesh, India',
     );
-    const summary = await syncSource(new ManualEventSource([allDay], { key: 'test:allday', complete: true }), db);
+    const summary = await syncSource(
+      new ManualEventSource([allDay], { key: 'test:allday', complete: true }),
+      db,
+    );
     expect(summary).toMatchObject({ ok: true, promoted: 1, review: 0 });
     expect(await eventRow('evt-allday')).toMatchObject({
-      status: 'published', date: '2026-12-05', startTime: '00:00:00', endTime: '23:59:59',
+      status: 'published',
+      date: '2026-12-05',
+      startTime: '00:00:00',
+      endTime: '23:59:59',
     });
   });
 
   it('keeps a published date-only event published when it is synced again', async () => {
     // As main published it: the date read as midnight UTC, so 05:30 IST.
     const key = 'test:allday-resync';
-    const before = event({ externalId: 'evt-allday-2', title: 'Bhopal | Build Weekend', startsAt: new Date('2026-12-06T00:00:00Z') });
+    const before = event({
+      externalId: 'evt-allday-2',
+      title: 'Bhopal | Build Weekend',
+      startsAt: new Date('2026-12-06T00:00:00Z'),
+    });
     await syncSource(new ManualEventSource([before], { key, complete: true }), db);
-    expect(await eventRow('evt-allday-2')).toMatchObject({ status: 'published', startTime: '05:30:00' });
+    expect(await eventRow('evt-allday-2')).toMatchObject({
+      status: 'published',
+      startTime: '05:30:00',
+    });
 
     const edited = lumaEvent(
-      'UID:evt-allday-2@events.lu.ma', 'SUMMARY:Bhopal | Build Weekend (edited)', 'DTSTART;VALUE=DATE:20261206',
-      'DTEND;VALUE=DATE:20261208', 'LOCATION:Bhopal, Madhya Pradesh, India',
+      'UID:evt-allday-2@events.lu.ma',
+      'SUMMARY:Bhopal | Build Weekend (edited)',
+      'DTSTART;VALUE=DATE:20261206',
+      'DTEND;VALUE=DATE:20261208',
+      'LOCATION:Bhopal, Madhya Pradesh, India',
     );
     const summary = await syncSource(new ManualEventSource([edited], { key, complete: true }), db);
     expect(summary).toMatchObject({ ok: true, promoted: 1, withdrawn: 0 });
     expect(await eventRow('evt-allday-2')).toMatchObject({
-      status: 'published', canceledAt: null, date: '2026-12-06', startTime: '00:00:00', endTime: '23:59:59',
+      status: 'published',
+      canceledAt: null,
+      date: '2026-12-06',
+      startTime: '00:00:00',
+      endTime: '23:59:59',
     });
   });
 
   it('fills in the end time of an event published before end times were stored', async () => {
     const [city] = await db.select({ id: schema.cities.id }).from(schema.cities).limit(1);
     await db.insert(schema.events).values({
-      slug: 'curated-full-day', title: 'Curated Full Day', format: 'workshop', cityId: city.id, date: '2026-12-09',
-      startTime: '09:00:00', venueName: 'A Real Venue', summary: 'Authored by a person.', status: 'published',
+      slug: 'curated-full-day',
+      title: 'Curated Full Day',
+      format: 'workshop',
+      cityId: city.id,
+      date: '2026-12-09',
+      startTime: '09:00:00',
+      venueName: 'A Real Venue',
+      summary: 'Authored by a person.',
+      status: 'published',
       registrationUrl: 'https://luma.com/curated-full-day',
     } as never);
-    const ends = (start: string, end: string) => ({ startsAt: new Date(start), endsAt: new Date(end) });
+    const ends = (start: string, end: string) => ({
+      startsAt: new Date(start),
+      endsAt: new Date(end),
+    });
     const source = new ManualEventSource(
       [
-        event({ externalId: 'evt-old-day', title: 'Bhopal | Old Day', ...ends('2026-12-07T03:30:00Z', '2026-12-07T12:30:00Z') }),
-        event({ externalId: 'evt-old-night', title: 'Bhopal | Old Night', ...ends('2026-12-08T14:30:00Z', '2026-12-08T20:30:00Z') }),
         event({
-          externalId: 'evt-curated-day', registrationUrl: 'https://luma.com/curated-full-day',
+          externalId: 'evt-old-day',
+          title: 'Bhopal | Old Day',
+          ...ends('2026-12-07T03:30:00Z', '2026-12-07T12:30:00Z'),
+        }),
+        event({
+          externalId: 'evt-old-night',
+          title: 'Bhopal | Old Night',
+          ...ends('2026-12-08T14:30:00Z', '2026-12-08T20:30:00Z'),
+        }),
+        event({
+          externalId: 'evt-curated-day',
+          registrationUrl: 'https://luma.com/curated-full-day',
           ...ends('2026-12-09T03:30:00Z', '2026-12-09T12:30:00Z'),
         }),
       ],
@@ -427,41 +553,68 @@ describe('the sync', () => {
     );
     await syncSource(source, db);
     // As main left it: promoted, and no end time.
-    await db.update(schema.events).set({ endTime: null }).where(eq(schema.events.externalId, 'evt-old-day'));
+    await db
+      .update(schema.events)
+      .set({ endTime: null })
+      .where(eq(schema.events.externalId, 'evt-old-day'));
 
     // Nothing in the feed changed, so promote() does not run again.
     expect(await syncSource(source, db)).toMatchObject({ ok: true, unchanged: 3, withdrawn: 0 });
     expect((await eventRow('evt-old-day')).endTime).toBe('18:00:00');
     // The same guards as promote(): no end on a later day, and never a curated event.
     expect((await eventRow('evt-old-night')).endTime).toBeNull();
-    const [curated] = await db.select().from(schema.events).where(eq(schema.events.slug, 'curated-full-day'));
+    const [curated] = await db
+      .select()
+      .from(schema.events)
+      .where(eq(schema.events.slug, 'curated-full-day'));
     expect(curated.endTime).toBeNull();
   });
 
   it('never publishes a foreign event', async () => {
     const source = new ManualEventSource(
-      [event({ externalId: 'evt-zrh', title: 'Zurich | Claude', location: 'Bahnhofstrasse 75, Zürich, Switzerland', latitude: 47.37, longitude: 8.53 })],
+      [
+        event({
+          externalId: 'evt-zrh',
+          title: 'Zurich | Claude',
+          location: 'Bahnhofstrasse 75, Zürich, Switzerland',
+          latitude: 47.37,
+          longitude: 8.53,
+        }),
+      ],
       { key: 'test:foreign', complete: true },
     );
     const summary = await syncSource(source, db);
     expect(summary).toMatchObject({ rejected: 1, promoted: 0 });
-    const events = await db.select().from(schema.events).where(eq(schema.events.externalId, 'evt-zrh'));
+    const events = await db
+      .select()
+      .from(schema.events)
+      .where(eq(schema.events.externalId, 'evt-zrh'));
     expect(events).toHaveLength(0);
   });
 
   it('cancels an event that disappears from a complete feed', async () => {
     const key = 'test:withdraw';
-    await syncSource(new ManualEventSource([event({ externalId: 'evt-gone' })], { key, complete: true }), db);
-    const [before] = await db.select().from(schema.events).where(eq(schema.events.externalId, 'evt-gone'));
+    await syncSource(
+      new ManualEventSource([event({ externalId: 'evt-gone' })], { key, complete: true }),
+      db,
+    );
+    const [before] = await db
+      .select()
+      .from(schema.events)
+      .where(eq(schema.events.externalId, 'evt-gone'));
     expect(before.canceledAt).toBeNull();
 
     // Same source, event no longer present.
     const summary = await syncSource(new ManualEventSource([], { key, complete: true }), db);
     expect(summary.withdrawn).toBe(1);
 
-    const [after] = await db.select().from(schema.events).where(eq(schema.events.externalId, 'evt-gone'));
+    const [after] = await db
+      .select()
+      .from(schema.events)
+      .where(eq(schema.events.externalId, 'evt-gone'));
     expect(after.canceledAt).not.toBeNull();
-    expect(after.statusOverride).toBe('cancelled');
+    // canceledAt is the sync's mark; the door state is left to people.
+    expect(after.statusOverride).toBeNull();
     expect(after.status).toBe('archived');
   });
 
@@ -472,11 +625,17 @@ describe('the sync', () => {
      * would cancel the entire calendar.
      */
     const key = 'test:partial';
-    await syncSource(new ManualEventSource([event({ externalId: 'evt-keep' })], { key, complete: true }), db);
+    await syncSource(
+      new ManualEventSource([event({ externalId: 'evt-keep' })], { key, complete: true }),
+      db,
+    );
     const summary = await syncSource(new ManualEventSource([], { key, complete: false }), db);
     expect(summary.withdrawn).toBe(0);
 
-    const [row] = await db.select().from(schema.events).where(eq(schema.events.externalId, 'evt-keep'));
+    const [row] = await db
+      .select()
+      .from(schema.events)
+      .where(eq(schema.events.externalId, 'evt-keep'));
     expect(row.canceledAt).toBeNull();
   });
 
@@ -490,9 +649,16 @@ describe('the sync', () => {
     const [curated] = await db
       .insert(schema.events)
       .values({
-        slug: 'curated-room', title: 'Curated Room', format: 'workshop', cityId: city.id,
-        date: '2026-05-01', startTime: '10:00:00', venueName: 'A Real Venue',
-        summary: 'Authored by a person.', status: 'published', externalId: 'evt-gone',
+        slug: 'curated-room',
+        title: 'Curated Room',
+        format: 'workshop',
+        cityId: city.id,
+        date: '2026-05-01',
+        startTime: '10:00:00',
+        venueName: 'A Real Venue',
+        summary: 'Authored by a person.',
+        status: 'published',
+        externalId: 'evt-gone',
       } as never)
       .returning({ id: schema.events.id });
 
@@ -522,10 +688,16 @@ describe('the sync', () => {
     const [curated] = await db
       .insert(schema.events)
       .values({
-        slug: 'claude-code-for-builders', title: 'Claude Code for Builders',
-        format: 'workshop', cityId: city.id, date: '2026-03-01', startTime: '10:00:00',
-        venueName: 'A Real Venue, Authored By Hand', summary: 'Written by a person.',
-        registrationUrl: 'https://luma.com/hphplrbx', status: 'published',
+        slug: 'claude-code-for-builders',
+        title: 'Claude Code for Builders',
+        format: 'workshop',
+        cityId: city.id,
+        date: '2026-03-01',
+        startTime: '10:00:00',
+        venueName: 'A Real Venue, Authored By Hand',
+        summary: 'Written by a person.',
+        registrationUrl: 'https://luma.com/hphplrbx',
+        status: 'published',
       } as never)
       .returning({ id: schema.events.id });
 
@@ -568,16 +740,25 @@ describe('the sync', () => {
 
   it('records a failed fetch without changing any event', async () => {
     const key = 'test:failure';
-    await syncSource(new ManualEventSource([event({ externalId: 'evt-survive' })], { key, complete: true }), db);
+    await syncSource(
+      new ManualEventSource([event({ externalId: 'evt-survive' })], { key, complete: true }),
+      db,
+    );
 
     const failing = {
-      key, provider: 'test', label: 'Failing', syncMode: 'ics' as const,
+      key,
+      provider: 'test',
+      label: 'Failing',
+      syncMode: 'ics' as const,
       fetch: async () => ({ ok: false as const, reason: 'TIMEOUT' }),
     };
     const summary = await syncSource(failing, db);
     expect(summary).toMatchObject({ ok: false, reason: 'TIMEOUT', withdrawn: 0 });
 
-    const [row] = await db.select().from(schema.events).where(eq(schema.events.externalId, 'evt-survive'));
+    const [row] = await db
+      .select()
+      .from(schema.events)
+      .where(eq(schema.events.externalId, 'evt-survive'));
     expect(row.canceledAt).toBeNull();
 
     const [sourceRow] = await db
@@ -633,13 +814,25 @@ describe('the sync', () => {
   it('does not withdraw an event the feed still lists but can no longer read', async () => {
     const feed = (dtstart: string) =>
       [
-        'BEGIN:VCALENDAR', 'BEGIN:VEVENT', 'UID:evt-unread@events.lu.ma', 'SUMMARY:Bhopal | Claude Evening', dtstart,
-        'LOCATION:Bhopal, Madhya Pradesh, India', 'END:VEVENT', 'END:VCALENDAR',
+        'BEGIN:VCALENDAR',
+        'BEGIN:VEVENT',
+        'UID:evt-unread@events.lu.ma',
+        'SUMMARY:Bhopal | Claude Evening',
+        dtstart,
+        'LOCATION:Bhopal, Madhya Pradesh, India',
+        'END:VEVENT',
+        'END:VCALENDAR',
       ].join('\r\n');
     let body = feed('DTSTART:20261210T123000Z');
-    vi.stubGlobal('fetch', async () => new Response(body, { headers: { 'content-type': 'text/calendar' } }));
+    vi.stubGlobal(
+      'fetch',
+      async () => new Response(body, { headers: { 'content-type': 'text/calendar' } }),
+    );
     try {
-      const source = new LumaIcsSource({ key: 'test:unreadable', feedUrl: 'https://calendar.example/feed.ics' });
+      const source = new LumaIcsSource({
+        key: 'test:unreadable',
+        feedUrl: 'https://calendar.example/feed.ics',
+      });
       expect(await syncSource(source, db)).toMatchObject({ ok: true, promoted: 1 });
       // Still in the feed, in a shape the parser does not read: that is not a cancellation.
       body = feed('DTSTART:2026-12-10 18:00');
@@ -653,13 +846,25 @@ describe('the sync', () => {
   it('still withdraws an unreadable event that the feed marks cancelled', async () => {
     const feed = (...lines: string[]) =>
       [
-        'BEGIN:VCALENDAR', 'BEGIN:VEVENT', 'UID:evt-unread-off@events.lu.ma', 'SUMMARY:Bhopal | Claude Morning', ...lines,
-        'LOCATION:Bhopal, Madhya Pradesh, India', 'END:VEVENT', 'END:VCALENDAR',
+        'BEGIN:VCALENDAR',
+        'BEGIN:VEVENT',
+        'UID:evt-unread-off@events.lu.ma',
+        'SUMMARY:Bhopal | Claude Morning',
+        ...lines,
+        'LOCATION:Bhopal, Madhya Pradesh, India',
+        'END:VEVENT',
+        'END:VCALENDAR',
       ].join('\r\n');
     let body = feed('DTSTART:20261211T043000Z');
-    vi.stubGlobal('fetch', async () => new Response(body, { headers: { 'content-type': 'text/calendar' } }));
+    vi.stubGlobal(
+      'fetch',
+      async () => new Response(body, { headers: { 'content-type': 'text/calendar' } }),
+    );
     try {
-      const source = new LumaIcsSource({ key: 'test:unreadable-cancelled', feedUrl: 'https://calendar.example/feed.ics' });
+      const source = new LumaIcsSource({
+        key: 'test:unreadable-cancelled',
+        feedUrl: 'https://calendar.example/feed.ics',
+      });
       expect(await syncSource(source, db)).toMatchObject({ ok: true, promoted: 1 });
       body = feed('DTSTART:2026-12-11 10:00', 'STATUS:CANCELLED');
       expect(await syncSource(source, db)).toMatchObject({ ok: true, withdrawn: 1 });
@@ -667,8 +872,113 @@ describe('the sync', () => {
       vi.unstubAllGlobals();
     }
     const row = await eventRow('evt-unread-off');
-    expect(row).toMatchObject({ status: 'archived', statusOverride: 'cancelled' });
+    expect(row).toMatchObject({ status: 'archived', statusOverride: null });
     expect(row.canceledAt).not.toBeNull();
+  });
+
+  /** A complete feed for `key` that lists one event, as described tonight. */
+  const listed = (key: string, externalId: string, description: string) =>
+    syncSource(
+      new ManualEventSource(
+        [event({ externalId, registrationUrl: `https://luma.com/${externalId}`, description })],
+        { key, complete: true },
+      ),
+      db,
+    );
+  /** The same feed with the event gone. */
+  const dropped = (key: string) =>
+    syncSource(new ManualEventSource([], { key, complete: true }), db);
+  /** The event as the record reader hands it to `/events/[slug]`. */
+  const publicRecord = async (externalId: string) => {
+    const { id } = await eventRow(externalId);
+    return (await loadRecordSet(db)).events.find((record) => record.id === id)!;
+  };
+  /** A month before the fixture's 1 Dec date, so only the door state decides Register. */
+  const NOV_1 = new Date('2026-11-01T00:00:00Z');
+
+  it("keeps an editor's takedown when the feed edits, drops or relists the event", async () => {
+    const key = 'test:takedown';
+    await listed(key, 'evt-takedown', 'First copy.');
+    // What the admin's Archive writes (PUBLISH_RULES.archive): the status, and no canceledAt.
+    await db
+      .update(schema.events)
+      .set({ status: 'archived' })
+      .where(eq(schema.events.externalId, 'evt-takedown'));
+
+    await listed(key, 'evt-takedown', 'The host added a recap.');
+    expect(await eventRow('evt-takedown')).toMatchObject({ status: 'archived', canceledAt: null });
+
+    // Not re-filed as a sync withdrawal, which a relisting would undo.
+    expect((await dropped(key)).withdrawn).toBe(0);
+    await listed(key, 'evt-takedown', 'Edited again after it came back.');
+    expect(await eventRow('evt-takedown')).toMatchObject({ status: 'archived', canceledAt: null });
+  });
+
+  it('republishes an event it withdrew itself, Register and all, once the feed lists it again', async () => {
+    const key = 'test:relisted';
+    await listed(key, 'evt-relisted', 'First copy.');
+    expect((await dropped(key)).withdrawn).toBe(1);
+
+    await listed(key, 'evt-relisted', 'Back on the calendar.');
+    expect(await eventRow('evt-relisted')).toMatchObject({
+      status: 'published',
+      canceledAt: null,
+      statusOverride: null,
+    });
+    expect(isRegistrationOpen(await publicRecord('evt-relisted'), NOV_1)).toBe(true);
+  });
+
+  it('republishes an event it withdrew when the feed lists the same copy again', async () => {
+    const key = 'test:relisted-same';
+    await listed(key, 'evt-relisted-same', 'The same copy.');
+    expect((await dropped(key)).withdrawn).toBe(1);
+
+    // The absence pass keeps the stored hash, so the hash alone would file this as unchanged.
+    expect(await listed(key, 'evt-relisted-same', 'The same copy.')).toMatchObject({
+      promoted: 1,
+      unchanged: 0,
+    });
+    expect(await eventRow('evt-relisted-same')).toMatchObject({
+      status: 'published',
+      canceledAt: null,
+    });
+    expect(isRegistrationOpen(await publicRecord('evt-relisted-same'), NOV_1)).toBe(true);
+    // Settled again, so the next quiet night is back to the one UPDATE.
+    expect(await listed(key, 'evt-relisted-same', 'The same copy.')).toMatchObject({
+      unchanged: 1,
+      updated: 0,
+    });
+  });
+
+  it('keeps a row the feed still marks cancelled settled, so a quiet night stays one UPDATE', async () => {
+    const source = new ManualEventSource(
+      [event({ externalId: 'evt-still-cancelled', status: 'CANCELLED' })],
+      {
+        key: 'test:still-cancelled',
+        complete: true,
+      },
+    );
+    await syncSource(source, db);
+    expect(await syncSource(source, db)).toMatchObject({ unchanged: 1, updated: 0 });
+  });
+
+  it("keeps an editor's own cancelled door state through a withdrawal and a relisting", async () => {
+    const key = 'test:editor-cancelled';
+    await listed(key, 'evt-editor-cancelled', 'First copy.');
+    // Set by hand: still listed, marked cancelled.
+    await db
+      .update(schema.events)
+      .set({ statusOverride: 'cancelled' })
+      .where(eq(schema.events.externalId, 'evt-editor-cancelled'));
+    expect((await dropped(key)).withdrawn).toBe(1);
+
+    await listed(key, 'evt-editor-cancelled', 'Back on the calendar.');
+    expect(await eventRow('evt-editor-cancelled')).toMatchObject({
+      status: 'published',
+      canceledAt: null,
+      statusOverride: 'cancelled',
+    });
+    expect(isRegistrationOpen(await publicRecord('evt-editor-cancelled'), NOV_1)).toBe(false);
   });
 
   it('writes an append-only audit entry for each run', async () => {

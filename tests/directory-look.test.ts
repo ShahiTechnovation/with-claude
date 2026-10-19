@@ -83,6 +83,14 @@ describe('the directory look', () => {
     expect(css).toMatch(/:root:has\(\[data-directory\]\) \{\s*--dir-tools-h: 74px;/);
   });
 
+  it('the submit band’s title is the h2 token, the size SubmitPanel’s title has on /builders/', () => {
+    // It was a clamp of its own (22 to 36px), smaller than the title of the same band on /builders/.
+    expect(rule('.dir-submit-title')).toMatch(/font-size:\s*var\(--t-h2\);/);
+    expect(read('src/components/SubmitPanel.astro')).toMatch(
+      /\.submit-title \{\s*font-size: var\(--t-h2\);/,
+    );
+  });
+
   it('the event pills keep their focus ring inside the scroll box, and the hidden radio inside the pill', () => {
     const events = rule('.dir-events');
     expect(events).toContain('overflow-x: auto');
@@ -95,6 +103,14 @@ describe('the directory look', () => {
   it('the empty status line stays rendered, so its live region is in the tree before it speaks', () => {
     expect(rule('.dir-status:empty')).toMatch(/^\s*margin: 0;\s*$/);
     expect(css).not.toMatch(/\.dir-status[^{]*\{[^}]*display: none/);
+  });
+
+  it('prints every count, zero too, so an empty search keeps the chips and options even', () => {
+    const page = read('src/pages/projects/index.astro');
+    expect(css).not.toContain('.dir-n:empty');
+    expect(page).toContain('data-count="events:*" set:text={allCount} />');
+    expect(page).toContain('data-count={`events:${f.value}`} set:text={f.count} />');
+    expect(page).toContain('{`${categoryLabel(f.value)} (${f.count})`}');
   });
 
   it('the page wires every hook directory.ts needs, and the Apply button shows only without JS', () => {

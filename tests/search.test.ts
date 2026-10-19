@@ -8,7 +8,7 @@ import {
   scoreRecord,
 } from '../src/lib/search-core';
 import type { SearchRecord, SearchVocabulary } from '../src/lib/search-core';
-import { buildSearchIndex } from '../src/lib/search';
+import { buildSearchIndex, search } from '../src/lib/search';
 import { RecordSelectors } from '../src/data/selectors';
 import { tsRecordSet } from '../src/data/source-ts';
 
@@ -270,6 +270,31 @@ describe('buildSearchIndex', () => {
     )!;
     expect(person.subtitle).toContain('Designer');
     expect(person.summary).toBe('');
+  });
+});
+
+describe('plain phrasings against the real record', () => {
+  // Events carry no surface facet, and "find" used to be a required term, so
+  // each of these returned nothing on /discover.
+  const selectors = new RecordSelectors(tsRecordSet());
+  const real = buildSearchIndex(selectors, new Date('2026-10-16T12:00:00+05:30'));
+  const found = (text: string) => search(real, selectors, text).map((result) => result.record);
+
+  it('finds Claude Code events, and only events', () => {
+    const kinds = found('claude code events').map((r) => r.kind);
+    expect(kinds.length).toBeGreaterThan(0);
+    expect(new Set(kinds)).toEqual(new Set(['event']));
+  });
+
+  it('finds Claude Code projects', () => {
+    expect(found('claude code projects').some((r) => r.kind === 'project')).toBe(true);
+  });
+
+  it('reads "find", "show" and "me" as filler', () => {
+    const plain = found('events in bhopal').map((r) => r.id);
+    expect(plain.length).toBeGreaterThan(0);
+    expect(found('find events in bhopal').map((r) => r.id)).toEqual(plain);
+    expect(found('show me events in bhopal').map((r) => r.id)).toEqual(plain);
   });
 });
 

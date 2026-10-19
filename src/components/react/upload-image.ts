@@ -15,6 +15,12 @@ import type { AccountApi } from './account-context';
 
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 export const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'];
+/**
+ * The editors' `accept` and hint. tests/member-editors.test.ts checks that the hint names every
+ * type above and that the list matches the server's (`ALLOWED_COVER_TYPES` in covers.ts).
+ */
+export const IMAGE_ACCEPT = IMAGE_TYPES.join(',');
+export const IMAGE_HINT = 'JPEG, PNG, WebP, GIF, AVIF · up to 5 MB';
 
 export type UploadTarget =
   | { purpose: 'cover'; projectId: string; alt: string }

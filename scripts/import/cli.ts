@@ -22,6 +22,11 @@
  *
  *   archive-plan | verify-links | archive-report | fixture-seed | sync | enrich-logos
  *
+ * The October 2026 Bhopal Impact Lab (one form export — see
+ * `scripts/import/sources/impact-lab-2026-10/commands.ts`):
+ *
+ *   lab-oct-seed-event | lab-oct-verify-links | lab-oct-plan | lab-oct-report
+ *
  * Environment: DATABASE_URL (ledger, crosswalk), BASEROW_CONFIG, BASEROW_API_URL,
  * and BASEROW_IMPORT_TOKEN — a database token with create/update/delete on the
  * Projects and Credits tables ONLY. It is never used by the website.
@@ -44,6 +49,7 @@ import { applyPlan, rollbackBatch, type Decision } from './lib/apply';
 import { fieldOptionsFrom, loadBaserowProjects, loadCrosswalk, loadNeonProjects } from './lib/existing';
 import { fail, flag, guardDatabase, option, positional as firstPositional, writer } from './lib/cli-env';
 import { ARCHIVE_COMMANDS, runArchiveCommand } from './archive';
+import { LAB_OCT_COMMANDS, runLabOctCommand } from './sources/impact-lab-2026-10/commands';
 import { writeManifest } from './lib/workspace';
 
 const [command] = process.argv.slice(2);
@@ -170,8 +176,13 @@ switch (command) {
       await runArchiveCommand(command as (typeof ARCHIVE_COMMANDS)[number]);
       break;
     }
+    if (command && (LAB_OCT_COMMANDS as readonly string[]).includes(command)) {
+      await runLabOctCommand(command as (typeof LAB_OCT_COMMANDS)[number]);
+      break;
+    }
     fail(
       'Usage: import inspect <file> | plan <file> --mapping <m.json> | apply --plan <plan.json> --yes [--publish] | rollback --batch <id> --yes\n' +
-        `       import ${ARCHIVE_COMMANDS.join(' | ')}  (see scripts/import/archive.ts)`,
+        `       import ${ARCHIVE_COMMANDS.join(' | ')}  (see scripts/import/archive.ts)\n` +
+        `       import ${LAB_OCT_COMMANDS.join(' | ')} --file <xlsx>  (see scripts/import/sources/impact-lab-2026-10/commands.ts)`,
     );
 }

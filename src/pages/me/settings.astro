@@ -15,13 +15,11 @@ const hasUsername = guard.ok && !isPlaceholderUsername(guard.profile.username);
 const visibilityLabel = guard.ok && guard.profile.visibility === 'unlisted' ? 'Unlisted' : 'Listed';
 ---
 
-{
-  !guard.ok ? (
-    <Base title="Sign in" description="Sign in to continue" noindex>
+<Base title="Settings" description="Manage your settings." active="/me" noindex>
+  {
+    !guard.ok ? (
       <AuthRequired reason={guard.reason} />
-    </Base>
-  ) : (
-    <Base title="Settings" description="Manage your settings." active="/me" noindex>
+    ) : (
       <div class="account-shell account-shell--narrow account-page">
         <AccountNavTabs current="/me/settings/" />
         <header class="account-head">
@@ -67,9 +65,9 @@ const visibilityLabel = guard.ok && guard.profile.visibility === 'unlisted' ? 'U
           </div>
         </section>
       </div>
-    </Base>
-  )
-}
+    )
+  }
+</Base>
 
 <style>
   .account-section {

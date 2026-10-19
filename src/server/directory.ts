@@ -2,6 +2,7 @@ import { eq, and, isNull } from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import { pooledDb } from '../../db/pool';
 import * as dbSchema from '../../db/schema';
+import { hostedByAniketSahu } from '../data/host-filter';
 import { loadRecordSet } from '../data/source-db';
 import type { RecordSet } from '../data/source';
 import { publicProjectWhere } from './projects/lifecycle';
@@ -52,7 +53,11 @@ export function isPublicBuilder(b: {
  * 1. It is public (published + clean)
  * 2. It is NOT explicitly unlisted
  */
-export function isIndexableBuilder(b: { status: string; moderationState: string; profileVisibility?: string }): boolean {
+export function isIndexableBuilder(b: {
+  status: string;
+  moderationState: string;
+  profileVisibility?: string;
+}): boolean {
   if (!isPublicBuilder(b)) return false;
   // If visibility is unlisted, it is accessible via direct URL but not indexable
   return b.profileVisibility !== 'unlisted';
@@ -92,54 +97,59 @@ export async function getPublicBuilderList(db: Db = pooledDb()): Promise<PublicB
     .from(dbSchema.builders)
     .innerJoin(dbSchema.cities, eq(dbSchema.builders.cityId, dbSchema.cities.id))
     .leftJoin(dbSchema.media, eq(dbSchema.builders.imageId, dbSchema.media.id))
-    .leftJoin(dbSchema.memberProfiles, eq(dbSchema.builders.ownerMemberId, dbSchema.memberProfiles.memberId))
+    .leftJoin(
+      dbSchema.memberProfiles,
+      eq(dbSchema.builders.ownerMemberId, dbSchema.memberProfiles.memberId),
+    )
     .where(
       and(
         eq(dbSchema.builders.status, 'published'),
         eq(dbSchema.builders.moderationState, 'clean'),
         isNull(dbSchema.builders.deletedAt),
-      )
+      ),
     );
 
   // We filter out unlisted builders after query or as part of the return map.
   return builderRows
-    .filter((row) => isIndexableBuilder({
+    .filter((row) =>
+      isIndexableBuilder({
+        status: row.builder.status,
+        moderationState: row.builder.moderationState,
+        profileVisibility: row.profileVisibility ?? undefined,
+      }),
+    )
+    .map((row) => ({
+      id: row.builder.id,
+      slug: row.builder.slug,
+      name: row.builder.name,
+      citySlug: row.citySlug,
+      role: row.builder.role,
+      roles: row.builder.roles as string[],
+      bio: row.builder.bio || undefined,
       status: row.builder.status,
       moderationState: row.builder.moderationState,
-      profileVisibility: row.profileVisibility ?? undefined
-    }))
-    .map((row) => ({
-    id: row.builder.id,
-    slug: row.builder.slug,
-    name: row.builder.name,
-    citySlug: row.citySlug,
-    role: row.builder.role,
-    roles: row.builder.roles as string[],
-    bio: row.builder.bio || undefined,
-    status: row.builder.status,
-    moderationState: row.builder.moderationState,
-    profileVisibility: row.profileVisibility ?? undefined,
-    featured: row.builder.featured,
-    ownerMemberId: row.builder.ownerMemberId ?? null,
-    source: row.builder.source,
-    /**
-     * A plain URL string, not a media record.
-     *
-     * `Builder.image` in `src/data/types.ts` is `string | undefined` — a
-     * convention both `RecordSet` sources already follow, there for a
-     * repository-relative asset path (`ambassadors.imagePath`,
-     * `cities.imagePath`, and this same column shape on `builders`). An
-     * uploaded avatar's Blob URL is structurally the same kind of value: a
-     * string a template renders into an `<img>`. Returning the whole `media`
-     * row here would mean `BuilderIndex.astro` — which is shared with the
-     * `publicBuilders` listing — had to accept two incompatible shapes for
-     * one field.
-     *
-     * Gated on `status === 'published'`: a `staged` upload (mid-crop, not yet
-     * confirmed) has no business appearing on a public index.
-     */
-    image: builderImage(row.builder.imagePath, row.media),
-  }));
+      profileVisibility: row.profileVisibility ?? undefined,
+      featured: row.builder.featured,
+      ownerMemberId: row.builder.ownerMemberId ?? null,
+      source: row.builder.source,
+      /**
+       * A plain URL string, not a media record.
+       *
+       * `Builder.image` in `src/data/types.ts` is `string | undefined` — a
+       * convention both `RecordSet` sources already follow, there for a
+       * repository-relative asset path (`ambassadors.imagePath`,
+       * `cities.imagePath`, and this same column shape on `builders`). An
+       * uploaded avatar's Blob URL is structurally the same kind of value: a
+       * string a template renders into an `<img>`. Returning the whole `media`
+       * row here would mean `BuilderIndex.astro` — which is shared with the
+       * `publicBuilders` listing — had to accept two incompatible shapes for
+       * one field.
+       *
+       * Gated on `status === 'published'`: a `staged` upload (mid-crop, not yet
+       * confirmed) has no business appearing on a public index.
+       */
+      image: builderImage(row.builder.imagePath, row.media),
+    }));
 }
 
 /**
@@ -214,7 +224,10 @@ export async function getPublicBuilderBySlug(
     .from(dbSchema.builders)
     .innerJoin(dbSchema.cities, eq(dbSchema.builders.cityId, dbSchema.cities.id))
     .leftJoin(dbSchema.media, eq(dbSchema.builders.imageId, dbSchema.media.id))
-    .leftJoin(dbSchema.memberProfiles, eq(dbSchema.builders.ownerMemberId, dbSchema.memberProfiles.memberId))
+    .leftJoin(
+      dbSchema.memberProfiles,
+      eq(dbSchema.builders.ownerMemberId, dbSchema.memberProfiles.memberId),
+    )
     .where(eq(dbSchema.builders.slug, slug));
 
   if (!row) return null;
@@ -238,8 +251,6 @@ export async function getPublicBuilderBySlug(
   };
 }
 
-
-
 /**
  * Load a FRESH, REQUEST-LOCAL RecordSet from Neon.
  *
@@ -258,12 +269,15 @@ export async function getPublicBuilderBySlug(
  * ── THE SINGLE-HOST EVENT FILTER ─────────────────────────────────────────
  *
  * `loadLiveRecords` also narrows `rs.events` to the events `aniket-sahu`
- * hosts, as headliner, co-host or credited host. See `hostedByAniketSahu`.
+ * hosts, as headliner, co-host or credited host. See `hostedByAniketSahu` in
+ * `src/data/host-filter.ts`. `records()` in `src/data/dataset.ts` applies the
+ * same predicate to the build-time record, so the prerendered pages agree
+ * with the pages rendered here.
  *
  * It KEEPS an event with any of those three attributions, and it DROPS
  * everything else SILENTLY — no error, no log, no marker on the page. A
  * published event with no host row simply does not appear on `/events/`,
- * `/gallery` or anything else reading through here.
+ * `/record/`, `/gallery` or anything else reading the record.
  *
  * That is deliberate — this site is one ambassador's record, `6e83371` — and
  * it is a product decision, not a defect. It is written down here because it
@@ -277,23 +291,10 @@ export async function loadLiveRecords(db: Db = pooledDb()): Promise<RecordSet> {
 }
 
 /**
- * The single-host filter's predicate, on its own so it can be tested and so
- * the three attribution paths are legible.
- *
- * Exported for `tests/single-host-filter.test.ts`, which pins the invariant
- * that every event in the curated record passes it. Production currently
- * holds events this returns `false` for; they are rows no committed record
- * describes, so no test in this repo can see them. See that file.
+ * Re-exported for `tests/single-host-filter.test.ts`, which pins the invariant
+ * that every event in the curated record passes it.
  */
-export function hostedByAniketSahu(event: RecordSet['events'][number]): boolean {
-  const host = event.host;
-  if (!host) return false;
-  return (
-    host.ambassadorSlug === 'aniket-sahu' ||
-    (host.builderSlugs?.includes('aniket-sahu') ?? false) ||
-    (host.credits?.some((credit) => credit.ambassadorSlug === 'aniket-sahu') ?? false)
-  );
-}
+export { hostedByAniketSahu };
 
 /**
  * Search data for the /discover page.
@@ -369,17 +370,18 @@ export async function getBuilderProjects(
     .from(dbSchema.projectBuilders)
     .innerJoin(dbSchema.projects, eq(dbSchema.projectBuilders.projectId, dbSchema.projects.id))
     .leftJoin(dbSchema.cities, eq(dbSchema.projects.cityId, dbSchema.cities.id))
-    .where(
-      and(
-        eq(dbSchema.projectBuilders.builderId, builderId),
-        publicProjectWhere(),
-      ),
-    );
+    .where(and(eq(dbSchema.projectBuilders.builderId, builderId), publicProjectWhere()));
 
   for (const row of credited) {
     if (!seen.has(row.id)) {
       seen.add(row.id);
-      results.push({ id: row.id, slug: row.slug, title: row.title, summary: row.summary, citySlug: row.citySlug ?? null });
+      results.push({
+        id: row.id,
+        slug: row.slug,
+        title: row.title,
+        summary: row.summary,
+        citySlug: row.citySlug ?? null,
+      });
     }
   }
 
@@ -398,17 +400,18 @@ export async function getBuilderProjects(
       })
       .from(dbSchema.projects)
       .leftJoin(dbSchema.cities, eq(dbSchema.projects.cityId, dbSchema.cities.id))
-      .where(
-        and(
-          eq(dbSchema.projects.ownerMemberId, ownerMemberId),
-          publicProjectWhere(),
-        ),
-      );
+      .where(and(eq(dbSchema.projects.ownerMemberId, ownerMemberId), publicProjectWhere()));
 
     for (const row of owned) {
       if (!seen.has(row.id)) {
         seen.add(row.id);
-        results.push({ id: row.id, slug: row.slug, title: row.title, summary: row.summary, citySlug: row.citySlug ?? null });
+        results.push({
+          id: row.id,
+          slug: row.slug,
+          title: row.title,
+          summary: row.summary,
+          citySlug: row.citySlug ?? null,
+        });
       }
     }
   }

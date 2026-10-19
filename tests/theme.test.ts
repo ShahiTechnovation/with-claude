@@ -2,10 +2,11 @@
  * THE CINEMATIC THEME: dark by default, cream by choice, light in print.
  *
  * The theme is applied before first paint by an inline script in Base.astro:
- * the visitor's saved choice, else the server's dark default. The member area
- * is locked light. That script is run here against stubbed storage, so its
- * branches are tested as written. The rest pins the token contract (build
- * plan 1.1 to 1.6) and the motion rules: nothing endless, and every
+ * the visitor's saved choice, else the server's dark default, on every page
+ * (the member area included). That script is run here against stubbed storage,
+ * so its branches are tested as written. The rest pins the token contract (build
+ * plan 1.1 to 1.6) and the motion rules: no endless CSS animation but the film
+ * grain, each JS loop behind its own reduced-motion check, and every
  * scroll-driven effect behind both the reduced-motion and the support gate.
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
@@ -37,21 +38,18 @@ const headScript =
 
 function firstPaint({
   saved,
-  locked = false,
   storageBlocked = false,
 }: {
   saved?: string;
-  locked?: boolean;
   storageBlocked?: boolean;
 }) {
   const classes = new Set<string>();
-  // The server's markup: `data-theme="dark"`, or light with the lock on /me/.
+  // The server's markup: `data-theme="dark"` on every page.
   const html = {
-    dataset: { theme: locked ? 'light' : 'dark' } as Record<string, string>,
-    hasAttribute: (name: string) => locked && name === 'data-theme-lock',
+    dataset: { theme: 'dark' } as Record<string, string>,
     classList: { add: (name: string) => classes.add(name) },
   };
-  const meta = { content: locked ? '#FAF9F5' : '#141413' };
+  const meta = { content: '#141413' };
   const localStorage = {
     getItem: (key: string) => {
       if (storageBlocked) throw new Error('blocked');
@@ -88,22 +86,20 @@ describe('the theme before first paint', () => {
     });
   });
 
-  it('keeps the member area light whatever was saved', () => {
-    expect(firstPaint({ saved: 'dark', locked: true })).toEqual({
-      theme: 'light',
-      meta: '#FAF9F5',
-      js: true,
-    });
+  // The member area used to be locked light, with the toggle hidden; it follows the site now.
+  it('is rendered by the server: dark on every page, the member area included', () => {
+    expect(base).toContain('<html lang="en-IN" data-theme="dark">');
+    expect(base).toContain('<meta name="theme-color" content="#141413" />');
+    expect(base).not.toMatch(/lockLight|data-theme-lock|startsWith\('\/me\/'\)/);
+    // Nothing sets the lock now, so no script or rule may still key off it.
+    expect(srcFiles.filter((file) => source(file).includes('data-theme-lock'))).toEqual([]);
   });
 
-  it('is rendered by the server: dark, with the /me/ lock', () => {
-    expect(base).toContain("const lockLight = Astro.url.pathname.startsWith('/me/');");
-    expect(base).toContain("data-theme={lockLight ? 'light' : 'dark'}");
-    expect(base).toContain("data-theme-lock={lockLight ? '' : undefined}");
-    expect(base).toContain(
-      `<meta name="theme-color" content={lockLight ? '#FAF9F5' : '#141413'} />`,
-    );
-    expect(baseCss).toMatch(/\[data-theme-lock\] \[data-theme-toggle\] \{\s*display: none;/);
+  // The member area's editors and gate now render dark too, so their styles carry tokens only.
+  it('styles the member area from tokens alone, with `--rule-field` on every field border (the ratio is pinned in tests/non-text-contrast.test.ts)', () => {
+    const forms = source('src/styles/forms.css');
+    expect(forms).not.toMatch(/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i);
+    expect(forms).toMatch(/\.input \{[^}]*border: var\(--border-hair\) solid var\(--rule-field\);/);
   });
 
   it('loads no monospace face and no enhancement bundle', () => {
@@ -157,12 +153,9 @@ const COLOURS = [
 ];
 
 describe('the tokens', () => {
-  const dark = block(tokens, ":root,\n[data-theme='dark'],\n.on-night {");
+  const dark = block(tokens, ":root,\n[data-theme='dark'] {");
   const light = block(tokens, ":root[data-theme='light'],\n[data-theme='light'] {");
-  const print = block(
-    tokens.slice(tokens.indexOf('@media print')),
-    ':root,\n  [data-theme],\n  .on-night {',
-  );
+  const print = block(tokens.slice(tokens.indexOf('@media print')), ':root,\n  [data-theme] {');
 
   it('give every colour a literal value in the dark, light and print blocks', () => {
     for (const [name, values] of [
@@ -176,7 +169,7 @@ describe('the tokens', () => {
         expect(values.get(token), `${token} in ${name}`).not.toMatch(/var\(/);
       }
     }
-    expect(tokens).toMatch(/:root,\n\[data-theme='dark'\],\n\.on-night \{[^}]*color-scheme: dark;/);
+    expect(tokens).toMatch(/:root,\n\[data-theme='dark'\] \{[^}]*color-scheme: dark;/);
     expect(tokens).toMatch(/\[data-theme='light'\] \{[^}]*color-scheme: light;/);
   });
 
@@ -192,6 +185,44 @@ describe('the tokens', () => {
     const primitives = source('src/styles/primitives.css');
     expect(primitives).toMatch(/\[data-theme='light'\] \.dot \{\s*color: var\(--clay-deep\);/);
     expect(primitives).toMatch(/@media print \{\s*\.dot \{\s*color: var\(--clay-deep\);/);
+  });
+
+  // Chrome's default print setting drops backgrounds. A filled chip, tab or pager page is an ink or
+  // clay fill with a --paper label, so unless it asks to keep its fill it prints as pale text on
+  // white (F102: "All 122", the Ambassador badge, the pager's current page, the /discover/ tab).
+  it('print the filled chips, tabs and the pager’s current page with their fill', () => {
+    const exact = (file: string) =>
+      declarations(cssOf(file))
+        .filter(
+          (d) =>
+            d.within[0] === '@media print' &&
+            /^(-webkit-)?print-color-adjust:\s*exact$/.test(d.decl),
+        )
+        .flatMap((d) => (d.within[1] ?? '').split(',').map((selector) => selector.trim()));
+
+    const chips = exact('src/styles/primitives.css');
+    for (const selector of [
+      '.chip-verified',
+      ".chip[aria-pressed='true']",
+      '.chip.is-on',
+      '.chip:has(> input:checked)',
+      'input:checked + .chip',
+      ".filter[aria-pressed='true']",
+      '.filter.is-on',
+    ]) {
+      expect(chips, selector).toContain(selector);
+    }
+    expect(exact('src/styles/directory.css')).toContain(".dir-pager [aria-current='page']");
+
+    // The Chrome-only prefix goes with the standard property, so Safari prints the fill too.
+    const rules = declarations(cssOf('src/styles/primitives.css')).filter(
+      (d) => d.within[0] === '@media print' && d.decl.includes('print-color-adjust'),
+    );
+    expect(rules.some((d) => d.decl.startsWith('-webkit-print-color-adjust'))).toBe(true);
+
+    // Only the filled states are kept: a plain chip or pager link stays unfilled on paper.
+    expect(chips).not.toContain('.chip');
+    expect(chips).not.toContain('.dir-pager a');
   });
 
   it('keep the text floor at 15px, and the page is not scaled down', () => {
@@ -262,9 +293,27 @@ function declarations(css: string): { decl: string; within: string[] }[] {
 }
 
 describe('motion', () => {
-  it('never runs forever', () => {
+  it('has no endless CSS animation but the film grain, and that only with motion allowed', () => {
+    // The grain is the one CSS `infinite` (the owner asked for moving grain, 2026-10-16).
     const endless = srcFiles.filter((file) => /\binfinite\b/.test(source(file)));
-    expect(endless).toEqual([]);
+    expect(endless).toEqual(['src/styles/base.css']);
+    const loops = declarations(baseCss).filter(({ decl }) => /\binfinite\b/.test(decl));
+    expect(loops.map((l) => l.within)).toEqual([
+      ['@media (prefers-reduced-motion: no-preference)', 'body::after'],
+    ]);
+  });
+
+  it('keeps its JS loops, the mist and the strip glide, to scripts that check reduced motion', () => {
+    // The CSS reset cannot stop a script, so each loop checks the setting itself; the behaviour
+    // is tested in tests/hero-mist.test.ts and tests/strip-autoscroll.test.ts. A new frame loop
+    // or timer fails here until it is added, with its own check.
+    const loops = srcFiles.filter((file) =>
+      /\b(setInterval|requestAnimationFrame)\(/.test(source(file)),
+    );
+    expect(loops.sort()).toEqual(['src/scripts/hero-mist.ts', 'src/scripts/strip-glide.ts']);
+    for (const file of loops) {
+      expect(source(file), file).toContain('prefers-reduced-motion: no-preference');
+    }
   });
 
   it('puts every scroll-driven effect behind reduced motion and scroll-timeline support', () => {

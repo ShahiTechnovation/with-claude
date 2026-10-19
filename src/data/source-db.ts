@@ -440,10 +440,7 @@ export async function loadRecordSet(db: ReadDatabase): Promise<RecordSet> {
         .where(inArray(schema.useCaseArtifacts.useCaseId, useCaseIds)),
     ),
     whenAny(guideIds, () =>
-      db
-        .select()
-        .from(schema.guideSections)
-        .where(inArray(schema.guideSections.guideId, guideIds)),
+      db.select().from(schema.guideSections).where(inArray(schema.guideSections.guideId, guideIds)),
     ),
     // Sources and links are polymorphic, so they are read whole and bucketed
     // in memory. Both are small — a few hundred rows across the whole record.
@@ -515,7 +512,10 @@ export async function loadRecordSet(db: ReadDatabase): Promise<RecordSet> {
    * `undefined` in a URL.
    */
   const slugsOf = <T>(rows: T[], id: (row: T) => string, map: Map<string, string>): string[] =>
-    rows.map(id).map((value) => map.get(value)).filter((slug): slug is string => Boolean(slug));
+    rows
+      .map(id)
+      .map((value) => map.get(value))
+      .filter((slug): slug is string => Boolean(slug));
 
   // =======================================================================
   // ASSEMBLY
@@ -588,7 +588,9 @@ export async function loadRecordSet(db: ReadDatabase): Promise<RecordSet> {
       building: row.building ?? undefined,
       claudeTools: optionalList(row.claudeTools),
       image: row.imagePath ?? undefined,
-      profileVisibility: row.ownerMemberId ? profileVisibility.get(row.ownerMemberId) ?? undefined : undefined,
+      profileVisibility: row.ownerMemberId
+        ? (profileVisibility.get(row.ownerMemberId) ?? undefined)
+        : undefined,
       links: linksOf('builder', row.id),
       /**
        * `projectSlugs` is left absent, and that is not a gap.
@@ -634,7 +636,9 @@ export async function loadRecordSet(db: ReadDatabase): Promise<RecordSet> {
     const photos = (photosByEvent.get(row.id) ?? [])
       .map((photo) => {
         const asset = mediaById.get(photo.mediaId);
-        return asset && asset.path ? ({ src: asset.path, alt: asset.alt } satisfies EventPhoto) : undefined;
+        return asset && asset.path
+          ? ({ src: asset.path, alt: asset.alt } satisfies EventPhoto)
+          : undefined;
       })
       .filter((photo): photo is EventPhoto => Boolean(photo));
 
@@ -744,7 +748,7 @@ export async function loadRecordSet(db: ReadDatabase): Promise<RecordSet> {
 
   /**
    * `src/data/projects.ts` is one flat array with a real, deliberate order —
-   * the record's own comments say so ("Homepage preview candidates first").
+   * the record's own comments say so (its header explains how each event's entries are ordered).
    * PostgreSQL has no notion of that order for a table with no `ORDER BY`,
    * and the id cannot substitute for one: it is a random `gen_random_uuid()`,
    * confirmed against real Neon data to reproduce nothing resembling the
@@ -797,35 +801,32 @@ export async function loadRecordSet(db: ReadDatabase): Promise<RecordSet> {
       return false;
     })
     .map((row) =>
-    compact({
-      id: row.id,
-      slug: row.slug,
-      status: moderationOf(row),
-      createdAt: isoDate(row.createdAt),
-      updatedAt: isoDate(row.updatedAt),
-      title: row.title,
-      builderSlugs: slugsOf(
-        buildersByProject.get(row.id) ?? [],
-        (r) => r.builderId,
-        builderSlug,
-      ),
-      // Both non-null by the filter above.
-      citySlug: citySlug.get(row.cityId!) ?? '',
-      summary: row.summary!,
-      description: row.description ?? undefined,
-      category: row.category,
-      url: row.url ?? undefined,
-      repoUrl: row.repoUrl ?? undefined,
-      videoUrl: row.videoUrl ?? undefined,
-      // `attachCover()` copies an uploaded cover's blob URL into `image_path`,
-      // so the column alone outlives a takedown. A cover backed by a media row
-      // is public only while `mediaById`, which holds public rows alone, has it.
-      image: row.imageId && !mediaById.has(row.imageId) ? undefined : (row.imagePath ?? undefined),
-      tags: optionalList(row.tags),
-      claudeUsage: row.claudeUsage ?? undefined,
-      builtAtEventSlug: row.builtAtEventId ? eventSlug.get(row.builtAtEventId) : undefined,
-    } as Project),
-  );
+      compact({
+        id: row.id,
+        slug: row.slug,
+        status: moderationOf(row),
+        createdAt: isoDate(row.createdAt),
+        updatedAt: isoDate(row.updatedAt),
+        title: row.title,
+        builderSlugs: slugsOf(buildersByProject.get(row.id) ?? [], (r) => r.builderId, builderSlug),
+        // Both non-null by the filter above.
+        citySlug: citySlug.get(row.cityId!) ?? '',
+        summary: row.summary!,
+        description: row.description ?? undefined,
+        category: row.category,
+        url: row.url ?? undefined,
+        repoUrl: row.repoUrl ?? undefined,
+        videoUrl: row.videoUrl ?? undefined,
+        // `attachCover()` copies an uploaded cover's blob URL into `image_path`,
+        // so the column alone outlives a takedown. A cover backed by a media row
+        // is public only while `mediaById`, which holds public rows alone, has it.
+        image:
+          row.imageId && !mediaById.has(row.imageId) ? undefined : (row.imagePath ?? undefined),
+        tags: optionalList(row.tags),
+        claudeUsage: row.claudeUsage ?? undefined,
+        builtAtEventSlug: row.builtAtEventId ? eventSlug.get(row.builtAtEventId) : undefined,
+      } as Project),
+    );
 
   const stories: Story[] = storyRows.map((row) =>
     compact({
@@ -883,8 +884,7 @@ export async function loadRecordSet(db: ReadDatabase): Promise<RecordSet> {
       problem: row.problem,
       context: row.context,
       workflow: (workflowByUseCase.get(row.id) ?? []).map(
-        (step) =>
-          ({ title: step.title, detail: step.detail, by: step.by }) satisfies WorkflowStep,
+        (step) => ({ title: step.title, detail: step.detail, by: step.by }) satisfies WorkflowStep,
       ),
       claudeDid: row.claudeDid,
       humanDid: row.humanDid,

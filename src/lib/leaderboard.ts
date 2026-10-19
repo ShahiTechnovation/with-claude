@@ -31,6 +31,7 @@
  */
 import type { Ambassador, CommunityEvent, EventHostCredit, EventHostRoleName } from '../data/types';
 import { CREDIT_WEIGHTS, isScorable, weightOf } from './credits';
+import { istDay } from './datetime';
 import { lifecycleOf } from './status';
 
 /** §21's windows. `all` is the default, and the one the page leads with. */
@@ -99,11 +100,11 @@ function inWindow(event: CommunityEvent, window: LeaderboardWindow, now: Date): 
   // `event.date` is an ISO `YYYY-MM-DD`, compared as a string prefix rather
   // than by constructing a Date — `new Date('2026-03-01')` is parsed as UTC
   // midnight, which for an IST event is the evening before and would put a
-  // 1 March event in February.
-  const year = String(now.getUTCFullYear());
-  if (window === 'year') return event.date.startsWith(`${year}-`);
-  const month = String(now.getUTCMonth() + 1).padStart(2, '0');
-  return event.date.startsWith(`${year}-${month}-`);
+  // 1 March event in February. `now` is read as an IST day for the same
+  // reason: from 00:00 to 05:30 IST the UTC year and month are the old ones.
+  const day = istDay(now);
+  if (window === 'year') return event.date.startsWith(`${day.slice(0, 4)}-`);
+  return event.date.startsWith(`${day.slice(0, 7)}-`);
 }
 
 const emptyRoleCounts = (): Record<EventHostRoleName, number> => ({
@@ -237,7 +238,12 @@ export function standingOf(
   ambassadors: Ambassador[],
   events: CommunityEvent[],
   options: { now?: Date } = {},
-): { allTime: LeaderboardEntry; year: LeaderboardEntry; month: LeaderboardEntry; rank: number } | null {
+): {
+  allTime: LeaderboardEntry;
+  year: LeaderboardEntry;
+  month: LeaderboardEntry;
+  rank: number;
+} | null {
   const all = leaderboard(ambassadors, events, { window: 'all', now: options.now });
   const index = all.findIndex((entry) => entry.ambassador.slug === slug);
   if (index === -1) return null;

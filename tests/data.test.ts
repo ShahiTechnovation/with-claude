@@ -1,8 +1,9 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { cityName, creditsFor, participationPaths, venueLabel } from '../src/data';
 import { forms, formById } from '../src/data/forms';
 import { listJoin } from '../src/lib/words';
+import { registrationKey } from '../src/server/events/sync';
 import { ambassadors } from '../src/data/ambassadors';
 import { builders } from '../src/data/builders';
 import { cities } from '../src/data/cities';
@@ -138,6 +139,31 @@ describe('record shape', () => {
 });
 
 describe('governance', () => {
+  it('nothing on the site names Cerebras (removed on request, 19 Oct 2026)', () => {
+    const record = JSON.stringify({
+      events,
+      projects,
+      builders,
+      cities,
+      ambassadors,
+      stories,
+      guides,
+      useCases,
+    });
+    expect(record).not.toMatch(/cerebras/i);
+    // File names too: the workshop's photos and plate were renamed.
+    const named: string[] = [];
+    for (const dir of ['src', 'scripts', 'docs', 'db/migrations', 'admin/src']) {
+      for (const file of readdirSync(dir, { recursive: true }) as string[]) {
+        const path = `${dir}/${file}`;
+        const text = /\.(ts|tsx|astro|mjs|js|md|sql|json|css)$/.test(file);
+        if (/cerebras/i.test(file) || (text && /cerebras/i.test(readFileSync(path, 'utf8'))))
+          named.push(path);
+      }
+    }
+    expect(named).toEqual([]);
+  });
+
   it('every ambassador says how the status was verified', () => {
     for (const ambassador of ambassadors) {
       expect(ambassador.verifiedVia.length, `ambassador ${ambassador.slug}`).toBeGreaterThan(10);
@@ -296,6 +322,14 @@ describe('event data shape', () => {
       if (event.registrationUrl) expect(event.registrationUrl).toMatch(/^https:\/\//);
     }
   });
+
+  it('no two events share a registration link', () => {
+    // The feed sync attaches a feed event to the first curated event with the
+    // same key, so a shared link would land on the wrong row without an error.
+    const keys = events.flatMap((e) => registrationKey(e.registrationUrl) ?? []);
+    expect(keys).toHaveLength(events.filter((e) => e.registrationUrl).length);
+    expect(keys.filter((key, i) => keys.indexOf(key) !== i)).toEqual([]);
+  });
 });
 
 describe('geo', () => {
@@ -449,8 +483,9 @@ describe('Impact Lab project archive', () => {
  * (`project`, `builder`, against real ids `contribute` / `build` /
  * `practice` / `city`). Nothing read the field, so nothing failed.
  *
- * `Participation.astro` now derives each CTA's destination from the named
- * form, which makes a bad id a build error. These are the cheaper guard.
+ * `Participation.astro` now maps each id to a page through its `destinations`
+ * map and throws on an id the map lacks, which makes a bad id a build error.
+ * These are the cheaper guard.
  */
 describe('participation paths', () => {
   it('every submission path names a real form', () => {
@@ -462,8 +497,9 @@ describe('participation paths', () => {
   });
 
   it('a submission path carries no second, hand-written destination', () => {
-    // The type says `url` is "undefined only for `submission` paths" — the
-    // anchor is read off the form, so a hand-written one could only drift.
+    // The type says `url` is undefined for `submission` paths: the page comes
+    // from `destinations` in Participation.astro, so a hand-written one could
+    // only drift.
     for (const path of participationPaths) {
       if (path.kind === 'submission') expect(path.url, `path ${path.id}`).toBeUndefined();
     }
@@ -474,6 +510,19 @@ describe('participation paths', () => {
       if (path.kind === 'submission' || path.kind === 'official') continue;
       expect(path.url, `path ${path.id}`).toBeTruthy();
     }
+  });
+
+  it('an unmapped form id stops the build instead of linking home', () => {
+    const src = readFileSync('src/components/Participation.astro', 'utf8');
+    expect(src).toContain('throw new Error(`Unknown participation form: ${path.formId}`)');
+    expect(src).not.toMatch(/\?\? '\/'/);
+  });
+
+  it('only the host path has no CTA', () => {
+    // Hosting is Anthropic's programme: the panel explains it and links nowhere.
+    expect(participationPaths.filter((path) => !path.ctaLabel).map((path) => path.id)).toEqual([
+      'host',
+    ]);
   });
 
   it('keeps unique legacy-form identifiers for validation and compatibility', () => {
@@ -553,9 +602,9 @@ describe('the event record has one source', () => {
     const bySlug = (slug: string) => events.find((e) => e.slug === slug)!;
     // "Bhopal" on a Bhopal event repeats the city.
     expect(venueLabel(bySlug('claude-for-businesses'))).toBe('Farzi Cafe');
-    // A street address is kept.
+    // An area other than the city is kept.
     expect(venueLabel(bySlug('claude-code-workshop-september'))).toBe(
-      'AIC-RNTU Foundation (Start-up Incubation Centre), Chiklod Road, Bhopal',
+      'AIC-RNTU Foundation (Start-up Incubation Centre), Kothri Kalan',
     );
   });
 
