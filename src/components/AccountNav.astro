@@ -224,11 +224,11 @@ const loginMethods = (import.meta.env.PUBLIC_PRIVY_LOGIN_METHODS as string | und
   }
 
   /*
-   * Under 900px the bar holds the account only once someone is signed in, and then as
+   * Under 1024px the bar holds the account only once someone is signed in, and then as
    * the 40px badge alone. Signed out (and when Privy could not start) the menu sheet
    * carries Sign in instead.
    */
-  @media (max-width: 899.98px) {
+  @media (max-width: 1023.98px) {
     #account-slot-root:not(
       :has(
         .account-slot:not(
