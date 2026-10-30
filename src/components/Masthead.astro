@@ -16,18 +16,20 @@ const home = homeHref(Astro.url.hostname);
 /**
  * Primary navigation.
  *
- * Five entries. Practice/use-cases, guides, stories, and the record are
+ * Six entries. Practice/use-cases, guides, stories, and the record are
  * reachable from their own pages and the footer — they do not need a header
  * slot. The rule: if it is not where someone starts, it is not here.
  */
 // `active` is a slash-less route prefix ('/events'), so it is compared with its slash added.
-const current = (href: string) => `${active}/`.startsWith(href);
+// The hash is dropped so Community (`/community/#involved`) still marks /community as current.
+const current = (href: string) => `${active}/`.startsWith(href.split('#')[0]);
 const nav = [
   { href: '/events/', label: 'Events' },
   { href: '/cities/', label: 'Cities' },
   { href: '/builders/', label: 'Builders' },
   { href: '/projects/', label: 'Projects' },
   { href: '/gallery/', label: 'Gallery' },
+  { href: '/community/#involved', label: 'Community' },
 ];
 ---
 
@@ -95,7 +97,7 @@ const nav = [
       {/* The one account slot, at every width: PrivyRoot portals into it by id. */}
       <AccountNav />
 
-      {/* Under 900px. A <details>, so it opens with JS off; Sign in is a plain link. */}
+      {/* Under 1024px. A <details>, so it opens with JS off; Sign in is a plain link. */}
       <details class="menu">
         <summary class="icon-btn">
           <span class="visually-hidden">Menu</span>
@@ -321,7 +323,7 @@ const nav = [
     display: none;
   }
 
-  @media (max-width: 899.98px) {
+  @media (max-width: 1023.98px) {
     .masthead-inner {
       gap: 12px;
     }
@@ -414,7 +416,7 @@ const nav = [
           menu.open = false;
       });
     });
-    matchMedia('(min-width: 900px)').addEventListener('change', (e) => {
+    matchMedia('(min-width: 1024px)').addEventListener('change', (e) => {
       if (e.matches) menu.open = false;
     });
     // Every close goes through menu.open, so this frees the page on all paths: no
@@ -428,7 +430,7 @@ const nav = [
     });
   }
 
-  // Under 900px the bar's account slot is hidden while signed out, so the sheet's Sign in
+  // Under 1024px the bar's account slot is hidden while signed out, so the sheet's Sign in
   // stands in for PrivyRoot's live button. account-boot only catches it before Privy has
   // booted (and then prevents the default); after that, hand the tap to the live button
   // instead of following the no-JS href. While Privy is still loading there is no live
