@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createTestDatabase, type TestDatabase } from '../db/testing';
@@ -333,6 +334,7 @@ describe('the login form is not a membership oracle', () => {
 describe('the post-login redirect cannot leave the site', () => {
   it.each([
     ['//evil.example.com', '/submissions'],
+    ['/\\evil.example.com', '/submissions'],
     ['https://evil.example.com', '/submissions'],
     ['http://evil.example.com', '/submissions'],
     ['evil.example.com', '/submissions'],
@@ -344,6 +346,16 @@ describe('the post-login redirect cannot leave the site', () => {
     ['/audit', '/audit'],
   ])('turns %j into %j', (input, expected) => {
     expect(safeNext(input as string | null)).toBe(expected);
+  });
+});
+
+describe('better-auth over HTTP', () => {
+  it('does not send a magic link to whoever asks', () => {
+    // The route imports the admin's `@/` alias, which this runner does not resolve.
+    const route = readFileSync('admin/src/pages/api/auth/[...all].ts', 'utf8');
+    expect(route).toMatch(
+      /pathname\.startsWith\('\/api\/auth\/sign-in\/'\)\s*\?\s*new Response\('Not found\.', \{ status: 404 \}\)/,
+    );
   });
 });
 
@@ -420,13 +432,13 @@ describe('state-changing requests must come from this origin', () => {
     it.each([
       ['the project alias', ALIAS],
       ['a branch deployment', PREVIEW],
-    ])('accepts a same-origin POST on %s while BETTER_AUTH_URL names the custom domain', (
-      _label,
-      host,
-    ) => {
-      expect(process.env.BETTER_AUTH_URL).toBe(ADMIN_ORIGIN);
-      expect(assertSameOrigin(servedOn(host, { origin: host }))).toBe(true);
-    });
+    ])(
+      'accepts a same-origin POST on %s while BETTER_AUTH_URL names the custom domain',
+      (_label, host) => {
+        expect(process.env.BETTER_AUTH_URL).toBe(ADMIN_ORIGIN);
+        expect(assertSameOrigin(servedOn(host, { origin: host }))).toBe(true);
+      },
+    );
 
     /**
      * And it is still a SAME-origin check, not a longer list of origins: the

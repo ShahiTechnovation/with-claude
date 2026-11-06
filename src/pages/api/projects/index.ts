@@ -19,6 +19,7 @@
  * only that — see the header of `src/server/members/projects.ts`.
  */
 import type { APIRoute } from 'astro';
+import { and, count, eq, gte } from 'drizzle-orm';
 import { z } from 'zod';
 import { pooledDb } from '../../../../db/pool';
 import * as schema from '../../../../db/schema';
@@ -44,11 +45,11 @@ const CreateProjectSchema = z
     description: z.string().trim().max(10_000).optional().nullable(),
     claudeUsage: z.string().trim().max(1_000).optional().nullable(),
     cityId: z.string().uuid().optional().nullable(),
-    category: z
-      .enum(schema.projectCategory.enumValues)
-      .default('product'),
+    category: z.enum(schema.projectCategory.enumValues).default('product'),
   })
   .strict();
+
+export const PROJECTS_PER_DAY = 20;
 
 /** The account island's own project list; identity comes from the token. */
 export const GET: APIRoute = async ({ request }) => {
@@ -64,6 +65,21 @@ export const POST: APIRoute = async ({ request }) => {
   if (!guard.ok) return guard.response;
 
   const { member, body } = guard;
+
+  // A member makes a handful of projects, not hundreds: a ceiling on drafts a day
+  // stops a script with a valid session from filling the table.
+  const [{ made }] = await db
+    .select({ made: count() })
+    .from(schema.projects)
+    .where(
+      and(
+        eq(schema.projects.ownerMemberId, member.id),
+        gte(schema.projects.createdAt, new Date(Date.now() - 86_400_000)),
+      ),
+    );
+  if (made >= PROJECTS_PER_DAY) {
+    return json({ error: 'That is a lot of new projects for one day. Try again tomorrow.' }, 429);
+  }
 
   const slug = await nextAvailableSlug(body.title, db);
 

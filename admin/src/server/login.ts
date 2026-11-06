@@ -95,9 +95,12 @@ export interface LoginDependencies {
  * mints sessions is worth being careful about.
  */
 export function safeNext(next: string | null | undefined): string {
-  if (!next) return AFTER_LOGIN;
-  if (!next.startsWith('/') || next.startsWith('//')) return AFTER_LOGIN;
-  return next;
+  return next && isLocalPath(next) ? next : AFTER_LOGIN;
+}
+
+/** A path on this origin. `//host` and `/\host` both leave it: browsers read `\` as `/`. */
+export function isLocalPath(path: string): boolean {
+  return path.startsWith('/') && !path.startsWith('//') && !path.startsWith('/\\');
 }
 
 export async function requestMagicLink(

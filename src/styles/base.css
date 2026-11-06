@@ -127,6 +127,12 @@ p {
   border-radius: var(--radius-xs);
 }
 
+/* The skip link's target takes focus only so the next Tab starts inside it;
+   it is not a control, so it gets no ring. */
+main:focus {
+  outline: none;
+}
+
 /* --- Accessibility utilities ------------------------------------------- */
 .visually-hidden {
   position: absolute;

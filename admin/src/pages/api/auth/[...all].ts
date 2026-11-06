@@ -8,18 +8,21 @@
  * has to be reachable without a session, because it is where sessions come
  * from.
  *
- * Note what is NOT delegated: `/api/auth/sign-in/magic-link` would happily send
- * an email to any address on earth, because the plugin only checks the
- * allowlist when the link is opened. The admin does not use it. Requests come
- * in through `/api/login`, which checks `users` first and sends nothing to an
- * address that is not on it.
+ * Note what is NOT delegated: `/api/auth/sign-in/*` would happily send a magic
+ * link to any address on earth, because the plugin only checks the allowlist
+ * when the link is opened. So it answers 404 here. Requests come in through
+ * `/api/login`, which checks `users` first and sends nothing to an address that
+ * is not on it; it signs in through `auth().api`, not over HTTP.
  */
 import type { APIRoute } from 'astro';
 import { auth } from '@/server/auth';
 
 export const prerender = false;
 
-const handler: APIRoute = ({ request }) => auth().handler(request);
+const handler: APIRoute = ({ request }) =>
+  new URL(request.url).pathname.startsWith('/api/auth/sign-in/')
+    ? new Response('Not found.', { status: 404 })
+    : auth().handler(request);
 
 export const GET = handler;
 export const POST = handler;
