@@ -22,6 +22,8 @@ import { provisionMember, ensureProfileShell } from '../src/server/auth/member';
 import { publishBlockers } from '../src/server/members/projects';
 import { getBuilderProjects } from '../src/server/directory';
 import { httpUrl } from '../src/pages/api/projects/[id]';
+import { readFileSync } from 'node:fs';
+import { PROJECTS_PER_DAY } from '../src/pages/api/projects/index';
 
 let db: TestDatabase;
 let cityId: string;
@@ -214,16 +216,14 @@ describe('project publish owner attribution', () => {
   it('is idempotent — a second publish does not duplicate the attribution row', async () => {
     const member = await makeUser('did:privy:proj-flow-idem-test');
 
-    await db
-      .insert(schema.builders)
-      .values({
-        slug: 'zz-proj-flow-builder-idem',
-        name: 'Proj Flow Builder Idem',
-        cityId,
-        role: 'Builder',
-        status: 'published',
-        ownerMemberId: member.id,
-      });
+    await db.insert(schema.builders).values({
+      slug: 'zz-proj-flow-builder-idem',
+      name: 'Proj Flow Builder Idem',
+      cityId,
+      role: 'Builder',
+      status: 'published',
+      ownerMemberId: member.id,
+    });
 
     const [project] = await db
       .insert(schema.projects)
@@ -408,7 +408,11 @@ describe('project publish owner attribution', () => {
       })
       .where(eq(schema.memberProfiles.memberId, member.id));
 
-    const result = await publishProfile({ id: member.id, isAdmin: false, status: 'active' } as any, db, async () => {});
+    const result = await publishProfile(
+      { id: member.id, isAdmin: false, status: 'active' } as any,
+      db,
+      async () => {},
+    );
     expect(result.ok).toBe(true);
 
     // 3. Verify project now has attribution
@@ -658,5 +662,21 @@ describe('getBuilderProjects()', () => {
     expect(resultIds).not.toContain(restricted.id);
     expect(resultIds).not.toContain(archived.id);
     expect(resultIds).toContain(clean.id);
+  });
+});
+
+describe('creating projects', () => {
+  it('stops one member at a ceiling of new drafts a day', () => {
+    expect(PROJECTS_PER_DAY).toBe(20);
+    const route = readFileSync('src/pages/api/projects/index.ts', 'utf8');
+    // Counted per owner over the last 24 hours, before the insert, answered with 429.
+    expect(route).toMatch(/eq\(schema\.projects\.ownerMemberId, member\.id\)/);
+    expect(route).toMatch(
+      /gte\(schema\.projects\.createdAt, new Date\(Date\.now\(\) - 86_400_000\)\)/,
+    );
+    expect(route).toMatch(/made >= PROJECTS_PER_DAY\)\s*\{\s*return json\([^)]*429\)/);
+    expect(route.indexOf('made >= PROJECTS_PER_DAY')).toBeLessThan(
+      route.indexOf('.insert(schema.projects)'),
+    );
   });
 });

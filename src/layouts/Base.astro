@@ -137,6 +137,15 @@ const graph = [
     <meta property="og:url" content={canonical} />
     <meta property="og:image" content={ogImage} />
     <meta property="og:image:alt" content={ogImageAlt ?? fullTitle} />
+    {
+      image === '/og-card.jpg' && (
+        <>
+          <meta property="og:image:width" content="1200" />
+          <meta property="og:image:height" content="630" />
+          <meta property="og:image:type" content="image/jpeg" />
+        </>
+      )
+    }
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@Claude_In_" />
     <meta name="twitter:creator" content="@Claude_In_" />
@@ -155,7 +164,7 @@ const graph = [
     <a class="skip-link" href="#main">Skip to content</a>
     <Masthead active={active} />
 
-    <main id="main">
+    <main id="main" tabindex="-1">
       <Breadcrumbs crumbs={breadcrumbs} />
       <slot />
     </main>

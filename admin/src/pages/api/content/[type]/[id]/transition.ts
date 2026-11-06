@@ -23,6 +23,7 @@
 import type { APIRoute } from 'astro';
 import { pooledDb } from '@db/pool';
 import { assertSameOrigin } from '@/server/session';
+import { isLocalPath } from '@/server/login';
 import {
   PUBLISH_RULES,
   deployMessage,
@@ -75,7 +76,7 @@ export const POST: APIRoute = async ({ request, params, locals }) => {
   // Where to send the editor back to. Defaults to the publish queue, but the
   // same action is offered from a submission's detail page.
   const origin = String(form.get('return') ?? '/publish');
-  const destination = origin.startsWith('/') ? origin : '/publish';
+  const destination = isLocalPath(origin) ? origin : '/publish';
 
   const note = form.get('note');
 

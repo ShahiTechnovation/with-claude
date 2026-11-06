@@ -135,6 +135,7 @@ export const GET: APIRoute = async () => {
       '/stories/',
       '/about/',
       '/community/',
+      '/discover/',
     ];
 
     const urls: { url: string; lastmod?: string }[] = [
