@@ -280,6 +280,28 @@ export function cardText(p: {
   return text || ownSummary(p.summary) || null;
 }
 
+/** The one Hindi word the user has given a Latin spelling for (the user, 12 Nov 2026). Do not add others. */
+const LATIN_SPELLING: [string, string] = ['संरक्षक', 'Sanrakshak'];
+const DEVANAGARI = '\\u0900-\\u097F';
+const BRACKETED_DEVANAGARI = new RegExp(`[(\\[][^()\\[\\]]*[${DEVANAGARI}][^()\\[\\]]*[)\\]]`, 'g');
+
+/**
+ * The name for a card heading: no Devanagari (a bracketed gloss goes with its brackets), and only the
+ * part before the first spaced dash. A title that would be left empty keeps its full text.
+ */
+export function cardTitle(title: string): string {
+  const latin = title
+    .replaceAll(LATIN_SPELLING[0], LATIN_SPELLING[1])
+    .replace(BRACKETED_DEVANAGARI, '')
+    .replace(new RegExp(`[${DEVANAGARI}]`, 'g'), '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const text = /[\p{L}\p{N}]/u.test(latin) ? latin : title;
+  const m = text.match(/^(.*?)\s[–—-]\s+\S/);
+  const head = m?.[1]?.trim() ?? '';
+  return head.length >= 2 ? head : text;
+}
+
 /** Takes the directory DTO (links.live/repo/video) or a record-set Project (url/repoUrl/videoUrl). */
 export function cardProps(
   p: {
@@ -298,7 +320,7 @@ export function cardProps(
   const team = p.team?.trim();
   return {
     slug: p.slug,
-    title: p.title,
+    title: cardTitle(p.title),
     ...(team ? { team } : {}),
     text: cardText(p),
     links: p.links
