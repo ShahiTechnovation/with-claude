@@ -5,6 +5,7 @@
  * `islands-theme.test.ts` pin those as text. Needs `esbuild: { jsx: 'automatic' }` in
  * vitest.config.ts, the runtime Astro's React integration builds with.
  */
+import { createRequire } from 'node:module';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
@@ -32,6 +33,21 @@ describe('the moderator controls', () => {
       'button button--danger: Remove (Delete)',
     ]);
     expect(buttons(controls('removed'))).toEqual(['button button--primary: Restore']);
+  });
+});
+
+describe('the build Astro gives the islands', () => {
+  // @vitejs/plugin-react picks its JSX setup from the `vite` it resolves. If npm hoists
+  // @astrojs/react's own vite 8 over Astro's vite 6, the plugin hands Astro rolldown-only
+  // options, the islands compile to classic React.createElement and throw "React is not
+  // defined" in the browser. No type check, test or build error shows it, so pin it here.
+  it("runs @vitejs/plugin-react on Astro's own vite", () => {
+    const fromRoot = createRequire(import.meta.url);
+    const astroVite = createRequire(fromRoot.resolve('astro/package.json')).resolve('vite');
+    const pluginReact = createRequire(fromRoot.resolve('@astrojs/react/package.json')).resolve(
+      '@vitejs/plugin-react',
+    );
+    expect(createRequire(pluginReact).resolve('vite')).toBe(astroVite);
   });
 });
 
