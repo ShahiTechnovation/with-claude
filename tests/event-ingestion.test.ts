@@ -322,6 +322,18 @@ describe('UTM attribution', () => {
 });
 
 describe('the sync', () => {
+  /**
+   * The clock every sync below reads: a month before the fixture's 1 Dec start, whatever today is,
+   * so a withdrawal test still withdraws after that date. Only `Date` is faked; timers stay real.
+   */
+  const NOV_1 = new Date('2026-11-01T00:00:00Z');
+  beforeAll(() => {
+    vi.useFakeTimers({ now: NOV_1, toFake: ['Date'] });
+  });
+  afterAll(() => {
+    vi.useRealTimers();
+  });
+
   it('is idempotent: running twice creates one row and one event', async () => {
     await seedCities();
     const source = new ManualEventSource([event()], { key: 'test:idem', complete: true });
@@ -592,7 +604,8 @@ describe('the sync', () => {
     expect(events).toHaveLength(0);
   });
 
-  it('cancels an event that disappears from a complete feed', async () => {
+  it('cancels an event that has not started when it disappears from a complete feed', async () => {
+    // The fixture starts on 1 Dec, a month after the pinned clock.
     const key = 'test:withdraw';
     await syncSource(
       new ManualEventSource([event({ externalId: 'evt-gone' })], { key, complete: true }),
@@ -616,6 +629,34 @@ describe('the sync', () => {
     // canceledAt is the sync's mark; the door state is left to people.
     expect(after.statusOverride).toBeNull();
     expect(after.status).toBe('archived');
+  });
+
+  it('keeps an event that has started when it disappears from a complete feed', async () => {
+    // Luma drops an event once it is over, which is not a cancellation. Nor is leaving at the start.
+    const key = 'test:started';
+    const started = [
+      event({ externalId: 'evt-over', startsAt: new Date('2026-10-25T12:30:00Z') }),
+      event({ externalId: 'evt-starting', startsAt: NOV_1 }),
+    ];
+    await syncSource(new ManualEventSource(started, { key, complete: true }), db);
+
+    const summary = await syncSource(new ManualEventSource([], { key, complete: true }), db);
+    expect(summary).toMatchObject({ ok: true, withdrawn: 0 });
+
+    for (const { externalId } of started) {
+      const row = await eventRow(externalId);
+      expect(row, externalId).toMatchObject({ status: 'published', canceledAt: null });
+      const [record] = await db
+        .select()
+        .from(schema.eventSourceRecords)
+        .where(eq(schema.eventSourceRecords.externalId, externalId));
+      expect(record, externalId).toMatchObject({ state: 'promoted', stateReason: null });
+      const audit = await db
+        .select({ action: schema.auditLog.action })
+        .from(schema.auditLog)
+        .where(eq(schema.auditLog.entityId, row.id));
+      expect(audit, externalId).not.toContainEqual({ action: 'event.cancelled' });
+    }
   });
 
   it('does NOT cancel anything when the fetch was incomplete', async () => {
@@ -893,8 +934,6 @@ describe('the sync', () => {
     const { id } = await eventRow(externalId);
     return (await loadRecordSet(db)).events.find((record) => record.id === id)!;
   };
-  /** A month before the fixture's 1 Dec date, so only the door state decides Register. */
-  const NOV_1 = new Date('2026-11-01T00:00:00Z');
 
   it("keeps an editor's takedown when the feed edits, drops or relists the event", async () => {
     const key = 'test:takedown';
@@ -912,6 +951,18 @@ describe('the sync', () => {
     expect((await dropped(key)).withdrawn).toBe(0);
     await listed(key, 'evt-takedown', 'Edited again after it came back.');
     expect(await eventRow('evt-takedown')).toMatchObject({ status: 'archived', canceledAt: null });
+  });
+
+  it('does not withdraw an event the organisers adopted into Baserow', async () => {
+    const key = 'test:adopted';
+    await listed(key, 'evt-adopted', 'First copy.');
+    await db
+      .update(schema.events)
+      .set({ contentAuthority: 'baserow' })
+      .where(eq(schema.events.externalId, 'evt-adopted'));
+
+    expect((await dropped(key)).withdrawn).toBe(0);
+    expect(await eventRow('evt-adopted')).toMatchObject({ status: 'published', canceledAt: null });
   });
 
   it('republishes an event it withdrew itself, Register and all, once the feed lists it again', async () => {

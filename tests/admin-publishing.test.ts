@@ -624,11 +624,13 @@ describe('publishing', () => {
 
   it('keeps a later takedown of an event the feed withdrew, whatever the feed lists next', async () => {
     const key = 'test:feed-withdrawn-takedown';
+    // A month from now, whatever today is: the sync withdraws by absence only an event not yet started.
+    const startsAt = new Date(Date.now() + 30 * 86_400_000);
     const listing = (description: string) => ({
       externalId: 'evt-feed-takedown',
       title: 'Bhopal | Claude Code Build Day',
       description,
-      startsAt: new Date('2026-12-01T04:30:00Z'),
+      startsAt,
       location: 'Bhopal, Madhya Pradesh, India',
       registrationUrl: 'https://luma.com/feed-takedown',
     });
