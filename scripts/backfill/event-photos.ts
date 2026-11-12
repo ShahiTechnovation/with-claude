@@ -59,8 +59,12 @@
  * Why `true`: the people in these photographs registered for the events and
  * accepted the registration terms, which permit public web use. Confirmed by
  * Vishal on 2026-10-05 (VIS-14) for the events up to then, and confirmed by
- * Vishal on 2026-10-16 for 10 and 11 October. Leaving the column at its `false`
- * default would be wrong on the facts.
+ * Vishal on 2026-10-16 for 10 and 11 October, and on 2026-11-12 for 23 October
+ * to 7 November (photos from the hosts' LinkedIn recap posts). Leaving the
+ * column at its `false` default would be wrong on the facts.
+ *
+ * 15 October (`claude-code-workshop-october`) falls inside that window but has
+ * no photos and has not been confirmed: whoever adds its photos confirms it first.
  *
  * Nothing confirms an event held after `CONSENT_CONFIRMED_THROUGH`. The dry run
  * prints a WARNING naming any such event whose photographs it would insert;
@@ -112,8 +116,10 @@ export const ASSETS_DIR = join(dirname(fileURLToPath(import.meta.url)), '../../s
  * What `media.consent_basis` records on an event photograph, and therefore what
  * `media.consent = true` means on one: the subject accepted the event
  * registration terms (confirmed by Vishal on 2026-10-05, VIS-14, for the events
- * up to then, and on 2026-10-16 for 10 and 11 October). The value migration
- * 0017 and `db/import/index.ts` write. See the header of this file.
+ * up to then, and on 2026-10-16 for 10 and 11 October, and on 2026-11-12 for
+ * 23 October to 7 November (photos from the hosts' LinkedIn recap posts)). The
+ * value migration 0017 and `db/import/index.ts` write. See the header of this
+ * file.
  *
  * One constant: the insert writes it, the dry run reports against it, and the
  * printed correction SQL quotes it.
@@ -121,7 +127,7 @@ export const ASSETS_DIR = join(dirname(fileURLToPath(import.meta.url)), '../../s
 export const CONSENT_BASIS = 'registration_terms';
 
 /** The last event date a consent confirmation covers. See the header. */
-export const CONSENT_CONFIRMED_THROUGH: IsoDate = '2026-10-11';
+export const CONSENT_CONFIRMED_THROUGH: IsoDate = '2026-11-07';
 
 /**
  * The six plates the initial commit (`81fe1e7`) added: the rehearsal's
@@ -1243,7 +1249,8 @@ export function renderPlan(plan: BackfillPlan): string {
     lines.push(
       '  registration terms, confirmed by Vishal 2026-10-05 (VIS-14) for the events up to',
     );
-    lines.push('  then, and confirmed by Vishal 2026-10-16 for 10 and 11 October.');
+    lines.push('  then, and confirmed by Vishal 2026-10-16 for 10 and 11 October,');
+    lines.push('  and confirmed by Vishal 2026-11-12 for 23 October to 7 November.');
     lines.push('  On the insert, so it is not a separate statement and touches nothing existing.');
     if (plan.consentUnconfirmed.length) {
       lines.push(

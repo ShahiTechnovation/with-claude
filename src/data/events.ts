@@ -874,6 +874,42 @@ export const events: CommunityEvent[] = [
       'Claude Code Meetup, an evening for developers, AI engineers and builders in Bhopal who are using Claude to ship real things.',
     registrationUrl: 'https://luma.com/claude-qax4',
     free: true,
+    photos: [
+      {
+        src: 'events/claude-code-meetup-23-october-1.jpg',
+        alt: 'A restaurant room full of attendees at wooden tables under an orange slatted ceiling, a Claude Bhopal banner behind them',
+      },
+      {
+        src: 'events/claude-code-meetup-23-october-2.jpg',
+        alt: 'A speaker in a checked shirt addressing attendees at wooden tables with open laptops, a blank projection screen behind them',
+      },
+      {
+        src: 'events/claude-code-meetup-23-october-3.jpg',
+        alt: 'Four people giving a thumbs up beside a Claude Community Welcome banner',
+      },
+      {
+        src: 'events/claude-code-meetup-23-october-4.jpg',
+        alt: 'Two people at a laptop with Claude and Anthropic stickers, one in a white bucket hat and one in a black cap',
+      },
+      {
+        src: 'events/claude-code-meetup-23-october-5.jpg',
+        alt: 'A person on a bench seat raising a hand in front of a wall of mirrored panels, the people alongside smiling',
+      },
+      {
+        src: 'events/claude-code-meetup-23-october-6.jpg',
+        alt: 'Attendees talking at the tables in front of a Claude Community banner hung on a projection screen',
+      },
+      {
+        src: 'events/claude-code-meetup-23-october-7.jpg',
+        alt: 'A wide view of the room, several attendees raising their hands, a person in a checked shirt standing beside a Claude Community banner',
+      },
+      // Last on purpose: it closes wide (16:5 on /gallery/ at three columns, 21:9 at two, 2:1 on
+      // the event page), and this row of standing people keeps every face in all three crops.
+      {
+        src: 'events/claude-code-meetup-23-october-8.jpg',
+        alt: 'Seven people standing in a row against a brick wall hung with framed posters, several giving a thumbs up',
+      },
+    ],
   },
   {
     id: 'evt-bhopal-2026-10-25',
@@ -892,6 +928,42 @@ export const events: CommunityEvent[] = [
       'Real stories from founders and builders using Claude in their day-to-day work, from product and code to marketing, ops and fundraising.',
     registrationUrl: 'https://luma.com/claude-s0yt',
     free: true,
+    photos: [
+      {
+        src: 'events/claude-for-founders-meetup-25-october-1.jpg',
+        alt: 'A large group posing for a photo in a banquet hall between Claude Community Welcome and Claude Community Bhopal signs on easels',
+      },
+      {
+        src: 'events/claude-for-founders-meetup-25-october-2.jpg',
+        alt: 'A speaker in a black cap and a red and white jersey walking the floor with a microphone, attendees at round tables',
+      },
+      {
+        src: 'events/claude-for-founders-meetup-25-october-3.jpg',
+        alt: 'A speaker in a white shirt holding a microphone in front of an Autonomous Agents Framework slide, between Claude Bhopal and Claude Community banners',
+      },
+      {
+        src: 'events/claude-for-founders-meetup-25-october-4.jpg',
+        alt: 'A person in a white shirt speaking into a microphone beside attendees seated around a table with a helmet on it',
+      },
+      {
+        src: 'events/claude-for-founders-meetup-25-october-5.jpg',
+        alt: 'A speaker in a lilac hoodie and a red cap beside a screen showing The security command center dashboard, attendees seen from behind',
+      },
+      {
+        src: 'events/claude-for-founders-meetup-25-october-6.jpg',
+        alt: 'Three people seated at a round table with paper cups, more rows of attendees behind them',
+      },
+      {
+        src: 'events/claude-for-founders-meetup-25-october-7.jpg',
+        alt: 'Five attendees around a round table, one typing on a laptop and the others looking at their phones',
+      },
+      // Last on purpose: it closes wide (16:5 on /gallery/ at three columns, 21:9 at two, 2:1 on
+      // the event page), and this table keeps every face in all three crops.
+      {
+        src: 'events/claude-for-founders-meetup-25-october-8.jpg',
+        alt: 'Five attendees around a round table with a brown helmet on it, one holding out a phone to the others',
+      },
+    ],
   },
   {
     id: 'evt-bhopal-2026-11-01',
@@ -911,6 +983,38 @@ export const events: CommunityEvent[] = [
       'A hands-on Claude Code Workshop in Bhopal, a session for developers, students and builders who want to go from “I’ve heard of Claude Code” to “I just shipped something with it.”',
     registrationUrl: 'https://luma.com/claude-8ej2',
     free: true,
+    photos: [
+      {
+        src: 'events/claude-code-workshop-1-november-1.jpg',
+        alt: 'A large group posing for a photo among the classroom desks, Thank You slides on the two screens behind them',
+      },
+      {
+        src: 'events/claude-code-workshop-1-november-2.jpg',
+        alt: 'Three people at the front beside a Claude Community Bhopal sign, one speaking into a microphone, while attendees at laptops raise their hands',
+      },
+      {
+        src: 'events/claude-code-workshop-1-november-3.jpg',
+        alt: 'Rows of attendees at laptops, seen from behind, facing a presenter at a laptop between two projection screens',
+      },
+      {
+        src: 'events/claude-code-workshop-1-november-4.jpg',
+        alt: 'A person at a laptop in the foreground, the rows of attendees ahead facing a presenter in blue beside a projected slide',
+      },
+      {
+        src: 'events/claude-code-workshop-1-november-5.jpg',
+        alt: 'A presenter in a black polo with a headset microphone gesturing beside a projected web page, attendees at laptops in front',
+      },
+      {
+        src: 'events/claude-code-workshop-1-november-6.jpg',
+        alt: 'Two people holding a small white box between them in front of a Claude banner',
+      },
+      // Last on purpose: /gallery/ widens the last plate of a 7-plate room at three columns to
+      // 21:9, and these rows keep every face in that crop.
+      {
+        src: 'events/claude-code-workshop-1-november-7.jpg',
+        alt: 'Rows of attendees at long desks with laptops, many laughing and holding up their phones',
+      },
+    ],
   },
   {
     id: 'evt-mumbai-2026-11-03',
@@ -929,6 +1033,28 @@ export const events: CommunityEvent[] = [
       'A special Claude Community Meetup in Mumbai during Devcon week, when the Ethereum ecosystem’s annual flagship conference brings developers, founders and builders from around the world to the city.',
     registrationUrl: 'https://luma.com/claude-0yz1',
     free: true,
+    // A public bar, so the captions say "people", not "attendees".
+    photos: [
+      {
+        src: 'events/claude-code-meetup-workshop-3-november-1.jpg',
+        alt: 'People at tables holding up their phones, more people standing at the back',
+      },
+      {
+        src: 'events/claude-code-meetup-workshop-3-november-2.jpg',
+        alt: 'A sticker-covered laptop showing an Event formats we’ll run slide, a person in a white cap and the bar behind it',
+      },
+      {
+        src: 'events/claude-code-meetup-workshop-3-november-3.jpg',
+        alt: 'Orange pixel-style figure keyrings piled on a table over Anthropic and Claude stickers',
+      },
+      // Last on purpose: with the portrait second, the last plate closes at 16:5 on /gallery/ at
+      // three columns (3:2 at two) and 2:1 on the event page (an even count). The stickers fill
+      // the frame edge to edge, so nothing is lost in those crops; the keyrings lose the top one.
+      {
+        src: 'events/claude-code-meetup-workshop-3-november-4.jpg',
+        alt: 'A pile of stickers on a table reading Claude, Anthropic, AI, Engineer and Developer',
+      },
+    ],
   },
   {
     id: 'evt-bhopal-2026-11-07',
@@ -947,6 +1073,42 @@ export const events: CommunityEvent[] = [
       'For builders who’ve moved past “hello world” and want to use Claude Code the way experienced developers do: on real projects, with real workflows, at real speed.',
     registrationUrl: 'https://luma.com/claude-4nyy',
     free: true,
+    photos: [
+      {
+        src: 'events/claude-code-workshop-7-november-1.jpg',
+        alt: 'A large group posing for a photo in a banquet hall between two Claude Community banners',
+      },
+      {
+        src: 'events/claude-code-workshop-7-november-2.jpg',
+        alt: 'Attendees with laptops at round tables, many raising their hands',
+      },
+      {
+        src: 'events/claude-code-workshop-7-november-3.jpg',
+        alt: 'A speaker in a green jacket talking into a microphone in front of a Build Day slide, Claude Community banners at each side',
+      },
+      {
+        src: 'events/claude-code-workshop-7-november-4.jpg',
+        alt: 'A speaker in a black hoodie talking into a microphone in front of a Claude Community Bhopal banner',
+      },
+      {
+        src: 'events/claude-code-workshop-7-november-5.jpg',
+        alt: 'Four people leaning over two laptops on a table scattered with stickers, one screen showing a Meet Claude slide',
+      },
+      {
+        src: 'events/claude-code-workshop-7-november-6.jpg',
+        alt: 'Two people standing by a table where another sits at a laptop showing the Build Day Session Starts Now slide',
+      },
+      {
+        src: 'events/claude-code-workshop-7-november-7.jpg',
+        alt: 'A presenter in a maroon shirt pointing at a projected Accident Hotspot dashboard with a map of India, beside a Claude Community Bhopal banner',
+      },
+      // Last on purpose: it closes wide (16:5 on /gallery/ at three columns, 21:9 at two, 2:1 on
+      // the event page), and this table keeps every face in all three crops.
+      {
+        src: 'events/claude-code-workshop-7-november-8.jpg',
+        alt: 'Attendees with laptops and phones around a round table, more tables of attendees behind them',
+      },
+    ],
   },
   {
     id: 'evt-bhopal-2026-11-14',
