@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { projects } from '../src/data/projects';
 import { asset } from '../src/lib/images';
 import { eventPlate } from '../src/lib/event-plate';
-import { cardProps, cardText } from '../src/lib/project-display';
+import { cardProps, cardText, cardTitle } from '../src/lib/project-display';
 import { projectIcon } from '../src/lib/project-icon';
 import { lint } from '../scripts/icons/lint.mjs';
 
@@ -131,6 +131,64 @@ describe('cardProps', () => {
       text: null,
       links: { live: null, repo: null, video: null },
     });
+  });
+});
+
+describe('cardTitle', () => {
+  it('shows the name: no Hindi, nothing after the first spaced dash', () => {
+    const cases: [string, string][] = [
+      [
+        'BhuVikas AI – Intelligent Building Regulation & Compliance Assistant for Madhya Pradesh',
+        'BhuVikas AI',
+      ],
+      ['JalDrishti (जलदृष्टि) – Smart Visarjan Ghat Watch & Safety Platform', 'JalDrishti'],
+      ['Bhumi Vikas Sahayak – AI-Powered Building Rules Assistant', 'Bhumi Vikas Sahayak'],
+      ['MIRA - Municipal Intelligence for Rules & Architecture', 'MIRA'],
+      ['Kshiti (क्षिति) · Bhumi Vikas Sahayak', 'Kshiti · Bhumi Vikas Sahayak'],
+      ['Digi संरक्षक AI', 'Digi Sanrakshak AI'],
+    ];
+    for (const [from, to] of cases) expect(cardTitle(from)).toBe(to);
+  });
+
+  it('leaves everything else whole', () => {
+    for (const t of [
+      'जल दृष्टि',
+      'Track 2: Visarjan Ghat Watch',
+      'TIMS: Thermal Intelligence & Monitoring System',
+      'FlyBrain: Asteroid Dodge',
+      'AI-Boosted 5G-Advanced Core and Charging R19',
+      'Visarjan Ghat Advisor',
+      'Bhopal Metro (Phase 1) Helper',
+      '– Starts with a dash',
+      'A - B style title',
+      'Name -',
+    ])
+      expect(cardTitle(t)).toBe(t);
+  });
+
+  it('cardProps uses it for both input shapes', () => {
+    expect(cardProps({ slug: 'x', title: 'MIRA - Municipal Intelligence' }).title).toBe('MIRA');
+    expect(
+      cardProps({
+        slug: 'x',
+        title: 'Digi संरक्षक AI',
+        links: { live: null, repo: null, video: null },
+      }).title,
+    ).toBe('Digi Sanrakshak AI');
+  });
+
+  it('no two public projects become indistinguishable on a card', () => {
+    // The record has no team name, so the icon is what tells two equal card titles apart.
+    const seen = new Map<string, string>();
+    const clashes: string[] = [];
+    for (const p of projects.filter((p) => p.status === 'published')) {
+      const t = cardTitle(p.title);
+      const other = seen.get(t);
+      if (other !== undefined && projectIcon(other) === projectIcon(p.slug))
+        clashes.push(`${other} / ${p.slug}`);
+      seen.set(t, p.slug);
+    }
+    expect(clashes).toEqual([]);
   });
 });
 
