@@ -28,9 +28,8 @@ function isPublic(pathname: string): boolean {
 
 export const onRequest = defineMiddleware(async (context, next) => {
   // @astrojs/vercel <10.0.2 trusts this client header to pick the route (GHSA-mr6q-rp88-fx84).
-  // The function entry refuses it first (../../src/server/vercel-entrypoint.ts, aliased in
-  // astro.config.mjs), and that is the only place the query-parameter form can be caught;
-  // this is the second line.
+  // From 10.0.2 the adapter ignores the header and the `x_astro_path` query parameter unless
+  // they carry the per-build secret; this is the second line.
   if (context.request.headers.has('x-astro-path')) {
     return new Response(null, { status: 400, headers: { 'Cache-Control': 'no-store' } });
   }

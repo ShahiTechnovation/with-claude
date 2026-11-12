@@ -61,7 +61,7 @@ Three rules apply across the codebase:
 
 | Area               | Choice                                                                   |
 | ------------------ | ------------------------------------------------------------------------ |
-| Framework          | Astro 5 and TypeScript. `output: 'static'`, with on-demand routes        |
+| Framework          | Astro 7 and TypeScript. `output: 'static'`, with on-demand routes        |
 | Interactive UI     | React 19 islands, plus small vanilla TypeScript islands                  |
 | Database           | Neon PostgreSQL with Drizzle ORM; migrations through `drizzle-kit`       |
 | Member sign-in     | Privy                                                                    |
@@ -100,7 +100,7 @@ public/              static files served as-is
 
 ### Prerequisites
 
-- Node.js 20 or later. CI runs Node 24.
+- Node.js 22.23.4 or later. CI runs Node 24.
 - npm. The repo is an npm workspace, with `admin/` as its second package.
 - Optional: a local PostgreSQL, if you're working on the database or the admin.
 
@@ -207,9 +207,8 @@ npx vitest run tests/<file>.test.ts           # one file
 
 Database tests run against PGlite in-process, so they need no server, credentials or Docker.
 
-- **Build-dependent suites.** `tests/security.test.ts`, `tests/admin-isolation.test.ts` and
-  `tests/vercel-entrypoint.test.ts` inspect the build output. Run `npm run build` first or they
-  fail.
+- **Build-dependent suites.** `tests/security.test.ts` and `tests/admin-isolation.test.ts` inspect
+  the build output. Run `npm run build` first or they fail.
 - **The Neon suite.** `tests/equivalence-neon.test.ts` needs a live Neon credential. It's excluded
   unless you name it: `npx vitest run tests/equivalence-neon.test.ts`.
 - **Memory.** Each database suite starts its own PGlite. CI limits Vitest to two workers. If you

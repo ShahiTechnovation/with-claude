@@ -2,7 +2,7 @@
  * THE TWO REACT ISLANDS, RENDERED. `renderToStaticMarkup` runs the components with no DOM, so this
  * pins what a source check can't: which buttons each moderation state gets, and the report dialog
  * as React writes it. The click paths need DOM events; `report-modal.test.ts` and
- * `islands-theme.test.ts` pin those as text. Needs `esbuild: { jsx: 'automatic' }` in
+ * `islands-theme.test.ts` pin those as text. Needs `oxc: { jsx: { runtime: 'automatic' } }` in
  * vitest.config.ts, the runtime Astro's React integration builds with.
  */
 import { createRequire } from 'node:module';

@@ -13,7 +13,6 @@
  * `.env` file to find, so this is a no-op in production.
  */
 import 'dotenv/config';
-import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'astro/config';
 import vercel from '@astrojs/vercel';
 
@@ -66,6 +65,8 @@ import vercel from '@astrojs/vercel';
 export default defineConfig({
   site: process.env.BETTER_AUTH_URL ?? 'https://admin.withclaude.in',
   output: 'server',
+  // Astro 7's default, 'jsx', strips the spaces between inline elements; true keeps them.
+  compressHTML: true,
   adapter: vercel({
     maxDuration: 20,
 
@@ -153,17 +154,5 @@ export default defineConfig({
     // `db/` lives above this package's root. Vite needs permission to read it
     // in dev; the build bundles it normally.
     server: { fs: { allow: ['..'] } },
-    resolve: {
-      alias: [
-        // The function's entry, wrapped to refuse the adapter's path override
-        // (GHSA-mr6q-rp88-fx84). It is the public site's wrapper, not a copy:
-        // one guard, two projects. Exact match, because the wrapper reaches
-        // the real entry through `@astrojs/vercel/serverless/entrypoint`.
-        {
-          find: /^@astrojs\/vercel\/entrypoint$/,
-          replacement: fileURLToPath(new URL('../src/server/vercel-entrypoint.ts', import.meta.url)),
-        },
-      ],
-    },
   },
 });

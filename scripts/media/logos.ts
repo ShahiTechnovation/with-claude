@@ -30,7 +30,7 @@
 import { createHash } from 'node:crypto';
 import { and, eq, isNull, isNotNull, sql } from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
-import sharp from 'sharp';
+import sharp, { type Sharp } from 'sharp';
 import * as schema from '../../db/schema';
 import { publicProjectWhere } from '../../src/server/projects/lifecycle';
 import { safeFetch, UnsafeTarget, type SafeFetchOptions } from '../import/lib/safe-fetch';
@@ -75,7 +75,8 @@ export function iconCandidates(html: string, pageUrl: string): IconCandidate[] {
     .replace(/<!--[\s\S]*?-->/g, '')
     .replace(/<(script|style|template|noscript)\b[\s\S]*?<\/\1\s*>/gi, '');
   for (const tag of head.match(/<link\b[^>]*>/gi) ?? []) {
-    const attr = (name: string) => tag.match(new RegExp(`\\b${name}\\s*=\\s*("([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i'));
+    const attr = (name: string) =>
+      tag.match(new RegExp(`\\b${name}\\s*=\\s*("([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i'));
     const rel = (attr('rel')?.slice(2).find(Boolean) ?? '').toLowerCase();
     if (!/(^|\s)(icon|apple-touch-icon|apple-touch-icon-precomposed)(\s|$)/.test(rel)) continue;
     const href = attr('href')?.slice(2).find(Boolean);
@@ -85,7 +86,10 @@ export function iconCandidates(html: string, pageUrl: string): IconCandidate[] {
     const sizes = attr('sizes')?.slice(2).find(Boolean) ?? '';
     const declared = Math.max(0, ...[...sizes.matchAll(/(\d+)x\d+/gi)].map((m) => Number(m[1])));
     try {
-      out.push({ url: new URL(href.trim(), pageUrl).toString(), declaredSize: declared || (rel.includes('apple') ? 180 : 0) });
+      out.push({
+        url: new URL(href.trim(), pageUrl).toString(),
+        declaredSize: declared || (rel.includes('apple') ? 180 : 0),
+      });
     } catch {
       /* unparseable href: ignore */
     }
@@ -98,7 +102,9 @@ export function iconCandidates(html: string, pageUrl: string): IconCandidate[] {
 }
 
 /** The largest usable image inside an ICO container, as PNG or raw RGBA. */
-export function readIco(bytes: Buffer): { png: Buffer } | { raw: Buffer; width: number; height: number } | null {
+export function readIco(
+  bytes: Buffer,
+): { png: Buffer } | { raw: Buffer; width: number; height: number } | null {
   if (bytes.length < 22 || bytes.readUInt16LE(0) !== 0 || bytes.readUInt16LE(2) !== 1) return null;
   const count = bytes.readUInt16LE(4);
   if (count === 0 || count > 64) return null;
@@ -114,14 +120,16 @@ export function readIco(bytes: Buffer): { png: Buffer } | { raw: Buffer; width: 
   }
   if (!best) return null;
   const data = bytes.subarray(best.offset, best.offset + best.size);
-  if (data.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return { png: data };
+  if (data.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])))
+    return { png: data };
   // A DIB: only uncompressed 32-bit BGRA is supported (anything else is rare and small).
   if (data.length < 40 || data.readUInt32LE(0) !== 40) return null;
   const width = data.readInt32LE(4);
   const height = Math.abs(data.readInt32LE(8)) / 2;
   const bpp = data.readUInt16LE(14);
   const compression = data.readUInt32LE(16);
-  if (bpp !== 32 || compression !== 0 || width <= 0 || height <= 0 || width > 512 || height > 512) return null;
+  if (bpp !== 32 || compression !== 0 || width <= 0 || height <= 0 || width > 512 || height > 512)
+    return null;
   const rowBytes = width * 4;
   if (40 + rowBytes * height > data.length) return null;
   const raw = Buffer.alloc(width * height * 4);
@@ -152,21 +160,33 @@ export type DecodeFailure = 'svg' | 'not-an-image' | 'too-small' | 'too-large' |
 const RASTER_TYPES = /^image\/(png|x-icon|vnd\.microsoft\.icon|ico|jpeg|jpg|webp|gif)$/i;
 
 /** Bytes → a clean PNG, or why not. Never trusts the declared content type alone. */
-export async function decodeIcon(bytes: Buffer, contentType: string | undefined): Promise<DecodedIcon | DecodeFailure> {
+export async function decodeIcon(
+  bytes: Buffer,
+  contentType: string | undefined,
+): Promise<DecodedIcon | DecodeFailure> {
   const type = (contentType ?? '').split(';')[0]!.trim().toLowerCase();
   const head = bytes.subarray(0, 256).toString('latin1').trimStart().toLowerCase();
-  if (type.includes('svg') || head.startsWith('<svg') || head.startsWith('<?xml') || head.includes('<svg')) return 'svg';
+  if (
+    type.includes('svg') ||
+    head.startsWith('<svg') ||
+    head.startsWith('<?xml') ||
+    head.includes('<svg')
+  )
+    return 'svg';
   if (head.startsWith('<!doctype') || head.startsWith('<html')) return 'not-an-image';
-  if (type && !RASTER_TYPES.test(type) && type !== 'application/octet-stream') return 'not-an-image';
+  if (type && !RASTER_TYPES.test(type) && type !== 'application/octet-stream')
+    return 'not-an-image';
   if (bytes.length > 256 * 1024) return 'too-large';
   try {
-    let input: sharp.Sharp;
+    let input: Sharp;
     const ico = readIco(bytes);
     if (ico && 'png' in ico) input = sharp(ico.png, { limitInputPixels: 1024 * 1024 });
-    else if (ico) input = sharp(ico.raw, { raw: { width: ico.width, height: ico.height, channels: 4 } });
+    else if (ico)
+      input = sharp(ico.raw, { raw: { width: ico.width, height: ico.height, channels: 4 } });
     else {
       const meta = await sharp(bytes, { limitInputPixels: 4096 * 4096 }).metadata();
-      if (!meta.format || !['png', 'jpeg', 'webp', 'gif'].includes(meta.format)) return 'unsupported';
+      if (!meta.format || !['png', 'jpeg', 'webp', 'gif'].includes(meta.format))
+        return 'unsupported';
       input = sharp(bytes, { limitInputPixels: 4096 * 4096, animated: false });
     }
     const meta = await input.metadata();
@@ -174,7 +194,9 @@ export async function decodeIcon(bytes: Buffer, contentType: string | undefined)
     const height = meta.height ?? 0;
     if (width < 32 || height < 32) return 'too-small';
     if (width > 2048 || height > 2048) return 'too-large';
-    const normalised = input.clone().resize({ width: 256, height: 256, fit: 'inside', withoutEnlargement: true });
+    const normalised = input
+      .clone()
+      .resize({ width: 256, height: 256, fit: 'inside', withoutEnlargement: true });
     const png = await normalised.clone().png({ compressionLevel: 9 }).toBuffer();
     const raw = await normalised.clone().ensureAlpha().raw().toBuffer();
     const outMeta = await sharp(png).metadata();
@@ -191,7 +213,14 @@ export async function decodeIcon(bytes: Buffer, contentType: string | undefined)
 
 export type LogoOutcome =
   | { slug: string; result: 'stored'; source: string; width: number; height: number }
-  | { slug: string; result: 'found-not-stored'; source: string; width: number; height: number; pixelHash: string }
+  | {
+      slug: string;
+      result: 'found-not-stored';
+      source: string;
+      width: number;
+      height: number;
+      pixelHash: string;
+    }
   | { slug: string; result: 'skipped'; reason: string }
   | { slug: string; result: 'no-icon'; reason: string };
 
@@ -209,7 +238,12 @@ export async function enrichLogos(input: {
 }): Promise<{ outcomes: LogoOutcome[]; deferred: boolean }> {
   const { db, store } = input;
   const rows = await db
-    .select({ id: schema.projects.id, slug: schema.projects.slug, title: schema.projects.title, url: schema.projects.url })
+    .select({
+      id: schema.projects.id,
+      slug: schema.projects.slug,
+      title: schema.projects.title,
+      url: schema.projects.url,
+    })
     .from(schema.projects)
     .where(
       and(
@@ -225,7 +259,8 @@ export async function enrichLogos(input: {
     .orderBy(schema.projects.slug)
     .limit(input.limit ?? 200);
 
-  const found: { row: (typeof rows)[number]; source: string; icon: DecodedIcon; host: string }[] = [];
+  const found: { row: (typeof rows)[number]; source: string; icon: DecodedIcon; host: string }[] =
+    [];
   const outcomes: LogoOutcome[] = [];
   for (const row of rows) {
     let page: URL;
@@ -236,17 +271,32 @@ export async function enrichLogos(input: {
       continue;
     }
     if (isPlatformIconHost(page.hostname)) {
-      outcomes.push({ slug: row.slug, result: 'skipped', reason: `${page.hostname} serves the platform's icon, not the project's` });
+      outcomes.push({
+        slug: row.slug,
+        result: 'skipped',
+        reason: `${page.hostname} serves the platform's icon, not the project's`,
+      });
       continue;
     }
-    let candidates: IconCandidate[] = [{ url: new URL('/favicon.ico', page).toString(), declaredSize: 0 }];
+    let candidates: IconCandidate[] = [
+      { url: new URL('/favicon.ico', page).toString(), declaredSize: 0 },
+    ];
     try {
-      const html = await safeFetch(page.toString(), { accept: 'text/html', maxBytes: 512 * 1024, ...input.fetchOptions });
+      const html = await safeFetch(page.toString(), {
+        accept: 'text/html',
+        maxBytes: 512 * 1024,
+        ...input.fetchOptions,
+      });
       const type = String(html.headers['content-type'] ?? '');
-      if (html.status < 400 && type.includes('html')) candidates = iconCandidates(html.body.toString('utf8'), html.finalUrl);
+      if (html.status < 400 && type.includes('html'))
+        candidates = iconCandidates(html.body.toString('utf8'), html.finalUrl);
     } catch (error) {
       if (error instanceof UnsafeTarget) {
-        outcomes.push({ slug: row.slug, result: 'skipped', reason: `unsafe target: ${error.reason}` });
+        outcomes.push({
+          slug: row.slug,
+          result: 'skipped',
+          reason: `unsafe target: ${error.reason}`,
+        });
         continue;
       }
       // Unreachable page: /favicon.ico may still answer.
@@ -260,7 +310,11 @@ export async function enrichLogos(input: {
         continue;
       }
       try {
-        const res = await safeFetch(candidate.url, { accept: 'image/*', maxBytes: 256 * 1024, ...input.fetchOptions });
+        const res = await safeFetch(candidate.url, {
+          accept: 'image/*',
+          maxBytes: 256 * 1024,
+          ...input.fetchOptions,
+        });
         if (res.status >= 400 || res.truncated) {
           failures.push(res.truncated ? 'too large' : `HTTP ${res.status}`);
           continue;
@@ -281,19 +335,36 @@ export async function enrichLogos(input: {
         failures.push(error instanceof UnsafeTarget ? `unsafe: ${error.reason}` : 'unreachable');
       }
     }
-    if (!done) outcomes.push({ slug: row.slug, result: 'no-icon', reason: [...new Set(failures)].join(', ') || 'none found' });
+    if (!done)
+      outcomes.push({
+        slug: row.slug,
+        result: 'no-icon',
+        reason: [...new Set(failures)].join(', ') || 'none found',
+      });
   }
 
   // The same pixels on two unrelated sites is a framework or platform default.
   const hosts = new Map<string, Set<string>>();
-  for (const f of found) hosts.set(f.icon.pixelHash, (hosts.get(f.icon.pixelHash) ?? new Set()).add(f.host));
+  for (const f of found)
+    hosts.set(f.icon.pixelHash, (hosts.get(f.icon.pixelHash) ?? new Set()).add(f.host));
   for (const f of found) {
     if ((hosts.get(f.icon.pixelHash)?.size ?? 0) > 1) {
-      outcomes.push({ slug: f.row.slug, result: 'no-icon', reason: 'identical icon on unrelated projects — a default, not a brand' });
+      outcomes.push({
+        slug: f.row.slug,
+        result: 'no-icon',
+        reason: 'identical icon on unrelated projects — a default, not a brand',
+      });
       continue;
     }
     if (!store) {
-      outcomes.push({ slug: f.row.slug, result: 'found-not-stored', source: f.source, width: f.icon.width, height: f.icon.height, pixelHash: f.icon.pixelHash });
+      outcomes.push({
+        slug: f.row.slug,
+        result: 'found-not-stored',
+        source: f.source,
+        width: f.icon.width,
+        height: f.icon.height,
+        pixelHash: f.icon.pixelHash,
+      });
       continue;
     }
     const pathname = `logos/${f.row.slug}-${f.icon.pixelHash.slice(0, 12)}.png`;
@@ -323,7 +394,13 @@ export async function enrichLogos(input: {
         .set({ logoMediaId: media!.id })
         .where(and(eq(schema.projects.id, f.row.id), isNull(schema.projects.logoMediaId)));
     });
-    outcomes.push({ slug: f.row.slug, result: 'stored', source: f.source, width: f.icon.width, height: f.icon.height });
+    outcomes.push({
+      slug: f.row.slug,
+      result: 'stored',
+      source: f.source,
+      width: f.icon.width,
+      height: f.icon.height,
+    });
   }
   return { outcomes, deferred: !store };
 }
