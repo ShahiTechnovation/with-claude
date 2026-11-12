@@ -32,11 +32,15 @@
  * ── WHY WITHDRAWAL IS BY ABSENCE ─────────────────────────────────────────
  *
  * Because for the calendar this actually runs against, absence is the ONLY
- * cancellation signal there is: the Luma ICS feed reports `STATUS:TENTATIVE`
- * on all 317 of its events, including ones that have already happened. So
+ * cancellation signal there is: the Luma ICS feed reported `STATUS:TENTATIVE`
+ * on all 317 events of the 2026-09-13 capture (`luma-sample.ics`). So
  * `isCancelledStatus()` is checked first and would be believed — it simply
  * never fires on this feed. §23 still has to be satisfied, and absence is what
  * is left.
+ *
+ * But the feed now drops an event once it is over (checked 2026-11-12), so
+ * absence means cancelled only for an event that has not started yet. One that
+ * has started keeps whatever state it had.
  */
 import { and, eq, inArray, isNotNull, isNull, ne, or, sql } from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
@@ -315,6 +319,7 @@ export async function syncSource(source: EventSource, db: AnyDatabase): Promise<
       rawHash: schema.eventSourceRecords.rawHash,
       state: schema.eventSourceRecords.state,
       eventId: schema.eventSourceRecords.eventId,
+      startsAt: schema.eventSourceRecords.startsAt,
     })
     .from(schema.eventSourceRecords)
     .where(eq(schema.eventSourceRecords.sourceId, sourceRow.id));
@@ -765,7 +770,9 @@ export async function syncSource(source: EventSource, db: AnyDatabase): Promise<
       (row) =>
         !seenExternalIds.includes(row.externalId) &&
         !result.unreadable?.includes(row.externalId) &&
-        row.state !== 'withdrawn',
+        row.state !== 'withdrawn' &&
+        // Luma drops an event once it is over, so absence withdraws only one that has not started.
+        row.startsAt > now,
     );
     for (const row of missing) {
       await db
