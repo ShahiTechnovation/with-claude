@@ -5,8 +5,8 @@ import type { CommunityEvent } from './types';
  *
  * Every entry below is a real Claude community event, carried over with its
  * registration link intact. It started as Bhopal's record and is no longer
- * only that: Aniket Sahu has since hosted in Indore and Delhi, which is why
- * `volume` is scoped to a city's own series rather than to the list.
+ * only that: Aniket Sahu has since hosted in Indore, Delhi and Mumbai, which
+ * is why `volume` is scoped to a city's own series rather than to the list.
  *
  * Two things are never authored here:
  *
@@ -855,6 +855,169 @@ export const events: CommunityEvent[] = [
     summary:
       'A hands-on workshop introducing the Claude ecosystem and how developers can build with Claude Code.',
     registrationUrl: 'https://luma.com/claude-3brg',
+    free: true,
+  },
+  {
+    id: 'evt-bhopal-2026-10-23',
+    slug: 'claude-code-meetup-23-october',
+    status: 'published',
+    title: 'Claude Code Meetup',
+    format: 'meetup',
+    citySlug: 'bhopal',
+    // Luma lists Aniket Sahu alone.
+    host: { ambassadorSlug: 'aniket-sahu' },
+    date: '2026-10-23',
+    startTime: '17:30',
+    endTime: '20:30',
+    venue: { name: 'The Public House Restaurant', address: 'Bhopal' },
+    summary:
+      'Claude Code Meetup, an evening for developers, AI engineers and builders in Bhopal who are using Claude to ship real things.',
+    registrationUrl: 'https://luma.com/claude-qax4',
+    free: true,
+  },
+  {
+    id: 'evt-bhopal-2026-10-25',
+    slug: 'claude-for-founders-meetup-25-october',
+    status: 'published',
+    title: 'Claude for Founders Meetup',
+    format: 'meetup',
+    citySlug: 'bhopal',
+    // Luma lists Aniket Sahu alone.
+    host: { ambassadorSlug: 'aniket-sahu' },
+    date: '2026-10-25',
+    startTime: '17:30',
+    endTime: '20:00',
+    venue: { name: 'Hotel Varshish Inn', address: 'Bhopal' },
+    summary:
+      'Real stories from founders and builders using Claude in their day-to-day work, from product and code to marketing, ops and fundraising.',
+    registrationUrl: 'https://luma.com/claude-s0yt',
+    free: true,
+  },
+  {
+    id: 'evt-bhopal-2026-11-01',
+    slug: 'claude-code-workshop-1-november',
+    status: 'published',
+    title: 'Claude Code Workshop',
+    format: 'workshop',
+    citySlug: 'bhopal',
+    // Luma lists Aniket Sahu alone.
+    host: { ambassadorSlug: 'aniket-sahu' },
+    date: '2026-11-01',
+    rescheduledFrom: '2026-10-31',
+    startTime: '16:00',
+    endTime: '19:00',
+    venue: { name: 'BIBA', address: 'Bhopal' },
+    summary:
+      'A hands-on Claude Code Workshop in Bhopal, a session for developers, students and builders who want to go from “I’ve heard of Claude Code” to “I just shipped something with it.”',
+    registrationUrl: 'https://luma.com/claude-8ej2',
+    free: true,
+  },
+  {
+    id: 'evt-mumbai-2026-11-03',
+    slug: 'claude-code-meetup-workshop-3-november',
+    status: 'published',
+    title: 'Claude Code Meetup & Workshop',
+    format: 'workshop',
+    citySlug: 'mumbai',
+    // Credited to Aniket Sahu alone (user, 12 Nov).
+    host: { ambassadorSlug: 'aniket-sahu' },
+    date: '2026-11-03',
+    startTime: '15:30',
+    endTime: '18:30',
+    venue: { name: 'BKC DIVE', address: 'Mumbai' },
+    summary:
+      'A special Claude Community Meetup in Mumbai during Devcon week, when the Ethereum ecosystem’s annual flagship conference brings developers, founders and builders from around the world to the city.',
+    registrationUrl: 'https://luma.com/claude-0yz1',
+    free: true,
+  },
+  {
+    id: 'evt-bhopal-2026-11-07',
+    slug: 'claude-code-workshop-7-november',
+    status: 'published',
+    title: 'Claude Code Workshop',
+    format: 'workshop',
+    citySlug: 'bhopal',
+    // Luma lists Aniket Sahu alone.
+    host: { ambassadorSlug: 'aniket-sahu' },
+    date: '2026-11-07',
+    startTime: '18:00',
+    endTime: '20:30',
+    venue: { name: 'Bhopal', private: true },
+    summary:
+      'For builders who’ve moved past “hello world” and want to use Claude Code the way experienced developers do: on real projects, with real workflows, at real speed.',
+    registrationUrl: 'https://luma.com/claude-4nyy',
+    free: true,
+  },
+  {
+    id: 'evt-bhopal-2026-11-14',
+    slug: 'claude-code-workshop-14-november',
+    status: 'published',
+    title: 'Claude Code Workshop',
+    format: 'workshop',
+    citySlug: 'bhopal',
+    // Luma lists Aniket Sahu alone.
+    host: { ambassadorSlug: 'aniket-sahu' },
+    date: '2026-11-14',
+    startTime: '17:30',
+    endTime: '20:00',
+    venue: { name: 'Bhopal', private: true },
+    summary:
+      'Ship It, a hands-on Claude Code workshop by Claude Community Bhopal for developers, students and makers who are tired of half-finished projects.',
+    registrationUrl: 'https://luma.com/claude-vtm6',
+    free: true,
+  },
+  {
+    id: 'evt-bhopal-2026-11-18',
+    slug: 'claude-meetup-18-november',
+    status: 'published',
+    title: 'Claude Meetup',
+    format: 'meetup',
+    citySlug: 'bhopal',
+    // Luma lists Aniket Sahu alone.
+    host: { ambassadorSlug: 'aniket-sahu' },
+    date: '2026-11-18',
+    startTime: '17:30',
+    endTime: '20:00',
+    venue: { name: 'Bhopal', private: true },
+    summary:
+      'Claude at Work, a midweek meetup by Claude Community Bhopal about the everyday side of Claude: how students, developers, founders, marketers, teachers and professionals in our city use it to write, research, plan, analyze and get real work done.',
+    registrationUrl: 'https://luma.com/claude-a33d',
+    free: true,
+  },
+  {
+    id: 'evt-bhopal-2026-11-19',
+    slug: 'claude-code-workshop-19-november',
+    status: 'published',
+    title: 'Claude Code Workshop',
+    format: 'workshop',
+    citySlug: 'bhopal',
+    // Luma lists Aniket Sahu alone.
+    host: { ambassadorSlug: 'aniket-sahu' },
+    date: '2026-11-19',
+    startTime: '13:00',
+    endTime: '16:00',
+    venue: { name: 'Bhopal', private: true },
+    summary:
+      'Claude Code for Student Builders, an afternoon workshop by Claude Community Bhopal for college students who want to learn the AI coding skills the industry is starting to expect.',
+    registrationUrl: 'https://luma.com/claude-b4mc',
+    free: true,
+  },
+  {
+    id: 'evt-bhopal-2026-11-22',
+    slug: 'claude-build-day-22-november',
+    status: 'published',
+    title: 'Claude Build Day',
+    format: 'hackathon',
+    citySlug: 'bhopal',
+    // Luma lists Aniket Sahu alone.
+    host: { ambassadorSlug: 'aniket-sahu' },
+    date: '2026-11-22',
+    startTime: '17:30',
+    endTime: '20:00',
+    venue: { name: 'Bhopal', private: true },
+    summary:
+      'The Claude Build Day, a hands-on evening by Claude Community Bhopal for developers, builders, students and AI enthusiasts.',
+    registrationUrl: 'https://luma.com/claude-89py',
     free: true,
   },
 ];
