@@ -52,8 +52,16 @@ describe.each<[string, RecordSet]>([
 });
 
 describe('the photograph files', () => {
-  it('has the 10 and 11 October rooms photographed', () => {
-    for (const slug of ['claude-community-workshop', 'claude-code-impact-lab-october'])
+  it('has the 10 and 11 October and the 23 October to 7 November rooms photographed', () => {
+    for (const slug of [
+      'claude-community-workshop',
+      'claude-code-impact-lab-october',
+      'claude-code-meetup-23-october',
+      'claude-for-founders-meetup-25-october',
+      'claude-code-workshop-1-november',
+      'claude-code-meetup-workshop-3-november',
+      'claude-code-workshop-7-november',
+    ])
       expect(
         record.events.find((event) => event.slug === slug)?.photos?.length,
         slug,
