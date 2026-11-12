@@ -27,6 +27,5 @@ jobs:
       - run: npm run build
 
       # Two workers: the database tests each start a PGlite instance, and more
-      # of them at once run the runner out of memory. The minimum is set too,
-      # because vitest refuses a maximum below its default minimum.
-      - run: npx vitest run --maxWorkers=2 --minWorkers=1
+      # of them at once run the runner out of memory.
+      - run: npx vitest run --maxWorkers=2

@@ -31,9 +31,13 @@ const NEON_SUITE = 'tests/equivalence-neon.test.ts';
 const neonSuiteNamed = process.argv.some((arg) => arg.includes('equivalence-neon'));
 
 export default defineConfig({
-  esbuild: { jsx: 'automatic' }, // Astro's React JSX runtime, for tests/islands-render.test.ts
+  oxc: { jsx: { runtime: 'automatic' } }, // Astro's React JSX runtime, for tests/islands-render.test.ts
   resolve: {
     alias: {
+      // Admin routes import the admin's own `@/server/session`, which has no twin in the public
+      // `src`. Tests mock it, and since Vitest 4 a mocked id must resolve to a real file first.
+      // Listed before `@`: the first matching alias wins.
+      '@/server/session': fileURLToPath(new URL('./admin/src/server/session.ts', import.meta.url)),
       '@': fileURLToPath(new URL('./src', import.meta.url)),
       '@db': fileURLToPath(new URL('./db', import.meta.url)),
     },

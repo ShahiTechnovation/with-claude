@@ -14,7 +14,6 @@
  * `.env` file to find, so this is a no-op in production.
  */
 import 'dotenv/config';
-import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
 import vercel from '@astrojs/vercel';
@@ -22,6 +21,8 @@ import vercel from '@astrojs/vercel';
 export default defineConfig({
   site: 'https://www.withclaude.in',
   trailingSlash: 'always',
+  // Astro 7's default, 'jsx', strips the spaces between inline elements; true keeps them.
+  compressHTML: true,
 
   /**
    * STATIC FIRST, AND STAYING THAT WAY.
@@ -111,16 +112,5 @@ export default defineConfig({
     // later, its lazy screens (the email-code step) could answer 504 "Outdated Optimize
     // Dep" and leave the login popup blank.
     optimizeDeps: { include: ['@privy-io/react-auth'] },
-    resolve: {
-      alias: [
-        // The function's entry, wrapped to refuse the adapter's path override
-        // (src/server/vercel-entrypoint.ts). Exact match: the wrapper reaches
-        // the real entry through `@astrojs/vercel/serverless/entrypoint`.
-        {
-          find: /^@astrojs\/vercel\/entrypoint$/,
-          replacement: fileURLToPath(new URL('./src/server/vercel-entrypoint.ts', import.meta.url)),
-        },
-      ],
-    },
   },
 });

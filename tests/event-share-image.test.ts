@@ -19,7 +19,7 @@
  */
 import { createServer } from 'node:http';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import sharp from 'sharp';
 import { events } from '@/data/events';
@@ -142,7 +142,7 @@ describe('the share images are real pictures of a usable size', () => {
  */
 describe('the built output serves every share image it declares', () => {
   const STATIC = '.vercel/output/static';
-  const CHUNKS = '.vercel/output/functions/_render.func/dist/server/chunks';
+  const FUNCTION = '.vercel/output/functions/_render.func';
 
   let built = false;
   let resolve: ((key: string | undefined) => { src: string } | undefined) | undefined;
@@ -150,14 +150,27 @@ describe('the built output serves every share image it declares', () => {
   let server: ReturnType<typeof createServer> | undefined;
 
   beforeAll(async () => {
-    if (!existsSync(STATIC) || !existsSync(CHUNKS)) return;
-    const chunk = readdirSync(CHUNKS).find((f) => /^images_.*\.mjs$/.test(f));
-    if (!chunk) return;
+    if (!existsSync(STATIC)) return;
+    // A build is here, so a chunk or resolver the bundler renamed is a broken
+    // check, not a skip: fail rather than warn and pass.
+    // The chunks sit beside the function's entry, which the adapter names in
+    // `.vc-config.json` (adapter 9: `dist/server/`, 11: `.vercel/output/server/`).
+    const { handler } = JSON.parse(readFileSync(join(FUNCTION, '.vc-config.json'), 'utf8'));
+    const chunks = join(FUNCTION, dirname(handler), 'chunks');
+    const chunk = existsSync(chunks)
+      ? readdirSync(chunks).find((f) => /^images_.*\.mjs$/.test(f))
+      : undefined;
+    if (!chunk) throw new Error(`a build is at ${STATIC}, but no images_*.mjs in ${chunks}`);
 
-    // Rollup renames the export, so take the alias when the name is gone.
-    const mod = await import(join(process.cwd(), CHUNKS, chunk));
-    resolve = mod.asset ?? mod.a;
-    if (typeof resolve !== 'function') return;
+    // The bundler renames exports (Rollup to `a`, Rolldown to `t`), but the
+    // export clause still names the local: `export { asset as t }`.
+    const source = readFileSync(join(chunks, chunk), 'utf8');
+    const name = /\basset as (\w+)/.exec(source)?.[1] ?? 'asset';
+    const mod = await import(join(process.cwd(), chunks, chunk));
+    resolve = mod[name];
+    if (typeof resolve !== 'function') {
+      throw new Error(`${chunk} exports no \`asset\` resolver (looked for \`${name}\`)`);
+    }
 
     // Serve the built static directory so these are real HTTP requests with
     // real status codes, rather than an `existsSync` wearing a costume.
