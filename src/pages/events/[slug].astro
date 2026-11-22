@@ -248,11 +248,12 @@ const photos = (event.photos ?? []).flatMap((photo) => {
 });
 // In a 3:2 tile an upright photo (9:16 to 3:4) shows only the middle 37-50% of its height, and the
 // 2:1 wide tile less; centred, that cut heads off. People's heads sit in the upper third, so
-// upright photos frame high. Two upright full-length scenes frame lower. EventPhoto has no field
-// for this (nor event_photos), so those two are keyed here by asset.
+// upright photos frame high. A few upright scenes frame lower. EventPhoto has no field for this
+// (nor event_photos), so those are keyed here by asset.
 const framing: Record<string, string> = {
   'events/vol14-2.jpg': '50% 75%', // the queue on the red carpet, not the garden above it
   'events/vol14-5.jpg': '50% 50%', // the speaker stands at mid-height, beside the slide
+  'events/claude-code-workshop-19-november-4.jpg': '50% 60%', // the room facing the screen, not the ceiling
 };
 const photoStyle = ({ width, height }: ImageMetadata, src: string) =>
   height > width ? `object-position: ${framing[src] ?? '50% 30%'}` : undefined;
