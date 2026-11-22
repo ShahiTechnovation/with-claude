@@ -1127,6 +1127,34 @@ export const events: CommunityEvent[] = [
       'Ship It, a hands-on Claude Code workshop by Claude Community Bhopal for developers, students and makers who are tired of half-finished projects.',
     registrationUrl: 'https://luma.com/claude-vtm6',
     free: true,
+    photos: [
+      {
+        src: 'events/claude-code-workshop-14-november-1.jpg',
+        alt: 'A café full of people at tables with laptops, facing the camera, a projector on the table in front of them',
+      },
+      {
+        src: 'events/claude-code-workshop-14-november-2.jpg',
+        alt: 'Two people giving a thumbs up on either side of a Claude Community Welcome sign on an easel, shelves of bottles and tumblers behind them',
+      },
+      {
+        src: 'events/claude-code-workshop-14-november-3.jpg',
+        alt: 'People at round tables and laptops, seen from behind, facing a speaker with a microphone between Claude Community and Claude Bhopal banners',
+      },
+      {
+        src: 'events/claude-code-workshop-14-november-4.jpg',
+        alt: 'A speaker in glasses and a striped shirt holding a microphone beside a projected Claude Community globe, people at a long table listening',
+      },
+      {
+        src: 'events/claude-code-workshop-14-november-5.jpg',
+        alt: 'Two people with microphones smiling at each other in front of a projected Claude Community logo',
+      },
+      // Last on purpose: it closes at 21:9 on /gallery/ at three columns and at 2:1 on the event
+      // page, and keeps every face in both.
+      {
+        src: 'events/claude-code-workshop-14-november-6.jpg',
+        alt: 'A wide view of the café, people at tables and laptops filling the room, a speaker at the front between Claude Community and Claude Bhopal banners',
+      },
+    ],
   },
   {
     id: 'evt-bhopal-2026-11-18',
@@ -1145,6 +1173,26 @@ export const events: CommunityEvent[] = [
       'Claude at Work, a midweek meetup by Claude Community Bhopal, co-hosted with Agrati Tech Labs, about the everyday side of Claude: how students, developers, founders, marketers, teachers and professionals in our city use it to write, research, plan, analyze and get real work done.',
     registrationUrl: 'https://luma.com/claude-a33d',
     free: true,
+    photos: [
+      {
+        src: 'events/claude-meetup-18-november-1.jpg',
+        alt: 'A large group posing for a photo in a restaurant, many giving a thumbs up, speckled tables in the foreground and two orange banners behind',
+      },
+      {
+        src: 'events/claude-meetup-18-november-2.jpg',
+        alt: 'A speaker in a dark suit holding a microphone in front of an Agrati Labs slide, between Claude Community Welcome and Claude Community Bhopal banners',
+      },
+      {
+        src: 'events/claude-meetup-18-november-3.jpg',
+        alt: 'Four people standing in front of a Claude Community Welcome banner, two of them giving a thumbs up',
+      },
+      // Last on purpose: it closes at 21:9 on /gallery/ and at 2:1 on the event page, and keeps every
+      // face in both.
+      {
+        src: 'events/claude-meetup-18-november-4.jpg',
+        alt: 'People at a speckled table holding up their phones towards the front, a Claude Community banner behind them',
+      },
+    ],
   },
   {
     id: 'evt-bhopal-2026-11-19',
@@ -1163,6 +1211,34 @@ export const events: CommunityEvent[] = [
       'Claude Code for Student Builders, an afternoon workshop by Claude Community Bhopal for college students who want to learn the AI coding skills the industry is starting to expect.',
     registrationUrl: 'https://luma.com/claude-b4mc',
     free: true,
+    photos: [
+      {
+        src: 'events/claude-code-workshop-19-november-1.jpg',
+        alt: 'A large group posing for a photo behind a long table, many giving a thumbs up, microphones and bags on the table in front',
+      },
+      {
+        src: 'events/claude-code-workshop-19-november-2.jpg',
+        alt: 'People at desks listening, two with a hand to the chin, a laptop, a steel bottle and a black bag in the foreground',
+      },
+      {
+        src: 'events/claude-code-workshop-19-november-3.jpg',
+        alt: 'People at laptops along a row of desks, a Claude Community banner behind them',
+      },
+      {
+        src: 'events/claude-code-workshop-19-november-4.jpg',
+        alt: 'Seen from the back, people at desks facing a projected screen, a person at the right pointing to a Claude Community sign',
+      },
+      {
+        src: 'events/claude-code-workshop-19-november-5.jpg',
+        alt: 'Two people holding a black cap with a small orange emblem between them, one in a grey sweatshirt and one in a varsity jacket',
+      },
+      // Last on purpose: the event page shows it at 2:1, which keeps every face, the speaker at the
+      // right included. The cap photo there would lose the tops of both heads.
+      {
+        src: 'events/claude-code-workshop-19-november-6.jpg',
+        alt: 'Three people at laptops smiling at the camera, one making a peace sign, more rows of people at desks behind them',
+      },
+    ],
   },
   {
     id: 'evt-bhopal-2026-11-22',
