@@ -2,9 +2,11 @@
  * MIGRATION 0019, ON A REAL DATABASE (PGlite, all migrations).
  *
  * The record is imported, then the nine new events are deleted, so the
- * database is as it was before 0019. Then 0019's statements run twice. After
- * the first run the database has to read back exactly as `src/data/events.ts`
- * says; the second run has to change nothing.
+ * database is as it was before 0019. Then 0019's statements run twice, each
+ * time followed by 0020's, the order production runs them: 0020 brings two of
+ * the nine to Luma's later values. After the first run the database has to
+ * read back exactly as `src/data/events.ts` says; the second run has to
+ * change nothing.
  *
  * The production cases seed the sync's own rows for some of these events, as
  * production had them on 29 October: they end up archived as an editor's
@@ -41,15 +43,18 @@ const FEED_KEY = 'luma:claudecommunity';
 /** A published feed row for another event, which 0019 must leave alone. */
 const UNRELATED = 'stray-unrelated-feed';
 
-function statements(): string[] {
-  return readFileSync(join(process.cwd(), 'db/migrations/0019_events_luma_november.sql'), 'utf8')
+function statements(name: string): string[] {
+  return readFileSync(join(process.cwd(), 'db/migrations', name), 'utf8')
     .split('--> statement-breakpoint')
     .map((s) => s.trim())
     .filter(Boolean);
 }
 
+/** 0019, then 0020, as production runs them. 0019's own stops throw before 0020 starts. */
 async function run0019() {
-  for (const s of statements()) await db.execute(sql.raw(s));
+  for (const name of ['0019_events_luma_november.sql', '0020_events_luma_late_november.sql']) {
+    for (const s of statements(name)) await db.execute(sql.raw(s));
+  }
 }
 
 /** Runs 0019 and returns the database's error, or '' if every statement ran. */
