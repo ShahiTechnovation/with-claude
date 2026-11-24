@@ -205,18 +205,21 @@ describe('consent past the last confirmation', () => {
     const photo = (src: string) => [{ src, alt: src }];
     const record: Parameters<typeof eventsPastConsent>[1] = [
       { slug: 'on-the-cutoff', date: CONSENT_CONFIRMED_THROUGH, photos: photo('events/a.jpg') },
-      { slug: 'after-it', date: '2026-11-08', photos: photo('events/a.jpg') },
-      { slug: 'after-it-but-nothing-new', date: '2026-11-09', photos: photo('events/b.jpg') },
-      { slug: 'after-it-with-no-photos', date: '2026-11-10' },
+      { slug: 'after-it', date: '2026-11-20', photos: photo('events/a.jpg') },
+      { slug: 'after-it-but-nothing-new', date: '2026-11-21', photos: photo('events/b.jpg') },
+      { slug: 'after-it-with-no-photos', date: '2026-11-22' },
     ];
     expect(eventsPastConsent(['events/a.jpg'], record)).toEqual(['after-it']);
   });
 
   it('prints every confirmation, and a warning that does not stop apply', async () => {
-    // Remove one photograph each from 11 October and 7 November so the plan inserts their media rows.
-    const paths = ['claude-code-impact-lab-october', 'claude-code-workshop-7-november'].map(
-      (slug) => wantedPhotos().find((p) => p.eventSlug === slug)!.path,
-    );
+    // Remove one photograph each from 11 October, 7 November and 19 November so the plan inserts
+    // their media rows.
+    const paths = [
+      'claude-code-impact-lab-october',
+      'claude-code-workshop-7-november',
+      'claude-code-workshop-19-november',
+    ].map((slug) => wantedPhotos().find((p) => p.eventSlug === slug)!.path);
     for (const path of paths) {
       const [media] = await db
         .select({ id: schema.media.id })
@@ -228,14 +231,15 @@ describe('consent past the last confirmation', () => {
 
     const plan = await buildBackfillPlan(db as never);
     expect(plan.mediaInserts.map((row) => row.path).sort()).toEqual([...paths].sort());
-    // 11 October and 7 November are covered.
+    // 11 October, 7 November and 19 November are covered.
     expect(plan.consentUnconfirmed).toEqual([]);
 
     const printed = renderPlan(plan);
     expect(printed.split('\n').at(-1)).toBe('APPLICABLE — re-run with `apply --yes` to write it.');
     expect(printed).toContain('confirmed by Vishal 2026-10-05 (VIS-14) for the events up to');
     expect(printed).toContain('confirmed by Vishal 2026-10-16 for 10 and 11 October,');
-    expect(printed).toContain('and confirmed by Vishal 2026-11-12 for 23 October to 7 November.');
+    expect(printed).toContain('and confirmed by Vishal 2026-11-12 for 23 October to 7 November,');
+    expect(printed).toContain('and confirmed by Vishal 2026-11-22 for 14 to 19 November.');
     expect(printed).not.toContain('WARNING');
 
     const later = { ...plan, consentUnconfirmed: ['a-later-event'] };

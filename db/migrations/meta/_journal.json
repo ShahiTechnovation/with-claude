@@ -141,6 +141,13 @@
       "when": 1794464893889,
       "tag": "0019_events_luma_november",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1795306104412,
+      "tag": "0020_events_luma_late_november",
+      "breakpoints": true
     }
   ]
 }
