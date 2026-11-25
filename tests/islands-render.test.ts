@@ -2,7 +2,7 @@
  * THE TWO REACT ISLANDS, RENDERED. `renderToStaticMarkup` runs the components with no DOM, so this
  * pins what a source check can't: which buttons each moderation state gets, and the report dialog
  * as React writes it. The click paths need DOM events; `report-modal.test.ts` and
- * `islands-theme.test.ts` pin those as text. Needs `esbuild: { jsx: 'automatic' }` in
+ * `islands-theme.test.ts` pin those as text. Needs `oxc: { jsx: { runtime: 'automatic' } }` in
  * vitest.config.ts, the runtime Astro's React integration builds with.
  */
 import { createRequire } from 'node:module';
@@ -37,10 +37,10 @@ describe('the moderator controls', () => {
 });
 
 describe('the build Astro gives the islands', () => {
-  // @vitejs/plugin-react picks its JSX setup from the `vite` it resolves. If npm hoists
-  // @astrojs/react's own vite 8 over Astro's vite 6, the plugin hands Astro rolldown-only
-  // options, the islands compile to classic React.createElement and throw "React is not
-  // defined" in the browser. No type check, test or build error shows it, so pin it here.
+  // @vitejs/plugin-react picks its JSX setup from the `vite` it resolves. When npm hoisted
+  // @astrojs/react's vite 8 over Astro 5's vite 6, the plugin handed Astro rolldown-only
+  // options, the islands compiled to classic React.createElement and threw "React is not
+  // defined" in the browser. No type check, test or build error showed it, so pin it here.
   it("runs @vitejs/plugin-react on Astro's own vite", () => {
     const fromRoot = createRequire(import.meta.url);
     const astroVite = createRequire(fromRoot.resolve('astro/package.json')).resolve('vite');

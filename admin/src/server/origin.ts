@@ -29,17 +29,14 @@
  *
  *     request.headers.get('origin') === new URL(request.url).origin
  *
- * The important part is that `request.url` is NOT the raw `Host` header.
- * Astro builds it in `NodeApp.createRequest()` as
- *
- *     validatedForwardedHost ?? validatedHost ?? 'localhost'
- *
- * where both validators test the host against `security.allowedDomains` from
- * `astro.config.mjs` and return undefined for anything not on that list. A
- * forged `Host` or `X-Forwarded-Host` therefore never reaches this file — it
- * has already been discarded, and the origin has fallen back to
- * `http://localhost`, which no browser on the public internet will ever send
- * as its `Origin`.
+ * The important part is that `request.url` is NOT a raw forwarded header.
+ * Astro 7 starts from the URL the platform built for the function's request
+ * and applies `X-Forwarded-Proto` and `X-Forwarded-Host` only when they match
+ * `security.allowedDomains` in `astro.config.mjs`
+ * (`FetchState#applyForwardedHeaders`). A forged `X-Forwarded-Host` therefore
+ * never reaches this file: it has already been discarded, and the origin is
+ * the one the platform built. (Under Astro 5 and adapter 9 it fell back to
+ * `http://localhost`.)
  *
  * So the host arrives here already validated once, by the framework, against
  * a config-level allowlist. This file then asks the second question.
@@ -112,9 +109,8 @@ export function isTrustedOrigin(origin: string): boolean {
 
   /**
    * Loopback is a development affordance and must never be one in a
-   * deployment. On Vercel a `localhost` origin can only mean Astro rejected
-   * the forwarded host and fell through — a failure to refuse, not a host to
-   * trust.
+   * deployment. Nothing on Vercel is served from `localhost`, so a
+   * `localhost` origin there is a failure to refuse, not a host to trust.
    */
   if (!process.env.VERCEL && LOOPBACK_ORIGIN.test(origin)) return true;
 

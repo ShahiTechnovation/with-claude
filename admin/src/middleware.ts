@@ -28,22 +28,25 @@ function isPublic(pathname: string): boolean {
 
 export const onRequest = defineMiddleware(async (context, next) => {
   // @astrojs/vercel <10.0.2 trusts this client header to pick the route (GHSA-mr6q-rp88-fx84).
-  // The function entry refuses it first (../../src/server/vercel-entrypoint.ts, aliased in
-  // astro.config.mjs), and that is the only place the query-parameter form can be caught;
-  // this is the second line.
+  // From 10.0.2 the adapter ignores the header and the `x_astro_path` query parameter unless
+  // they carry the per-build secret; this is the second line.
   if (context.request.headers.has('x-astro-path')) {
     return new Response(null, { status: 400, headers: { 'Cache-Control': 'no-store' } });
   }
 
   const { pathname } = context.url;
+  // The route that will run must agree. Astro 7 decodes the path repeatedly and the URL resolves
+  // `..`, but the router matches the segments as sent: `/api/claims/%252e%252e/login` is
+  // `/api/login` here and `/api/claims/[id]/[action]` to the router.
+  const route = context.routePattern;
 
   // Static assets served by the adapter never reach here, but be explicit.
-  if (pathname.startsWith('/_')) return next();
+  if (pathname.startsWith('/_') && route.startsWith('/_')) return next();
 
   const session = await resolveSession(context.request);
   context.locals.user = session.authenticated ? session.user : undefined;
 
-  if (isPublic(pathname)) {
+  if (isPublic(pathname) && isPublic(route)) {
     // Somebody already signed in has no use for the login form.
     if (pathname === '/login' && session.authenticated) {
       return context.redirect('/submissions', 302);

@@ -67,6 +67,8 @@ const entry = event
 const host = event ? selectors.hostAmbassador(event) : undefined;
 const hostInitials = host ? initials(host.name) : '';
 const organisations = listJoin(event?.host.organisations ?? []);
+// The "Hosted by" sentence is one line under prettier-ignore: Prettier would put the tail on a
+// line of its own, and Astro 7 renders that line break as a space before the full stop.
 const register =
   event && isRegistrationOpen(event) ? registrationLink(event.registrationUrl) : null;
 // A regex, not a URL parse that can throw: registrationLink() passes a non-URL through unchanged.
@@ -122,10 +124,8 @@ const arrowOut = 'M7 13l6.5-6.5M8 6.5h5.5V12';
             <span class="feature-av" aria-hidden="true">
               {hostInitials}
             </span>
-            <p>
-              Hosted by <b>{host.name}</b>
-              {organisations ? `, with ${organisations}.` : '.'}
-            </p>
+            {/* prettier-ignore */}
+            <p>Hosted by <b>{host.name}</b>{organisations ? `, with ${organisations}.` : '.'}</p>
           </div>
         ) : (
           organisations && (

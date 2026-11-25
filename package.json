@@ -32,8 +32,8 @@
     "baserow:discover": "tsx scripts/baserow/discover-config.ts"
   },
   "dependencies": {
-    "@astrojs/react": "^6.0.5",
-    "@astrojs/vercel": "^9.0.5",
+    "@astrojs/react": "^7.1.8",
+    "@astrojs/vercel": "^11.0.21",
     "@fontsource-variable/fraunces": "^5.1.0",
     "@fontsource-variable/inter": "^5.1.0",
     "@fontsource/ibm-plex-mono": "^5.1.0",
@@ -42,13 +42,13 @@
     "@privy-io/react-auth": "^3.41.0",
     "@vercel/analytics": "^2.0.1",
     "@vercel/blob": "^2.8.0",
-    "astro": "^5.1.1",
+    "astro": "^7.4.11",
     "drizzle-orm": "^0.45.2",
     "pg": "^8.23.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "resend": "^6.26.0",
-    "sharp": "^0.33.5",
+    "sharp": "^0.35.5",
     "zod": "^4.5.4"
   },
   "devDependencies": {
@@ -62,6 +62,6 @@
     "prettier-plugin-astro": "^0.14.1",
     "tsx": "^4.23.13",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "vitest": "^4.1.12"
   }
 }

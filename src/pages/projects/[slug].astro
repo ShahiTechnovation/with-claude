@@ -95,12 +95,13 @@ const shareImage =
       ? cover.imageMetadata!.src
       : undefined;
 const icon = project ? projectIcon(project.slug) : undefined;
-// Short names so the "From …" sentence stays on one line in the template: a line break
-// between </a> and the comma would render as a space before it.
+// The "From …" sentence keeps its comma as text right after </a>. Prettier always puts an
+// {expression} that follows an element on a line of its own, and Astro 7 renders that line
+// break as a space before the comma (tests/sentence-spacing.test.ts).
 const eventHref = project?.event ? `/events/${project.event.slug}/` : '';
 const eventName = project?.event?.name;
-const eventTail = project?.event
-  ? `${project.event.city ? `, ${project.event.city.name}` : ''}, ${formatDateLong(project.event.date)}.`
+const eventRest = project?.event
+  ? `${project.event.city ? `${project.event.city.name}, ` : ''}${formatDateLong(project.event.date)}.`
   : '';
 
 const has = (text: string | null | undefined) => Boolean(text && text.trim());
@@ -245,8 +246,7 @@ const crumbs = project
             <h1 class="t-h1 pd-title">{project.title}</h1>
             {project.event && (
               <p class="lead pd-from">
-                From <a href={eventHref}>{eventName}</a>
-                {eventTail}
+                From <a href={eventHref}>{eventName}</a>, {eventRest}
               </p>
             )}
             {actions.length > 0 && (

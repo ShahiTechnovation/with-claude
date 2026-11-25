@@ -41,7 +41,11 @@
  * Directory and project pages from this same deployment, and a project page's
  * "Report" form posts from there (`src/lib/directory-host.ts`).
  */
-const PRODUCTION_ORIGINS = ['https://www.withclaude.in', 'https://withclaude.in', 'https://projects.withclaude.in'];
+const PRODUCTION_ORIGINS = [
+  'https://www.withclaude.in',
+  'https://withclaude.in',
+  'https://projects.withclaude.in',
+];
 
 /**
  * This project's own namespace on `vercel.app`.
@@ -74,9 +78,8 @@ export function isTrustedOrigin(origin: string, env: NodeJS.ProcessEnv = process
 
   /**
    * Loopback is a development affordance and must never be one in a
-   * deployment. On Vercel a `localhost` origin can only mean Astro rejected
-   * the forwarded host and fell through — a failure to refuse, not a host to
-   * trust.
+   * deployment. Nothing on Vercel is served from `localhost`, so a
+   * `localhost` origin there is a failure to refuse, not a host to trust.
    */
   if (!env.VERCEL && LOOPBACK_ORIGIN.test(origin)) return true;
 

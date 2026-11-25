@@ -14,7 +14,6 @@
  * `.env` file to find, so this is a no-op in production.
  */
 import 'dotenv/config';
-import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
 import vercel from '@astrojs/vercel';
@@ -22,6 +21,12 @@ import vercel from '@astrojs/vercel';
 export default defineConfig({
   site: 'https://www.withclaude.in',
   trailingSlash: 'always',
+  // `true` compresses losslessly: whitespace that can show, line breaks included, stays as a
+  // space. Astro 7's default, 'jsx', drops line breaks around elements, so words and links on
+  // separate lines in the markup would touch. Unlike Astro 5's `true`, a line break right after
+  // an inline element now renders as a space: keep punctuation on the closing tag's line
+  // (tests/sentence-spacing.test.ts).
+  compressHTML: true,
 
   /**
    * STATIC FIRST, AND STAYING THAT WAY.
@@ -39,19 +44,19 @@ export default defineConfig({
   /**
    * WHICH FORWARDED HOSTS ASTRO MAY BELIEVE.
    *
-   * Behind Vercel, TLS terminates at the edge and the real hostname reaches
-   * the function only in `X-Forwarded-Host`. Astro refuses to trust that
-   * header unless the host is named here: `NodeApp.createRequest()` resolves
-   * the hostname as `validatedForwardedHost ?? validatedHost ?? 'localhost'`,
-   * and both validators return undefined when `allowedDomains` is empty.
+   * Behind Vercel, TLS terminates at the edge, and the browser's real scheme
+   * and host reach the function in `X-Forwarded-Proto` and `X-Forwarded-Host`.
+   * Astro 7 applies them to `Astro.url` only when they match an entry here
+   * (`FetchState#applyForwardedHeaders`). With an empty list it never trusts
+   * them, and `Astro.url` stays the URL the platform built for the function's
+   * request, which need not be the origin the browser used. (Under Astro 5 and
+   * adapter 9 it fell back to `http://localhost`.)
    *
-   * With no allowlist, `Astro.url.origin` inside a deployed function is
-   * therefore `http://localhost` — not the site's real origin. That did not
-   * matter while the only server route was `/api/submit`, which takes JSON and
-   * checks nothing about its origin. It matters now: Phase A's member
-   * endpoints compare the browser's `Origin` against the origin they were
-   * served on, and that comparison is worthless if the served origin is
-   * always `localhost`.
+   * That did not matter while the only server route was `/api/submit`, which
+   * takes JSON and checks nothing about its origin. It matters now: Phase A's
+   * member endpoints compare the browser's `Origin` against the origin they
+   * were served on, and that comparison is only worth something if the served
+   * origin is the real one.
    *
    * `admin/astro.config.mjs` carries the long-form version of this argument,
    * which it earned by answering 403 to its own sign-in form.
@@ -111,16 +116,5 @@ export default defineConfig({
     // later, its lazy screens (the email-code step) could answer 504 "Outdated Optimize
     // Dep" and leave the login popup blank.
     optimizeDeps: { include: ['@privy-io/react-auth'] },
-    resolve: {
-      alias: [
-        // The function's entry, wrapped to refuse the adapter's path override
-        // (src/server/vercel-entrypoint.ts). Exact match: the wrapper reaches
-        // the real entry through `@astrojs/vercel/serverless/entrypoint`.
-        {
-          find: /^@astrojs\/vercel\/entrypoint$/,
-          replacement: fileURLToPath(new URL('./src/server/vercel-entrypoint.ts', import.meta.url)),
-        },
-      ],
-    },
   },
 });
