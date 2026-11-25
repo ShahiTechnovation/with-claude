@@ -33,6 +33,13 @@ describe('the projects on a city page', () => {
     expect(page).toContain('id="g-independent"');
   });
 
+  it('keeps each event group in the record’s order, the order the event page uses', () => {
+    // An A–Z re-sort put Bhopal's Build Day group in title order, "5-Minute Fix" (a live site
+    // alone) first. projectsInCity()'s order is pinned in tests/project-directory.test.ts.
+    expect(page).toContain('items: projects.map((p) => cardProps(p))');
+    expect(page).not.toContain('a.title.localeCompare(b.title)');
+  });
+
   it('nests the groups under the "Made in" heading, cards one level below', () => {
     expect(page).toMatch(/<h2 id="projects-heading">Made in \{city\.name\}<\/h2>/);
     expect(page.match(/level="h3"/g)?.length).toBe(2);

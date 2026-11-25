@@ -22,10 +22,12 @@
  *
  *   archive-plan | verify-links | archive-report | fixture-seed | sync | enrich-logos
  *
- * The October 2026 Bhopal Impact Lab (one form export — see
+ * The October 2026 Bhopal Impact Lab and the November 2026 Fable 5.2 Build
+ * Day (one form export each — see
  * `scripts/import/sources/impact-lab-2026-10/commands.ts`):
  *
  *   lab-oct-seed-event | lab-oct-verify-links | lab-oct-plan | lab-oct-report
+ *   build-day-nov-seed-event | build-day-nov-verify-links | build-day-nov-plan | build-day-nov-report
  *
  * Environment: DATABASE_URL (ledger, crosswalk), BASEROW_CONFIG, BASEROW_API_URL,
  * and BASEROW_IMPORT_TOKEN — a database token with create/update/delete on the
@@ -49,11 +51,15 @@ import { applyPlan, rollbackBatch, type Decision } from './lib/apply';
 import { fieldOptionsFrom, loadBaserowProjects, loadCrosswalk, loadNeonProjects } from './lib/existing';
 import { fail, flag, guardDatabase, option, positional as firstPositional, writer } from './lib/cli-env';
 import { ARCHIVE_COMMANDS, runArchiveCommand } from './archive';
-import { LAB_OCT_COMMANDS, runLabOctCommand } from './sources/impact-lab-2026-10/commands';
+import { labCommands, runLabCommand } from './sources/impact-lab-2026-10/commands';
+import { IMPACT_LAB_OCTOBER_FORM } from './sources/impact-lab-2026-10/index';
+import { BUILD_DAY_NOVEMBER } from './sources/build-day-2026-11/index';
 import { writeManifest } from './lib/workspace';
 
 const [command] = process.argv.slice(2);
 const positional = firstPositional();
+const LAB_FORMS = [IMPACT_LAB_OCTOBER_FORM, BUILD_DAY_NOVEMBER];
+const labForm = LAB_FORMS.find((form) => command && labCommands(form).includes(command));
 
 async function inspect(file: string) {
   const wb = await readWorkbook(file);
@@ -176,13 +182,13 @@ switch (command) {
       await runArchiveCommand(command as (typeof ARCHIVE_COMMANDS)[number]);
       break;
     }
-    if (command && (LAB_OCT_COMMANDS as readonly string[]).includes(command)) {
-      await runLabOctCommand(command as (typeof LAB_OCT_COMMANDS)[number]);
+    if (labForm) {
+      await runLabCommand(labForm, command!);
       break;
     }
     fail(
       'Usage: import inspect <file> | plan <file> --mapping <m.json> | apply --plan <plan.json> --yes [--publish] | rollback --batch <id> --yes\n' +
         `       import ${ARCHIVE_COMMANDS.join(' | ')}  (see scripts/import/archive.ts)\n` +
-        `       import ${LAB_OCT_COMMANDS.join(' | ')} --file <xlsx>  (see scripts/import/sources/impact-lab-2026-10/commands.ts)`,
+        LAB_FORMS.map((form) => `       import ${labCommands(form).join(' | ')} --file <xlsx>  (see scripts/import/sources/impact-lab-2026-10/commands.ts)`).join('\n'),
     );
 }

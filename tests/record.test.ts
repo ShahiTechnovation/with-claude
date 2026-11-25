@@ -36,6 +36,58 @@ describe('the timeline', () => {
     }
   });
 
+  it('keeps same-day projects in the record’s order', async () => {
+    // The newest-first sort answered -1 for two entries of the same day, which reversed them: the
+    // Build Day's projects read from the record's last card to its first.
+    const { publicProjects, timeline } = await import('../src/data');
+    const rank = new Map(publicProjects.map((p, i) => [`/projects/${p.slug}/`, i]));
+    const byDay = new Map<string, number[]>();
+    for (const entry of timeline().flatMap((month) => month.entries)) {
+      if (entry.kind !== 'project-published') continue;
+      byDay.set(entry.date, [...(byDay.get(entry.date) ?? []), rank.get(entry.href ?? '') ?? -1]);
+    }
+    const shared = [...byDay.values()].filter((ranks) => ranks.length > 1);
+    expect(shared.length, 'days with more than one project').toBeGreaterThan(0);
+    for (const ranks of shared) expect(ranks).toEqual([...ranks].sort((a, b) => a - b));
+  });
+
+  it('puts two events of one day in time order, then that day’s projects in record order', async () => {
+    const { RecordSelectors } = await import('../src/data/selectors');
+    const { tsRecordSet } = await import('../src/data/source-ts');
+    const rs = tsRecordSet();
+    const day = '2026-11-22' as const;
+    const event = { ...rs.events[0]!, date: day, statusOverride: undefined };
+    const project = { ...rs.projects[0]!, status: 'published' as const, createdAt: day };
+    const selectors = new RecordSelectors({
+      ...rs,
+      // The later event comes first in the input: the start time decides, not the input order.
+      events: [
+        { ...event, id: 'evt-late', slug: 'late', startTime: '14:00', endTime: '15:00' },
+        { ...event, id: 'evt-early', slug: 'early', startTime: '09:00', endTime: '10:00' },
+      ],
+      // The record's order, which A–Z would reverse.
+      projects: [
+        { ...project, id: 'prj-zulu', slug: 'zulu', title: 'Zulu' },
+        { ...project, id: 'prj-alpha', slug: 'alpha', title: 'Alpha' },
+      ],
+      builders: [],
+      stories: [],
+      useCases: [],
+      guides: [],
+    });
+    const hrefs = selectors
+      .timeline(new Date('2026-11-23T12:00:00+05:30'))
+      .flatMap((month) => month.entries)
+      .filter((entry) => entry.date === day)
+      .map((entry) => entry.href);
+    expect(hrefs).toEqual([
+      '/events/early/',
+      '/events/late/',
+      '/projects/zulu/',
+      '/projects/alpha/',
+    ]);
+  });
+
   it('holds every dated thing the activity feed knows about', async () => {
     const { communitySignal, timeline } = await import('../src/data');
     const onRail = new Set(

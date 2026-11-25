@@ -35,6 +35,8 @@ import {
   relatedPublicProjects,
 } from '../src/server/public/projects';
 import { projectGroups } from '../src/server/public/pages';
+import { loadRecordSet } from '../src/data/source-db';
+import { RecordSelectors } from '../src/data/selectors';
 import { eventLabel as eventLabelFromLib } from '../src/lib/event-display';
 import { FileBaserow } from '../scripts/import/lib/file-baserow';
 import { buildPlan } from '../scripts/import/lib/plan';
@@ -599,7 +601,7 @@ describe('directory queries', () => {
       'Z code live first',
     ]);
     const mine = byEvent.items.map((p) => p.title).filter((t) => wanted.has(t));
-    expect(mine).toEqual([
+    const order = [
       'F code video live',
       'Z code live first',
       'E code live',
@@ -609,7 +611,70 @@ describe('directory queries', () => {
       'H video',
       'B code',
       'A none',
+    ];
+    expect(mine).toEqual(order);
+    // The event page lists them in the same order, not by title.
+    expect((await publicProjectsForEvent(db, linksDay.id)).map((p) => p.title)).toEqual(order);
+  });
+
+  it('the db-mode record (the home strip) puts positioned rows first, then rows with no position by link group, title and slug', async () => {
+    const day = await event({ slug: 'dq-record-order-day', date: '2026-09-19' });
+    const repoUrl = 'https://github.com/x/r';
+    const videoUrl = 'https://youtu.be/v';
+    const url = 'https://live.example';
+    const rows: [string, string, Partial<typeof schema.projects.$inferInsert>][] = [
+      ['car-rush', 'Car Rush', { url }], // live alone: after both live + code rows, though A–Z by slug puts it first
+      ['zz-bhojtal', 'bhojtal game', { repoUrl, url }], // the title (lower-cased) wins over the slug
+      ['shooting-game', 'Shooting Game', { repoUrl, url }],
+      ['echo-b', 'Echo', { videoUrl, url }], // the same title: the slug decides
+      ['echo-a', 'Echo', { videoUrl, url }],
+      ['resume-bot', 'Résumé Bot', { url }], // byte order, as COLLATE "C": "rover" < "résumé"
+      ['rover', 'Rover', { url }],
+      ['potato-bot', 'Potato Bot', { repoUrl }],
+      ['rq-pinned-late', 'Pinned Late', { position: 7 }], // positioned: first, whatever the links
+      ['rq-pinned-early', 'Pinned Early', { url, position: 3 }],
+    ];
+    for (const [slug, title, links] of rows) {
+      await db.insert(schema.projects).values({
+        slug,
+        title,
+        summary: `${title} summary`,
+        category: 'product',
+        publicationStatus: 'published',
+        status: 'published',
+        moderationState: 'clean',
+        cityId: bhopal, // the record drops a project with no city
+        builtAtEventId: day.id,
+        ...links,
+      });
+    }
+
+    const record = new RecordSelectors(await loadRecordSet(db as never));
+    const order = record.projectsFromEvent(day.slug).map((p) => p.slug);
+    expect(order).toEqual([
+      'rq-pinned-early',
+      'rq-pinned-late',
+      'zz-bhojtal',
+      'shooting-game',
+      'echo-a',
+      'echo-b',
+      'car-rush',
+      'rover',
+      'resume-bot',
+      'potato-bot',
     ]);
+    // A city page groups projectsInCity() by event and keeps this order.
+    expect(
+      record
+        .projectsInCity('bhopal')
+        .filter((p) => p.builtAtEventSlug === day.slug)
+        .map((p) => p.slug),
+    ).toEqual(order);
+    // Rows with no position are in the order the event page (SQL) gives them.
+    const unpositioned = (slug: string) => !slug.startsWith('rq-pinned-');
+    expect(order.filter(unpositioned)).toEqual(
+      (await publicProjectsForEvent(db, day.id)).map((p) => p.slug).filter(unpositioned),
+    );
   });
 });
 

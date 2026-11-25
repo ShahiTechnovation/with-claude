@@ -874,7 +874,10 @@ export async function directoryFacets(
   };
 }
 
-/** Public projects built at one event, with the true count — the event page. */
+/**
+ * Public projects built at one event, with the true count — the event page. In the directory's
+ * order inside an event: by links, then the record's order, then title (`orderFor`).
+ */
 export async function publicProjectsForEvent(
   db: AnyDatabase,
   eventId: string,
@@ -882,7 +885,7 @@ export async function publicProjectsForEvent(
 ): Promise<PublicProjectCard[]> {
   const rows = (await selectCards(db)
     .where(and(publicProjectWhere(), eq(schema.projects.builtAtEventId, eventId)))
-    .orderBy(...orderFor('name'))
+    .orderBy(...orderFor('event'))
     .limit(limit)) as CardRow[];
   return cards(db, rows);
 }

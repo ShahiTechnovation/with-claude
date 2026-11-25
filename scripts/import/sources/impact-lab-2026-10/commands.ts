@@ -1,10 +1,13 @@
 /**
- * THE OCTOBER 2026 BHOPAL IMPACT LAB — importer commands (the adapter is ./index.ts).
+ * LAB FORM IMPORTS — importer commands (the adapter is ./index.ts). Each
+ * `LabForm` gets the four, under its prefix: `lab-oct-*` for the October 2026
+ * Bhopal Impact Lab, `build-day-nov-*` for the November Build Day
+ * (`../build-day-2026-11/index.ts`).
  *
  *   lab-oct-seed-event   --yes [--neon-id <uuid>]
  *                   Match or create the event's row in the Baserow Events
- *                   table by its stable key; a new row ADOPTS the Neon event
- *                   `claude-code-impact-lab-october` and mirrors it. An
+ *                   table by its stable key; a new row ADOPTS the form's Neon
+ *                   event (`claude-code-impact-lab-october`) and mirrors it. An
  *                   existing row is reported, never overwritten. Ledgered.
  *   lab-oct-verify-links --file <xlsx> [--all]
  *                   The bounded, SSRF-safe public check of the URLs that need
@@ -47,23 +50,29 @@ import { FIXTURE, fail, flag, guardDatabase, option, writer } from '../../lib/cl
 import { readTable, snapshot, writeManifest } from '../../lib/workspace';
 import { checkUrls, citiesRow, eventMirror, linkChecks } from '../../archive';
 import { publishableUrls, type EventBinding } from '../event-archive-2026-09/index';
-import { assignSlugs, buildLabCandidates, outputGuard, planDecisions, SOURCE } from './index';
+import {
+  assignSlugs,
+  buildLabCandidates,
+  outputGuard,
+  planDecisions,
+  uncheckedUrls,
+  type LabForm,
+} from './index';
 import { renderLabReport, renderProjectsEntries } from './report';
 
-export const LAB_OCT_COMMANDS = [
-  'lab-oct-seed-event',
-  'lab-oct-verify-links',
-  'lab-oct-plan',
-  'lab-oct-report',
-] as const;
+const LAB_STEPS = ['seed-event', 'verify-links', 'plan', 'report'] as const;
+export const labCommands = (form: LabForm) => LAB_STEPS.map((step) => `${form.prefix}-${step}`);
 
 type Row = { id: number } & Record<string, unknown>;
-const PLACEHOLDER: EventBinding = { key: SOURCE.eventKey, baserowRowId: 1 };
-const exportPath = () =>
-  option('file') ?? fail('--file <the Impact Lab form export (.xlsx)> is required.');
+const placeholder = (form: LabForm): EventBinding => ({
+  key: form.source.eventKey,
+  baserowRowId: 1,
+});
+const exportPath = (form: LabForm) =>
+  option('file') ?? fail(`--file <the ${form.source.event} form export (.xlsx)> is required.`);
 /** Slugs the static record already uses, except this event's own (so a re-run keeps them). */
-const takenSlugs = () =>
-  projects.filter((p) => p.builtAtEventSlug !== SOURCE.eventSlug).map((p) => p.slug);
+const takenSlugs = (form: LabForm) =>
+  projects.filter((p) => p.builtAtEventSlug !== form.source.eventSlug).map((p) => p.slug);
 
 const keyField = (config: BaserowConfig) => {
   const id = config.tables.events.fields.key;
@@ -75,12 +84,16 @@ const keyField = (config: BaserowConfig) => {
 async function eventBinding(
   client: Pick<Writer, 'listAllRows'>,
   config: BaserowConfig,
+  form: LabForm,
 ): Promise<EventBinding> {
+  const SOURCE = form.source;
   const hits = (await readTable(client, config.tables.events.tableId)).filter(
     (r) => r[keyField(config)] === SOURCE.eventKey,
   );
   if (hits.length === 0)
-    fail(`the Events table has no row with key ${SOURCE.eventKey} — run lab-oct-seed-event first`);
+    fail(
+      `the Events table has no row with key ${SOURCE.eventKey} — run ${form.prefix}-seed-event first`,
+    );
   if (hits.length > 1)
     fail(
       `Events rows ${hits.map((h) => h.id).join(', ')} share key ${SOURCE.eventKey} — resolve the duplicate first`,
@@ -89,14 +102,15 @@ async function eventBinding(
   const date = df === undefined ? '' : String(hits[0][`field_${df}`] ?? '');
   if (date !== SOURCE.heldOn)
     fail(
-      `event ${SOURCE.eventKey} (row ${hits[0].id}) is dated ${date || '(none)'}, but the Impact Lab was held on ${SOURCE.heldOn}`,
+      `event ${SOURCE.eventKey} (row ${hits[0].id}) is dated ${date || '(none)'}, but the ${SOURCE.event} was held on ${SOURCE.heldOn}`,
     );
   return { key: SOURCE.eventKey, baserowRowId: hits[0].id };
 }
 
-async function seedEvent() {
+async function seedEvent(form: LabForm) {
+  const SOURCE = form.source;
   if (!flag('yes'))
-    fail('lab-oct-seed-event writes to the Baserow Events table. Re-run with --yes.');
+    fail(`${form.prefix}-seed-event writes to the Baserow Events table. Re-run with --yes.`);
   guardDatabase();
   const db = pooledDb();
   const { client, config } = writer();
@@ -154,7 +168,7 @@ async function seedEvent() {
       label: `${SOURCE.label} — canonical event`,
       sourceFile: 'neon-events',
       checksum: createHash('sha256').update(JSON.stringify(expected)).digest('hex'),
-      mapping: { adapter: 'impact-lab-2026-10:events', tableId },
+      mapping: { adapter: `${form.id}:events`, tableId },
     })
     .returning({ id: schema.importBatches.id });
   const dir = join('imports', batch!.id);
@@ -216,8 +230,14 @@ async function seedEvent() {
   );
 }
 
-async function verifyLinks() {
-  const built = buildLabCandidates(await readWorkbook(exportPath()), PLACEHOLDER);
+async function verifyLinks(form: LabForm) {
+  const built = buildLabCandidates(
+    await readWorkbook(exportPath(form)),
+    placeholder(form),
+    {},
+    form.decisions,
+    form,
+  );
   const urls = [
     ...new Set([
       ...built.pendingVerification,
@@ -228,21 +248,29 @@ async function verifyLinks() {
   await mkdir('imports', { recursive: true });
   await writeFile(join('imports', 'link-checks.json'), JSON.stringify(out, null, 2));
   console.log(
-    'Wrote imports/link-checks.json (git-ignored). Re-run lab-oct-plan or lab-oct-report to use it.',
+    `Wrote imports/link-checks.json (git-ignored). Re-run ${form.prefix}-plan or ${form.prefix}-report to use it.`,
   );
 }
 
-async function plan() {
+async function plan(form: LabForm) {
+  const SOURCE = form.source;
   guardDatabase();
   const db = pooledDb();
-  const workbook = await readWorkbook(exportPath());
-  const guard = outputGuard(workbook);
+  const workbook = await readWorkbook(exportPath(form));
+  const guard = outputGuard(workbook, form);
   const { client, config } = writer();
-  const event = await eventBinding(client, config);
-  const built = buildLabCandidates(workbook, event, await linkChecks());
+  const event = await eventBinding(client, config, form);
+  const verified = await linkChecks();
+  const built = buildLabCandidates(workbook, event, verified, form.decisions, form);
+  // Fail closed: a link the check never saw would be written as submitted.
+  const unchecked = uncheckedUrls(built.candidates, verified);
+  if (unchecked.length)
+    fail(
+      `${unchecked.length} link(s) have no link check — run ${form.prefix}-verify-links --all first`,
+    );
   // An earlier projection's URL stands; a new project gets the static record's slug.
   const projected = await loadProjectedSlugs(db);
-  const assigned = assignSlugs(built.candidates, takenSlugs());
+  const assigned = assignSlugs(built.candidates, takenSlugs(form));
   for (const c of built.candidates) c.slug = projected.get(c.key) ?? assigned.get(c.key)!;
   const fresh = built.candidates.filter((c) => !projected.has(c.key)).map((c) => c.slug!);
   if (fresh.length) {
@@ -274,7 +302,7 @@ async function plan() {
   const label = `${SOURCE.label} (${SOURCE.heldOn})`;
   const result = buildPlan({
     label,
-    file: 'Claude Impact Lab _ Bhopal (Responses).xlsx',
+    file: form.file,
     checksum: built.checksum.actual,
     candidates: built.candidates,
     stats: {
@@ -282,9 +310,7 @@ async function plan() {
       blankRows: 0,
       groupedRows: 0,
       invalidLinks: 0,
-      withheldColumns: [
-        'emails (B, D, G, I, K, M), member names (C, F, H, J, L), team size (N), timestamps (A), confirmations (W–Z), notes (AA)',
-      ],
+      withheldColumns: [form.report.withheldColumns],
       withheldPublicValues: 0,
       creditsWithoutConsent: 0,
     },
@@ -299,14 +325,16 @@ async function plan() {
   const saved = { plan: result, candidates: built.candidates, event };
   guard(JSON.stringify(saved));
   const planMd = guard(renderPlan(result));
-  const reconciliation = guard(renderLabReport(built, { generatedAt: new Date().toISOString() }));
+  const reconciliation = guard(
+    renderLabReport(built, { generatedAt: new Date().toISOString(), form }),
+  );
   const [batch] = await db
     .insert(schema.importBatches)
     .values({
       label,
-      sourceFile: 'impact-lab-2026-10',
+      sourceFile: form.id,
       checksum: built.checksum.actual,
-      mapping: { adapter: 'impact-lab-2026-10', event: SOURCE.eventKey },
+      mapping: { adapter: form.id, event: SOURCE.eventKey },
       report: result.totals as unknown as Record<string, unknown>,
     })
     .returning({ id: schema.importBatches.id });
@@ -333,29 +361,31 @@ async function plan() {
   console.log(`Next: npm run import -- apply --plan ${dir}/plan.json --publish --yes`);
 }
 
-async function report() {
-  const workbook = await readWorkbook(exportPath());
-  const guard = outputGuard(workbook);
-  const built = buildLabCandidates(workbook, PLACEHOLDER, await linkChecks());
+async function report(form: LabForm) {
+  const workbook = await readWorkbook(exportPath(form));
+  const guard = outputGuard(workbook, form);
+  const built = buildLabCandidates(
+    workbook,
+    placeholder(form),
+    await linkChecks(),
+    form.decisions,
+    form,
+  );
   if (built.checksum.actual !== built.checksum.expected)
     console.log(
       `! this export (sha256 ${built.checksum.actual.slice(0, 12)}…) is not the reviewed file — the row checks still apply`,
     );
   const tsOpt = option('ts');
-  const ts = flag('ts')
-    ? tsOpt && !tsOpt.startsWith('--')
-      ? tsOpt
-      : join('.batches', '010-impact-lab-projects', 'projects-entries.ts')
-    : undefined;
-  const out = option('out') ?? join('docs', 'imports', '2026-10-impact-lab.md');
+  const ts = flag('ts') ? (tsOpt && !tsOpt.startsWith('--') ? tsOpt : form.report.ts) : undefined;
+  const out = option('out') ?? form.report.out;
   const markdown = guard(
-    renderLabReport(built, { generatedAt: new Date().toISOString().slice(0, 10) }),
+    renderLabReport(built, { generatedAt: new Date().toISOString().slice(0, 10), form }),
   );
   await mkdir(dirname(out), { recursive: true });
   await writeFile(out, markdown);
   console.log(`Wrote ${out}`);
   if (ts) {
-    const slugs = assignSlugs(built.candidates, takenSlugs());
+    const slugs = assignSlugs(built.candidates, takenSlugs(form));
     const typesImport = relative(dirname(ts), join('src', 'data', 'types')).replace(/\\/g, '/');
     await mkdir(dirname(ts), { recursive: true });
     await writeFile(
@@ -365,6 +395,7 @@ async function report() {
           built,
           slugs,
           typesImport.startsWith('.') ? typesImport : `./${typesImport}`,
+          form,
         ),
       ),
     );
@@ -387,13 +418,15 @@ async function report() {
   console.log(JSON.stringify(built.totals, null, 2));
 }
 
-export async function runLabOctCommand(command: (typeof LAB_OCT_COMMANDS)[number]) {
+/** Runs `command`, one of `labCommands(form)`. */
+export async function runLabCommand(form: LabForm, command: string) {
+  const step = command.slice(form.prefix.length + 1) as (typeof LAB_STEPS)[number];
   const run = {
-    'lab-oct-seed-event': seedEvent,
-    'lab-oct-verify-links': verifyLinks,
-    'lab-oct-plan': plan,
-    'lab-oct-report': report,
-  }[command];
-  await run();
+    'seed-event': seedEvent,
+    'verify-links': verifyLinks,
+    plan,
+    report,
+  }[step];
+  await run(form);
   process.exit(0);
 }
