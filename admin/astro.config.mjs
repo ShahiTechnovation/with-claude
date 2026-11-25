@@ -65,7 +65,11 @@ import vercel from '@astrojs/vercel';
 export default defineConfig({
   site: process.env.BETTER_AUTH_URL ?? 'https://admin.withclaude.in',
   output: 'server',
-  // Astro 7's default, 'jsx', strips the spaces between inline elements; true keeps them.
+  // `true` compresses losslessly: whitespace that can show, line breaks included, stays as a
+  // space. Astro 7's default, 'jsx', drops line breaks around elements, so words and links on
+  // separate lines in the markup would touch. Unlike Astro 5's `true`, a line break right after
+  // an inline element now renders as a space: keep punctuation on the closing tag's line
+  // (tests/sentence-spacing.test.ts).
   compressHTML: true,
   adapter: vercel({
     maxDuration: 20,
@@ -85,25 +89,22 @@ export default defineConfig({
   }),
 
   /**
-   * WHY THIS EXISTS: behind Vercel, `Astro.url` is built from the forwarded
-   * host, and Astro refuses to trust that header unless the host is named here.
-   *
-   * `NodeApp.createRequest()` resolves the request hostname as
-   *
-   *     validatedForwardedHost ?? validatedHost ?? 'localhost'
-   *
-   * and BOTH validators return undefined when `allowedDomains` is empty (see
-   * `astro/dist/core/app/validate-headers.js`). On Vercel the socket is not
-   * TLS-encrypted at the function — TLS terminates at the edge — and the real
-   * host arrives only in `X-Forwarded-Host`. With no allowlist that header is
-   * dropped, the hostname falls through to `localhost`, and `Astro.url.origin`
-   * becomes `http://localhost`.
+   * WHY THIS EXISTS: behind Vercel, TLS terminates at the edge, and the
+   * browser's real scheme and host reach the function only in
+   * `X-Forwarded-Proto` and `X-Forwarded-Host`. Astro 7 applies them to
+   * `Astro.url` only when they match an entry here
+   * (`FetchState#applyForwardedHeaders`, checked by
+   * `astro/dist/core/app/validate-headers.js`). With an empty list it never
+   * trusts them, and `Astro.url` stays the URL the platform built for the
+   * function's request, which need not be the origin the browser used.
    *
    * `security.checkOrigin` then compares the browser's real `Origin` against
-   * that bogus origin, they never match, and every form POST — including the
-   * sign-in form, which is a plain `<form>` by design — is answered 403
-   * "Cross-site POST form submissions are forbidden" by an internal middleware
-   * that runs BEFORE `src/middleware.ts` and before any route.
+   * that origin, and when they differ every form POST — including the sign-in
+   * form, which is a plain `<form>` by design — is answered 403 "Cross-site
+   * POST form submissions are forbidden" by an internal middleware that runs
+   * BEFORE `src/middleware.ts` and before any route. Under Astro 5 and adapter
+   * 9 the fallback was `http://localhost`, and that is how this admin once
+   * answered 403 to its own sign-in form.
    *
    * THE FIX IS AN ALLOWLIST, NOT AN EXEMPTION. `checkOrigin` stays on. This
    * only tells Astro which forwarded hosts are really ours, which is exactly

@@ -223,7 +223,7 @@ Database tests run against PGlite in-process, so they need no server, credential
 1. `npm ci`
 2. `npm run build`, which type-checks first. It builds from the TypeScript record, so it needs no
    database and no secrets.
-3. `npx vitest run --maxWorkers=2 --minWorkers=1`
+3. `npx vitest run --maxWorkers=2`
 
 `main` should require the `CI / check` status.
 
