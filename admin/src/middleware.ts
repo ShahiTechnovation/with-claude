@@ -35,14 +35,18 @@ export const onRequest = defineMiddleware(async (context, next) => {
   }
 
   const { pathname } = context.url;
+  // The route that will run must agree. Astro 7 decodes the path repeatedly and the URL resolves
+  // `..`, but the router matches the segments as sent: `/api/claims/%252e%252e/login` is
+  // `/api/login` here and `/api/claims/[id]/[action]` to the router.
+  const route = context.routePattern;
 
   // Static assets served by the adapter never reach here, but be explicit.
-  if (pathname.startsWith('/_')) return next();
+  if (pathname.startsWith('/_') && route.startsWith('/_')) return next();
 
   const session = await resolveSession(context.request);
   context.locals.user = session.authenticated ? session.user : undefined;
 
-  if (isPublic(pathname)) {
+  if (isPublic(pathname) && isPublic(route)) {
     // Somebody already signed in has no use for the login form.
     if (pathname === '/login' && session.authenticated) {
       return context.redirect('/submissions', 302);
