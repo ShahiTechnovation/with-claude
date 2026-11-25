@@ -71,6 +71,8 @@ const actions = availableActions(submission.status, user.role);
  */
 const promoted = Boolean(submission.entityType && submission.entityId);
 const mayPromote = canPromote(user.role) && submission.status === 'approved';
+// Short, so `</strong>.` fits on one line: Astro 7 renders a line break there as a space.
+const createdType = submission.entityType?.replace(/_/g, ' ');
 
 /** Set by the review endpoint on redirect, so a result survives the round trip. */
 const flashError = Astro.url.searchParams.get('error');
@@ -265,9 +267,8 @@ const ordered = ACTION_ORDER.filter((action) => actions.includes(action));
         {promoted ? (
           <>
             <p>
-              This submission created a <strong>{submission.entityType!.replace(/_/g, ' ')}</strong>
-              . It is not published by being created — it goes live from the{' '}
-              <a href="/publish">publish queue</a>, deliberately.
+              This submission created a <strong>{createdType}</strong>. It is not published by being
+              created — it goes live from the <a href="/publish">publish queue</a>, deliberately.
             </p>
             <p class="private-note">
               The submission is kept exactly as it was sent. It is the historical source for the

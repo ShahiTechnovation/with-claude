@@ -14,19 +14,19 @@ as a discovery layer and **practice** as a secondary one.
 
 ## 1. The stack, and what is deliberately absent
 
-| Concern | Choice |
-|---|---|
-| Public web | Astro 5 + TypeScript, `output: 'static'` |
-| Interactive UI | React, islands only |
-| Database | Neon PostgreSQL (`ap-southeast-1`, Singapore) |
-| ORM / migrations | Drizzle + `drizzle-kit` |
-| Member identity | Privy |
-| Admin staff identity | Better Auth, in `admin/` |
-| Media | Vercel Blob |
-| Email | Resend |
-| Hosting | Vercel, functions pinned to `sin1` |
-| Scheduled work | Vercel Cron |
-| Event source | Luma — public iCal feed |
+| Concern              | Choice                                        |
+| -------------------- | --------------------------------------------- |
+| Public web           | Astro 7 + TypeScript, `output: 'static'`      |
+| Interactive UI       | React, islands only                           |
+| Database             | Neon PostgreSQL (`ap-southeast-1`, Singapore) |
+| ORM / migrations     | Drizzle + `drizzle-kit`                       |
+| Member identity      | Privy                                         |
+| Admin staff identity | Better Auth, in `admin/`                      |
+| Media                | Vercel Blob                                   |
+| Email                | Resend                                        |
+| Hosting              | Vercel, functions pinned to `sin1`            |
+| Scheduled work       | Vercel Cron                                   |
+| Event source         | Luma — public iCal feed                       |
 
 There is no Redis, no Algolia, no Baserow, no Supabase, no second framework and
 no custom session layer. Search is one ranking implementation
@@ -115,12 +115,12 @@ The account pages do **not** redirect. `guardPage()` returns one of five
 reasons and `AuthRequired.astro` renders the matching state at the requested
 URL, so login returns the visitor to the page they asked for:
 
-| reason | shown |
-|---|---|
-| `unauthenticated` | "Sign in to continue" + Privy CTA |
-| `server-not-configured` | "Sign-in temporarily unavailable", no CTA |
-| `no-member` / `profile-required` | "Setting up your account" |
-| `member-unavailable` | "Account not available", no CTA |
+| reason                           | shown                                     |
+| -------------------------------- | ----------------------------------------- |
+| `unauthenticated`                | "Sign in to continue" + Privy CTA         |
+| `server-not-configured`          | "Sign-in temporarily unavailable", no CTA |
+| `no-member` / `profile-required` | "Setting up your account"                 |
+| `member-unavailable`             | "Account not available", no CTA           |
 
 Keeping `server-not-configured` distinct matters: collapsing it into
 `unauthenticated` is what showed a sign-in button to users who were already
@@ -154,7 +154,7 @@ carries collaborators only and its enum is `collaborator | contributor` with no
 not permission: `publishBlockers()` in `src/server/members/projects.ts` requires
 a title, a summary and a city, because `Project.citySlug` is a required string
 that prerendered pages dereference without a null check. Migration 0010 made
-those columns nullable so a *draft* can be saved — before it, every project
+those columns nullable so a _draft_ can be saved — before it, every project
 creation inserted `NULL` into a `NOT NULL` column and failed at the database.
 
 `src/data/source-db.ts` filters incomplete published rows out as a backstop and
@@ -183,7 +183,7 @@ Blob    → onUploadCompleted                  → row in `media`
 
 Authorisation happens in `onBeforeGenerateToken` and **only** there. By the
 time `onUploadCompleted` runs the bytes are already stored, so a check there
-decides whether to *record* an upload, not whether to *permit* it. The client
+decides whether to _record_ an upload, not whether to _permit_ it. The client
 payload names a `projectId` and the route verifies the caller may edit it using
 `canEditProject()` — the same check the edit and publish routes use.
 
@@ -234,7 +234,7 @@ or touch the database — all of that is `sync.ts`, once, for every source.
 
 `FetchResult.complete` is the most dangerous field in the system. `sync.ts`
 treats an event absent from a **complete** fetch as withdrawn, because for this
-feed absence is the *only* cancellation signal — it reports `STATUS:TENTATIVE`
+feed absence is the _only_ cancellation signal — it reports `STATUS:TENTATIVE`
 on all 317 of its events. So a paginated fetch or a one-event webhook **must**
 set `complete: false`, or it cancels everything it did not mention.
 
@@ -248,12 +248,12 @@ checks. A feed cannot honour them.
 `event_source_records` holds every external event ever seen, normalised, with
 its classification and state:
 
-| state | meaning |
-|---|---|
-| `promoted` | in India, city resolved — present in `events` |
-| `review` | cannot be confidently placed. **Not published.** Kept for a human |
-| `rejected` | confidently not in India |
-| `withdrawn` | vanished from the feed, or cancelled at source |
+| state       | meaning                                                           |
+| ----------- | ----------------------------------------------------------------- |
+| `promoted`  | in India, city resolved — present in `events`                     |
+| `review`    | cannot be confidently placed. **Not published.** Kept for a human |
+| `rejected`  | confidently not in India                                          |
+| `withdrawn` | vanished from the feed, or cancelled at source                    |
 
 `(source_id, external_id)` is a unique index — **that** is the idempotency
 guarantee, not the control flow. `raw_hash` is a SHA-256 of the fields that
@@ -280,7 +280,7 @@ country, no state and no city name; only `GEO`. Scored on the bounding box
 alone they sat at 45 and went to review, which quietly emptied the most active
 chapter out of the directory. Proximity to a known city centre is conclusive
 where a box is not, because no non-Indian city is within 75 km of any of those
-points — and it also *names* the city for an event whose text never did.
+points — and it also _names_ the city for an event whose text never did.
 
 A title is never used to decide location (§21): the two Indian events with real
 addresses happen to be titled "Mumbai | …" and "Bangalore | …", but
@@ -292,7 +292,7 @@ with nowhere to live yet, so it waits for a human.
 
 ### Deduplication against the curated archive
 
-The curated events were authored from this same calendar, so some of them *are*
+The curated events were authored from this same calendar, so some of them _are_
 feed events — measured live, two: `claude-code-for-builders` and
 `claude-impact-lab-september`. Matching is by registration URL reduced to
 host + path (query discarded, because our own outgoing links carry UTM). A
@@ -444,13 +444,13 @@ Two public numbers, per §19–§22: **events hosted** and a **community activit
 score**, with the formula printed on the page rather than explained in a
 tooltip. Weights are a frozen table in `src/lib/credits.ts`:
 
-| role | credit |
-|---|---|
-| primary host | 1.0 |
-| organiser | 1.0 |
-| co-host | 0.5 |
-| partner | 0.25 |
-| speaker | 0 |
+| role         | credit |
+| ------------ | ------ |
+| primary host | 1.0    |
+| organiser    | 1.0    |
+| co-host      | 0.5    |
+| partner      | 0.25   |
+| speaker      | 0      |
 
 `speaker` is in the table at zero on purpose: leaving the role out would mean a
 speaker credit fell through to a default, and a default is how a weight gets
@@ -562,10 +562,10 @@ beside it marked `manual`, which is what makes it survive the next sync.
 `vercel.json`, both **daily** — Hobby runs cron daily only, and an hourly
 expression there does not produce hourly runs:
 
-| path | UTC | why |
-|---|---|---|
-| `/api/cron/events-sync` | `45 21` | fetch and reconcile the feed |
-| `/api/cron/rebuild` | `30 22` | deploy hook, so prerendered pages see it |
+| path                    | UTC     | why                                      |
+| ----------------------- | ------- | ---------------------------------------- |
+| `/api/cron/events-sync` | `45 21` | fetch and reconcile the feed             |
+| `/api/cron/rebuild`     | `30 22` | deploy hook, so prerendered pages see it |
 
 Order matters: writing an event to Neon does not put a page on the CDN. Sync
 first, rebuild 45 minutes later. The feed itself advertises
@@ -582,16 +582,16 @@ because a variable was forgotten.
 
 Required in production:
 
-| variable | notes |
-|---|---|
-| `DATABASE_URL` | Neon, pooled |
-| `DATA_SOURCE` | `db` |
-| `SUBMISSION_IP_SALT` | submission rate limiting |
-| `CRON_SECRET` | both cron routes refuse without it |
-| `PUBLIC_PRIVY_APP_ID` | browser; without it Privy cannot initialise |
-| `PRIVY_APP_ID` | server; must be the same app |
-| `RESEND_API_KEY`, `RESEND_FROM` | transactional mail |
-| `VERCEL_DEPLOY_HOOK_URL` | nightly rebuild |
+| variable                        | notes                                       |
+| ------------------------------- | ------------------------------------------- |
+| `DATABASE_URL`                  | Neon, pooled                                |
+| `DATA_SOURCE`                   | `db`                                        |
+| `SUBMISSION_IP_SALT`            | submission rate limiting                    |
+| `CRON_SECRET`                   | both cron routes refuse without it          |
+| `PUBLIC_PRIVY_APP_ID`           | browser; without it Privy cannot initialise |
+| `PRIVY_APP_ID`                  | server; must be the same app                |
+| `RESEND_API_KEY`, `RESEND_FROM` | transactional mail                          |
+| `VERCEL_DEPLOY_HOOK_URL`        | nightly rebuild                             |
 
 Optional: `PRIVY_VERIFICATION_KEY` (JWKS fallback otherwise),
 `PRIVY_APP_SECRET` (only for SDK calls that need it), `LUMA_*` (all default to
