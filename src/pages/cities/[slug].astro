@@ -52,6 +52,7 @@ const practice = selectors.useCasesInCity(city.slug);
 
 // Made in {city}: one group per public event the projects were built at, newest first. Only a public
 // event resolves (eventBySlug), so a header never names a hidden one; the rest close the list.
+// Inside a group the record's order stands (links first, as on the event page), so no A–Z sort.
 const byEvent = new Map<string | undefined, ReturnType<typeof selectors.projectsInCity>>();
 for (const p of selectors.projectsInCity(city.slug)) {
   const key =
@@ -63,7 +64,7 @@ for (const p of selectors.projectsInCity(city.slug)) {
 const madeHere = [...byEvent]
   .map(([eventSlug, projects]) => ({
     event: eventSlug ? selectors.eventBySlug.get(eventSlug) : undefined,
-    items: projects.sort((a, b) => a.title.localeCompare(b.title)).map((p) => cardProps(p)),
+    items: projects.map((p) => cardProps(p)),
   }))
   .sort((a, b) => (!a.event ? 1 : !b.event ? -1 : b.event.date.localeCompare(a.event.date)));
 

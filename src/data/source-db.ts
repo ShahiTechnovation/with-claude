@@ -758,16 +758,35 @@ export async function loadRecordSet(db: ReadDatabase): Promise<RecordSet> {
    * `projectsInCity()`, `projectsFromEvent()`) inherits it for free rather
    * than each needing its own sort.
    *
-   * A row imported before 0005 has `position: null` and sorts after every
-   * positioned row, alphabetically by slug — a stable order rather than an
-   * authored one, which is the honest fallback for data this migration has
-   * not reached yet.
+   * A row with `position: null` sorts after every positioned row. Only
+   * `db:import` writes a position, so that is every project that arrived through
+   * Baserow or a member's form, and every row imported before 0005. Those rows
+   * follow the link rule the directory applies in SQL (`orderFor` in
+   * `src/server/public/projects.ts`): first the link group (`byLinks`), then
+   * the lower-cased title in byte order (`byName`, `COLLATE "C"`), then the
+   * slug. Sorting them by slug alone put the live home strip in A–Z slug order.
+   * `!== null` matches SQL's `IS NOT NULL`: an empty string counts as a link.
    */
+  const linkGroup = (row: (typeof projectRows)[number]): number => {
+    const live = row.url !== null;
+    const repo = row.repoUrl !== null;
+    const video = row.videoUrl !== null;
+    if (repo && video && live) return 0;
+    if (repo && live) return 1;
+    if ((repo && video) || (video && live)) return 2;
+    if (live || video) return 3;
+    return repo ? 4 : 5;
+  };
+  const byteOrder = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
   const orderedProjectRows = [...projectRows].sort((a, b) => {
     if (a.position !== null && b.position !== null) return a.position - b.position;
     if (a.position !== null) return -1;
     if (b.position !== null) return 1;
-    return a.slug.localeCompare(b.slug);
+    return (
+      linkGroup(a) - linkGroup(b) ||
+      byteOrder(a.title.toLowerCase(), b.title.toLowerCase()) ||
+      byteOrder(a.slug, b.slug)
+    );
   });
 
   const projects: Project[] = orderedProjectRows

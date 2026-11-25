@@ -1,40 +1,45 @@
 /**
- * THE OCTOBER IMPACT LAB REPORT — every source row, accounted for — and the
- * published rows as `src/data/projects.ts` entries.
+ * THE LAB IMPORT REPORT (October's Impact Lab by default; see `LabForm`) —
+ * every source row, accounted for — and the published rows as
+ * `src/data/projects.ts` entries.
  *
  * Safe to commit: project titles, published team labels, public links,
  * decisions and cell coordinates. Never an email, a member name, a timestamp
  * or a private note; `commands.ts` passes both outputs through `outputGuard`
  * before writing them.
  */
-import { BUILT_AT, SOURCE, type LabResult } from './index';
+import { column, IMPACT_LAB_OCTOBER_FORM, type LabForm, type LabResult } from './index';
 
 const esc = (s: string) => s.replace(/\|/g, '\\|').replace(/\n/g, ' ');
 
-export function renderLabReport(result: LabResult, options: { generatedAt: string }): string {
+export function renderLabReport(
+  result: LabResult,
+  options: { generatedAt: string; form?: LabForm },
+): string {
+  const form = options.form ?? IMPACT_LAB_OCTOBER_FORM;
+  const source = form.source;
   const byKey = new Map(result.candidates.map((c) => [c.key, c]));
   const t = result.totals;
   const { actual, expected } = result.checksum;
   const lines = [
-    '# October Impact Lab import — reconciliation report',
+    `# ${form.report.title}`,
     '',
-    `Generated ${options.generatedAt} by \`npm run import -- lab-oct-report\`. Source: the organiser’s Google Form export (unchanged, not committed).`,
+    `Generated ${options.generatedAt} by \`npm run import -- ${form.prefix}-report\`. Source: the organiser’s Google Form export (unchanged, not committed).`,
     'Row numbers are Excel rows with the header at row 1. Withheld values are referred to by cell coordinate only.',
     '',
     '## Publishing basis',
     '',
-    'Confirmed by Vishal 2026-10-17, 12:34: "yes they agree" — the participants agreed to their projects and names being public.',
-    'The form’s four confirmations (W–Z) are not a permission to publish. This import still creates no person credits, so member names stay unpublished.',
+    ...form.report.basis,
     '',
     '## Totals',
     '',
     '| Event (held on) | Source rows | Candidates | Publish | Held | Dropped | Merged |',
     '| --- | ---: | ---: | ---: | ---: | ---: | ---: |',
-    `| ${SOURCE.event} (${SOURCE.heldOn}) | ${t.sourceRows} | ${t.candidates} | ${t.publish} | ${t.hold} | ${t.dropped} | ${t.merged} |`,
+    `| ${source.event} (${source.heldOn}) | ${t.sourceRows} | ${t.candidates} | ${t.publish} | ${t.hold} | ${t.dropped} | ${t.merged} |`,
     '',
     `Every source row is a candidate (${t.candidates}) or dropped (${t.dropped}) — ${t.candidates + t.dropped} of ${t.sourceRows}.`,
     '',
-    `- ${SOURCE.label}: sha256 ${actual.slice(0, 16)}… ${actual === expected ? '(matches the reviewed file)' : '(DIFFERS from the reviewed file — re-review)'}`,
+    `- ${source.label}: sha256 ${actual.slice(0, 16)}… ${actual === expected ? '(matches the reviewed file)' : '(DIFFERS from the reviewed file — re-review)'}`,
     '',
     '## Open decisions (held as drafts)',
     '',
@@ -50,7 +55,7 @@ export function renderLabReport(result: LabResult, options: { generatedAt: strin
   }
   lines.push(
     '',
-    `## ${SOURCE.label} — held ${SOURCE.heldOn}`,
+    `## ${source.label} — held ${source.heldOn}`,
     '',
     '| Row | Outcome | Title | Team label | Track | Links published | Notes |',
     '| ---: | --- | --- | --- | --- | --- | --- |',
@@ -76,15 +81,14 @@ export function renderLabReport(result: LabResult, options: { generatedAt: strin
       `| ${r.row} | ${o.disposition === 'hold' ? '**held**' : 'publish'} | ${esc(c.title)} | ${esc(c.teamName ?? '—')} | ${esc(c.tags.join(', ') || '—')} | ${esc(links.join('<br>') || 'none')} | ${esc(r.notes.join('; '))} |`,
     );
   }
-  const labels = result.rows.filter((r) => r.teamLabelWithheld).map((r) => `E${r.row}`);
+  const labels = result.rows
+    .filter((r) => r.teamLabelWithheld)
+    .map((r) => `${column(form.columns.team)}${r.row}`);
   lines.push(
     '',
     '## What is withheld everywhere',
     '',
-    '- Every email column (B, D, G, I, K, M) — never read by the adapter.',
-    '- Member names (C, F, H, J, L) — read in memory only, to count the roster and to refuse any output that contains one. No person credit is created.',
-    `- Team labels that are not a publishable team name: ${labels.join(', ') || 'none'}.`,
-    '- Team size (N), submission timestamps (A), the four confirmations (W–Z) and "anything else" notes (AA) — private review evidence.',
+    ...form.report.withheld(labels.join(', ') || 'none'),
     '',
   );
   return lines.join('\n');
@@ -99,14 +103,22 @@ export function renderProjectsEntries(
   result: LabResult,
   slugs: Map<string, string>,
   typesImport: string,
+  form: LabForm = IMPACT_LAB_OCTOBER_FORM,
 ): string {
+  const source = form.source;
   const q = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
   const published = result.candidates.filter((c) => c.editorial?.disposition === 'publish');
+  const heldOn = new Date(`${source.heldOn}T00:00:00Z`).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
   const lines = [
     `import type { Project } from ${q(typesImport)};`,
     '',
-    `// ── ${SOURCE.event}, 11 October 2026 — ${published.length} published projects ──`,
-    '// Generated by `npm run import -- lab-oct-report --ts`; see docs/imports/2026-10-impact-lab.md.',
+    `// ── ${source.event}, ${heldOn} — ${published.length} published projects ──`,
+    `// Generated by \`npm run import -- ${form.prefix}-report --ts\`; see ${form.report.out}.`,
     'export const entries: Project[] = [',
   ];
   for (const c of published) {
@@ -119,14 +131,14 @@ export function renderProjectsEntries(
       `    title: ${q(c.title)},`,
       '    builderSlugs: [],',
       "    citySlug: 'bhopal',",
-      `    summary: ${q(BUILT_AT)},`,
-      `    createdAt: ${q(SOURCE.heldOn)},`,
+      `    summary: ${q(form.builtAt)},`,
+      `    createdAt: ${q(source.heldOn)},`,
       `    description: ${q(c.summary ?? '')},`,
       `    category: ${q(c.category)},`,
       ...(c.liveUrl ? [`    url: ${q(c.liveUrl)},`] : []),
       ...(c.repoUrl ? [`    repoUrl: ${q(c.repoUrl)},`] : []),
       ...(c.videoUrl ? [`    videoUrl: ${q(c.videoUrl)},`] : []),
-      `    builtAtEventSlug: ${q(SOURCE.eventSlug)},`,
+      `    builtAtEventSlug: ${q(source.eventSlug)},`,
       '  },',
     );
   }

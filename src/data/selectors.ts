@@ -497,14 +497,17 @@ export class RecordSelectors {
       href: `/events/${event.slug}/`,
     }));
 
-    const held: SignalItem[] = this.pastEvents(now).map((event) => ({
-      kind: 'event-held',
-      date: event.date,
-      subject: event.title,
-      action: 'held',
-      citySlug: event.citySlug,
-      href: `/events/${event.slug}/`,
-    }));
+    // Oldest first (pastEvents() is newest first), so two events of one day keep their time order.
+    const held: SignalItem[] = this.pastEvents(now)
+      .reverse()
+      .map((event) => ({
+        kind: 'event-held',
+        date: event.date,
+        subject: event.title,
+        action: 'held',
+        citySlug: event.citySlug,
+        href: `/events/${event.slug}/`,
+      }));
 
     const joined: SignalItem[] = this.publicBuilders
       .filter((b) => b.createdAt)
@@ -554,8 +557,9 @@ export class RecordSelectors {
       href: `/guides/${g.slug}/`,
     }));
 
+    // 0 for the same day, so the stable sort keeps the record's order inside it (-1 reversed it).
     const recent = [...held, ...joined, ...shipped, ...written, ...documented, ...explained].sort(
-      (a, b) => (a.date < b.date ? 1 : -1),
+      (a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0),
     );
 
     return { scheduled, recent };

@@ -22,7 +22,7 @@
 import type { Category } from '../event-archive-2026-09/editorial';
 
 export interface LabEditorial {
-  /** A fragment that must appear in the row's T/U/V/O/E cells — the identity check. */
+  /** A fragment that must appear in the row's link, title or team cells — the identity check. */
   expect: string;
   /** `dropped`: not imported at all; the reason goes in `holds`. */
   disposition: 'publish' | 'hold' | 'dropped';
@@ -36,7 +36,10 @@ export interface LabEditorial {
   notes?: string[];
   /** Explicit link decisions, overriding the classifier. `null` withholds that kind. */
   links?: Partial<Record<'live' | 'repo' | 'video', string | null>>;
-  /** S is not an answer: "How Claude was used" comes from the team's own sentences in Q/R. */
+  /**
+   * The usage cell is not an answer: "How Claude was used" comes from the team's own sentences
+   * in the solution and built-with cells.
+   */
   usageFromNarrative?: boolean;
 }
 
