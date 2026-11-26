@@ -338,7 +338,7 @@ describe('motion', () => {
   it('reveals with CSS alone, so nothing waits on a script', () => {
     expect(baseCss).not.toMatch(/is-revealed|html\.js \[data-reveal\]/);
     expect(baseCss).toMatch(
-      /\[data-reveal\] \{\s*animation: rise linear both;\s*animation-timeline: view\(\);/,
+      /\[data-reveal\] \{\s*animation: rise linear both;\s*animation-duration: auto;\s*animation-timeline: view\(\);/,
     );
   });
 });
