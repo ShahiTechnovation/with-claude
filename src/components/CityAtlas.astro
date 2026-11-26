@@ -380,12 +380,14 @@ const pct = (v: number, of: number) => `${+((v / of) * 100).toFixed(2)}%`;
 
       .pin {
         animation: lit linear both;
+        animation-duration: auto;
         animation-timeline: --plot;
         animation-range: entry 0% entry 30%;
       }
 
       .route {
         animation: draw linear both;
+        animation-duration: auto;
         animation-timeline: --plot;
         animation-range: entry 10% entry 40%;
       }

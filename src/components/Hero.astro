@@ -317,6 +317,7 @@ const arrow = 'M4 10h11m-4.5-4.5L15 10l-4.5 4.5';
     @supports (animation-timeline: view()) {
       .room img {
         animation: push linear both;
+        animation-duration: auto;
         animation-timeline: view();
         animation-range: entry 0% cover 50%;
       }
@@ -358,12 +359,14 @@ const arrow = 'M4 10h11m-4.5-4.5L15 10l-4.5 4.5';
             transparent 100%
           );
           animation: open linear both;
+          animation-duration: auto;
           animation-timeline: --hero;
           animation-range: contain 2% contain 48%;
         }
 
         :global(.js) .has-room .room img {
           animation: stage-push linear both;
+          animation-duration: auto;
           animation-timeline: --hero;
           animation-range: contain 0% contain 100%;
         }
@@ -378,6 +381,7 @@ const arrow = 'M4 10h11m-4.5-4.5L15 10l-4.5 4.5';
             lift linear both,
             lift-blur linear both,
             lift-hit linear both;
+          animation-duration: auto;
           animation-timeline: --hero;
           animation-range: contain 0% contain 30%;
         }
@@ -394,6 +398,7 @@ const arrow = 'M4 10h11m-4.5-4.5L15 10l-4.5 4.5';
 
         :global(.js) .has-room .room-cap {
           animation: cap linear both;
+          animation-duration: auto;
           animation-timeline: --hero;
           animation-range: contain 38% contain 60%;
         }

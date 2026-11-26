@@ -239,12 +239,17 @@ body::after {
    static state is the finished state: with motion reduced or without scroll
    timelines (Firefox, Safari before 26), nothing is hidden. It needs no JS.
    Every scroll-driven effect on the site sits inside this same double gate.
+   Each also sets `animation-duration: auto` after its `animation` shorthand.
+   It is not redundant: without it the build's CSS minifier writes a 0s
+   duration or folds the timeline into the shorthand, and Chrome then never
+   runs the animation. tests/scroll-animations-build.test.ts checks the build.
    Never put `data-reveal` on anything in the first screen.
    ========================================================================= */
 @media (prefers-reduced-motion: no-preference) {
   @supports (animation-timeline: view()) {
     [data-reveal] {
       animation: rise linear both;
+      animation-duration: auto;
       animation-timeline: view();
       animation-range: entry 0% entry 100%;
     }
