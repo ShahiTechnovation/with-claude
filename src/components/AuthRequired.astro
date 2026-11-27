@@ -124,7 +124,16 @@ const showCta =
     border: var(--border-hair) solid var(--ink);
     border-radius: var(--radius-xs);
     cursor: pointer;
-    transition: background var(--dur-1) var(--ease-out);
+    transition:
+      background var(--dur-1) var(--ease-out),
+      opacity var(--dur-1) var(--ease-out);
+  }
+
+  /* A press dims and the box stays put, as `.button` does (forms.css). */
+  @media (prefers-reduced-motion: no-preference) {
+    .auth-required :global(:is(.signin-button, .signin-secondary):active) {
+      opacity: 0.72;
+    }
   }
 
   .auth-required :global(.signin-button) {

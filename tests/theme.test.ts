@@ -74,6 +74,20 @@ describe('the theme before first paint', () => {
     expect(headScript).toMatch(/try \{[^}]*localStorage\.getItem\('wc-theme'\)/);
   });
 
+  // With the opt-in only in a linked stylesheet, most page changes aborted their cross-fade on the
+  // production build (batch 024). The build test reads only prerendered pages; this pins the
+  // layout every page, on-demand ones included, is rendered from.
+  it('opts into the page cross-fade inline, after the charset and before the first link', () => {
+    const optIn =
+      /<style is:inline>[^<]*@view-transition\s*\{\s*navigation:\s*auto;?\s*\}[^<]*<\/style>/.exec(
+        base,
+      );
+    expect(optIn, 'no inline @view-transition opt-in in Base.astro').not.toBeNull();
+    expect(optIn![0]).toContain('@media (prefers-reduced-motion: no-preference)');
+    expect(optIn!.index).toBeGreaterThan(base.indexOf('<meta charset'));
+    expect(optIn!.index).toBeLessThan(base.indexOf('<link'));
+  });
+
   it('is dark unless the visitor chose cream', () => {
     expect(firstPaint({})).toEqual({ theme: 'dark', meta: '#141413', js: true });
     expect(firstPaint({ saved: 'light' })).toEqual({ theme: 'light', meta: '#FAF9F5', js: true });
@@ -150,6 +164,10 @@ const COLOURS = [
   '--map-pin',
   '--map-pin-lead',
   '--map-label',
+  // The glass of the hero button and the masthead bar: its rim, its depth, the shadow under it.
+  '--glass-rim',
+  '--glass-depth',
+  '--glass-drop',
 ];
 
 describe('the tokens', () => {
@@ -233,10 +251,21 @@ describe('the tokens', () => {
     expect(tokens).not.toMatch(
       /--(t-meta|t-micro|track-meta|font-mono|font-sans|section-y-sm|section-y-lg|measure-wide|night|on-night|rule-night|clay-lift|state-|panel|dir-|logo-|shade-1)\b/,
     );
-    // The header and the projects toolbar read --nav-bg: 95% paper keeps their text AA.
+    // The projects toolbar reads --nav-bg: 95% paper keeps its text AA over photos. (The header is
+    // a glass capsule now, with its own tint.)
     expect(tokens.match(/--nav-bg: rgb\([\d ]+\/ 0\.95\);/g)).toHaveLength(3);
     expect(baseCss).not.toMatch(/\bzoom\s*:/);
     expect(tokens).not.toMatch(/\bzoom\s*:/);
+  });
+
+  // The glass button's spring is an easing, the same in every theme: one definition, shared.
+  it('define the spring once, outside the themes', () => {
+    const shared = block(
+      tokens.slice(tokens.indexOf('/* --- EVERYTHING THAT IS THE SAME IN BOTH THEMES')),
+      ':root {',
+    );
+    expect(shared.get('--spring')).toMatch(/^linear\(/);
+    expect(tokens.match(/--spring:/g)).toHaveLength(1);
   });
 
   /** Every custom property a page reads must exist, or the declaration silently falls away. */
@@ -303,30 +332,37 @@ describe('motion', () => {
     ]);
   });
 
-  it('keeps its JS loops, the mist and the strip glide, to scripts that check reduced motion', () => {
+  it('keeps its JS loops, the mist, the strip glide and the glass, to scripts that check reduced motion', () => {
     // The CSS reset cannot stop a script, so each loop checks the setting itself; the behaviour
-    // is tested in tests/hero-mist.test.ts and tests/strip-autoscroll.test.ts. A new frame loop
-    // or timer fails here until it is added, with its own check.
+    // is tested in tests/hero-mist.test.ts, tests/strip-autoscroll.test.ts and
+    // tests/liquid-glass.test.ts. A new frame loop or timer fails here until it is added, with
+    // its own check.
     const loops = srcFiles.filter((file) =>
       /\b(setInterval|requestAnimationFrame)\(/.test(source(file)),
     );
-    expect(loops.sort()).toEqual(['src/scripts/hero-mist.ts', 'src/scripts/strip-glide.ts']);
+    expect(loops.sort()).toEqual([
+      'src/scripts/hero-mist.ts',
+      'src/scripts/liquid-glass.ts',
+      'src/scripts/strip-glide.ts',
+    ]);
     for (const file of loops) {
       expect(source(file), file).toContain('prefers-reduced-motion: no-preference');
     }
   });
 
-  it('puts every scroll-driven effect behind reduced motion and scroll-timeline support', () => {
+  // A scroll trigger holds what it reveals on its first frame until it fires, so it is gated too.
+  it('puts every scroll-driven effect and trigger behind reduced motion and scroll-timeline support', () => {
     const gate = [
       '@media (prefers-reduced-motion: no-preference)',
       '@supports (animation-timeline: view())',
     ];
+    const gated =
+      /^(animation-timeline|view-timeline|scroll-timeline|timeline-trigger|animation-trigger|trigger-scope)(-[\w]+)?\s*:/;
     const loose: string[] = [];
     let seen = 0;
     for (const file of srcFiles) {
       for (const { decl, within } of declarations(cssOf(file))) {
-        if (!/^(animation-timeline|view-timeline|scroll-timeline)(-[\w]+)?\s*:/.test(decl))
-          continue;
+        if (!gated.test(decl)) continue;
         seen += 1;
         if (!gate.every((g) => within.includes(g))) loose.push(`${file}: ${decl}`);
       }

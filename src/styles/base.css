@@ -238,11 +238,16 @@ body::after {
    CSS only, on a scroll timeline, for every `[data-reveal]` variant. The
    static state is the finished state: with motion reduced or without scroll
    timelines (Firefox, Safari before 26), nothing is hidden. It needs no JS.
-   Every scroll-driven effect on the site sits inside this same double gate.
-   Each also sets `animation-duration: auto` after its `animation` shorthand.
-   It is not redundant: without it the build's CSS minifier writes a 0s
-   duration or folds the timeline into the shorthand, and Chrome then never
-   runs the animation. tests/scroll-animations-build.test.ts checks the build.
+   Every scroll-driven effect on the site sits inside this same double gate
+   (motion.css nests its scroll triggers inside it too). Each sets
+   `animation-duration: auto` between its `animation` shorthand and its
+   `animation-timeline`. It is not redundant: without it the build's CSS
+   minifier writes a 0s duration or folds the timeline into the shorthand,
+   and Chrome then never runs the animation. The minifier leaves a shorthand
+   that holds a `var()` alone, which is why the gallery's rules survive
+   without it. A list that mixes timed entrances with scroll ones (the hero's
+   h1) keeps its `var()` and no `auto`, which would zero the entrances.
+   tests/scroll-animations-build.test.ts checks the build.
    Never put `data-reveal` on anything in the first screen.
    ========================================================================= */
 @media (prefers-reduced-motion: no-preference) {

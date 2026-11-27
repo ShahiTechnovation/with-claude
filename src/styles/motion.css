@@ -1,0 +1,368 @@
+/* =========================================================================
+   MOTION — sections arrive, page titles settle, things open and close
+   Everything here sits behind `prefers-reduced-motion: no-preference`, and
+   the static state is the finished state: with motion reduced, or in a
+   browser without what a rule needs, the page is simply complete. Press and
+   hover live in each control's own rule (primitives.css, forms.css and the
+   sign-in components). The hero, the map, the globe, the gallery, the
+   Community page's paths and the photo strip's glide keep their own motion.
+   ========================================================================= */
+
+/* --- Sections arrive --------------------------------------------------------
+   Apple's grammar, our values. On apple.com/macbook-air a heading does not
+   follow the scroll: it plays once when its section comes into view, rises a
+   little, fades in early and does not overshoot, and media settle in scale.
+   The lengths and distances here are the site's own (the keyframes below).
+   `animation-trigger` does "plays once when it comes into view" with no
+   script: until the trigger fires the animation holds its first frame, then
+   runs on the clock, so nothing is ever left half-way. Chrome and Edge only;
+   every other browser gets the finished page.
+
+   `translate` and `scale`, never `transform`, so hover transforms live on.
+   Nothing here is an ancestor of glass that needs a backdrop from outside it.
+   The triggers nest inside the scroll-timeline gate every scroll-driven effect
+   sits behind (THE REVEAL in base.css). */
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    @supports (animation-trigger: --t play-once) and (timeline-trigger: --t view()) {
+      /* Each of these fires as soon as any of it is inside the window. No inset: Tab scrolls a
+         link only just into view, and what holds it must have fired by then. The 0px is needed:
+         a bare `view()` takes the page's scroll-padding as its inset, and a row that a jump lands
+         under the bar would then wait there unseen.
+         `:where()` keeps this rule light, so every rule below that changes the name, the length
+         or the delay wins over the shorthand here whatever its own selector weighs. Every
+         shorthand next to a trigger holds a `var()`: the build's minifier leaves those alone,
+         and would otherwise move `animation-trigger` ahead of the shorthand. */
+      main
+        :where(
+          .section-head:not(.join-band *) > :not(h1),
+          .group-title,
+          :is(ul.spotlight, .quiet-list, .steps, .stewards, .partners) > li,
+          .pgrid > .pcard,
+          .event-photos > li,
+          .type-home :is(.feature-plate, .feature-copy > *)
+        ) {
+        timeline-trigger: --in view(block 0px);
+        trigger-scope: --in;
+        animation: rise-in var(--dur-3) var(--ease-out) both;
+        animation-trigger: --in play-once;
+      }
+
+      /* Headings pull into focus; what sits under one follows a beat later. */
+      main :is(.section-head:not(.join-band *) > :first-child:not(h1), .group-title) {
+        animation-name: focus-pull;
+        animation-duration: 0.7s;
+      }
+
+      main .section-head:not(.join-band *) > :not(:first-child, h1) {
+        animation-delay: 90ms;
+      }
+
+      /* Rows that arrive together ripple, four at a time. */
+      main :is(ul.spotlight, .quiet-list, .steps, .stewards, .partners) > li {
+        animation-delay: calc(mod(sibling-index() - 1, 4) * 55ms);
+      }
+
+      /* Tiles settle in scale, and a row of them goes left to right. */
+      main :is(.pgrid > .pcard, .event-photos > li, .type-home .feature-plate) {
+        animation-name: tile-in;
+        animation-duration: 0.8s;
+        animation-timing-function: var(--ease-cine);
+      }
+
+      @media (min-width: 700px) {
+        main :is(.pgrid > .pcard, .event-photos > li:not(.is-wide)) {
+          animation-delay: calc(mod(sibling-index() - 1, 2) * 80ms);
+        }
+      }
+
+      @media (min-width: 1100px) {
+        main .pgrid > .pcard {
+          animation-delay: calc(mod(sibling-index() - 1, 3) * 80ms);
+        }
+      }
+
+      /* The next event: the poster settles, then its lines come in one after another. */
+      main .type-home .feature-copy > * {
+        animation-delay: calc(min(sibling-index() - 1, 5) * 70ms);
+      }
+
+      /* The project carousel, the photo strip and the join band are scroll containers, so a
+         trigger on anything inside them would watch the wrong box. The container holds the
+         trigger and what is inside plays from it.
+         Carousel cards and strip frames are snap targets: a card only rises (a scale or a
+         sideways move would shift its snap position), and in the strip it is the photo inside
+         the frame that moves. */
+      main .rail {
+        timeline-trigger: --rail view(block 0px);
+        trigger-scope: --rail;
+      }
+
+      main .rail > .pcard {
+        animation: rise-in 0.8s var(--ease-cine) both;
+        animation-trigger: --rail play-once;
+        animation-delay: calc(min(sibling-index() - 1, 4) * 90ms);
+      }
+
+      main #photos .strip {
+        timeline-trigger: --strip view(block 0px);
+        trigger-scope: --strip;
+        view-timeline: --strip-pass block;
+      }
+
+      main #photos .strip .shot {
+        animation: tile-in 0.8s var(--ease-cine) both;
+        animation-trigger: --strip play-once;
+        animation-delay: calc(var(--n, 0) * 90ms);
+      }
+
+      main #photos .strip figcaption {
+        animation: rise-in var(--dur-3) var(--ease-out) both;
+        animation-trigger: --strip play-once;
+        animation-delay: calc(var(--n, 0) * 90ms + 140ms);
+      }
+
+      main #photos .frame:nth-child(2) {
+        --n: 1;
+      }
+      main #photos .frame:nth-child(3) {
+        --n: 2;
+      }
+      main #photos .frame:nth-child(4) {
+        --n: 3;
+      }
+      main #photos .frame:nth-child(n + 5) {
+        --n: 4;
+      }
+
+      /* Each photo also eases back inside its rounded window while the strip crosses the
+         screen. This one does follow the scroll; stopped anywhere, it is still a whole photo. */
+      main #photos .frame img {
+        animation: photo-settle linear both;
+        animation-duration: auto;
+        animation-timeline: --strip-pass;
+        animation-range: cover 0% cover 55%;
+      }
+
+      /* The join band: the sun comes up as you arrive, then the question, the line, the button. */
+      main .join-band {
+        timeline-trigger: --join view(block 0px);
+        trigger-scope: --join;
+      }
+
+      main .join-band :is(.sunrise, .section-head > *, .join-actions) {
+        animation: rise-in var(--dur-3) var(--ease-out) both;
+        animation-trigger: --join play-once;
+      }
+
+      main .join-band .sunrise {
+        animation-name: sun-up;
+        animation-duration: 1.8s;
+        animation-timing-function: var(--ease-cine);
+      }
+
+      main .join-band .section-head > :first-child {
+        animation-name: focus-pull;
+        animation-duration: 0.7s;
+        animation-delay: 0.25s;
+      }
+
+      main .join-band .section-head > :not(:first-child) {
+        animation-delay: 0.34s;
+      }
+
+      main .join-band .join-actions {
+        animation-delay: 0.43s;
+      }
+
+      /* Keyboard: whatever holds the focus is shown whole at once, not part-way through its
+         arrival. `!important` outranks a running animation without removing it, so nothing
+         replays when the focus moves on. */
+      main
+        :is(
+          .section-head:not(.join-band *) > :not(h1),
+          .group-title,
+          :is(ul.spotlight, .quiet-list, .steps, .stewards, .partners) > li,
+          .pgrid > .pcard,
+          .event-photos > li,
+          .type-home :is(.feature-plate, .feature-copy > *),
+          .rail > .pcard
+        ):focus-within,
+      main #photos .strip:is(:focus, :focus-within) :is(.shot, figcaption),
+      main .join-band:focus-within :is(.section-head > *, .join-actions) {
+        opacity: 1 !important;
+        translate: none !important;
+        scale: none !important;
+        filter: none !important;
+      }
+    }
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    translate: 0 16px;
+  }
+}
+
+@keyframes focus-pull {
+  from {
+    opacity: 0;
+    translate: 0 14px;
+    filter: blur(6px);
+  }
+}
+
+@keyframes tile-in {
+  from {
+    opacity: 0;
+    translate: 0 28px;
+    scale: 0.965;
+  }
+}
+
+@keyframes photo-settle {
+  from {
+    scale: 1.12;
+  }
+}
+
+@keyframes sun-up {
+  from {
+    opacity: 0.25;
+    translate: 0 70px;
+  }
+}
+
+/* --- Page titles settle, as the home headline does ---------------------------
+   No opacity: the title or the line under it is the largest paint on these pages, and it should
+   count from the first frame. The home hero has its own entrance. */
+@media (prefers-reduced-motion: no-preference) {
+  main h1:not(#hero-title) {
+    animation: title-settle 0.9s var(--ease-cine) backwards;
+  }
+
+  .page-intro :is(.page-lede, .page-action) {
+    animation: lede-settle 0.9s var(--ease-cine) 0.08s backwards;
+  }
+}
+
+@keyframes title-settle {
+  from {
+    translate: 0 18px;
+    filter: blur(8px);
+  }
+}
+
+@keyframes lede-settle {
+  from {
+    translate: 0 14px;
+  }
+}
+
+/* --- The links that gave no hover feedback at all ---------------------------
+   Found by hovering one of every kind of link on thirteen pages. They take the clay line that
+   `.link` shows on hover. Only under a real pointer, as the buttons' hover looks: on a phone they
+   would stay lit after a tap. */
+:is(.lead > a, .steward-name > a, .map-credit a, a.amb-name) {
+  transition: text-decoration-color var(--dur-2) var(--ease-out);
+}
+
+.footer-home {
+  transition: opacity var(--dur-2) var(--ease-out);
+}
+
+@media (hover: hover) {
+  :is(.lead > a, .steward-name > a, .map-credit a, a.amb-name):hover {
+    text-decoration-line: underline;
+    text-decoration-color: var(--clay);
+  }
+
+  .footer-home:hover {
+    opacity: 0.78;
+  }
+}
+
+/* --- Things open, close and change with a transition ------------------------
+   Pages cross-fade into each other, and the theme switch uses the same fade (Masthead.astro asks
+   for it). The page opt-in below is the second copy; the first is inline at the top of
+   Base.astro's head. With the opt-in only in this sheet, most page changes aborted in Chrome on
+   the production build; with it first in the head, they all ran. Root only: a glass bar with its
+   own transition name would be captured without the page behind it. */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition {
+    navigation: auto;
+  }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 0.3s;
+  }
+
+  /* The FAQ: an answer opens to its own height and closes back. */
+  @supports (interpolate-size: allow-keywords) and selector(::details-content) {
+    main .faq-list {
+      interpolate-size: allow-keywords;
+    }
+
+    main .faq-list details::details-content {
+      block-size: 0;
+      overflow: clip;
+      transition:
+        block-size var(--dur-2) var(--ease-out),
+        content-visibility var(--dur-2) allow-discrete;
+    }
+
+    main .faq-list details[open]::details-content {
+      block-size: auto;
+    }
+  }
+
+  /* The phone menu drops in. A keyframe animation, not a transition: while the menu is shut its
+     sheet is not rendered at all, so there is no earlier style to transition from. Entrance only:
+     on the way out the bar's glass comes back, and that makes the bar, not the screen, the box
+     the sheet is placed in. */
+  .menu[open] .menu-sheet {
+    animation: sheet-in var(--dur-2) var(--ease-out) backwards;
+  }
+
+  /* A dialog (the report form) rises in over a dimming backdrop, and leaves the same way. */
+  dialog.panel,
+  dialog.panel::backdrop {
+    opacity: 0;
+    transition:
+      opacity 0.24s var(--ease-out),
+      translate 0.24s var(--ease-out),
+      overlay 0.24s allow-discrete,
+      display 0.24s allow-discrete;
+  }
+
+  dialog.panel {
+    translate: 0 14px;
+  }
+
+  dialog.panel[open],
+  dialog.panel[open]::backdrop {
+    opacity: 1;
+    translate: none;
+  }
+
+  @starting-style {
+    dialog.panel[open],
+    dialog.panel[open]::backdrop {
+      opacity: 0;
+    }
+
+    dialog.panel[open] {
+      translate: 0 14px;
+    }
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    translate: 0 -12px;
+  }
+}

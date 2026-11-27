@@ -443,11 +443,13 @@ Nothing reaches the database before `apply --yes`. Past runs are documented in `
 
 ## Design, accessibility and search
 
-**Design system.** `src/styles/tokens.css` holds every colour, size and duration, and nothing else
-holds raw values. Token names describe roles, not colours: `--paper` is the page ground and `--ink`
-the strongest text in either theme. Shared classes (containers, the heading pair, buttons, chips,
-fields) live in `src/styles/primitives.css`, and components don't redefine them. Read the tokens
-before changing any UI.
+**Design system.** `src/styles/tokens.css` holds the colours, sizes and durations. Components keep
+raw values only for one-off recipes, chiefly the glass of the hero button and the masthead bar in
+`Hero.astro` and `Masthead.astro`, whose tints were tuned against contrast floors. Token names
+describe roles, not colours: `--paper` is the page ground and `--ink` the strongest text in either
+theme. Shared classes (containers, the heading pair, buttons, chips, fields) live in
+`src/styles/primitives.css`, and components don't redefine them. Read the tokens before changing
+any UI.
 
 **Themes.** Dark is the default on every page. The server renders `data-theme="dark"`, so
 with JavaScript off the site is dark and complete and the theme toggle is hidden. Cream is the
@@ -458,12 +460,15 @@ light. Every colour token has a literal value in the dark, light and print block
 `tests/theme.test.ts` checks that, along with the head script.
 
 **Shape and type.** Buttons, chips, fields and icon buttons are pills. The primary button is clay
-with a glow and dark text, and the rest are outlined. Clay text uses `--clay-deep`, the text-safe
-clay, and text on a clay fill uses `--btn-ink`. Headings are Anthropic Serif Display Light, and a
-section opens with a serif heading over one sentence of grey sans. Titles and controls use Anthropic
-Sans Display Semibold, and body text is Inter. The serif never goes below 21px, and no text goes
-below 15px (`--t-small`, checked by `tests/theme.test.ts`). Fraunces sets the wordmark and nothing
-else. There's no monospace anywhere. The fonts are defined in `src/styles/fonts.css`.
+with a glow and dark text, and the rest are outlined. The hero's primary is clear glass over the
+glow instead, and turns clay where glass can't be read (no `backdrop-filter`, or reduced
+transparency); the controls inside the masthead's glass bar drop their outlines. Clay text uses
+`--clay-deep`, the text-safe clay, and text on a clay fill uses `--btn-ink`. Headings are Anthropic
+Serif Display Light, and a section opens with a serif heading over one sentence of grey sans.
+Titles and controls use Anthropic Sans Display Semibold, and body text is Inter. The serif never
+goes below 21px, and no text goes below 15px (`--t-small`, checked by `tests/theme.test.ts`).
+Fraunces sets the wordmark and nothing else. There's no monospace anywhere. The fonts are defined
+in `src/styles/fonts.css`.
 
 **Motion.** Most animation either plays once on load or follows the scroll. Three things keep
 moving, and only with motion allowed. The film grain over the page shimmers in a stepped 1s loop
@@ -475,10 +480,17 @@ visitor scrolls them or presses a key in them. The hero's sunrise and headline p
 and the headline only rises and sharpens, so it is never below full opacity. The live dot, the
 next-event pulse and the lead city's ring on the map run twice and stop. Reveals, and the map's pins
 and routes, run on CSS scroll timelines inside both `prefers-reduced-motion: no-preference` and
-`@supports (animation-timeline: view())`. The static state is the finished state, so reduced-motion
-visitors and browsers without scroll timelines get the complete page. With reduced motion the grain
-is static, the mist is one still frame and the strips stay put, each by its own check, and every
-other animation and transition is cut to near zero.
+`@supports (animation-timeline: view())`. Sections arrive once as they come into view, through CSS
+scroll triggers (`src/styles/motion.css`) nested inside the same two gates and their own
+`@supports`, so only Chrome and Edge play them. Pages cross-fade into each other, and so does the
+theme switch; the page opt-in sits inline at the top of `Base.astro`'s `<head>`. A pressed control
+dims, and its box never moves. The exception is the hero's glass button, which leans and stretches
+toward a nearby pointer and squashes on press, from a `requestAnimationFrame` loop in
+`src/scripts/liquid-glass.ts`; in Chromium the same script draws the lens that bends the glass at
+its rim. The static state is the finished state, so reduced-motion visitors and browsers without
+scroll timelines or triggers get the complete page. With reduced motion the grain is static, the
+mist is one still frame, the strips stay put and the glass button stays still, each by its own
+check, and every other animation and transition is cut to near zero.
 
 **The India map** (`src/components/CityAtlas.astro`) is drawn from DataMeet's state boundaries,
 which follow the official Survey of India outline, simplified and reprojected by

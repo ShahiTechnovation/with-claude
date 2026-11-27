@@ -46,7 +46,15 @@
   --glow: 217 119 87; /* rgb triplet: rgb(var(--glow) / 0.4) */
   --hot: 235 201 183; /* the sun's core: peach #ebc9b7 */
   --mist: 0.55; /* the hero mist's strength, 0 to 1 */
-  --nav-bg: rgb(20 20 19 / 0.95); /* 0.95: the header's --ink-3 links keep AA over photos */
+  --nav-bg: rgb(20 20 19 / 0.95); /* 0.95: the projects toolbar's text keeps AA over photos */
+  /* The glass of the hero button and the masthead bar: a rim lit from the top left (a soft
+     light along the top, a fainter return at the bottom, a diagonal catch at the ends), depth
+     inside the slab, a shadow under it. The rim stays on one line in all three blocks, so print
+     reads the same string as light (tests/theme.test.ts). */
+  /* prettier-ignore */
+  --glass-rim: linear-gradient(180deg, rgb(255 255 255 / 0.34), rgb(255 255 255 / 0) 42%, rgb(255 255 255 / 0) 68%, rgb(255 255 255 / 0.14)), linear-gradient(150deg, rgb(255 255 255 / 0.5) 0%, rgb(255 255 255 / 0.06) 26%, rgb(255 255 255 / 0.03) 72%, rgb(255 255 255 / 0.32) 100%);
+  --glass-depth: inset 0 1px 1px rgb(255 255 255 / 0.2), inset 0 -2px 3px rgb(0 0 0 / 0.16);
+  --glass-drop: 0 10px 28px -12px rgb(0 0 0 / 0.5), 0 2px 6px -2px rgb(0 0 0 / 0.3);
   --grain: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'256'%20height%3D'256'%3E%3Cfilter%20id%3D'n'%20x%3D'0'%20y%3D'0'%3E%3CfeTurbulence%20type%3D'fractalNoise'%20baseFrequency%3D'.78'%20numOctaves%3D'3'%20stitchTiles%3D'stitch'%2F%3E%3CfeColorMatrix%20values%3D'0%200%200%200%201%200%200%200%200%201%200%200%200%200%201%202.4%200%200%200%20-1.008'%2F%3E%3C%2Ffilter%3E%3Crect%20width%3D'100%25'%20height%3D'100%25'%20filter%3D'url(%23n)'%2F%3E%3C%2Fsvg%3E");
   --grain-o: 0.075;
   --map-land: #262624;
@@ -84,6 +92,10 @@
   --hot: 255 214 190;
   --mist: 0.4;
   --nav-bg: rgb(250 249 245 / 0.95);
+  /* prettier-ignore */
+  --glass-rim: linear-gradient(180deg, rgb(255 255 255 / 1), rgb(255 255 255 / 0.3) 45%, rgb(255 255 255 / 0.2) 70%, rgb(255 255 255 / 0.7)), linear-gradient(150deg, rgb(255 255 255 / 0.9) 0%, rgb(255 255 255 / 0.2) 30%, rgb(255 255 255 / 0.1) 70%, rgb(255 255 255 / 0.8) 100%);
+  --glass-depth: inset 0 1px 1px rgb(255 255 255 / 0.9), inset 0 -2px 3px rgb(120 50 30 / 0.1);
+  --glass-drop: 0 10px 28px -12px rgb(120 50 30 / 0.3), 0 2px 6px -2px rgb(120 50 30 / 0.18);
   --grain: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'256'%20height%3D'256'%3E%3Cfilter%20id%3D'n'%20x%3D'0'%20y%3D'0'%3E%3CfeTurbulence%20type%3D'fractalNoise'%20baseFrequency%3D'.78'%20numOctaves%3D'3'%20stitchTiles%3D'stitch'%2F%3E%3CfeColorMatrix%20values%3D'0%200%200%200%200%200%200%200%200%200%200%200%200%200%200%202.4%200%200%200%20-1.008'%2F%3E%3C%2Ffilter%3E%3Crect%20width%3D'100%25'%20height%3D'100%25'%20filter%3D'url(%23n)'%2F%3E%3C%2Fsvg%3E");
   --grain-o: 0.055;
   --map-land: #dedcd1; /* gray-250: keeps the land off the sunk band */
@@ -122,6 +134,10 @@
     --hot: 255 214 190;
     --mist: 0.4;
     --nav-bg: rgb(250 249 245 / 0.95);
+    /* prettier-ignore */
+    --glass-rim: linear-gradient(180deg, rgb(255 255 255 / 1), rgb(255 255 255 / 0.3) 45%, rgb(255 255 255 / 0.2) 70%, rgb(255 255 255 / 0.7)), linear-gradient(150deg, rgb(255 255 255 / 0.9) 0%, rgb(255 255 255 / 0.2) 30%, rgb(255 255 255 / 0.1) 70%, rgb(255 255 255 / 0.8) 100%);
+    --glass-depth: inset 0 1px 1px rgb(255 255 255 / 0.9), inset 0 -2px 3px rgb(120 50 30 / 0.1);
+    --glass-drop: 0 10px 28px -12px rgb(120 50 30 / 0.3), 0 2px 6px -2px rgb(120 50 30 / 0.18);
     --grain: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20width%3D'256'%20height%3D'256'%3E%3Cfilter%20id%3D'n'%20x%3D'0'%20y%3D'0'%3E%3CfeTurbulence%20type%3D'fractalNoise'%20baseFrequency%3D'.78'%20numOctaves%3D'3'%20stitchTiles%3D'stitch'%2F%3E%3CfeColorMatrix%20values%3D'0%200%200%200%200%200%200%200%200%200%200%200%200%200%200%202.4%200%200%200%20-1.008'%2F%3E%3C%2Ffilter%3E%3Crect%20width%3D'100%25'%20height%3D'100%25'%20filter%3D'url(%23n)'%2F%3E%3C%2Fsvg%3E");
     --grain-o: 0.055;
     --map-land: #dedcd1;
@@ -242,6 +258,31 @@
   --dur-2: 320ms; /* element transitions */
   --dur-3: 640ms; /* reveals */
   --dur-4: 1150ms; /* line draws */
+  /* A damped spring for the hero's glass button: overshoots about 16%, dips once, settles. */
+  --spring: linear(
+    0,
+    0.009,
+    0.035 2.1%,
+    0.141 4.4%,
+    0.281 6.7%,
+    0.723 12.9%,
+    0.938 16.7%,
+    1.017 19.4%,
+    1.077,
+    1.121 24%,
+    1.149 26.3%,
+    1.159 28.6%,
+    1.149 31.2%,
+    1.12 34.1%,
+    1.017 43.2%,
+    0.991 47.2%,
+    0.977 50.8%,
+    0.975 55.6%,
+    0.983 61.3%,
+    1.001 72.9%,
+    1.006 82.9%,
+    1
+  );
 
   /* --- LAYERS ---------------------------------------------------------- */
   --z-grain: 60;
