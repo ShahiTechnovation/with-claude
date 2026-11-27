@@ -302,7 +302,15 @@ textarea.input {
   cursor: pointer;
   transition:
     background var(--dur-1) var(--ease-out),
-    color var(--dur-1) var(--ease-out);
+    color var(--dur-1) var(--ease-out),
+    opacity var(--dur-1) var(--ease-out);
+}
+
+/* A press dims and the box stays put, as `.btn` does (primitives.css, press and hover). */
+@media (prefers-reduced-motion: no-preference) {
+  .button:not(:disabled):active {
+    opacity: 0.72;
+  }
 }
 
 .button:hover:not(:disabled),

@@ -8,6 +8,7 @@ import '@/styles/tokens.css';
 import '@/styles/base.css';
 import '@/styles/primitives.css';
 import '@/styles/forms.css';
+import '@/styles/motion.css';
 
 // Preload the faces that paint the first screen: the headline serif, the title sans and body
 // text. Fraunces is only the wordmark, so it loads without a preload. Importing the file gives
@@ -100,7 +101,20 @@ const graph = [
 <!doctype html>
 <html lang="en-IN" data-theme="dark">
   <head>
+    {
+      /* The charset, then the page cross-fade's opt-in, inline and before every stylesheet. With
+        the opt-in only in the linked stylesheet, most page changes aborted in Chrome on the
+        production build; with it first in the head, they all ran. motion.css keeps a second
+        copy. An Astro comment, so it stays out of every page's HTML. */
+    }
     <meta charset="utf-8" />
+    <style is:inline>
+      @media (prefers-reduced-motion: no-preference) {
+        @view-transition {
+          navigation: auto;
+        }
+      }
+    </style>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{fullTitle}</title>
     <meta name="description" content={description} />

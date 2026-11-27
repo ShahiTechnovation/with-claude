@@ -194,4 +194,58 @@ describe('the masthead', () => {
       /#privy-root\s*\{\s*display:\s*contents;/,
     );
   });
+
+  /**
+   * "WITH" is clay, and clay on clear glass over a busy photo fell to 2:1 (batch 024). The capsule's
+   * brand end frosts with the page colour as the bar turns readable, under the content; the solid
+   * bars paint over it. The frost's strength is what measured 4.91:1 or better, so a change here
+   * needs the wordmark measured again (check-motion.mjs glass).
+   */
+  it('frosts the brand end of the glass bar so "WITH" stays readable', () => {
+    expect(masthead).toMatch(
+      /\.masthead-inner \{[^}]*--brand-frost: calc\(0\.8 - 0\.6 \* var\(--bar-clear\)\);/,
+    );
+    expect(masthead).toMatch(
+      /\.masthead-inner::after \{[^}]*content: '';[^}]*inset: 0;[^}]*z-index: -1;[^}]*background: linear-gradient\(\s*90deg,\s*color-mix\(in srgb, var\(--paper\) calc\(var\(--brand-frost\) \* 100%\), transparent\) 195px,\s*transparent 245px\s*\);/,
+    );
+    // Where glass cannot be read the bar is solid paper, which covers the frost beneath it.
+    expect(masthead).toMatch(
+      /@supports not \(backdrop-filter: blur\(1px\)\) \{\s*\.masthead \.masthead-inner \{\s*background: var\(--paper\);/,
+    );
+    expect(masthead).toMatch(
+      /@media print, \(prefers-reduced-transparency: reduce\) \{\s*\.masthead \.masthead-inner \{\s*backdrop-filter: none;\s*background: var\(--paper\);/,
+    );
+  });
+
+  /**
+   * Firefox before 128 has backdrop-filter but not @property, so the registered default never
+   * applies there: without a declared value every tint, blur and shadow on the bar drops out and
+   * it turns see-through (batch 024). Before 121 it has no :has() either, so the open menu cannot
+   * drop the glass and the blurred capsule boxes the sheet in; there the bar stays solid.
+   */
+  it('keeps the bar readable without @property or :has()', () => {
+    expect(masthead).toMatch(/\n {2}\.masthead-inner \{[^}]*\n {4}--bar-clear: 0;\n/);
+    expect(masthead).toMatch(
+      /@supports not selector\(:has\(\*\)\) \{\s*\.masthead \.masthead-inner \{\s*backdrop-filter: none;\s*background: var\(--paper\);/,
+    );
+  });
+
+  /** The theme switch cross-fades where the browser can, and never with reduced motion. */
+  it('cross-fades the theme switch only with motion allowed', () => {
+    expect(masthead).toMatch(
+      /'startViewTransition' in document &&\s*!matchMedia\('\(prefers-reduced-motion: reduce\)'\)\.matches\s*\)\s*document\.startViewTransition\(flipTheme\);\s*else flipTheme\(\);/,
+    );
+  });
+
+  /**
+   * Without the hero's scroll stage (reduced motion, no scroll timelines, a short screen) the bar is
+   * clear over the sky only for the home page's first 40px; with the stage, Hero.astro's timeline
+   * decides.
+   */
+  it('keeps the bar clear over the home sky only near the top', () => {
+    expect(masthead).toMatch(
+      /if \(document\.querySelector\('\.hero-top'\)\) \{\s*const mark = \(\) => document\.documentElement\.classList\.toggle\('bar-over-sky', scrollY < 40\);\s*addEventListener\('scroll', mark, \{ passive: true \}\);\s*mark\(\);/,
+    );
+    expect(masthead).toMatch(/:global\(html\.bar-over-sky\) \.masthead-inner \{\s*--bar-clear: 1;/);
+  });
 });

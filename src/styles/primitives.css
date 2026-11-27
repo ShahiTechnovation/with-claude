@@ -317,7 +317,8 @@
   transition:
     background-color var(--dur-1) var(--ease-out),
     border-color var(--dur-1) var(--ease-out),
-    color var(--dur-1) var(--ease-out);
+    color var(--dur-1) var(--ease-out),
+    opacity var(--dur-1) var(--ease-out);
 }
 
 .chip::before {
@@ -404,7 +405,8 @@ input:checked + .chip,
     transform 0.6s var(--ease-cine),
     border-color var(--dur-2) var(--ease-out),
     background-color var(--dur-2) var(--ease-out),
-    color var(--dur-2) var(--ease-out);
+    color var(--dur-2) var(--ease-out),
+    opacity var(--dur-1) var(--ease-out);
 }
 
 .btn:hover {
@@ -538,7 +540,8 @@ input:checked + .chip,
   cursor: pointer;
   transition:
     border-color var(--dur-2) var(--ease-out),
-    background-color var(--dur-2) var(--ease-out);
+    background-color var(--dur-2) var(--ease-out),
+    opacity var(--dur-1) var(--ease-out);
 }
 
 .icon-btn:hover {
@@ -548,6 +551,56 @@ input:checked + .chip,
 .icon-btn svg {
   width: 19px;
   height: 19px;
+  transition:
+    scale 0.3s var(--ease-out),
+    rotate 0.5s var(--ease-out),
+    translate 0.3s var(--ease-out);
+}
+
+/* --- Press and hover ---------------------------------------------------
+   A pressed control dims, and what moves is inside it: the icon in a round
+   button shrinks, the arrow in a pill goes further. The box that takes the
+   click never moves: one that shrinks, or sinks back from its hover lift,
+   slides out from under a pointer near its edge, the release lands on what
+   is behind it, and the click is lost. The hero's glass button
+   (`data-liquid`) has its own press. Hover looks only where there is a real
+   pointer: on a phone they would stick after a tap. */
+@media (prefers-reduced-motion: no-preference) {
+  .btn:not([data-liquid], [aria-disabled='true']):active,
+  .icon-btn:active,
+  :is(a.chip, button.chip, label.chip, .filter):active {
+    opacity: 0.72;
+  }
+
+  .icon-btn:active svg {
+    scale: 0.84;
+  }
+
+  .btn:not([data-liquid], [aria-disabled='true']):active :is(svg:last-child, .arrow) {
+    transform: translateX(7px);
+  }
+
+  @media (hover: hover) {
+    .btn:not(.btn-primary, [data-liquid], [aria-disabled='true']):hover,
+    .icon-btn:hover {
+      background-color: color-mix(in oklab, var(--ink) 7%, transparent);
+    }
+
+    .icon-btn:hover:not(:active) svg {
+      scale: 1.08;
+    }
+
+    /* The carousel's arrows (ProjectRail) lean the way they point. */
+    .icon-btn[data-rail-dir='1']:hover:not(:active) svg {
+      scale: none;
+      translate: 2px 0;
+    }
+
+    .icon-btn[data-rail-dir='-1']:hover:not(:active) svg {
+      scale: none;
+      translate: -2px 0;
+    }
+  }
 }
 
 /* =========================================================================

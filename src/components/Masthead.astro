@@ -34,7 +34,7 @@ const nav = [
 ---
 
 <header class="masthead" data-masthead>
-  <div class="masthead-inner container">
+  <div class="masthead-inner container" data-lens="lg-lens-nav" data-lens-scale="30">
     <a href={home} class="brand" aria-label={`${site.wordmark} — home`}>
       <Wordmark mark size="sm" />
     </a>
@@ -145,38 +145,185 @@ const nav = [
 </header>
 
 <style>
+  /* How clear the bar is: 0 readable, 1 clear. Registered so it can animate and transition. */
+  @property --bar-clear {
+    syntax: '<number>';
+    inherits: false;
+    initial-value: 0;
+  }
+
+  /* The bar is a floating liquid-glass capsule. The band around it is clear and lets clicks
+     through to the page. */
   .masthead {
     position: sticky;
     top: 0;
     z-index: var(--z-nav);
+    display: flex;
+    align-items: center;
     height: var(--nav-h);
-    /* --nav-bg is 95% paper: the --ink-3 links keep AA over photos and white embeds
-       scrolling under the bar. */
-    background: var(--nav-bg);
-    -webkit-backdrop-filter: blur(18px) saturate(1.3);
-    backdrop-filter: blur(18px) saturate(1.3);
-    border-bottom: 1px solid var(--rule);
+    pointer-events: none;
   }
 
-  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    .masthead {
+  .masthead-inner {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    /* The capsule's content lines up with the page container; on narrow screens it keeps 12px
+       of air from the screen edge instead. */
+    width: min(calc(100% - 2 * var(--gutter) + 2 * 16px), calc(100% - 24px));
+    max-width: calc(var(--measure) + 2 * 16px);
+    height: calc(100% - 14px);
+    padding-inline: 16px 7px;
+    border-radius: var(--radius-pill);
+    pointer-events: auto;
+    /* --bar-clear runs from 0 (the readable bar: a light tint and a dimmed backdrop keep the
+       links at AA over a white photo) to 1 (clear glass, over the home hero's sky, where the
+       links need no help). Hero.astro drives it with the scroll stage; `bar-over-sky` (the
+       script below) does without it. Declared here as well as registered: Firefox before 128
+       has backdrop-filter but not @property, and without a value every tint, blur and shadow
+       below dropped out, leaving the bar see-through. */
+    --bar-clear: 0;
+    --bar-dim: calc(0.55 + 0.45 * var(--bar-clear));
+    --bar-sat: 1.5;
+    /* The brand end's frost (::after below). A plain custom property, so the pseudo-element
+       inherits it: --bar-clear itself is registered not to inherit. */
+    --brand-frost: calc(0.8 - 0.6 * var(--bar-clear));
+    background: linear-gradient(
+      180deg,
+      rgb(20 20 19 / calc(0.22 - 0.2 * var(--bar-clear))),
+      rgb(20 20 19 / calc(0.34 - 0.3 * var(--bar-clear)))
+    );
+    backdrop-filter: blur(6px) saturate(var(--bar-sat)) brightness(var(--bar-dim));
+    box-shadow:
+      var(--glass-depth),
+      0 10px 28px -12px rgb(0 0 0 / calc(0.5 - 0.34 * var(--bar-clear))),
+      0 2px 6px -2px rgb(0 0 0 / calc(0.3 - 0.2 * var(--bar-clear)));
+    transition: --bar-clear 0.5s var(--ease-out);
+  }
+
+  :global(html.bar-over-sky) .masthead-inner {
+    --bar-clear: 1;
+  }
+
+  /* Chromium only (liquid-glass.ts sets html.lg-lens): the rim bends what passes under the bar. */
+  :global(html.lg-lens) .masthead-inner {
+    backdrop-filter: blur(3px) url(#lg-lens-nav) saturate(var(--bar-sat)) brightness(var(--bar-dim));
+  }
+
+  /* The specular rim (tokens.css), lit from the top left. */
+  .masthead-inner::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    border-radius: inherit;
+    pointer-events: none;
+    background: var(--glass-rim);
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box exclude,
+      linear-gradient(#000 0 0);
+  }
+
+  /* The brand end frosts over with the page colour as the bar turns readable: "WITH" is clay, and
+     clay on clear glass over a busy photo fell to 2:1. At 80% it measured 4.91:1 or better over
+     the home page and the gallery, in both themes. Over the hero's sky it thins to 20%, which
+     does not show there and lifts "WITH" from 4.72 to 4.98 on a phone. The frost covers the
+     wordmark (which ends 168px into the capsule on phones, 183px wider); over plain page it
+     matches the page. z-index -1 keeps it under the content, inside the glass's stacking
+     context; a solid bar covers it. */
+  .masthead-inner::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--paper) calc(var(--brand-frost) * 100%), transparent) 195px,
+      transparent 245px
+    );
+  }
+
+  /* Over a black photo the cream tint alone has to carry the dark links: 52% is the floor for
+     4.5:1. */
+  :global([data-theme='light']) .masthead-inner {
+    --bar-dim: calc(1.5 - 0.48 * var(--bar-clear));
+    --bar-sat: 1.3;
+    background: linear-gradient(
+      180deg,
+      rgb(250 249 245 / calc(0.52 - 0.34 * var(--bar-clear))),
+      rgb(250 249 245 / calc(0.62 - 0.4 * var(--bar-clear)))
+    );
+    box-shadow:
+      var(--glass-depth),
+      0 10px 28px -12px rgb(120 50 30 / calc(0.3 - 0.08 * var(--bar-clear))),
+      0 2px 6px -2px rgb(120 50 30 / calc(0.18 - 0.04 * var(--bar-clear)));
+  }
+
+  /* The controls inside the glass have no outlines of their own, like a toolbar: icons are bare,
+     Sign in is a faint pill, and both fill a little on hover. The phone sheet keeps its own. */
+  .masthead-inner :global(:is(.icon-btn, .btn, .account-join):not(.menu-sheet *)) {
+    border-color: transparent;
+  }
+
+  .masthead-inner :global(:is(.btn, .account-join):not(.menu-sheet *)) {
+    background: rgb(255 255 255 / 0.08);
+  }
+
+  .masthead-inner :global(:is(.icon-btn, .btn, .account-join):not(.menu-sheet *):hover) {
+    border-color: transparent;
+    background: rgb(255 255 255 / 0.14);
+  }
+
+  :global([data-theme='light'])
+    .masthead-inner
+    :global(:is(.btn, .account-join):not(.menu-sheet *)) {
+    background: rgb(20 20 19 / 0.05);
+  }
+
+  :global([data-theme='light'])
+    .masthead-inner
+    :global(:is(.icon-btn, .btn, .account-join):not(.menu-sheet *):hover) {
+    background: rgb(20 20 19 / 0.09);
+  }
+
+  /* Solid where glass cannot be read: no backdrop-filter (the build drops the -webkit- prefix,
+     so that includes Safari before 18), reduced transparency asked for, or print (the dimmed
+     backdrop printed a grey bar). `.masthead` in front outweighs the light theme's tint and the
+     lens. */
+  @supports not (backdrop-filter: blur(1px)) {
+    .masthead .masthead-inner {
       background: var(--paper);
     }
   }
 
-  /* A blurred ancestor is the containing block of a fixed child: drop the blur so the
-     sheet covers the viewport, not the 60px bar. */
-  .masthead:has(.menu[open]) {
-    -webkit-backdrop-filter: none;
+  @media print, (prefers-reduced-transparency: reduce) {
+    .masthead .masthead-inner {
+      backdrop-filter: none;
+      background: var(--paper);
+    }
+  }
+
+  /* A blurred ancestor is the containing block of a fixed child: drop the glass so the
+     sheet covers the viewport, not the bar. */
+  .masthead:has(.menu[open]) .masthead-inner {
     backdrop-filter: none;
     background: var(--paper);
   }
 
-  .masthead-inner {
-    display: flex;
-    align-items: center;
-    gap: 32px;
-    height: 100%;
+  /* Without :has() (Firefox before 121, Chrome before 105) the rule above never matches and the
+     open sheet is boxed in the capsule, so there the bar stays solid. */
+  @supports not selector(:has(*)) {
+    .masthead .masthead-inner {
+      backdrop-filter: none;
+      background: var(--paper);
+    }
   }
 
   .brand {
@@ -210,17 +357,20 @@ const nav = [
     font-size: var(--t-small);
     font-weight: 600;
     line-height: 1;
-    color: var(--ink-3);
-    text-decoration: none;
-    transition: color var(--dur-1) var(--ease-out);
-  }
-
-  .nav-links a:hover,
-  .nav-links a[aria-current] {
+    /* --ink on the clear glass (was --ink-3), with a soft shadow: AA over bright photos passing
+       under the bar. */
     color: var(--ink);
+    text-shadow: 0 1px 2px rgb(0 0 0 / 0.45);
+    text-decoration: none;
   }
 
-  .nav-links a[aria-current]::after {
+  :global([data-theme='light']) .nav-links a {
+    text-shadow: 0 1px 1px rgb(255 255 255 / 0.6);
+  }
+
+  /* Every link is --ink, so the current page is its clay line, and hover shows it fainter. */
+  .nav-links a[aria-current]::after,
+  .nav-links a:hover::after {
     content: '';
     position: absolute;
     left: 0;
@@ -230,14 +380,26 @@ const nav = [
     background: var(--clay);
   }
 
+  .nav-links a:hover:not([aria-current])::after {
+    background: rgb(var(--glow) / 0.55);
+  }
+
   .nav-actions {
     display: flex;
     align-items: center;
     gap: 10px;
   }
 
-  .nav-search[aria-current] {
+  /* Its ring marks the current page: `.masthead-inner` in front outweighs the bare toolbar look. */
+  .masthead-inner .nav-search[aria-current] {
     border-color: var(--ink);
+  }
+
+  /* The sun turns a little under a real pointer (the icon's transition is in primitives.css). */
+  @media (prefers-reduced-motion: no-preference) and (hover: hover) {
+    .theme-toggle:hover svg {
+      rotate: 24deg;
+    }
   }
 
   .theme-toggle .i-moon,
@@ -384,7 +546,7 @@ const nav = [
   }
   addEventListener('pageshow', (e) => e.persisted && rereadTheme());
   addEventListener('storage', (e) => e.key === 'wc-theme' && rereadTheme());
-  toggle?.addEventListener('click', () => {
+  const flipTheme = () => {
     root.dataset.theme = root.dataset.theme === 'light' ? 'dark' : 'light';
     try {
       localStorage.setItem('wc-theme', root.dataset.theme);
@@ -392,6 +554,15 @@ const nav = [
       // Storage blocked: the choice lasts for this page only.
     }
     syncTheme();
+  };
+  // The two themes cross-fade, as pages do (motion.css), where the browser can and motion is wanted.
+  toggle?.addEventListener('click', () => {
+    if (
+      'startViewTransition' in document &&
+      !matchMedia('(prefers-reduced-motion: reduce)').matches
+    )
+      document.startViewTransition(flipTheme);
+    else flipTheme();
   });
 
   const menu = document.querySelector<HTMLDetailsElement>('[data-masthead] details.menu');
@@ -452,5 +623,21 @@ const nav = [
       signin.removeAttribute('aria-busy');
       signin.textContent = 'Sign in';
     }).observe(slotRoot, { childList: true, subtree: true });
+  }
+</script>
+
+<script>
+  // The lens for the bar and the hero's button (every [data-lens] on the page), and the hero
+  // button's lean. Imported here so every page has it.
+  import '@/scripts/liquid-glass';
+
+  // Home without the scroll stage (reduced motion, no scroll timelines, a short screen): the bar
+  // is clear only at the top of the page. There the headline does not lift away, so a clear bar
+  // would let it slide under the links (measured 1.05:1); the readable bar takes over after 40px.
+  // With the stage, Hero.astro's scroll-driven animation decides instead and overrides this.
+  if (document.querySelector('.hero-top')) {
+    const mark = () => document.documentElement.classList.toggle('bar-over-sky', scrollY < 40);
+    addEventListener('scroll', mark, { passive: true });
+    mark();
   }
 </script>
